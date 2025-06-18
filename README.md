@@ -30,3 +30,17 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
 - [ ] check parseRawTransactionData - should we validate required fields before further processing
 - [ ] 
 - [ ] 
+
+
+
+## Tools (experimental)
+
+https://www.alexedwards.net/blog/how-to-manage-tool-dependencies-in-go-1.24-plus
+```
+go mod vendor
+go tool -n staticcheck 
+```
+- Upgrade the module `go get github.com/golang-jwt/jwt/v4@latest`
+- Clean up unused modules `go mod tidy`
+- Sync vendor dir (important!) `go mod vendor`
+- Re-run audit `make audit`

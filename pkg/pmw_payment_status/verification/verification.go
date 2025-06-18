@@ -11,9 +11,9 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
-	"gitlab.com/urskak/tee-availability-check/pkg/pmw_payment_status/config"
-	"gitlab.com/urskak/tee-availability-check/pkg/pmw_payment_status/models"
-	xrptypes "gitlab.com/urskak/tee-availability-check/pkg/pmw_payment_status/types"
+	"gitlab.com/urskak/verifier-api/pkg/pmw_payment_status/config"
+	"gitlab.com/urskak/verifier-api/pkg/pmw_payment_status/models"
+	xrptypes "gitlab.com/urskak/verifier-api/pkg/pmw_payment_status/types"
 
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"gorm.io/driver/mysql"

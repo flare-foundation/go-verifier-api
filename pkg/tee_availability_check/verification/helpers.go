@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
-	"gitlab.com/urskak/tee-availability-check/pkg/tee_availability_check/config"
+	"gitlab.com/urskak/verifier-api/pkg/tee_availability_check/config"
 )
 
 const regOperationType = "REG"

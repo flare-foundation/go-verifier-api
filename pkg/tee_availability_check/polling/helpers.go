@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeregistry"
-	"gitlab.com/urskak/tee-availability-check/pkg/tee_availability_check/config"
+	"gitlab.com/urskak/verifier-api/pkg/tee_availability_check/config"
 )
 
 type ActiveTees struct {

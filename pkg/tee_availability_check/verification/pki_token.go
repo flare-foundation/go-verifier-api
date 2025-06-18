@@ -12,9 +12,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 
-	"gitlab.com/urskak/tee-availability-check/pkg/tee_availability_check/types"
+	"gitlab.com/urskak/verifier-api/pkg/tee_availability_check/types"
 )
 
 // Taken from https://cloud.google.com/confidential-computing/confidential-space/docs/connect-external-resources#pki-attestation-tokens

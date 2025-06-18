@@ -3,7 +3,7 @@ package verification
 import (
 	"testing"
 
-	xrptypes "gitlab.com/urskak/tee-availability-check/pkg/pmw_payment_status/types"
+	xrptypes "gitlab.com/urskak/verifier-api/pkg/pmw_payment_status/types"
 )
 
 func TestGetTransactionStatus(t *testing.T) {

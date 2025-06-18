@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"gitlab.com/urskak/tee-availability-check/pkg/tee_availability_check/types"
+	"gitlab.com/urskak/verifier-api/pkg/tee_availability_check/types"
 )
 
 func VerifyAttestation(attestationToken string, infoData types.ProxyInfoData) (connector.ITeeAvailabilityCheckResponseBody, error) {
