@@ -6,7 +6,7 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
 
 ## On the top level:
 - [ ] Add in readme "How to run" (but more like write about local requirements)
-- [ ] Missing "general" API framework (like it is in current https://gitlab.com/flarenetwork/fdc/verifier-indexer-api)
+- [x] Missing "general" API framework (like it is in current https://gitlab.com/flarenetwork/fdc/verifier-indexer-api)
 - [ ] 
 - [ ] 
 - [ ] 
