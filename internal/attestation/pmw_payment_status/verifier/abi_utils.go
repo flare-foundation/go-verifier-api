@@ -1,4 +1,4 @@
-package verification
+package verifier
 
 import (
 	"fmt"

@@ -1,21 +1,19 @@
-package verification
+package verifier
 
 import (
 	"testing"
-
-	xrptypes "gitlab.com/urskak/verifier-api/pkg/pmw_payment_status/types"
 )
 
 func TestGetTransactionStatus(t *testing.T) {
 	tests := []struct {
 		name           string
 		input          string
-		expectedStatus xrptypes.TransactionStatus
+		expectedStatus TransactionStatus
 		expectError    bool
 	}{
-		{"success status", "tesSUCCESS", xrptypes.Success, false},
-		{"receiver fault", "tecDST_TAG_NEEDED", xrptypes.ReceiverFault, false},
-		{"sender fault", "tecUNFUNDED", xrptypes.SenderFault, false},
+		{"success status", "tesSUCCESS", Success, false},
+		{"receiver fault", "tecDST_TAG_NEEDED", ReceiverFault, false},
+		{"sender fault", "tecUNFUNDED", SenderFault, false},
 		{"invalid input", "invalid", 0, true},
 	}
 

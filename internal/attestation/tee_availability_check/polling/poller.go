@@ -1,31 +1,20 @@
 package polling
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"gitlab.com/urskak/verifier-api/pkg/tee_availability_check/types"
+	teeavailabilitycheckconfig "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/config"
+	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/types"
 )
-
-type TeeInfoValidity uint8
-
-const (
-	VALID TeeInfoValidity = iota
-	INVALID
-)
-
-type TeeInfoData struct {
-	TeeId        common.Address
-	URL          string
-	TeeTimestamp uint64
-	Timestamp    uint64
-	Validity     TeeInfoValidity
-}
 
 var TeeSamples = make(map[common.Address][]bool)
 
@@ -35,7 +24,7 @@ const (
 )
 
 func SampleAllTees(client *ethclient.Client) {
-	activeTees, err := GetActiveTees(client)
+	activeTees, err := getActiveTees(client)
 	if err != nil {
 		logger.Errorf("Failed to get active TEEs:", err)
 	}
@@ -84,4 +73,30 @@ func IsTeeInfoValid(teeId common.Address) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+type ActiveTees struct {
+	TeeIds []common.Address
+	Urls   []string
+}
+
+func getActiveTees(client *ethclient.Client) (ActiveTees, error) {
+	cfg, err := teeavailabilitycheckconfig.LoadTeeAvailabilityCheckConfig()
+	if err != nil {
+		return ActiveTees{}, fmt.Errorf("failed to load config: %w", err)
+	}
+	contractAddrStr := cfg.TeeRegistryContractAddress
+	contractAddress := common.HexToAddress(contractAddrStr)
+	teeregistryCaller, err := teeregistry.NewTeeRegistryCaller(contractAddress, client)
+	if err != nil {
+		return ActiveTees{}, fmt.Errorf("failed to create contract caller: %w", err)
+	}
+	callOpts := &bind.CallOpts{
+		Context: context.Background(),
+	}
+	activeTees, err := teeregistryCaller.GetActiveTees(callOpts)
+	if err != nil {
+		return ActiveTees{}, fmt.Errorf("failed to call GetActiveTeeIds: %w", err)
+	}
+	return activeTees, nil
 }

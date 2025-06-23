@@ -3,6 +3,7 @@ module gitlab.com/urskak/verifier-api
 go 1.24.4
 
 require (
+	github.com/danielgtaylor/huma/v2 v2.32.0
 	github.com/ethereum/go-ethereum v1.15.11
 	github.com/flare-foundation/go-flare-common v1.2.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
@@ -30,6 +31,7 @@ require (
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
+	github.com/go-chi/chi/v5 v5.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -41,6 +43,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect

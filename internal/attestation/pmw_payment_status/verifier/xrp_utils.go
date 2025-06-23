@@ -1,27 +1,25 @@
-package verification
+package verifier
 
 import (
 	"fmt"
 	"math/big"
-
-	xrptypes "gitlab.com/urskak/verifier-api/pkg/pmw_payment_status/types"
 )
 
-func GetTransactionStatus(result string) (xrptypes.TransactionStatus, error) {
+func GetTransactionStatus(result string) (TransactionStatus, error) {
 	if len(result) < 3 {
 		return 0, fmt.Errorf("transaction result too short: %q", result)
 	}
 	prefix := result[:3]
 	switch prefix {
 	case "tes":
-		return xrptypes.Success, nil
+		return Success, nil
 	case "tec":
 		switch result {
 		case "tecDST_TAG_NEEDED",
 			"tecNO_DST",
 			"tecNO_DST_INSUF_XRP",
 			"tecNO_PERMISSION":
-			return xrptypes.ReceiverFault, nil
+			return ReceiverFault, nil
 		case "tecCANT_ACCEPT_OWN_NFTOKEN_OFFER",
 			"tecCLAIM",
 			"tecCRYPTOCONDITION_ERROR",
@@ -64,19 +62,19 @@ func GetTransactionStatus(result string) (xrptypes.TransactionStatus, error) {
 			"tecUNFUNDED_ADD",
 			"tecUNFUNDED_PAYMENT",
 			"tecUNFUNDED_OFFER":
-			return xrptypes.SenderFault, nil
+			return SenderFault, nil
 		default:
 			return 0, fmt.Errorf("unknown tec error code: %s", result)
 		}
 	case "tef", "tel", "tem", "ter":
-		return xrptypes.SenderFault, nil
+		return SenderFault, nil
 
 	default:
 		return 0, fmt.Errorf("unexpected transaction status prefix: %s", prefix)
 	}
 }
 
-func FindReceivedAmountForAddress(meta *xrptypes.TransactionMetaData, receiver string) (*big.Int, error) {
+func FindReceivedAmountForAddress(meta *TransactionMetaData, receiver string) (*big.Int, error) {
 	receivedAmounts, err := GetReceivedAmount(meta)
 	if err != nil {
 		return nil, err
@@ -89,11 +87,11 @@ func FindReceivedAmountForAddress(meta *xrptypes.TransactionMetaData, receiver s
 	return big.NewInt(0), nil
 }
 
-func GetReceivedAmount(meta *xrptypes.TransactionMetaData) ([]xrptypes.AddressAmount, error) {
+func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("transaction meta is not available, thus received amounts cannot be calculated")
 	}
-	var received []xrptypes.AddressAmount
+	var received []AddressAmount
 
 	for _, node := range meta.AffectedNodes {
 		if mod := node.ModifiedNode; mod != nil && mod.LedgerEntryType == "AccountRoot" {
@@ -119,7 +117,7 @@ func GetReceivedAmount(meta *xrptypes.TransactionMetaData) ([]xrptypes.AddressAm
 			}
 			diff := new(big.Int).Sub(finalBal, prevBal)
 			if diff.Sign() > 0 {
-				received = append(received, xrptypes.AddressAmount{
+				received = append(received, AddressAmount{
 					Address: account,
 					Amount:  diff,
 				})
@@ -139,7 +137,7 @@ func GetReceivedAmount(meta *xrptypes.TransactionMetaData) ([]xrptypes.AddressAm
 				return nil, fmt.Errorf("invalid balance format in CreatedNode: %s", balanceStr)
 			}
 
-			received = append(received, xrptypes.AddressAmount{
+			received = append(received, AddressAmount{
 				Address: account,
 				Amount:  balance,
 			})

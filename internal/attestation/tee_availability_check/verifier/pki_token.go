@@ -1,4 +1,4 @@
-package verification
+package verifier
 
 import (
 	"crypto/sha256"
@@ -13,8 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang-jwt/jwt/v4"
-
-	"gitlab.com/urskak/verifier-api/pkg/tee_availability_check/types"
+	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/types"
 )
 
 // Taken from https://cloud.google.com/confidential-computing/confidential-space/docs/connect-external-resources#pki-attestation-tokens
@@ -263,6 +262,9 @@ func ValidateClaims(token jwt.Token, infoData types.ProxyInfoData) (StatusInfo, 
 	}
 	// TODO validate eat_nonce with data from tee proxy using infoData
 	teeId := crypto.PubkeyToAddress(infoData.PublicKey)
+	if len(claims.EATNonce) == 0 {
+		return StatusInfo{}, errors.New("EATNonce is missing")
+	}
 	eatNonce := crypto.Keccak256([]byte(infoData.Challenge), teeId[:], crypto.Keccak256([]byte{byte(infoData.Status)}), infoData.InitialSigningPolicyHash[:], infoData.LastSigningPolicyHash[:], infoData.TeeGovernanceHash[:])
 	if claims.EATNonce[0] != common.Bytes2Hex(eatNonce) {
 		return StatusInfo{}, errors.New("EATNonce does not match")
