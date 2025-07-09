@@ -21,6 +21,7 @@ var TeeSamples = make(map[common.Address][]bool)
 const (
 	sampleInterval    = 1 * time.Minute
 	samplesToConsider = 5
+	fetchTimeout      = 5 * time.Second
 )
 
 func SampleAllTees(client *ethclient.Client) {
@@ -41,7 +42,7 @@ func SampleAllTees(client *ethclient.Client) {
 }
 
 func queryTeeInfo(url string) bool {
-	httpClient := http.Client{Timeout: 5 * time.Second}
+	httpClient := http.Client{Timeout: fetchTimeout}
 	resp, err := httpClient.Get(url + "/info")
 	if err != nil {
 		logger.Errorf("Failed to connect to TEE %s: %v", url, err)

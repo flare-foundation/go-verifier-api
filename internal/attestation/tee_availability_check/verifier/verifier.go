@@ -20,8 +20,11 @@ import (
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 )
 
-const regOperationType = "REG"
-const attestationType = "ATTESTATION_TYPE"
+const (
+	regOperationType = "REG"
+	attestationType  = "ATTESTATION_TYPE"
+	fetchTimeout     = 5 * time.Second
+)
 
 type TeeVerifier struct {
 	cfg    *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig
@@ -89,7 +92,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL, challengeInstructionId string) (types.ProxyInfoResponseBody, error) {
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, challengeInstructionId)
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: fetchTimeout,
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
