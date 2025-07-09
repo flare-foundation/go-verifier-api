@@ -16,8 +16,8 @@ type AttestationResponse[Req any, Res any] struct {
 type SourceName string
 
 const (
-	SourceTEE SourceName = "TEE"
-	SourceXRP SourceName = "XRP"
+	SourceTEE SourceName = "tee"
+	SourceXRP SourceName = "xrp"
 )
 
 type AttestationType string
