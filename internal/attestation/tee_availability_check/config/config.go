@@ -28,9 +28,9 @@ func LoadTeeAvailabilityCheckConfig() (*TeeAvailabilityCheckConfig, error) {
 	if teeRegistryContractAddress == "" {
 		return nil, fmt.Errorf("TEE_REGISTRY_CONTRACT_ADDRESS not set")
 	}
-	rpcURL := os.Getenv("RPCURL")
+	rpcURL := os.Getenv("RPC_URL")
 	if teeRegistryContractAddress == "" {
-		return nil, fmt.Errorf("RPCURL not set")
+		return nil, fmt.Errorf("RPC_URL not set")
 	}
 
 	return &TeeAvailabilityCheckConfig{

@@ -12,17 +12,9 @@ type AttestationResponse[Req any, Res any] struct {
 	RequestBody     Req    `json:"request_body"`
 	ResponseBody    Res    `json:"response_body"`
 }
-
 type SourceName string
 
 const (
 	SourceTEE SourceName = "tee"
 	SourceXRP SourceName = "xrp"
-)
-
-type AttestationType string
-
-const (
-	TeeAvailabilityCheck AttestationType = "TeeAvailabilityCheck"
-	PMWPaymentStatus     AttestationType = "PMWPaymentStatus"
 )

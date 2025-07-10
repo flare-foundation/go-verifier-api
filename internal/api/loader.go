@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	paymentservice "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilitycheck "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
 	types "gitlab.com/urskak/verifier-api/internal/common"
@@ -16,7 +17,7 @@ import (
 
 func LoadModule(attType string, api huma.API, registry huma.Registry) error {
 	switch attType {
-	case string(types.PMWPaymentStatus):
+	case string(connector.PMWPaymentStatus):
 		service, err := paymentservice.NewPaymentService()
 		if err != nil {
 			return fmt.Errorf("failed to initialize payment service: %w", err)
@@ -24,7 +25,7 @@ func LoadModule(attType string, api huma.API, registry huma.Registry) error {
 		v := service.GetVerifier()
 
 		registerVerifier(api, registry, attType, v)
-	case string(types.TeeAvailabilityCheck):
+	case string(connector.AvailabilityCheck):
 		cfg, err := config.GetTeeAvailabilityCheckConfig()
 		if err != nil {
 			return fmt.Errorf("failed to initialize tee config: %w", err)
