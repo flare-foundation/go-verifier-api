@@ -10,7 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	paymentservice "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilitycheck "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
-	types "gitlab.com/urskak/verifier-api/internal/common"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/common"
 	"gitlab.com/urskak/verifier-api/internal/config"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 )
@@ -42,8 +42,8 @@ func LoadModule(attType string, api huma.API, registry huma.Registry) error {
 }
 
 func registerVerifier[Req any, Res any](api huma.API, registry huma.Registry, attType string, verifier verifierinterface.VerifierInterface[Req, Res]) {
-	reqSchema := registry.Schema(reflect.TypeOf(types.AttestationRequest[Req]{}), true, "")
-	respSchema := registry.Schema(reflect.TypeOf(types.AttestationResponse[Req, Res]{}), true, "")
+	reqSchema := registry.Schema(reflect.TypeOf(attestationtypes.AttestationRequest[Req]{}), true, "")
+	respSchema := registry.Schema(reflect.TypeOf(attestationtypes.FullAttestationResponse[Req, Res]{}), true, "")
 
 	huma.Register(api, huma.Operation{
 		OperationID: fmt.Sprintf("postVerify_%s", attType),
@@ -69,16 +69,22 @@ func registerVerifier[Req any, Res any](api huma.API, registry huma.Registry, at
 				},
 			},
 		},
-	}, func(ctx context.Context, input *types.AttestationRequest[Req]) (*types.AttestationResponse[Req, Res], error) {
-		res, err := verifier.Verify(ctx, input.RequestBody)
+	}, func(ctx context.Context, input *attestationtypes.AttestationRequest[Req]) (*attestationtypes.FullAttestationResponse[Req, Res], error) {
+		status, res, err := verifier.Verify(ctx, input.RequestBody)
 		if err != nil {
-			return nil, err
+			return nil, err // TODO?
 		}
-		return &types.AttestationResponse[Req, Res]{
+
+		response := attestationtypes.AttestationResponse[Req, Res]{
 			AttestationType: input.AttestationType,
 			SourceID:        input.SourceID,
 			RequestBody:     input.RequestBody,
 			ResponseBody:    res,
+		}
+
+		return &attestationtypes.FullAttestationResponse[Req, Res]{
+			AttestationStatus: status,
+			Response:          response,
 		}, nil
 	})
 }

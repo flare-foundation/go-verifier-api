@@ -14,6 +14,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
 	"gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/models"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/common"
 	"gorm.io/gorm"
 )
 
@@ -28,39 +29,39 @@ type chainQuery struct {
 	Nonce         uint64
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
+func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (attestationtypes.AttestationResponseStatus, connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
 	sourceEnv := x.config.SourceID
 	instructionId := GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
 	// Query event
 	chainLog, err := x.fetchInstructionLog(ctx, x.cChainDb, instructionId)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.INVALID, connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Decode event data
 	paymentMessage, err := DecodeTeeInstructionsSentEventData(chainLog)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.INVALID, connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
 	dbTransaction, err := x.getTransactionBySourceAndSequence(ctx, x.db, chainQuery{paymentMessage.SenderAddress, req.Nonce})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
+			return attestationtypes.INVALID, connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
 		}
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.INVALID, connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Parse transaction response JSON into structured data
 	rawTransactionData, err := x.parseRawTransactionData(dbTransaction.Response)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.INVALID, connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Validate transaction and build response
 	resp, err := x.buildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.INVALID, connector.IPMWPaymentStatusResponseBody{}, err
 	}
-	return resp, nil
+	return attestationtypes.VALID, resp, nil
 }
 
 func (x *XRPVerifier) fetchInstructionLog(ctx context.Context, db *gorm.DB, instructionId string) (*types.Log, error) {

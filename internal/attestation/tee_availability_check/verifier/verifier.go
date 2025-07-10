@@ -18,6 +18,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	teeavailabilitycheckconfig "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/config"
 	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/types"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/common"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 )
 
@@ -58,7 +59,7 @@ func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (ve
 	return NewVerifier(cfg)
 }
 
-func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
+func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (attestationtypes.AttestationResponseStatus, connector.ITeeAvailabilityCheckResponseBody, error) {
 	// Build challenge instruction id
 	challengeInstructionId := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	// Fetch from tee proxy
@@ -67,7 +68,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		// check polling data - TODO: needs to differentiate between not enough data to determine result and no valid result
 		valid, err := v.isTeeInfoValid(req.TeeId)
 		if err != nil { //TODO: cannot say anything - what kind of status do we return?
-			return connector.ITeeAvailabilityCheckResponseBody{}, err
+			return attestationtypes.INVALID, connector.ITeeAvailabilityCheckResponseBody{}, err
 		}
 		if !valid { //TODO: cannot say anything
 			var responseBody connector.ITeeAvailabilityCheckResponseBody
@@ -80,16 +81,16 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 			responseBody.TeeGovernanceHash = [32]byte{}
 			responseBody.RewardEpochId = &big.Int{}
 
-			return responseBody, nil
+			return attestationtypes.VALID, responseBody, nil
 		}
 		//TODO: cannot say anything - what kind of status do we return?
-		return connector.ITeeAvailabilityCheckResponseBody{}, err
+		return attestationtypes.INVALID, connector.ITeeAvailabilityCheckResponseBody{}, err
 	}
 
 	statusInfo, err := v.dataVerification(response)
 	infoData := response.Data
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, err
+		return attestationtypes.INVALID, connector.ITeeAvailabilityCheckResponseBody{}, err
 	}
 
 	var responseBody connector.ITeeAvailabilityCheckResponseBody
@@ -102,7 +103,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	responseBody.TeeGovernanceHash = infoData.TeeGovernanceHash
 	responseBody.RewardEpochId = infoData.LastSigningPolicyId
 
-	return responseBody, nil
+	return attestationtypes.INVALID, responseBody, nil
 }
 
 func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
