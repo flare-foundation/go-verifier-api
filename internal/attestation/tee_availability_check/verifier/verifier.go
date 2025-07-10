@@ -65,17 +65,16 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	// Fetch from tee proxy
 	response, err := v.fetchTEEAvailabilityResult(ctx, req.Url, challengeInstructionId)
 	if err != nil {
-		// check polling data - TODO: needs to differentiate between not enough data to determine result and no valid result
 		valid, err := v.isTeeInfoValid(req.TeeId)
-		if err != nil { //TODO: cannot say anything - what kind of status do we return?
-			return attestationtypes.INVALID, connector.ITeeAvailabilityCheckResponseBody{}, err
+		if err != nil { // Not enough data has been polled
+			return attestationtypes.INSUFFICIENT_POLLING_DATA, connector.ITeeAvailabilityCheckResponseBody{}, err
 		}
-		if !valid { //TODO: cannot say anything
+		if !valid { // No response in the last 5 minutes
 			var responseBody connector.ITeeAvailabilityCheckResponseBody
 			responseBody.Status = uint8(types.DOWN)
 			responseBody.CodeHash = [32]byte{}
 			responseBody.Platform = [32]byte{}
-			responseBody.MachineStatus = uint8(types.UNDETERMINED)
+			responseBody.MachineStatus = uint8(types.INDETERMINATE)
 			responseBody.TeeTimestamp = 0
 			responseBody.InitialTeeId = common.Address{}
 			responseBody.TeeGovernanceHash = [32]byte{}
@@ -83,14 +82,14 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 
 			return attestationtypes.VALID, responseBody, nil
 		}
-		//TODO: cannot say anything - what kind of status do we return?
-		return attestationtypes.INVALID, connector.ITeeAvailabilityCheckResponseBody{}, err
+		// There are valid responses from /info
+		return attestationtypes.TEE_DATA_NOT_AVAILABLE, connector.ITeeAvailabilityCheckResponseBody{}, err
 	}
 
-	statusInfo, err := v.dataVerification(response)
+	attestationStatus, statusInfo, err := v.dataVerification(response)
 	infoData := response.Data
 	if err != nil {
-		return attestationtypes.INVALID, connector.ITeeAvailabilityCheckResponseBody{}, err
+		return attestationStatus, connector.ITeeAvailabilityCheckResponseBody{}, err
 	}
 
 	var responseBody connector.ITeeAvailabilityCheckResponseBody
@@ -103,36 +102,36 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	responseBody.TeeGovernanceHash = infoData.TeeGovernanceHash
 	responseBody.RewardEpochId = infoData.LastSigningPolicyId
 
-	return attestationtypes.INVALID, responseBody, nil
+	return attestationStatus, responseBody, nil
 }
 
-func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
+func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (attestationtypes.AttestationResponseStatus, StatusInfo, error) {
 	attestationToken := response.AttestationInfo.Attestation
 	infoData := response.Data
 	// Certificate checks
 	cert, err := LoadRootCert()
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to load root cert: %w", err)
+		return attestationtypes.CANNOT_LOAD_ROOT_CERTIFICATE, StatusInfo{}, fmt.Errorf("failed to load root cert: %w", err)
 	}
 	token, err := ValidatePKIToken(cert, attestationToken)
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to validate PKI token: %w", err)
+		return attestationtypes.CERTIFICATE_CHECK_FAILED, StatusInfo{}, fmt.Errorf("failed to validate PKI token: %w", err)
 	}
 	if !token.Valid {
-		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", attestationToken)
-	}
-	statusInfo, err := ValidateClaims(token, infoData)
-	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+		return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", attestationToken)
 	}
 	lastSigningPolicyHash, err := v.getLastSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
-	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
-		return StatusInfo{}, fmt.Errorf("failed to validate last signing policy hash")
-	}
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
+		return attestationtypes.CANNOT_FETCH_LAST_SIGNING_POLICY, StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
 	}
-	return statusInfo, nil
+	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
+		return attestationtypes.LAST_SIGNING_POLICY_MISMATCH, StatusInfo{}, fmt.Errorf("failed to validate last signing policy hash")
+	}
+	attestationStatus, statusInfo, err := ValidateClaims(token, infoData)
+	if err != nil {
+		return attestationStatus, StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+	}
+	return attestationStatus, statusInfo, nil
 }
 
 func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL, challengeInstructionId string) (types.ProxyInfoResponseBody, error) {
@@ -151,7 +150,7 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 	if !checkInfoChallenge {
 		return false, nil
 	}
-	_, err = v.dataVerification(infoResponse)
+	_, _, err = v.dataVerification(infoResponse)
 	if err != nil {
 		return false, err
 	}

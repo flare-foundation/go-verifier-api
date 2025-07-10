@@ -26,8 +26,8 @@ type TeeMachineStatus uint8
 
 // Match SC https://gitlab.com/flarenetwork/FSP/flare-smart-contracts-v2/-/blob/tee/contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol?ref_type=heads#L13
 const (
-	UNDETERMINED TeeMachineStatus = 255 // TODO
-	ACTIVE       TeeMachineStatus = iota
+	INDETERMINATE TeeMachineStatus = 255 // TODO: check if this is ok
+	ACTIVE        TeeMachineStatus = iota
 	PAUSED
 	PAUSED_FOR_UPGRADE
 )

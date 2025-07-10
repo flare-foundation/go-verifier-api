@@ -71,10 +71,6 @@ func registerVerifier[Req any, Res any](api huma.API, registry huma.Registry, at
 		},
 	}, func(ctx context.Context, input *attestationtypes.AttestationRequest[Req]) (*attestationtypes.FullAttestationResponse[Req, Res], error) {
 		status, res, err := verifier.Verify(ctx, input.RequestBody)
-		if err != nil {
-			return nil, err // TODO?
-		}
-
 		response := attestationtypes.AttestationResponse[Req, Res]{
 			AttestationType: input.AttestationType,
 			SourceID:        input.SourceID,
@@ -85,6 +81,6 @@ func registerVerifier[Req any, Res any](api huma.API, registry huma.Registry, at
 		return &attestationtypes.FullAttestationResponse[Req, Res]{
 			AttestationStatus: status,
 			Response:          response,
-		}, nil
+		}, err
 	})
 }
