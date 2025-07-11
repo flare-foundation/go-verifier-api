@@ -81,6 +81,6 @@ func registerVerifier[Req any, Res any](api huma.API, registry huma.Registry, at
 		return &attestationtypes.FullAttestationResponse[Req, Res]{
 			AttestationStatus: status,
 			Response:          response,
-		}, err
+		}, err // TODO separate error and none error - check underlying code
 	})
 }
