@@ -1,0 +1,199 @@
+definitions:
+  attestationtypes.AttestationRequestPMWPaymentStatus:
+    properties:
+      attestationType:
+        example: 0x4a736f6e41706900000000000000000000000000000000000000000000000000
+        type: string
+      requestBody:
+        $ref: '#/definitions/attestationtypes.IPMWPaymentStatusRequestBody'
+      sourceId:
+        example: 0x4a736f6e41706900000000000000000000000000000000000000000000000000
+        type: string
+    required:
+    - attestationType
+    - requestBody
+    - sourceId
+    type: object
+  attestationtypes.AttestationRequestTeeAvailabilityCheck:
+    properties:
+      attestationType:
+        example: 0x4a736f6e41706900000000000000000000000000000000000000000000000000
+        type: string
+      requestBody:
+        $ref: '#/definitions/attestationtypes.ITeeAvailabilityCheckRequestBody'
+      sourceId:
+        example: 0x5075626c69635765623200000000000000000000000000000000000000000000
+        type: string
+    required:
+    - attestationType
+    - requestBody
+    - sourceId
+    type: object
+  attestationtypes.FullAttestationResponsePMWPaymentStatus:
+    properties:
+      attestationStatus:
+        type: string
+      response:
+        properties:
+          attestationType:
+            type: string
+          requestBody:
+            $ref: '#/definitions/attestationtypes.IPMWPaymentStatusRequestBody'
+          responseBody:
+            $ref: '#/definitions/attestationtypes.IPMWPaymentStatusResponseBody'
+          sourceId:
+            type: string
+        type: object
+    type: object
+  attestationtypes.FullAttestationResponseTeeAvailabilityCheck:
+    properties:
+      attestationStatus:
+        type: string
+      response:
+        properties:
+          attestationType:
+            type: string
+          requestBody:
+            $ref: '#/definitions/attestationtypes.ITeeAvailabilityCheckRequestBody'
+          responseBody:
+            $ref: '#/definitions/attestationtypes.ITeeAvailabilityCheckResponseBody'
+          sourceId:
+            type: string
+        type: object
+    type: object
+  attestationtypes.IPMWPaymentStatusRequestBody:
+    properties:
+      nonce:
+        type: integer
+      subNonce:
+        type: integer
+      walletId:
+        type: string
+    type: object
+  attestationtypes.IPMWPaymentStatusResponseBody:
+    properties:
+      amount:
+        type: string
+      blockNumber:
+        type: integer
+      blockTimestamp:
+        type: integer
+      fee:
+        type: string
+      paymentReference:
+        items:
+          type: integer
+        type: array
+      receivedAmount:
+        type: string
+      recipientAddress:
+        type: string
+      revertReason:
+        type: string
+      senderAddress:
+        type: string
+      transactionFee:
+        type: string
+      transactionId:
+        items:
+          type: integer
+        type: array
+      transactionStatus:
+        type: integer
+    type: object
+  attestationtypes.ITeeAvailabilityCheckRequestBody:
+    properties:
+      challenge:
+        example: "12345678901234567890"
+        type: string
+      teeId:
+        type: string
+      url:
+        example: https://supertee.proxy
+        type: string
+    required:
+    - challenge
+    - teeId
+    - url
+    type: object
+  attestationtypes.ITeeAvailabilityCheckResponseBody:
+    properties:
+      codeHash:
+        items:
+          type: integer
+        type: array
+      initialTeeId:
+        type: string
+      machineStatus:
+        type: integer
+      platform:
+        items:
+          type: integer
+        type: array
+      rewardEpochId:
+        type: string
+      status:
+        type: integer
+      teeGovernanceHash:
+        items:
+          type: integer
+        type: array
+      teeTimestamp:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /PMWPaymentStatus/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verifies PMW payment status attestation
+      parameters:
+      - description: Attestation Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/attestationtypes.AttestationRequestPMWPaymentStatus'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/attestationtypes.FullAttestationResponsePMWPaymentStatus'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Verify PMW Payment Status
+  /TeeAvailabilityCheck/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verifies TEE availability check attestation
+      parameters:
+      - description: Attestation Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/attestationtypes.AttestationRequestTeeAvailabilityCheck'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/attestationtypes.FullAttestationResponseTeeAvailabilityCheck'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Verify TEE Availability Check
+swagger: "2.0"

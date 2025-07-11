@@ -3,7 +3,7 @@ package paymentservice
 import (
 	"fmt"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
 	pmwpaymentstatusverifier "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/verifier"
 	"gitlab.com/urskak/verifier-api/internal/config"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
@@ -11,8 +11,8 @@ import (
 
 type PaymentService struct {
 	verifier verifierinterface.VerifierInterface[
-		connector.IPMWPaymentStatusRequestBody,
-		connector.IPMWPaymentStatusResponseBody,
+		attestationtypes.IPMWPaymentStatusRequestBody,
+		attestationtypes.IPMWPaymentStatusResponseBody,
 	]
 }
 
@@ -38,8 +38,8 @@ func NewPaymentService() (*PaymentService, error) {
 }
 
 func (s *PaymentService) GetVerifier() verifierinterface.VerifierInterface[
-	connector.IPMWPaymentStatusRequestBody,
-	connector.IPMWPaymentStatusResponseBody,
+	attestationtypes.IPMWPaymentStatusRequestBody,
+	attestationtypes.IPMWPaymentStatusResponseBody,
 ] {
 	return s.verifier
 }

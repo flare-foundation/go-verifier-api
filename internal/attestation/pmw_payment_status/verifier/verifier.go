@@ -3,9 +3,8 @@ package verifier
 import (
 	"fmt"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
 	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/common"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 	"gorm.io/gorm"
 )
@@ -14,18 +13,18 @@ type VerifierConstructor func(
 	cfg *pmwpaymentstatusconfig.PMWPaymentStatusConfig,
 	db *gorm.DB,
 	cChainDB *gorm.DB,
-) (verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error)
+) (verifierinterface.VerifierInterface[attestationtypes.IPMWPaymentStatusRequestBody, attestationtypes.IPMWPaymentStatusResponseBody], error)
 
 var registry = map[string]VerifierConstructor{
 	string(attestationtypes.SourceXRP): func(cfg *pmwpaymentstatusconfig.PMWPaymentStatusConfig, db *gorm.DB, cChainDB *gorm.DB) (
-		verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
+		verifierinterface.VerifierInterface[attestationtypes.IPMWPaymentStatusRequestBody, attestationtypes.IPMWPaymentStatusResponseBody], error,
 	) {
 		return &XRPVerifier{db: db, cChainDb: cChainDB, config: cfg}, nil
 	},
 }
 
 func GetVerifier(sourceID string, cfg *pmwpaymentstatusconfig.PMWPaymentStatusConfig, db, cChainDB *gorm.DB) (
-	verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
+	verifierinterface.VerifierInterface[attestationtypes.IPMWPaymentStatusRequestBody, attestationtypes.IPMWPaymentStatusResponseBody], error,
 ) {
 	constructor, ok := registry[sourceID]
 	if !ok {

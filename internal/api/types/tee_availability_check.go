@@ -1,4 +1,4 @@
-package types
+package attestationtypes
 
 import (
 	"crypto/ecdsa"
@@ -7,10 +7,38 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type RequestBody struct {
-	TeeId     common.Address `json:"teeId"`
-	URL       string         `json:"url"`
-	Challenge *big.Int       `json:"challenge"`
+type AttestationRequestTeeAvailabilityCheck struct {
+	AttestationType string                           `json:"attestationType" example:"0x4a736f6e41706900000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+	SourceID        string                           `json:"sourceId" example:"0x5075626c69635765623200000000000000000000000000000000000000000000" validate:"required,hash32"`
+	RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody" validate:"required"`
+}
+
+type FullAttestationResponseTeeAvailabilityCheck struct {
+	AttestationStatus string `json:"attestationStatus"`
+	Response          struct {
+		AttestationType string                            `json:"attestationType"`
+		SourceID        string                            `json:"sourceId"`
+		RequestBody     ITeeAvailabilityCheckRequestBody  `json:"requestBody"`
+		ResponseBody    ITeeAvailabilityCheckResponseBody `json:"responseBody"`
+	} `json:"response"`
+}
+
+// copied from connector.ITeeAvailabilityCheckRequestBody
+type ITeeAvailabilityCheckRequestBody struct {
+	TeeId     string `json:"teeId" validate:"required,eth_addr"`
+	Url       string `json:"url" validate:"required,url" example:"https://supertee.proxy"`
+	Challenge string `json:"challenge"  validate:"required,numeric" example:"12345678901234567890"`
+}
+
+// copied from connector.ITeeAvailabilityCheckResponseBody
+type ITeeAvailabilityCheckResponseBody struct {
+	Status        uint8
+	MachineStatus uint8
+	TeeTimestamp  uint64
+	InitialTeeId  string
+	CodeHash      string
+	Platform      string
+	RewardEpochId string
 }
 
 type AvailabilityCheckStatus uint8
@@ -53,6 +81,5 @@ type ProxyInfoData struct {
 	LastSigningPolicyHash    common.Hash      `json:"lastSigningPolicyHash"`
 	Nonce                    *big.Int         `json:"nonce"`
 	PauseNonce               *big.Int         `json:"pauseNonce"`
-	TeeGovernanceHash        common.Hash      `json:"teeGovernanceHash"`
 	TeeTimestamp             uint64           `json:"teeTimestamp"`
 }

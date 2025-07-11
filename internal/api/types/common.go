@@ -1,20 +1,20 @@
 package attestationtypes
 
 type AttestationRequest[T any] struct {
-	AttestationType string `json:"attestation_type"`
-	SourceID        string `json:"source_id"`
-	RequestBody     T      `json:"request_body"`
+	AttestationType string `json:"attestationType"`
+	SourceID        string `json:"sourceId"`
+	RequestBody     T      `json:"requestBody"`
 }
 
 type AttestationResponse[Req any, Res any] struct {
-	AttestationType string `json:"attestation_type"`
-	SourceID        string `json:"source_id"`
-	RequestBody     Req    `json:"request_body"`
-	ResponseBody    Res    `json:"response_body"`
+	AttestationType string `json:"attestationType"`
+	SourceID        string `json:"sourceId"`
+	RequestBody     Req    `json:"requestBody"`
+	ResponseBody    Res    `json:"responseBody"`
 }
 
 type FullAttestationResponse[Req any, Res any] struct {
-	AttestationStatus AttestationResponseStatus     `json:"attestation_status"`
+	AttestationStatus AttestationResponseStatus     `json:"attestationStatus"`
 	Response          AttestationResponse[Req, Res] `json:"response,omitempty"`
 }
 
@@ -46,4 +46,5 @@ const (
 	CERTIFICATE_CHECK_FAILED       AttestationResponseStatus = "CERTIFICATE CHECK FAILED"
 	CERTIFICATE_INVALID            AttestationResponseStatus = "CERTIFICATE IS INVALID"
 	LAST_SIGNING_POLICY_MISMATCH   AttestationResponseStatus = "LAST SIGNING POLICY MISMATCH"
+	INVALID_CHALLENGE_FORMAT       AttestationResponseStatus = "INVALID CHALLENGE FORMAT"
 )

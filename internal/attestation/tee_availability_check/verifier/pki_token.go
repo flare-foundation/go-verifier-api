@@ -8,13 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang-jwt/jwt/v4"
-	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/types"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/common"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
 )
 
 // Taken from https://cloud.google.com/confidential-computing/confidential-space/docs/connect-external-resources#pki-attestation-tokens
@@ -223,12 +223,12 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 }
 
 type GoogleTeeClaims struct {
-	HWModel     string     `json:"hwmodel"`
-	SWName      string     `json:"swname"`
+	HWModel     string     `json:"hwmodel"` //"hwmodel": "GCP_INTEL_TDX"
+	SWName      string     `json:"swname"`  //"swname": "CONFIDENTIAL_SPACE"
 	SecBoot     bool       `json:"secboot"`
 	EATNonce    []string   `json:"eat_nonce"`
 	SubModules  SubModules `json:"submods"`
-	DebugStatus string     `json:"dbgstat"`
+	DebugStatus string     `json:"dbgstat"` //"dbgstat": "enabled"
 	jwt.StandardClaims
 }
 
@@ -242,17 +242,17 @@ type ConfidentialSpaceInfo struct {
 }
 
 type Container struct {
-	ImageDigest string `json:"image_digest"`
-	ImageId     string `json:"image_id"`
+	ImageDigest string `json:"image_digest"` //"image_digest": "sha256:0f5455255ce543c2fa319153577e2ad75d7f8ea698df1cab1a8c782b391b6354",
+	ImageId     string `json:"image_id"`     //"image_id": "sha256:ec5873e29dd512750dfd21250db6243f106bbf82203e91ae33af94b234eee153"
 }
 
 type StatusInfo struct {
-	CodeHash [32]byte
-	Platform [32]byte
-	Status   types.AvailabilityCheckStatus
+	CodeHash string
+	Platform string
+	Status   attestationtypes.AvailabilityCheckStatus
 }
 
-func ValidateClaims(token jwt.Token, infoData types.ProxyInfoData) (attestationtypes.AttestationResponseStatus, StatusInfo, error) {
+func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (attestationtypes.AttestationResponseStatus, StatusInfo, error) {
 	var statusInfo StatusInfo
 	if !token.Valid {
 		return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", token)
@@ -266,7 +266,7 @@ func ValidateClaims(token jwt.Token, infoData types.ProxyInfoData) (attestationt
 	if len(claims.EATNonce) == 0 {
 		return attestationtypes.EAT_NONCE_MISSING, StatusInfo{}, errors.New("EATNonce is missing")
 	}
-	eatNonce := crypto.Keccak256([]byte(infoData.Challenge), teeId[:], crypto.Keccak256([]byte{byte(infoData.Status)}), infoData.InitialSigningPolicyHash[:], infoData.LastSigningPolicyHash[:], infoData.TeeGovernanceHash[:])
+	eatNonce := crypto.Keccak256([]byte(infoData.Challenge), teeId[:], crypto.Keccak256([]byte{byte(infoData.Status)}), infoData.InitialSigningPolicyHash[:], infoData.LastSigningPolicyHash[:])
 	if claims.EATNonce[0] != common.Bytes2Hex(eatNonce) {
 		return attestationtypes.EAT_NONCE_MISMATCH, StatusInfo{}, errors.New("EATNonce does not match")
 	}
@@ -287,12 +287,12 @@ func ValidateClaims(token jwt.Token, infoData types.ProxyInfoData) (attestationt
 		}
 	}
 	if !foundIsStable {
-		statusInfo.Status = types.OBSOLETE
+		statusInfo.Status = attestationtypes.OBSOLETE
 	} else {
-		statusInfo.Status = types.OK
+		statusInfo.Status = attestationtypes.OK
 	}
-	statusInfo.CodeHash = common.BytesToHash([]byte(claims.SubModules.Container.ImageDigest))
-	statusInfo.Platform = common.BytesToHash([]byte(claims.HWModel))
+	statusInfo.CodeHash = strings.TrimPrefix(claims.SubModules.Container.ImageDigest, "sha256:")
+	statusInfo.Platform = strings.TrimPrefix(claims.HWModel, "sha256:")
 
 	return attestationtypes.VALID, statusInfo, nil
 }

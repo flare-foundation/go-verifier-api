@@ -7,8 +7,7 @@ import (
 )
 
 func TestGenerateInstructionId(t *testing.T) {
-	var walletId [32]byte
-	copy(walletId[:], []byte("testwalletid12345678901234567890"))
+	walletId := "testwalletid12345678901234567890"
 	nonce := uint64(42)
 	sourceEnv := "testsourceid"
 	id := GenerateInstructionId(walletId, nonce, sourceEnv)
