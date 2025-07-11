@@ -63,12 +63,12 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
 
 4. Access Swagger UI
     ```
-    localhost:3120/api-doc
+    localhost:3120/swagger/index.html
     ```
-    or Access OpenAPI Document
-    ```
-    localhost:3120/docs
-    ```
+
+## Swaggo
+
+Go to `internal/api` and run `swag init -g handlers.go` to create swagger docs.
 
 ## Tools (experimental)
 
