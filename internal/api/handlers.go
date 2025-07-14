@@ -12,6 +12,8 @@ import (
 
 // @Summary Verify PMW Payment Status
 // @Description Verifies PMW payment status attestation
+// @Tags PMWPaymentStatus
+// @Security ApiKeyAuth
 // @Accept json
 // @Produce json
 // @Param request body attestationtypes.AttestationRequestPMWPaymentStatus true "Attestation Request"
@@ -31,6 +33,8 @@ func PMWPaymentStatusHandler(c *gin.Context) {
 
 // @Summary Verify TEE Availability Check
 // @Description Verifies TEE availability check attestation
+// @Tags TEEAvailabilityCheck
+// @Security ApiKeyAuth
 // @Accept json
 // @Produce json
 // @Param request body attestationtypes.AttestationRequestTeeAvailabilityCheck true "Attestation Request"

@@ -56,28 +56,25 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
     go mod tidy
     ```
 
-3. Generate swagger Docs (Swaggo)
+3. Run the project
     ```bash
-    cd internal/api
-    swag init -g handlers.go 
-    ```
-
-4. Run the project
-    ```bash
-    cd ../..
     go run ./cmd/main.go
     ```
 
-5. Access Swagger UI
+4. Access Swagger UI
     ```
     localhost:3120/swagger/index.html
     ```
 
 ## Swaggo
+When the API changes, `swag init` must be run to update the Swagger documentation.
+Navigate to `internal/api` and run 
+```bash
+swag init -g handlers.go
+```
+to regenerate the Swagger docs.
 
-Go to `internal/api` and run `swag init -g handlers.go` to create swagger docs.
-
-## Tools (experimental)
+<!-- ## Tools (experimental)
 
 https://www.alexedwards.net/blog/how-to-manage-tool-dependencies-in-go-1.24-plus
 ```
@@ -87,4 +84,4 @@ go tool -n staticcheck
 - Upgrade the module `go get github.com/golang-jwt/jwt/v4@latest`
 - Clean up unused modules `go mod tidy`
 - Sync vendor dir (important!) `go mod vendor`
-- Re-run audit `make audit`
+- Re-run audit `make audit` -->

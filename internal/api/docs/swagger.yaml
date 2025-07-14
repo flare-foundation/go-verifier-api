@@ -136,6 +136,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: API for verifying FTDC attestations
+  title: Verifier API
+  version: "1.0"
 paths:
   /PMWPaymentStatus/verify:
     post:
@@ -162,7 +165,11 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - ApiKeyAuth: []
       summary: Verify PMW Payment Status
+      tags:
+      - PMWPaymentStatus
   /TeeAvailabilityCheck/verify:
     post:
       consumes:
@@ -188,5 +195,14 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - ApiKeyAuth: []
       summary: Verify TEE Availability Check
+      tags:
+      - TEEAvailabilityCheck
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-KEY
+    type: apiKey
 swagger: "2.0"

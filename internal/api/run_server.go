@@ -13,6 +13,12 @@ import (
 	attestationutils "gitlab.com/urskak/verifier-api/internal/api/utils"
 )
 
+// @title           Verifier API
+// @version         1.0
+// @description     API for verifying FTDC attestations
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-KEY
 func RunServer() {
 	_ = godotenv.Load()
 
@@ -27,7 +33,6 @@ func RunServer() {
 	}
 
 	router := gin.Default()
-
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	err = LoadModule(router, verifierType)

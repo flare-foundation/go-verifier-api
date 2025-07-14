@@ -17,12 +17,20 @@ const docTemplate = `{
     "paths": {
         "/PMWPaymentStatus/verify": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Verifies PMW payment status attestation",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "PMWPaymentStatus"
                 ],
                 "summary": "Verify PMW Payment Status",
                 "parameters": [
@@ -57,12 +65,20 @@ const docTemplate = `{
         },
         "/TeeAvailabilityCheck/verify": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Verifies TEE availability check attestation",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "TEEAvailabilityCheck"
                 ],
                 "summary": "Verify TEE Availability Check",
                 "parameters": [
@@ -297,17 +313,24 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-KEY",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Verifier API",
+	Description:      "API for verifying FTDC attestations",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

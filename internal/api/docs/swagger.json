@@ -1,17 +1,28 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "API for verifying FTDC attestations",
+        "title": "Verifier API",
+        "contact": {},
+        "version": "1.0"
     },
     "paths": {
         "/PMWPaymentStatus/verify": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Verifies PMW payment status attestation",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "PMWPaymentStatus"
                 ],
                 "summary": "Verify PMW Payment Status",
                 "parameters": [
@@ -46,12 +57,20 @@
         },
         "/TeeAvailabilityCheck/verify": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Verifies TEE availability check attestation",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "TEEAvailabilityCheck"
                 ],
                 "summary": "Verify TEE Availability Check",
                 "parameters": [
@@ -285,6 +304,13 @@
                     "type": "integer"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-KEY",
+            "in": "header"
         }
     }
 }
