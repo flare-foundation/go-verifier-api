@@ -56,12 +56,19 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
     go mod tidy
     ```
 
-3. Run the project
+3. Generate swagger Docs (Swaggo)
     ```bash
+    cd internal/api
+    swag init -g handlers.go 
+    ```
+
+4. Run the project
+    ```bash
+    cd ../..
     go run ./cmd/main.go
     ```
 
-4. Access Swagger UI
+5. Access Swagger UI
     ```
     localhost:3120/swagger/index.html
     ```
