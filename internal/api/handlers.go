@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/gin-gonic/gin"
 	paymentservice "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilitycheck "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
@@ -25,7 +26,7 @@ func PMWPaymentStatusHandler(c *gin.Context) {
 	}
 	verifier := service.GetVerifier()
 
-	genericVerifyHandler(c, verifier)
+	genericVerifyHandler(c, verifier, connector.PMWPaymentStatus, service.GetConfig().SourceID)
 }
 
 // @Summary Verify TEE Availability Check
@@ -47,6 +48,5 @@ func TeeAvailabilityCheckHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize verifier"})
 		return
 	}
-
-	genericVerifyHandler(c, verifier)
+	genericVerifyHandler(c, verifier, connector.AvailabilityCheck, cfg.SourceID)
 }

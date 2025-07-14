@@ -10,22 +10,27 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	_ "gitlab.com/urskak/verifier-api/internal/api/docs"
+	attestationutils "gitlab.com/urskak/verifier-api/internal/api/utils"
 )
 
 func RunServer() {
 	_ = godotenv.Load()
 
-	verifierType := os.Getenv("VERIFIER_TYPE")
+	verifierTypeStr := os.Getenv("VERIFIER_TYPE")
 	port := os.Getenv("PORT")
-	if verifierType == "" || port == "" {
+	if verifierTypeStr == "" || port == "" {
 		log.Fatal("VERIFIER_TYPE and PORT must be set")
+	}
+	verifierType, err := attestationutils.ParseAttestationType(verifierTypeStr)
+	if err != nil {
+		log.Fatalf("Invalid VERIFIER_TYPE in .env: %v", err)
 	}
 
 	router := gin.Default()
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	err := LoadModule(router, verifierType)
+	err = LoadModule(router, verifierType)
 	if err != nil {
 		log.Fatalf("Failed to load verifier module: %v", err)
 	}

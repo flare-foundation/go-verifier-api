@@ -128,14 +128,14 @@ const docTemplate = `{
             "properties": {
                 "attestationType": {
                     "type": "string",
-                    "example": "0x4a736f6e41706900000000000000000000000000000000000000000000000000"
+                    "example": "0x546565417661696c6162696c697479436865636b000000000000000000000000"
                 },
                 "requestBody": {
                     "$ref": "#/definitions/attestationtypes.ITeeAvailabilityCheckRequestBody"
                 },
                 "sourceId": {
                     "type": "string",
-                    "example": "0x5075626c69635765623200000000000000000000000000000000000000000000"
+                    "example": "0x7465650000000000000000000000000000000000000000000000000000000000"
                 }
             }
         },
@@ -191,6 +191,11 @@ const docTemplate = `{
         },
         "attestationtypes.IPMWPaymentStatusRequestBody": {
             "type": "object",
+            "required": [
+                "nonce",
+                "subNonce",
+                "walletId"
+            ],
             "properties": {
                 "nonce": {
                     "type": "integer"
@@ -219,10 +224,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "paymentReference": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "receivedAmount": {
                     "type": "string"
@@ -240,10 +242,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "transactionId": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "transactionStatus": {
                     "type": "integer"
@@ -263,7 +262,8 @@ const docTemplate = `{
                     "example": "12345678901234567890"
                 },
                 "teeId": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "0x000000000000000000000000000000000000dEaD"
                 },
                 "url": {
                     "type": "string",
@@ -275,10 +275,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "codeHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "initialTeeId": {
                     "type": "string"
@@ -287,22 +284,13 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "platform": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "rewardEpochId": {
                     "type": "string"
                 },
                 "status": {
                     "type": "integer"
-                },
-                "teeGovernanceHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
                 },
                 "teeTimestamp": {
                     "type": "integer"

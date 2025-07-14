@@ -8,8 +8,8 @@ import (
 )
 
 type AttestationRequestTeeAvailabilityCheck struct {
-	AttestationType string                           `json:"attestationType" example:"0x4a736f6e41706900000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-	SourceID        string                           `json:"sourceId" example:"0x5075626c69635765623200000000000000000000000000000000000000000000" validate:"required,hash32"`
+	AttestationType string                           `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
+	SourceID        string                           `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
 	RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody" validate:"required"`
 }
 
@@ -25,7 +25,7 @@ type FullAttestationResponseTeeAvailabilityCheck struct {
 
 // copied from connector.ITeeAvailabilityCheckRequestBody
 type ITeeAvailabilityCheckRequestBody struct {
-	TeeId     string `json:"teeId" validate:"required,eth_addr"`
+	TeeId     string `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
 	Url       string `json:"url" validate:"required,url" example:"https://supertee.proxy"`
 	Challenge string `json:"challenge"  validate:"required,numeric" example:"12345678901234567890"`
 }

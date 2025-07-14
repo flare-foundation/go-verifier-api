@@ -17,12 +17,12 @@ definitions:
   attestationtypes.AttestationRequestTeeAvailabilityCheck:
     properties:
       attestationType:
-        example: 0x4a736f6e41706900000000000000000000000000000000000000000000000000
+        example: 0x546565417661696c6162696c697479436865636b000000000000000000000000
         type: string
       requestBody:
         $ref: '#/definitions/attestationtypes.ITeeAvailabilityCheckRequestBody'
       sourceId:
-        example: 0x5075626c69635765623200000000000000000000000000000000000000000000
+        example: 0x7465650000000000000000000000000000000000000000000000000000000000
         type: string
     required:
     - attestationType
@@ -69,6 +69,10 @@ definitions:
         type: integer
       walletId:
         type: string
+    required:
+    - nonce
+    - subNonce
+    - walletId
     type: object
   attestationtypes.IPMWPaymentStatusResponseBody:
     properties:
@@ -81,9 +85,7 @@ definitions:
       fee:
         type: string
       paymentReference:
-        items:
-          type: integer
-        type: array
+        type: string
       receivedAmount:
         type: string
       recipientAddress:
@@ -95,9 +97,7 @@ definitions:
       transactionFee:
         type: string
       transactionId:
-        items:
-          type: integer
-        type: array
+        type: string
       transactionStatus:
         type: integer
     type: object
@@ -107,6 +107,7 @@ definitions:
         example: "12345678901234567890"
         type: string
       teeId:
+        example: "0x000000000000000000000000000000000000dEaD"
         type: string
       url:
         example: https://supertee.proxy
@@ -119,25 +120,17 @@ definitions:
   attestationtypes.ITeeAvailabilityCheckResponseBody:
     properties:
       codeHash:
-        items:
-          type: integer
-        type: array
+        type: string
       initialTeeId:
         type: string
       machineStatus:
         type: integer
       platform:
-        items:
-          type: integer
-        type: array
+        type: string
       rewardEpochId:
         type: string
       status:
         type: integer
-      teeGovernanceHash:
-        items:
-          type: integer
-        type: array
       teeTimestamp:
         type: integer
     type: object

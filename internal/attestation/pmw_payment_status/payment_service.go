@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
+	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
 	pmwpaymentstatusverifier "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/verifier"
 	"gitlab.com/urskak/verifier-api/internal/config"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
@@ -14,6 +15,7 @@ type PaymentService struct {
 		attestationtypes.IPMWPaymentStatusRequestBody,
 		attestationtypes.IPMWPaymentStatusResponseBody,
 	]
+	config *pmwpaymentstatusconfig.PMWPaymentStatusConfig
 }
 
 func NewPaymentService() (*PaymentService, error) {
@@ -34,7 +36,7 @@ func NewPaymentService() (*PaymentService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize verifier: %w", err)
 	}
-	return &PaymentService{verifier: verifierImpl}, nil
+	return &PaymentService{verifier: verifierImpl, config: cfg}, nil
 }
 
 func (s *PaymentService) GetVerifier() verifierinterface.VerifierInterface[
@@ -42,4 +44,8 @@ func (s *PaymentService) GetVerifier() verifierinterface.VerifierInterface[
 	attestationtypes.IPMWPaymentStatusResponseBody,
 ] {
 	return s.verifier
+}
+
+func (s *PaymentService) GetConfig() *pmwpaymentstatusconfig.PMWPaymentStatusConfig {
+	return s.config
 }
