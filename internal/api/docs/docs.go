@@ -98,15 +98,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/attestationtypes.FullAttestationResponseTeeAvailabilityCheck"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
                     }
                 }
             }

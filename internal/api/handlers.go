@@ -18,7 +18,6 @@ import (
 // @Produce json
 // @Param request body attestationtypes.AttestationRequestPMWPaymentStatus true "Attestation Request"
 // @Success 200 {object} attestationtypes.FullAttestationResponsePMWPaymentStatus
-// @Failure 400 {object} map[string]string
 // @Router /PMWPaymentStatus/verify [post]
 func PMWPaymentStatusHandler(c *gin.Context) {
 	service, err := paymentservice.NewPaymentService()
@@ -27,7 +26,6 @@ func PMWPaymentStatusHandler(c *gin.Context) {
 		return
 	}
 	verifier := service.GetVerifier()
-
 	genericVerifyHandler(c, verifier, connector.PMWPaymentStatus, service.GetConfig().SourceID)
 }
 
@@ -39,7 +37,6 @@ func PMWPaymentStatusHandler(c *gin.Context) {
 // @Produce json
 // @Param request body attestationtypes.AttestationRequestTeeAvailabilityCheck true "Attestation Request"
 // @Success 200 {object} attestationtypes.FullAttestationResponseTeeAvailabilityCheck
-// @Failure 400 {object} map[string]string
 // @Router /TeeAvailabilityCheck/verify [post]
 func TeeAvailabilityCheckHandler(c *gin.Context) {
 	cfg, err := config.GetTeeAvailabilityCheckConfig()

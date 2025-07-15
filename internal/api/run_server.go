@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
@@ -37,7 +38,7 @@ func RunServer() {
 
 	err = LoadModule(router, verifierType)
 	if err != nil {
-		log.Fatalf("Failed to load verifier module: %v", err)
+		logger.Fatalf("Failed to load verifier module: %v", err)
 	}
 
 	log.Printf("Starting server on :%s...", port)

@@ -28,21 +28,21 @@ func genericVerifyHandler[Req any, Res any](c *gin.Context, verifier verifierint
 		return
 	}
 	if err := validate.Struct(request); err != nil {
-		c.JSON(400, gin.H{"error": "Validation failed: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Validation failed: " + err.Error()})
 		return
 	}
 	verifierAttestationNameEnc, err := attestationutils.EncodeAttestationOrSourceName(string(attestationType))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Attestation type name encoding failed: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Attestation type name encoding failed: " + err.Error()})
 		return
 	}
 	verifierSourceNameEnc, err := attestationutils.EncodeAttestationOrSourceName(string(sourceID))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "Source name encoding failed: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Source name encoding failed: " + err.Error()})
 		return
 	}
 	if request.AttestationType != verifierAttestationNameEnc || request.SourceID != verifierSourceNameEnc {
-		c.JSON(400, gin.H{"error": fmt.Sprintf("Attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s).", request.AttestationType, request.SourceID, string(attestationType), verifierAttestationNameEnc, string(sourceID), verifierSourceNameEnc)})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s).", request.AttestationType, request.SourceID, string(attestationType), verifierAttestationNameEnc, string(sourceID), verifierSourceNameEnc)})
 		return
 	}
 
