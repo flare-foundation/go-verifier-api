@@ -44,20 +44,20 @@ func PMWPaymentStatusHandler(api huma.API, attestationType connector.Attestation
 		if err != nil {
 			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("source name encoding failed: %v", err))
 		}
-		if request.AttestationType != verifierAttestationNameEnc || request.SourceID != verifierSourceNameEnc {
+		if request.Body.AttestationType != verifierAttestationNameEnc || request.Body.SourceID != verifierSourceNameEnc {
 			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf(
 				"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s).",
-				request.AttestationType, request.SourceID,
+				request.Body.AttestationType, request.Body.SourceID,
 				string(attestationType), verifierAttestationNameEnc,
 				sourceID, verifierSourceNameEnc,
 			))
 		}
 
-		status, res, err := verifier.Verify(ctx, request.RequestBody)
+		status, res, err := verifier.Verify(ctx, request.Body.RequestBody)
 		response := &attestationtypes.AttestationResponsePMWPaymentStatus{
-			AttestationType: request.AttestationType,
-			SourceID:        request.SourceID,
-			RequestBody:     request.RequestBody,
+			AttestationType: request.Body.AttestationType,
+			SourceID:        request.Body.SourceID,
+			RequestBody:     request.Body.RequestBody,
 			ResponseBody:    res,
 		}
 

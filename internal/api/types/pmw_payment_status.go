@@ -1,9 +1,11 @@
 package attestationtypes
 
 type AttestationRequestPMWPaymentStatus struct {
-	AttestationType string                       `json:"attestationType" example:"0x4a736f6e41706900000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-	SourceID        string                       `json:"sourceId" example:"0x4a736f6e41706900000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-	RequestBody     IPMWPaymentStatusRequestBody `json:"requestBody" validate:"required"`
+	Body struct {
+		AttestationType string                       `json:"attestationType" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000" validate:"required,hash32"`
+		SourceID        string                       `json:"sourceId" example:"0x7872700000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+		RequestBody     IPMWPaymentStatusRequestBody `json:"requestBody" validate:"required"`
+	}
 }
 
 type AttestationResponsePMWPaymentStatus struct {
@@ -19,9 +21,9 @@ type FullAttestationResponsePMWPaymentStatus struct {
 
 // copied from connector.IPMWPaymentStatusRequestBody
 type IPMWPaymentStatusRequestBody struct {
-	WalletId string `json:"walletId" validate:"required,hash32"`
-	Nonce    uint64 `json:"nonce" validate:"required"`
-	SubNonce uint64 `json:"subNonce" validate:"required"`
+	WalletId string `json:"walletId" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	Nonce    uint64 `json:"nonce" validate:"required" example:"1"`
+	SubNonce uint64 `json:"subNonce" validate:"required" example:"1"`
 }
 
 // copied from connector.IPMWPaymentStatusResponseBody

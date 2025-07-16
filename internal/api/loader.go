@@ -19,14 +19,14 @@ func LoadModule(api huma.API, attType connector.AttestationType) error {
 	case connector.PMWPaymentStatus:
 		service, err := paymentservice.NewPaymentService()
 		if err != nil {
-			return fmt.Errorf("failed to initialize payment service: %w", err)
+			return fmt.Errorf("%v", err)
 		}
 		verifier := service.GetVerifier()
 		PMWPaymentStatusHandler(api, connector.PMWPaymentStatus, verifier, service.GetConfig().SourceID)
 	case connector.AvailabilityCheck:
 		cfg, err := config.GetTeeAvailabilityCheckConfig()
 		if err != nil {
-			return fmt.Errorf("failed to initialize tee config: %w", err)
+			return fmt.Errorf("%v", err)
 		}
 		verifier, err := teeavailabilitycheck.GetVerifier(cfg)
 		if err != nil {
