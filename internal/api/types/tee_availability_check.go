@@ -8,19 +8,23 @@ import (
 )
 
 type AttestationRequestTeeAvailabilityCheck struct {
-	AttestationType string                           `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
-	SourceID        string                           `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-	RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody" validate:"required"`
+	Body struct {
+		AttestationType string                           `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
+		SourceID        string                           `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+		RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody" validate:"required"`
+	}
 }
 
 type FullAttestationResponseTeeAvailabilityCheck struct {
-	AttestationStatus string `json:"attestationStatus"`
-	Response          struct {
-		AttestationType string                            `json:"attestationType"`
-		SourceID        string                            `json:"sourceId"`
-		RequestBody     ITeeAvailabilityCheckRequestBody  `json:"requestBody"`
-		ResponseBody    ITeeAvailabilityCheckResponseBody `json:"responseBody"`
-	} `json:"response"`
+	Body struct {
+		AttestationStatus string `json:"attestationStatus"`
+		Response          struct {
+			AttestationType string                            `json:"attestationType"`
+			SourceID        string                            `json:"sourceId"`
+			RequestBody     ITeeAvailabilityCheckRequestBody  `json:"requestBody"`
+			ResponseBody    ITeeAvailabilityCheckResponseBody `json:"responseBody"`
+		} `json:"response"`
+	}
 }
 
 // copied from connector.ITeeAvailabilityCheckRequestBody
