@@ -15,16 +15,15 @@ type AttestationRequestTeeAvailabilityCheck struct {
 	}
 }
 
+type AttestationResponseTeeAvailabilityCheck struct {
+	AttestationType string                            `json:"attestationType"`
+	SourceID        string                            `json:"sourceId"`
+	RequestBody     ITeeAvailabilityCheckRequestBody  `json:"requestBody"`
+	ResponseBody    ITeeAvailabilityCheckResponseBody `json:"responseBody"`
+}
 type FullAttestationResponseTeeAvailabilityCheck struct {
-	Body struct {
-		AttestationStatus string `json:"attestationStatus"`
-		Response          struct {
-			AttestationType string                            `json:"attestationType"`
-			SourceID        string                            `json:"sourceId"`
-			RequestBody     ITeeAvailabilityCheckRequestBody  `json:"requestBody"`
-			ResponseBody    ITeeAvailabilityCheckResponseBody `json:"responseBody"`
-		} `json:"response"`
-	}
+	AttestationStatus string                                   `json:"attestationStatus"`
+	Response          *AttestationResponseTeeAvailabilityCheck `json:"response"`
 }
 
 // copied from connector.ITeeAvailabilityCheckRequestBody

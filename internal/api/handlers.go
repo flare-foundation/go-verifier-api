@@ -1,53 +1,115 @@
 package api
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/gin-gonic/gin"
-	paymentservice "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status"
-	teeavailabilitycheck "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
-	"gitlab.com/urskak/verifier-api/internal/config"
+	"github.com/go-playground/validator/v10"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
+	attestationutils "gitlab.com/urskak/verifier-api/internal/api/utils"
+	"gitlab.com/urskak/verifier-api/internal/api/validation"
+	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 )
 
-// @Summary Verify PMW Payment Status
-// @Description Verifies PMW payment status attestation
-// @Tags PMWPaymentStatus
-// @Security ApiKeyAuth
-// @Accept json
-// @Produce json
-// @Param request body attestationtypes.AttestationRequestPMWPaymentStatus true "Attestation Request"
-// @Success 200 {object} attestationtypes.FullAttestationResponsePMWPaymentStatus
-// @Router /PMWPaymentStatus/verify [post]
-func PMWPaymentStatusHandler(c *gin.Context) {
-	service, err := paymentservice.NewPaymentService()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize service"})
-		return
-	}
-	verifier := service.GetVerifier()
-	genericVerifyHandler(c, verifier, connector.PMWPaymentStatus, service.GetConfig().SourceID)
+var validate *validator.Validate
+
+func init() {
+	validate = validator.New()
+	validate.RegisterValidation("hash32", validation.IsHash32)
+	validate.RegisterValidation("eth_addr", validation.IsCommonAddress)
 }
 
-// @Summary Verify TEE Availability Check
-// @Description Verifies TEE availability check attestation
-// @Tags TEEAvailabilityCheck
-// @Security ApiKeyAuth
-// @Accept json
-// @Produce json
-// @Param request body attestationtypes.AttestationRequestTeeAvailabilityCheck true "Attestation Request"
-// @Success 200 {object} attestationtypes.FullAttestationResponseTeeAvailabilityCheck
-// @Router /TeeAvailabilityCheck/verify [post]
-func TeeAvailabilityCheckHandler(c *gin.Context) {
-	cfg, err := config.GetTeeAvailabilityCheckConfig()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load config"})
-		return
-	}
-	verifier, err := teeavailabilitycheck.GetVerifier(cfg)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize verifier"})
-		return
-	}
-	genericVerifyHandler(c, verifier, connector.AvailabilityCheck, cfg.SourceID)
+func PMWPaymentStatusHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[attestationtypes.IPMWPaymentStatusRequestBody, attestationtypes.IPMWPaymentStatusResponseBody], sourceID string) {
+
+	huma.Register(api, huma.Operation{
+		OperationID:   fmt.Sprintf("postVerify_%s", attestationType),
+		Summary:       fmt.Sprintf("Attestation for %s", attestationType),
+		Method:        http.MethodPost,
+		Path:          fmt.Sprintf("/%s/verify", attestationType),
+		Tags:          []string{string(attestationType)},
+		DefaultStatus: http.StatusOK,
+	}, func(ctx context.Context, request *attestationtypes.AttestationRequestPMWPaymentStatus) (*attestationtypes.FullAttestationResponsePMWPaymentStatus, error) {
+		fmt.Println(request)
+		if err := validate.Struct(request); err != nil {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
+		}
+		verifierAttestationNameEnc, err := attestationutils.EncodeAttestationOrSourceName(string(attestationType))
+		if err != nil {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("attestation type name encoding failed: %v", err))
+		}
+		verifierSourceNameEnc, err := attestationutils.EncodeAttestationOrSourceName(sourceID)
+		if err != nil {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("source name encoding failed: %v", err))
+		}
+		if request.AttestationType != verifierAttestationNameEnc || request.SourceID != verifierSourceNameEnc {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf(
+				"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s).",
+				request.AttestationType, request.SourceID,
+				string(attestationType), verifierAttestationNameEnc,
+				sourceID, verifierSourceNameEnc,
+			))
+		}
+
+		status, res, err := verifier.Verify(ctx, request.RequestBody)
+		response := &attestationtypes.AttestationResponsePMWPaymentStatus{
+			AttestationType: request.AttestationType,
+			SourceID:        request.SourceID,
+			RequestBody:     request.RequestBody,
+			ResponseBody:    res,
+		}
+
+		return &attestationtypes.FullAttestationResponsePMWPaymentStatus{
+			AttestationStatus: string(status),
+			Response:          response,
+		}, err // TODO separate error and none error - check underlying code
+	})
+}
+
+func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[attestationtypes.ITeeAvailabilityCheckRequestBody, attestationtypes.ITeeAvailabilityCheckResponseBody], sourceID string) {
+
+	huma.Register(api, huma.Operation{
+		OperationID:   fmt.Sprintf("postVerify_%s", attestationType),
+		Summary:       fmt.Sprintf("Attestation for %s", attestationType),
+		Method:        http.MethodPost,
+		Path:          fmt.Sprintf("/%s/verify", attestationType),
+		Tags:          []string{string(attestationType)},
+		DefaultStatus: http.StatusOK,
+	}, func(ctx context.Context, request *attestationtypes.AttestationRequestTeeAvailabilityCheck) (*attestationtypes.FullAttestationResponseTeeAvailabilityCheck, error) {
+		fmt.Println(request)
+		if err := validate.Struct(request); err != nil {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
+		}
+		verifierAttestationNameEnc, err := attestationutils.EncodeAttestationOrSourceName(string(attestationType))
+		if err != nil {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("attestation type name encoding failed: %v", err))
+		}
+		verifierSourceNameEnc, err := attestationutils.EncodeAttestationOrSourceName(sourceID)
+		if err != nil {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("source name encoding failed: %v", err))
+		}
+		if request.Body.AttestationType != verifierAttestationNameEnc || request.Body.SourceID != verifierSourceNameEnc {
+			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf(
+				"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s).",
+				request.Body.AttestationType, request.Body.SourceID,
+				string(attestationType), verifierAttestationNameEnc,
+				sourceID, verifierSourceNameEnc,
+			))
+		}
+
+		status, res, err := verifier.Verify(ctx, request.Body.RequestBody)
+		response := &attestationtypes.AttestationResponseTeeAvailabilityCheck{
+			AttestationType: request.Body.AttestationType,
+			SourceID:        request.Body.SourceID,
+			RequestBody:     request.Body.RequestBody,
+			ResponseBody:    res,
+		}
+
+		return &attestationtypes.FullAttestationResponseTeeAvailabilityCheck{
+			AttestationStatus: string(status),
+			Response:          response,
+		}, err // TODO separate error and none error - check underlying code
+	})
 }

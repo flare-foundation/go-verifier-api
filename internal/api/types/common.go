@@ -1,23 +1,5 @@
 package attestationtypes
 
-type AttestationRequest[T any] struct {
-	AttestationType string `json:"attestationType"`
-	SourceID        string `json:"sourceId"`
-	RequestBody     T      `json:"requestBody"`
-}
-
-type AttestationResponse[Req any, Res any] struct {
-	AttestationType string `json:"attestationType"`
-	SourceID        string `json:"sourceId"`
-	RequestBody     Req    `json:"requestBody"`
-	ResponseBody    Res    `json:"responseBody"`
-}
-
-type FullAttestationResponse[Req any, Res any] struct {
-	AttestationStatus AttestationResponseStatus     `json:"attestationStatus"`
-	Response          AttestationResponse[Req, Res] `json:"response,omitempty"`
-}
-
 type SourceName string
 
 const (

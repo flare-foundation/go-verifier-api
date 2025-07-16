@@ -11,10 +11,7 @@ import (
 	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
 )
 
-const (
-	sampleInterval = 1 * time.Minute
-	fetchTimeout   = 5 * time.Second
-)
+const SampleInterval = 1 * time.Minute
 
 func SampleAllTees(teeVerifier *verifier.TeeVerifier) {
 	activeTees, err := getActiveTees(teeVerifier)

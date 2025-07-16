@@ -6,14 +6,15 @@ type AttestationRequestPMWPaymentStatus struct {
 	RequestBody     IPMWPaymentStatusRequestBody `json:"requestBody" validate:"required"`
 }
 
+type AttestationResponsePMWPaymentStatus struct {
+	AttestationType string                        `json:"attestationType"`
+	SourceID        string                        `json:"sourceId"`
+	RequestBody     IPMWPaymentStatusRequestBody  `json:"requestBody"`
+	ResponseBody    IPMWPaymentStatusResponseBody `json:"responseBody"`
+}
 type FullAttestationResponsePMWPaymentStatus struct {
-	AttestationStatus string `json:"attestationStatus"`
-	Response          struct {
-		AttestationType string                        `json:"attestationType"`
-		SourceID        string                        `json:"sourceId"`
-		RequestBody     IPMWPaymentStatusRequestBody  `json:"requestBody"`
-		ResponseBody    IPMWPaymentStatusResponseBody `json:"responseBody"`
-	} `json:"response"`
+	AttestationStatus string                               `json:"attestationStatus"`
+	Response          *AttestationResponsePMWPaymentStatus `json:"response"`
 }
 
 // copied from connector.IPMWPaymentStatusRequestBody
