@@ -50,15 +50,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/attestationtypes.FullAttestationResponsePMWPaymentStatus"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
                     }
                 }
             }

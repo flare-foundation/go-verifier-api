@@ -159,12 +159,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/attestationtypes.FullAttestationResponsePMWPaymentStatus'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
       security:
       - ApiKeyAuth: []
       summary: Verify PMW Payment Status
