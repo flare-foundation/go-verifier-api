@@ -15,17 +15,15 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
 
 - [ ] /info response from TEE proxy needs to be defined
 - [ ] data to include in eat_nonce needs to be defined
-- [ ] should new status MISMATCH be added
-- [ ] challenge between tee and proxy need to be defined for /info
-- [ ] missing logic to prove /info has fresh data
+- [x] should new status MISMATCH be added
+- [x] challenge between tee and proxy need to be defined for /info
+- [x] missing logic to prove /info has fresh data
 
 ## PMWPaymentStatus
 
 - [ ] check GetTransactionStatus if still suffices
 - [ ] check GetReceivedAmount if deleted node does not spend money
 - [ ] check parseRawTransactionData - should we validate required fields before further processing
-- [ ]
-- [ ]
 
 ## How to run
 1. Fill in the `.env` file
@@ -34,7 +32,7 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
 
     ```env
     VERIFIER_TYPE=TeeAvailabilityCheck       # or PMWPaymentStatus
-    SOURCE_ID=xrp                            # Up to 32 characters, e.g., 'xrp' or 'tee'
+    SOURCE_ID=tee                            # Up to 32 characters, e.g., 'xrp' or 'tee'
     PORT=3120
     ```
     For `TeeAvailabilityCheck`, set:
@@ -65,14 +63,6 @@ Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormu
     ```
     localhost:3120/swagger/index.html
     ```
-
-## Swaggo
-When the API changes, `swag init` must be run to update the Swagger documentation.
-Navigate to `internal/api` and run 
-```bash
-swag init -g handlers.go
-```
-to regenerate the Swagger docs.
 
 <!-- ## Tools (experimental)
 
