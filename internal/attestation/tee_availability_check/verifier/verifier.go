@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeregistry"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
+	types "gitlab.com/urskak/verifier-api/internal/api/type"
 	teeavailabilitycheckconfig "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/config"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 )
@@ -32,11 +32,11 @@ type TeeVerifier struct {
 	client            *ethclient.Client
 	TeeRegistryCaller *teeregistry.TeeRegistryCaller
 	RelayCaller       *relay.RelayCaller
-	TeeSamples        map[string][]bool
+	TeeSamples        map[common.Address][]bool
 	SamplesToConsider int
 }
 
-func NewVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[attestationtypes.ITeeAvailabilityCheckRequestBody, attestationtypes.ITeeAvailabilityCheckResponseBody], error) {
+func NewVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum node: %w", err)
@@ -53,64 +53,64 @@ func NewVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (ve
 	return &TeeVerifier{cfg: cfg, client: client, TeeRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
-func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[attestationtypes.ITeeAvailabilityCheckRequestBody, attestationtypes.ITeeAvailabilityCheckResponseBody], error) {
+func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
 	return NewVerifier(cfg)
 }
 
-func (v *TeeVerifier) Verify(ctx context.Context, req attestationtypes.ITeeAvailabilityCheckRequestBody) (attestationtypes.ITeeAvailabilityCheckResponseBody, error) {
+func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityRequestData) (types.TeeAvailabilityResponseData, error) {
 	// Build challenge instruction id
 	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	if err != nil {
 		// return attestationtypes.TEE_DATA_NOT_AVAILABLE, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
-		return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		return types.TeeAvailabilityResponseData{}, err
 	}
 	// Fetch from tee proxy
 	response, err := v.fetchTEEAvailabilityResult(ctx, req.Url, challengeInstructionId)
 	if err != nil {
 		valid, err := v.isTeeInfoValid(req.TeeId)
 		if err != nil { // Not enough data has been polled
-			// return attestationtypes.INSUFFICIENT_POLLING_DATA, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
-			return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+			// return attestationtypes.INSUFFICIENT_POLLING_DATA, types.TeeAvailabilityResponseData{}, err
+			return types.TeeAvailabilityResponseData{}, err
 		}
 		if !valid { // No response in the last 5 minutes
-			var responseBody attestationtypes.ITeeAvailabilityCheckResponseBody
-			responseBody.Status = uint8(attestationtypes.DOWN)
-			responseBody.CodeHash = ""
-			responseBody.Platform = ""
-			responseBody.MachineStatus = uint8(attestationtypes.INDETERMINATE)
+			var responseBody types.TeeAvailabilityResponseData
+			responseBody.Status = uint8(types.DOWN)
+			responseBody.CodeHash = [32]byte{}
+			responseBody.Platform = [32]byte{}
+			responseBody.MachineStatus = uint8(types.INDETERMINATE)
 			responseBody.TeeTimestamp = 0
-			responseBody.InitialTeeId = ""
-			responseBody.RewardEpochId = ""
+			responseBody.InitialTeeId = common.Address{}
+			responseBody.RewardEpochId = &big.Int{}
 
 			// return attestationtypes.VALID, responseBody, nil
 			return responseBody, nil
 		}
 		// There are valid responses from /info
-		// return attestationtypes.TEE_DATA_NOT_AVAILABLE, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
-		return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		// return attestationtypes.TEE_DATA_NOT_AVAILABLE, types.TeeAvailabilityResponseData{}, err
+		return types.TeeAvailabilityResponseData{}, err
 	}
 
 	statusInfo, err := v.dataVerification(response)
 	infoData := response.Data
 	if err != nil {
-		// return attestationStatus, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
-		return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		// return attestationStatus, types.TeeAvailabilityResponseData{}, err
+		return types.TeeAvailabilityResponseData{}, err
 	}
 
-	var responseBody attestationtypes.ITeeAvailabilityCheckResponseBody
+	var responseBody types.TeeAvailabilityResponseData
 	responseBody.Status = uint8(statusInfo.Status)
 	responseBody.CodeHash = statusInfo.CodeHash
 	responseBody.Platform = statusInfo.Platform
 	responseBody.MachineStatus = uint8(infoData.Status)
 	responseBody.TeeTimestamp = infoData.TeeTimestamp
-	responseBody.InitialTeeId = infoData.InitialTeeId.String()
-	responseBody.RewardEpochId = infoData.LastSigningPolicyId.String()
+	responseBody.InitialTeeId = infoData.InitialTeeId
+	responseBody.RewardEpochId = infoData.LastSigningPolicyId
 
 	// return attestationStatus, responseBody, nil
 	return responseBody, nil
 }
 
-func (v *TeeVerifier) dataVerification(response attestationtypes.ProxyInfoResponseBody) (StatusInfo, error) {
+func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
 	attestationToken := response.AttestationInfo.Attestation
 	infoData := response.Data
 	// Certificate checks
@@ -146,7 +146,7 @@ func (v *TeeVerifier) dataVerification(response attestationtypes.ProxyInfoRespon
 	return statusInfo, nil
 }
 
-func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL, challengeInstructionId string) (attestationtypes.ProxyInfoResponseBody, error) {
+func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL, challengeInstructionId string) (types.ProxyInfoResponseBody, error) {
 	return v.fetchTEEData(ctx, baseURL, fmt.Sprintf("/action/result/%s", challengeInstructionId))
 }
 
@@ -169,40 +169,35 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 	return true, nil
 }
 
-func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (attestationtypes.ProxyInfoResponseBody, error) {
+func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (types.ProxyInfoResponseBody, error) {
 	url := fmt.Sprintf("%s%s", baseURL, path)
 	client := &http.Client{
 		Timeout: fetchTimeout,
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return attestationtypes.ProxyInfoResponseBody{}, fmt.Errorf("creating HTTP request failed: %w", err)
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("creating HTTP request failed: %w", err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return attestationtypes.ProxyInfoResponseBody{}, fmt.Errorf("error making request to tee: %w", err)
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("error making request to tee: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return attestationtypes.ProxyInfoResponseBody{}, fmt.Errorf("tee returned non-200 status: %d", resp.StatusCode)
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("tee returned non-200 status: %d", resp.StatusCode)
 	}
-	var result attestationtypes.ProxyInfoResponseBody
+	var result types.ProxyInfoResponseBody
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return attestationtypes.ProxyInfoResponseBody{}, fmt.Errorf("error decoding tee response: %w", err)
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("error decoding tee response: %w", err)
 	}
 	return result, nil
 }
 
-func (v *TeeVerifier) generateChallengeInstructionId(teeId string, challenge string) (string, error) {
-	address := common.HexToAddress(teeId)
-	challengeInt, ok := new(big.Int).SetString(challenge, 10)
-	if !ok {
-		return "", fmt.Errorf("invalid uint256 format")
-	}
+func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge *big.Int) (string, error) {
 	reg := common.BytesToHash([]byte(regOperationType))
 	teeAttestation := common.BytesToHash([]byte(attestationType))
-	teeIdHash := common.BytesToHash(address.Bytes())
-	challengeHash := common.BytesToHash(challengeInt.Bytes())
+	teeIdHash := common.BytesToHash(teeId.Bytes())
+	challengeHash := common.BytesToHash(challenge.Bytes())
 	challengeInstructionId := crypto.Keccak256(reg[:], teeAttestation[:], teeIdHash[:], challengeHash[:])
 	return hex.EncodeToString(challengeInstructionId), nil
 }
@@ -233,7 +228,7 @@ func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash string) 
 	return false, nil
 }
 
-func (v *TeeVerifier) isTeeInfoValid(teeId string) (bool, error) {
+func (v *TeeVerifier) isTeeInfoValid(teeId common.Address) (bool, error) {
 	samples := v.TeeSamples[teeId]
 	if len(samples) < v.SamplesToConsider {
 		return false, fmt.Errorf("not enough data for tee %s (%d samples: %+v)", teeId, len(samples), samples)

@@ -3,7 +3,7 @@ package paymentservice
 import (
 	"fmt"
 
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
 	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
 	pmwpaymentstatusverifier "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/verifier"
 	"gitlab.com/urskak/verifier-api/internal/config"

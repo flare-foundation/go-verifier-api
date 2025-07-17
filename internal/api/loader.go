@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"gitlab.com/urskak/verifier-api/internal/api/handler"
 	paymentservice "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status"
 	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/polling"
 	teeavailabilitycheck "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
@@ -22,7 +24,7 @@ func LoadModule(api huma.API, attType connector.AttestationType) error {
 			return fmt.Errorf("%v", err)
 		}
 		verifier := service.GetVerifier()
-		PMWPaymentStatusHandler(api, connector.PMWPaymentStatus, verifier, service.GetConfig().SourceID)
+		handler.PMWPaymentStatusHandler(api, connector.PMWPaymentStatus, verifier, service.GetConfig().SourceID)
 	case connector.AvailabilityCheck:
 		cfg, err := config.GetTeeAvailabilityCheckConfig()
 		if err != nil {
@@ -32,13 +34,13 @@ func LoadModule(api huma.API, attType connector.AttestationType) error {
 		if err != nil {
 			return fmt.Errorf("failed to initialize tee verifier: %w", err)
 		}
-		TeeAvailabilityCheckHandler(api, connector.AvailabilityCheck, verifier, cfg.SourceID)
+		handler.TeeAvailabilityCheckHandler(api, connector.AvailabilityCheck, verifier, cfg.SourceID)
 		// Start polling
 		teeVerifier, ok := verifier.(*teeavailabilitycheck.TeeVerifier)
 		if !ok {
 			log.Fatalf("Unexpected type for verifier instance")
 		}
-		teeVerifier.TeeSamples = make(map[string][]bool)
+		teeVerifier.TeeSamples = make(map[common.Address][]bool)
 		go func() {
 			ticker := time.NewTicker(polling.SampleInterval)
 			defer ticker.Stop()

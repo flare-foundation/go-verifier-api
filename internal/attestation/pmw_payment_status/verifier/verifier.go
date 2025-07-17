@@ -3,7 +3,7 @@ package verifier
 import (
 	"fmt"
 
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
 	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 	"gorm.io/gorm"

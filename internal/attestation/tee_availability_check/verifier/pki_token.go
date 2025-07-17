@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -14,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang-jwt/jwt/v4"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
 )
 
 // Taken from https://cloud.google.com/confidential-computing/confidential-space/docs/connect-external-resources#pki-attestation-tokens
@@ -247,8 +248,8 @@ type Container struct {
 }
 
 type StatusInfo struct {
-	CodeHash string
-	Platform string
+	CodeHash [32]byte
+	Platform [32]byte
 	Status   attestationtypes.AvailabilityCheckStatus
 }
 
@@ -256,7 +257,7 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 	var statusInfo StatusInfo
 	if !token.Valid {
 		// return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", token)
-		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", token)
+		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
 	claims, ok := token.Claims.(*GoogleTeeClaims)
 	if !ok {
@@ -297,8 +298,15 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 	} else {
 		statusInfo.Status = attestationtypes.OK
 	}
-	statusInfo.CodeHash = strings.TrimPrefix(claims.SubModules.Container.ImageDigest, "sha256:")
-	statusInfo.Platform = strings.TrimPrefix(claims.HWModel, "sha256:")
+	var err error
+	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubModules.Container.ImageDigest, "sha256:"))
+	if err != nil {
+		return StatusInfo{}, err
+	}
+	statusInfo.Platform, err = hexStringToBytes32(strings.TrimPrefix(claims.HWModel, "sha256:"))
+	if err != nil {
+		return StatusInfo{}, err
+	}
 
 	// return attestationtypes.VALID, statusInfo, nil
 	return statusInfo, nil
@@ -316,4 +324,17 @@ func LoadRootCert() (*x509.Certificate, error) {
 	}
 
 	return cert, nil
+}
+
+func hexStringToBytes32(hexStr string) ([32]byte, error) {
+	var b32 [32]byte
+	b, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return b32, fmt.Errorf("invalid hex string: %w", err)
+	}
+	if len(b) != 32 {
+		return b32, fmt.Errorf("expected 32 bytes but got %d bytes", len(b))
+	}
+	copy(b32[:], b)
+	return b32, nil
 }

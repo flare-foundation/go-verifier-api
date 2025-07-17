@@ -6,10 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
 )
 
-func abiArgumentsForRequestBody() (abi.Arguments, error) {
+func abiArgumentsForRequestData() (abi.Arguments, error) {
 	addressType, err := abi.NewType("address", "", nil)
 	if err != nil {
 		return nil, err
@@ -30,52 +30,44 @@ func abiArgumentsForRequestBody() (abi.Arguments, error) {
 	}, nil
 }
 
-func AbiEncodeRequestBody(body attestationtypes.ITeeAvailabilityCheckRequestBody) ([]byte, error) {
-	arguments, err := abiArgumentsForRequestBody()
+func AbiEncodeRequestBody(body attestationtypes.TeeAvailabilityRequestData) ([]byte, error) {
+	arguments, err := abiArgumentsForRequestData()
 	if err != nil {
 		return nil, err
 	}
-
-	addr := common.HexToAddress(body.TeeId)
-
-	challengeInt := new(big.Int)
-	if _, ok := challengeInt.SetString(body.Challenge, 10); !ok {
-		return nil, fmt.Errorf("invalid numeric challenge string: %s", body.Challenge)
-	}
-
-	return arguments.Pack(addr, body.Url, challengeInt)
+	return arguments.Pack(body.TeeId, body.Url, body.Challenge)
 }
 
-func AbiDecodeRequestBody(data []byte) (attestationtypes.ITeeAvailabilityCheckRequestBody, error) {
-	arguments, err := abiArgumentsForRequestBody()
+func AbiDecodeRequestData(data []byte) (attestationtypes.TeeAvailabilityRequestData, error) {
+	arguments, err := abiArgumentsForRequestData()
 	if err != nil {
-		return attestationtypes.ITeeAvailabilityCheckRequestBody{}, err
+		return attestationtypes.TeeAvailabilityRequestData{}, err
 	}
 
 	values, err := arguments.Unpack(data)
 	if err != nil {
-		return attestationtypes.ITeeAvailabilityCheckRequestBody{}, err
+		return attestationtypes.TeeAvailabilityRequestData{}, err
 	}
 	if len(values) != 3 {
-		return attestationtypes.ITeeAvailabilityCheckRequestBody{}, fmt.Errorf("unexpected argument count: got %d", len(values))
+		return attestationtypes.TeeAvailabilityRequestData{}, fmt.Errorf("unexpected argument count: got %d", len(values))
 	}
 
 	addr, ok := values[0].(common.Address)
 	if !ok {
-		return attestationtypes.ITeeAvailabilityCheckRequestBody{}, fmt.Errorf("expected address, got %T", values[0])
+		return attestationtypes.TeeAvailabilityRequestData{}, fmt.Errorf("expected address, got %T", values[0])
 	}
 	url, ok := values[1].(string)
 	if !ok {
-		return attestationtypes.ITeeAvailabilityCheckRequestBody{}, fmt.Errorf("expected string, got %T", values[1])
+		return attestationtypes.TeeAvailabilityRequestData{}, fmt.Errorf("expected string, got %T", values[1])
 	}
 	challenge, ok := values[2].(*big.Int)
 	if !ok {
-		return attestationtypes.ITeeAvailabilityCheckRequestBody{}, fmt.Errorf("expected *big.Int, got %T", values[2])
+		return attestationtypes.TeeAvailabilityRequestData{}, fmt.Errorf("expected *big.Int, got %T", values[2])
 	}
 
-	return attestationtypes.ITeeAvailabilityCheckRequestBody{
-		TeeId:     addr.Hex(),
+	return attestationtypes.TeeAvailabilityRequestData{
+		TeeId:     addr,
 		Url:       url,
-		Challenge: challenge.String(),
+		Challenge: challenge,
 	}, nil
 }

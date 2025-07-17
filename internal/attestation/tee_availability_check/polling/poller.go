@@ -22,9 +22,9 @@ func SampleAllTees(teeVerifier *verifier.TeeVerifier) {
 		proxyUrl := activeTees.Urls[i]
 		valid, _ := queryTeeInfoAndValidate(teeVerifier, proxyUrl) // TODO how to consider error? should it be undetermined of simply false
 		// Sliding window
-		teeVerifier.TeeSamples[teeId.String()] = append(teeVerifier.TeeSamples[teeId.String()], valid)
-		if len(teeVerifier.TeeSamples[teeId.String()]) > teeVerifier.SamplesToConsider {
-			teeVerifier.TeeSamples[teeId.String()] = teeVerifier.TeeSamples[teeId.String()][1:]
+		teeVerifier.TeeSamples[teeId] = append(teeVerifier.TeeSamples[teeId], valid)
+		if len(teeVerifier.TeeSamples[teeId]) > teeVerifier.SamplesToConsider {
+			teeVerifier.TeeSamples[teeId] = teeVerifier.TeeSamples[teeId][1:]
 		}
 
 	}

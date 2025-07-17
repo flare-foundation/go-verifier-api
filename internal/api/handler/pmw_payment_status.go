@@ -1,0 +1,12 @@
+package handler
+
+import (
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	types "gitlab.com/urskak/verifier-api/internal/api/type"
+	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
+)
+
+func PMWPaymentStatusHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.IPMWPaymentStatusRequestBody, types.IPMWPaymentStatusResponseBody], sourceID string) {
+	huma.Error501NotImplemented("PMW payment status not implemented yet")
+}
