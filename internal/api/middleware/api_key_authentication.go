@@ -2,25 +2,28 @@ package middleware
 
 import (
 	"net/http"
-	"os"
 
-	"github.com/gin-gonic/gin"
+	"github.com/danielgtaylor/huma/v2"
 )
 
-func ApiKeyAuthMiddleware() gin.HandlerFunc {
-	expectedAPIKey := os.Getenv("API_KEY")
-	if expectedAPIKey == "" {
-		panic("API_KEY is not set in environment")
-	}
-
-	return func(c *gin.Context) {
-		providedAPIKey := c.GetHeader("X-API-KEY")
-		if providedAPIKey != expectedAPIKey {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid or missing API key",
-			})
+func APIKeyAuthMiddleware(apiKeys []string) func(ctx huma.Context, next func(huma.Context)) { // TODO return also body
+	return func(ctx huma.Context, next func(huma.Context)) {
+		apiKey := ctx.Header("X-API-KEY")
+		if apiKey == "" {
+			ctx.SetStatus(http.StatusUnauthorized)
 			return
 		}
-		c.Next()
+		found := false
+		for _, key := range apiKeys {
+			if apiKey == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ctx.SetStatus(http.StatusUnauthorized)
+			return
+		}
+		next(ctx)
 	}
 }

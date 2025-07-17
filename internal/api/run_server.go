@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/danielgtaylor/huma/v2/adapters/humago"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
+	"gitlab.com/urskak/verifier-api/internal/api/middleware"
+	types "gitlab.com/urskak/verifier-api/internal/api/type"
 )
 
 func RunServer() {
@@ -30,9 +33,52 @@ func RunServer() {
 	if err != nil {
 		logger.Fatalf("Invalid SOURCE_ID in .env: %v", err)
 	}
+	apiKeys, err := getAPIKeys()
+	if err != nil {
+		logger.Fatalf("%v", err)
+	}
 
-	router := http.NewServeMux()
-	api := humago.New(router, huma.DefaultConfig("FTDC Verifier API", "1.0"))
+	router := chi.NewRouter()
+	config := huma.DefaultConfig("FTDC Verifier API", "1.0")
+	config.DocsPath = ""
+	config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"ApiKeyAuth": {
+			Type: "apiKey",
+			In:   "header",
+			Name: "X-API-KEY",
+		},
+	}
+	config.Security = []map[string][]string{
+		{"ApiKeyAuth": {}},
+	}
+	api := humachi.New(router, config)
+	api.UseMiddleware(middleware.APIKeyAuthMiddleware(apiKeys))
+
+	router.Get("/api-doc", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<!DOCTYPE html>
+			<html lang="en">
+			<head>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1" />
+			<meta name="description" content="SwaggerUI" />
+			<title>SwaggerUI</title>
+			<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+			</head>
+			<body>
+			<div id="swagger-ui"></div>
+			<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
+			<script>
+			window.onload = () => {
+				window.ui = SwaggerUIBundle({
+				url: '/openapi.json',
+				dom_id: '#swagger-ui',
+				});
+			};
+			</script>
+			</body>
+			</html>`))
+	})
 
 	err = LoadModule(api, verifierType)
 	if err != nil {
@@ -57,7 +103,7 @@ var attestationTypes = []connector.AttestationType{
 	connector.PMWPaymentStatus,
 }
 
-func parseSourceId(value string) (attestationtypes.SourceName, error) {
+func parseSourceId(value string) (types.SourceName, error) {
 	for _, at := range sourceIds {
 		if string(at) == value {
 			return at, nil
@@ -66,7 +112,29 @@ func parseSourceId(value string) (attestationtypes.SourceName, error) {
 	return "", fmt.Errorf("invalid attestation type: %s", value)
 }
 
-var sourceIds = []attestationtypes.SourceName{
-	attestationtypes.SourceTEE,
-	attestationtypes.SourceXRP,
+var sourceIds = []types.SourceName{
+	types.SourceTEE,
+	types.SourceXRP,
+}
+
+func getAPIKeys() ([]string, error) {
+	raw := os.Getenv("API_KEYS")
+	if strings.TrimSpace(raw) == "" {
+		return nil, fmt.Errorf("API_KEYS must be set")
+	}
+
+	// Split, trim, and filter
+	var apiKeys []string
+	for _, key := range strings.Split(raw, ",") {
+		trimmed := strings.TrimSpace(key)
+		if trimmed != "" {
+			apiKeys = append(apiKeys, trimmed)
+		}
+	}
+
+	if len(apiKeys) == 0 {
+		return nil, fmt.Errorf("API_KEYS contains only empty values")
+	}
+
+	return apiKeys, nil
 }

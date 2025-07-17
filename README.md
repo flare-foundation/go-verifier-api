@@ -2,7 +2,10 @@
 
 This is the start repo to introduce FTDC attestation types.
 
-Docs: https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0
+Docs: 
+- https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0
+- https://huma.rocks/
+- https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma
 
 ## On the top level:
 - [x] Add in readme "How to run" (but more like write about local requirements)

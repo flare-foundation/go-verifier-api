@@ -206,11 +206,11 @@ func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId *big
 	callOpts := &bind.CallOpts{
 		Context: context.Background(),
 	}
-	lastSigningPolicyHash, err := v.RelayCaller.ToSigningPolicyHash(callOpts, lastSigningPolicyId)
+	lastSigningPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, lastSigningPolicyId)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to call ToSigningPolicyHash: %w", err)
 	}
-	return lastSigningPolicyHash, nil
+	return common.Hash(lastSigningPolicyHashBytes), nil
 }
 
 func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash string) (bool, error) {
