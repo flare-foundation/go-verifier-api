@@ -34,3 +34,7 @@ const (
 type EncodedRequestBody struct {
 	EncodedRequestBody string `json:"encodedRequestBody" example:"0x0000abcd..."`
 }
+
+type EncodedResponseBody struct {
+	EncodedResponseBody string `json:"encodedResponseBody" example:"0x0000abcd..."`
+}

@@ -3,10 +3,9 @@ package attestationutils
 import (
 	"encoding/hex"
 	"fmt"
-	"net/http"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/types"
 )
 
 /**
@@ -40,22 +39,20 @@ var attestationTypes = []connector.AttestationType{
 	connector.PMWPaymentStatus,
 }
 
-func ValidateSystemAndRequestAttestationNameAndSourceId(systemAttestationType connector.AttestationType, systemSourceId string, requestAttestationName string, requestSourceId string) error {
-	verifierAttestationNameEnc, err := EncodeAttestationOrSourceName(string(systemAttestationType))
-	if err != nil {
-		return huma.NewError(http.StatusBadRequest, fmt.Sprintf("attestation type name encoding failed: %v", err))
+var sourceIds = []attestationtypes.SourceName{
+	attestationtypes.SourceTEE,
+	attestationtypes.SourceXRP,
+}
+
+func ParseSourceId(value string) (attestationtypes.SourceName, error) {
+	for _, at := range sourceIds {
+		if string(at) == value {
+			return at, nil
+		}
 	}
-	verifierSourceNameEnc, err := EncodeAttestationOrSourceName(systemSourceId)
-	if err != nil {
-		return huma.NewError(http.StatusBadRequest, fmt.Sprintf("source name encoding failed: %v", err))
-	}
-	if requestAttestationName != verifierAttestationNameEnc || string(requestSourceId) != verifierSourceNameEnc {
-		return huma.NewError(http.StatusBadRequest, fmt.Sprintf(
-			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s).",
-			requestAttestationName, requestSourceId,
-			string(systemAttestationType), verifierAttestationNameEnc,
-			systemSourceId, verifierSourceNameEnc,
-		))
-	}
-	return nil
+	return "", fmt.Errorf("invalid attestation type: %s", value)
+}
+
+func HexWith0x(data []byte) string {
+	return "0x" + hex.EncodeToString(data)
 }

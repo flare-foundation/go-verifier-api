@@ -8,29 +8,23 @@ import (
 )
 
 type IFtdcHubFtdcRequestHeaderTeeAvailabilityCheckEncoded struct {
-	Body struct {
-		AttestationType string `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
-		SourceId        string `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-		RequestBody     []byte `json:"requestBody"`
-	}
+	AttestationType string `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
+	SourceId        string `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+	RequestBody     string `json:"requestBody" example:"0x0000abcd..."`
 }
 
 type IFtdcHubFtdcRequestHeaderTeeAvailabilityCheck struct {
-	Body struct {
-		AttestationType string                           `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
-		SourceId        string                           `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-		RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody"`
-	}
+	AttestationType string                           `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
+	SourceId        string                           `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+	RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody"`
 }
 
-// copied from connector.ITeeAvailabilityCheckRequestBody
 type ITeeAvailabilityCheckRequestBody struct {
 	TeeId     string `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
 	Url       string `json:"url" validate:"required,url" example:"https://supertee.proxy"`
 	Challenge string `json:"challenge"  validate:"required,numeric" example:"12345678901234567890"`
 }
 
-// copied from connector.ITeeAvailabilityCheckResponseBody
 type ITeeAvailabilityCheckResponseBody struct {
 	Status        uint8
 	MachineStatus uint8

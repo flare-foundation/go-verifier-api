@@ -7,7 +7,6 @@ require (
 	github.com/ethereum/go-ethereum v1.16.1
 	github.com/flare-foundation/go-flare-common v1.2.0
 	github.com/gin-gonic/gin v1.10.1
-	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/joho/godotenv v1.5.1
