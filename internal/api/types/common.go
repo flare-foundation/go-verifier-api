@@ -30,3 +30,7 @@ const (
 	LAST_SIGNING_POLICY_MISMATCH   AttestationResponseStatus = "LAST SIGNING POLICY MISMATCH"
 	INVALID_CHALLENGE_FORMAT       AttestationResponseStatus = "INVALID CHALLENGE FORMAT"
 )
+
+type EncodedRequestBody struct {
+	EncodedRequestBody string `json:"encodedRequestBody" example:"0x0000abcd..."`
+}

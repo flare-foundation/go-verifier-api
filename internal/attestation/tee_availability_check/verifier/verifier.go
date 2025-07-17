@@ -57,18 +57,20 @@ func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (ve
 	return NewVerifier(cfg)
 }
 
-func (v *TeeVerifier) Verify(ctx context.Context, req attestationtypes.ITeeAvailabilityCheckRequestBody) (attestationtypes.AttestationResponseStatus, attestationtypes.ITeeAvailabilityCheckResponseBody, error) {
+func (v *TeeVerifier) Verify(ctx context.Context, req attestationtypes.ITeeAvailabilityCheckRequestBody) (attestationtypes.ITeeAvailabilityCheckResponseBody, error) {
 	// Build challenge instruction id
 	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	if err != nil {
-		return attestationtypes.TEE_DATA_NOT_AVAILABLE, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		// return attestationtypes.TEE_DATA_NOT_AVAILABLE, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
 	}
 	// Fetch from tee proxy
 	response, err := v.fetchTEEAvailabilityResult(ctx, req.Url, challengeInstructionId)
 	if err != nil {
 		valid, err := v.isTeeInfoValid(req.TeeId)
 		if err != nil { // Not enough data has been polled
-			return attestationtypes.INSUFFICIENT_POLLING_DATA, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+			// return attestationtypes.INSUFFICIENT_POLLING_DATA, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+			return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
 		}
 		if !valid { // No response in the last 5 minutes
 			var responseBody attestationtypes.ITeeAvailabilityCheckResponseBody
@@ -80,16 +82,19 @@ func (v *TeeVerifier) Verify(ctx context.Context, req attestationtypes.ITeeAvail
 			responseBody.InitialTeeId = ""
 			responseBody.RewardEpochId = ""
 
-			return attestationtypes.VALID, responseBody, nil
+			// return attestationtypes.VALID, responseBody, nil
+			return responseBody, nil
 		}
 		// There are valid responses from /info
-		return attestationtypes.TEE_DATA_NOT_AVAILABLE, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		// return attestationtypes.TEE_DATA_NOT_AVAILABLE, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
 	}
 
-	attestationStatus, statusInfo, err := v.dataVerification(response)
+	statusInfo, err := v.dataVerification(response)
 	infoData := response.Data
 	if err != nil {
-		return attestationStatus, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		// return attestationStatus, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
+		return attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
 	}
 
 	var responseBody attestationtypes.ITeeAvailabilityCheckResponseBody
@@ -101,36 +106,44 @@ func (v *TeeVerifier) Verify(ctx context.Context, req attestationtypes.ITeeAvail
 	responseBody.InitialTeeId = infoData.InitialTeeId.String()
 	responseBody.RewardEpochId = infoData.LastSigningPolicyId.String()
 
-	return attestationStatus, responseBody, nil
+	// return attestationStatus, responseBody, nil
+	return responseBody, nil
 }
 
-func (v *TeeVerifier) dataVerification(response attestationtypes.ProxyInfoResponseBody) (attestationtypes.AttestationResponseStatus, StatusInfo, error) {
+func (v *TeeVerifier) dataVerification(response attestationtypes.ProxyInfoResponseBody) (StatusInfo, error) {
 	attestationToken := response.AttestationInfo.Attestation
 	infoData := response.Data
 	// Certificate checks
 	cert, err := LoadRootCert()
 	if err != nil {
-		return attestationtypes.CANNOT_LOAD_ROOT_CERTIFICATE, StatusInfo{}, fmt.Errorf("failed to load root cert: %w", err)
+		// return attestationtypes.CANNOT_LOAD_ROOT_CERTIFICATE, StatusInfo{}, fmt.Errorf("failed to load root cert: %w", err)
+		return StatusInfo{}, fmt.Errorf("failed to load root cert: %w", err)
 	}
 	token, err := ValidatePKIToken(cert, attestationToken)
 	if err != nil {
-		return attestationtypes.CERTIFICATE_CHECK_FAILED, StatusInfo{}, fmt.Errorf("failed to validate PKI token: %w", err)
+		// return attestationtypes.CERTIFICATE_CHECK_FAILED, StatusInfo{}, fmt.Errorf("failed to validate PKI token: %w", err)
+		return StatusInfo{}, fmt.Errorf("failed to validate PKI token: %w", err)
 	}
 	if !token.Valid {
-		return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", attestationToken)
+		// return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", attestationToken)
+		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", attestationToken)
 	}
 	lastSigningPolicyHash, err := v.getLastSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
 	if err != nil {
-		return attestationtypes.CANNOT_FETCH_LAST_SIGNING_POLICY, StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
+		// return attestationtypes.CANNOT_FETCH_LAST_SIGNING_POLICY, StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
+		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
 	}
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
-		return attestationtypes.LAST_SIGNING_POLICY_MISMATCH, StatusInfo{}, fmt.Errorf("failed to validate last signing policy hash")
+		// return attestationtypes.LAST_SIGNING_POLICY_MISMATCH, StatusInfo{}, fmt.Errorf("failed to validate last signing policy hash")
+		return StatusInfo{}, fmt.Errorf("failed to validate last signing policy hash")
 	}
-	attestationStatus, statusInfo, err := ValidateClaims(token, infoData)
+	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
-		return attestationStatus, StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+		// return attestationStatus, StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+		return StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}
-	return attestationStatus, statusInfo, nil
+	// return attestationStatus, statusInfo, nil
+	return statusInfo, nil
 }
 
 func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL, challengeInstructionId string) (attestationtypes.ProxyInfoResponseBody, error) {
@@ -149,7 +162,7 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 	if !checkInfoChallenge {
 		return false, nil
 	}
-	_, _, err = v.dataVerification(infoResponse)
+	_, err = v.dataVerification(infoResponse)
 	if err != nil {
 		return false, err
 	}

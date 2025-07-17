@@ -29,39 +29,46 @@ type chainQuery struct {
 	Nonce         uint64
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req attestationtypes.IPMWPaymentStatusRequestBody) (attestationtypes.AttestationResponseStatus, attestationtypes.IPMWPaymentStatusResponseBody, error) {
+func (x *XRPVerifier) Verify(ctx context.Context, req attestationtypes.IPMWPaymentStatusRequestBody) (attestationtypes.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
 	sourceEnv := x.config.SourceID
 	instructionId := GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
 	// Query event
 	chainLog, err := x.fetchInstructionLog(ctx, x.cChainDb, instructionId)
 	if err != nil {
-		return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Decode event data
 	paymentMessage, err := DecodeTeeInstructionsSentEventData(chainLog)
 	if err != nil {
-		return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
 	dbTransaction, err := x.getTransactionBySourceAndSequence(ctx, x.db, chainQuery{paymentMessage.SenderAddress, req.Nonce})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
+			// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
+			return attestationtypes.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
 		}
-		return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Parse transaction response JSON into structured data
 	rawTransactionData, err := x.parseRawTransactionData(dbTransaction.Response)
 	if err != nil {
-		return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Validate transaction and build response
 	resp, err := x.buildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
-		return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
+		return attestationtypes.IPMWPaymentStatusResponseBody{}, err
 	}
-	return attestationtypes.VALID, resp, nil
+	// return attestationtypes.VALID, resp, nil
+	return resp, nil
 }
 
 func (x *XRPVerifier) fetchInstructionLog(ctx context.Context, db *gorm.DB, instructionId string) (*types.Log, error) {

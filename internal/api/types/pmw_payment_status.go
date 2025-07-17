@@ -1,22 +1,11 @@
 package attestationtypes
 
-type AttestationRequestPMWPaymentStatus struct {
+type IFtdcHubFtdcRequestHeaderPMWPaymentStatus struct {
 	Body struct {
-		AttestationType string                       `json:"attestationType" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000" validate:"required,hash32"`
-		SourceID        string                       `json:"sourceId" example:"0x7872700000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-		RequestBody     IPMWPaymentStatusRequestBody `json:"requestBody" validate:"required"`
+		AttestationType string `json:"attestationType" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000" validate:"required,hash32"`
+		SourceId        string `json:"sourceId" example:"0x7872700000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+		RequestBody     []byte
 	}
-}
-
-type AttestationResponsePMWPaymentStatus struct {
-	AttestationType string                        `json:"attestationType"`
-	SourceID        string                        `json:"sourceId"`
-	RequestBody     IPMWPaymentStatusRequestBody  `json:"requestBody"`
-	ResponseBody    IPMWPaymentStatusResponseBody `json:"responseBody"`
-}
-type FullAttestationResponsePMWPaymentStatus struct {
-	AttestationStatus string                               `json:"attestationStatus"`
-	Response          *AttestationResponsePMWPaymentStatus `json:"response"`
 }
 
 // copied from connector.IPMWPaymentStatusRequestBody

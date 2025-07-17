@@ -7,23 +7,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type AttestationRequestTeeAvailabilityCheck struct {
+type IFtdcHubFtdcRequestHeaderTeeAvailabilityCheckEncoded struct {
 	Body struct {
-		AttestationType string                           `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
-		SourceID        string                           `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-		RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody" validate:"required"`
+		AttestationType string `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
+		SourceId        string `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+		RequestBody     []byte `json:"requestBody"`
 	}
 }
 
-type AttestationResponseTeeAvailabilityCheck struct {
-	AttestationType string                            `json:"attestationType"`
-	SourceID        string                            `json:"sourceId"`
-	RequestBody     ITeeAvailabilityCheckRequestBody  `json:"requestBody"`
-	ResponseBody    ITeeAvailabilityCheckResponseBody `json:"responseBody"`
-}
-type FullAttestationResponseTeeAvailabilityCheck struct {
-	AttestationStatus string                                   `json:"attestationStatus"`
-	Response          *AttestationResponseTeeAvailabilityCheck `json:"response"`
+type IFtdcHubFtdcRequestHeaderTeeAvailabilityCheck struct {
+	Body struct {
+		AttestationType string                           `json:"attestationType" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000" validate:"required,hash32"`
+		SourceId        string                           `json:"sourceId" example:"0x7465650000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
+		RequestBody     ITeeAvailabilityCheckRequestBody `json:"requestBody"`
+	}
 }
 
 // copied from connector.ITeeAvailabilityCheckRequestBody

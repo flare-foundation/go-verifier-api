@@ -252,31 +252,37 @@ type StatusInfo struct {
 	Status   attestationtypes.AvailabilityCheckStatus
 }
 
-func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (attestationtypes.AttestationResponseStatus, StatusInfo, error) {
+func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (StatusInfo, error) {
 	var statusInfo StatusInfo
 	if !token.Valid {
-		return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", token)
+		// return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", token)
+		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", token)
 	}
 	claims, ok := token.Claims.(*GoogleTeeClaims)
 	if !ok {
-		return attestationtypes.CANNOT_PARSE_CLAIMS, StatusInfo{}, errors.New("cannot parse claims")
+		// return attestationtypes.CANNOT_PARSE_CLAIMS, StatusInfo{}, errors.New("cannot parse claims")
+		return StatusInfo{}, errors.New("cannot parse claims")
 	}
 	// TODO validate eat_nonce with data from tee proxy using infoData
 	teeId := crypto.PubkeyToAddress(infoData.PublicKey)
 	if len(claims.EATNonce) == 0 {
-		return attestationtypes.EAT_NONCE_MISSING, StatusInfo{}, errors.New("EATNonce is missing")
+		// return attestationtypes.EAT_NONCE_MISSING, StatusInfo{}, errors.New("EATNonce is missing")
+		return StatusInfo{}, errors.New("EATNonce is missing")
 	}
 	eatNonce := crypto.Keccak256([]byte(infoData.Challenge), teeId[:], crypto.Keccak256([]byte{byte(infoData.Status)}), infoData.InitialSigningPolicyHash[:], infoData.LastSigningPolicyHash[:])
 	if claims.EATNonce[0] != common.Bytes2Hex(eatNonce) {
-		return attestationtypes.EAT_NONCE_MISMATCH, StatusInfo{}, errors.New("EATNonce does not match")
+		// return attestationtypes.EAT_NONCE_MISMATCH, StatusInfo{}, errors.New("EATNonce does not match")
+		return StatusInfo{}, errors.New("EATNonce does not match")
 	}
 	// Check if running in production
 	if claims.DebugStatus != "disabled-since-boot" {
-		return attestationtypes.NOT_IN_PRODUCTION_MODE, StatusInfo{}, errors.New("not in production mode")
+		// return attestationtypes.NOT_IN_PRODUCTION_MODE, StatusInfo{}, errors.New("not in production mode")
+		return StatusInfo{}, errors.New("not in production mode")
 	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
-		return attestationtypes.NOT_RUNNING_CONFIDENTIAL_SPACE, StatusInfo{}, errors.New("not running CONFIDENTIAL_SPACE")
+		// return attestationtypes.NOT_RUNNING_CONFIDENTIAL_SPACE, StatusInfo{}, errors.New("not running CONFIDENTIAL_SPACE")
+		return StatusInfo{}, errors.New("not running CONFIDENTIAL_SPACE")
 	}
 	// Check Confidential Space image version
 	foundIsStable := false
@@ -294,7 +300,8 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (a
 	statusInfo.CodeHash = strings.TrimPrefix(claims.SubModules.Container.ImageDigest, "sha256:")
 	statusInfo.Platform = strings.TrimPrefix(claims.HWModel, "sha256:")
 
-	return attestationtypes.VALID, statusInfo, nil
+	// return attestationtypes.VALID, statusInfo, nil
+	return statusInfo, nil
 }
 
 func LoadRootCert() (*x509.Certificate, error) {
