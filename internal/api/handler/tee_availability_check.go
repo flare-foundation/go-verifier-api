@@ -15,6 +15,7 @@ import (
 )
 
 func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], sourceID string) {
+	// prepare RequestBody
 	huma.Post(api, fmt.Sprintf("/%s/%s", attestationType, "prepareRequestBody"), func(ctx context.Context, request *struct {
 		Body types.TeeAvailabilityRequest
 	}) (*types.Response[types.EncodedRequestBody], error) {
@@ -24,19 +25,19 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.AttestationType, request.Body.SourceId); err != nil {
 			return nil, err
 		}
-		internalBody, err := request.Body.RequestBody.ToInternal()
+		requestData, err := request.Body.RequestBody.ToInternal()
 		if err != nil {
 			return nil, huma.Error400BadRequest(fmt.Sprintf("conversion failed: %v", err))
 		}
-		res, err := teecrypto.AbiEncodeRequestBody(internalBody)
+		requestDataBytes, err := teecrypto.AbiEncodeRequestData(requestData)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding request body failed: %v", err))
 		}
 		return types.NewResponse(types.EncodedRequestBody{
-			EncodedRequestBody: HexWith0x(res),
+			EncodedRequestBody: HexWith0x(requestDataBytes),
 		}), nil
 	})
-
+	// prepare ResponseBody
 	huma.Post(api, fmt.Sprintf("/%s/%s", attestationType, "prepareResponseBody"), func(ctx context.Context, request *struct {
 		Body types.TeeAvailabilityRequest
 	}) (*types.Response[types.EncodedResponseBody], error) {
@@ -50,7 +51,7 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		// TODO prepare encoded and decoded response body
 		return nil, huma.Error501NotImplemented("TeeAvailabilityChecky - prepareResponseBody")
 	})
-
+	// verify
 	huma.Post(api, fmt.Sprintf("/%s/%s", attestationType, "verify"), func(ctx context.Context, request *struct {
 		Body types.TeeAvailabilityEncodedRequest
 	}) (*types.Response[types.EncodedResponseBody], error) {
@@ -67,15 +68,18 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		}
 		requestData, err := teecrypto.AbiDecodeRequestData(requestBodyBytes)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("decoding if request body failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("decoding request body failed: %v", err))
 		}
-		_, err = verifier.Verify(ctx, requestData)
+		responseData, err := verifier.Verify(ctx, requestData)
 		if err != nil {
 			return nil, huma.NewError(http.StatusBadRequest, fmt.Sprintf("verification failed: %v", err))
 		}
-		// responseDataBytes, err := teecrypto.AbiEncodeRequestBody(responseData)
-		//TODO - encode actual response
-		response := types.EncodedResponseBody{EncodedResponseBody: HexWith0x([]byte{})}
-		return types.NewResponse(response), nil
+		responseDataBytes, err := teecrypto.AbiEncodeResponseData(responseData)
+		if err != nil {
+			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding response body failed: %v", err))
+		}
+		return types.NewResponse(types.EncodedResponseBody{
+			EncodedResponseBody: HexWith0x(responseDataBytes),
+		}), nil
 	})
 }
