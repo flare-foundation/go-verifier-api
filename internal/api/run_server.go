@@ -85,7 +85,7 @@ func RunServer() {
 		logger.Fatalf("%v", err)
 	}
 
-	fmt.Printf("Starting server on :%s...", port)
+	fmt.Printf("Starting server on :%s...\n", port)
 	logger.Fatal(http.ListenAndServe(":"+port, router))
 }
 
