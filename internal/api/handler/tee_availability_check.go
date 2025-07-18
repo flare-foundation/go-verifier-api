@@ -57,7 +57,7 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		}
 		responseData, err := verifier.Verify(ctx, requestData)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("verification failed: %v", err))
+			return nil, err
 		}
 		responseBody := responseData.FromInternal()
 

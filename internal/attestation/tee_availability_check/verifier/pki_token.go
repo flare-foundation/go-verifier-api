@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang-jwt/jwt/v4"
@@ -31,11 +32,11 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 
 	jwtHeaders, err := ExtractJWTHeaders(attestationToken)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("ExtractJWTHeaders(token) returned error: %v", err)
+		return jwt.Token{}, huma.Error400BadRequest("Cannot extract JWTHeaders(token) returned error: %v", err)
 	}
 
 	if jwtHeaders["alg"] != "RS256" {
-		return jwt.Token{}, fmt.Errorf("ValidatePKIToken(string, *attestpb.Attestation, *v1mainpb.VerifyAttestationRequest) - got Alg: %v, want: %v", jwtHeaders["alg"], "RS256")
+		return jwt.Token{}, huma.Error400BadRequest(fmt.Sprintf("Cannot validate PKI TOKEN - got Alg: %v, want: %v", jwtHeaders["alg"], "RS256"), nil)
 	}
 
 	// Additional Check: Validate the ALG in the header matches the certificate SPKI.
@@ -45,17 +46,17 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	x5cHeaders := jwtHeaders["x5c"].([]any)
 	certificates, err := ExtractCertificatesFromX5CHeader(x5cHeaders)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("ExtractCertificatesFromX5CHeader(x5cHeaders) returned error: %v", err)
+		return jwt.Token{}, huma.Error400BadRequest("Cannot ExtractCertificatesFromX5CHeader", err)
 	}
 
 	// Verify the leaf certificate signature algorithm is an RSA key
 	if certificates.LeafCert.SignatureAlgorithm != x509.SHA256WithRSA {
-		return jwt.Token{}, fmt.Errorf("leaf certificate signature algorithm is not SHA256WithRSA")
+		return jwt.Token{}, huma.Error400BadRequest("leaf certificate signature algorithm is not SHA256WithRSA", err)
 	}
 
 	// Verify the leaf certificate public key algorithm is RSA
 	if certificates.LeafCert.PublicKeyAlgorithm != x509.RSA {
-		return jwt.Token{}, fmt.Errorf("leaf certificate public key algorithm is not RSA")
+		return jwt.Token{}, huma.Error400BadRequest("leaf certificate public key algorithm is not RSA", err)
 	}
 
 	// Verify the storedRootCertificate is the same as the root certificate returned in the token.
@@ -63,12 +64,12 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	// https://confidentialcomputing.googleapis.com/.well-known/attestation-pki-root
 	err = CompareCertificates(storedRootCertificate, certificates.RootCert)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("failed to verify certificate chain: %v", err)
+		return jwt.Token{}, huma.Error400BadRequest("failed to verify certificate chain: %v", err)
 	}
 
 	err = VerifyCertificateChain(certificates)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("VerifyCertificateChain(string, *attestpb.Attestation, *v1mainpb.VerifyAttestationRequest) - error verifying x5c chain: %v", err)
+		return jwt.Token{}, huma.Error400BadRequest("verification certificate chain failed: %v", err)
 	}
 
 	keyFunc := func(token *jwt.Token) (any, error) {
@@ -76,7 +77,7 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	}
 
 	verifiedJWT, err := jwt.Parse(attestationToken, keyFunc)
-	return *verifiedJWT, err
+	return *verifiedJWT, huma.Error400BadRequest("jwt.Parse error: %v", err)
 }
 
 // ExtractJWTHeaders parses the JWT and returns the headers.
@@ -256,33 +257,27 @@ type StatusInfo struct {
 func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (StatusInfo, error) {
 	var statusInfo StatusInfo
 	if !token.Valid {
-		// return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", token)
 		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
 	claims, ok := token.Claims.(*GoogleTeeClaims)
 	if !ok {
-		// return attestationtypes.CANNOT_PARSE_CLAIMS, StatusInfo{}, errors.New("cannot parse claims")
 		return StatusInfo{}, errors.New("cannot parse claims")
 	}
 	// TODO validate eat_nonce with data from tee proxy using infoData
 	teeId := crypto.PubkeyToAddress(infoData.PublicKey)
 	if len(claims.EATNonce) == 0 {
-		// return attestationtypes.EAT_NONCE_MISSING, StatusInfo{}, errors.New("EATNonce is missing")
 		return StatusInfo{}, errors.New("EATNonce is missing")
 	}
 	eatNonce := crypto.Keccak256([]byte(infoData.Challenge), teeId[:], crypto.Keccak256([]byte{byte(infoData.Status)}), infoData.InitialSigningPolicyHash[:], infoData.LastSigningPolicyHash[:])
 	if claims.EATNonce[0] != common.Bytes2Hex(eatNonce) {
-		// return attestationtypes.EAT_NONCE_MISMATCH, StatusInfo{}, errors.New("EATNonce does not match")
 		return StatusInfo{}, errors.New("EATNonce does not match")
 	}
 	// Check if running in production
 	if claims.DebugStatus != "disabled-since-boot" {
-		// return attestationtypes.NOT_IN_PRODUCTION_MODE, StatusInfo{}, errors.New("not in production mode")
 		return StatusInfo{}, errors.New("not in production mode")
 	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
-		// return attestationtypes.NOT_RUNNING_CONFIDENTIAL_SPACE, StatusInfo{}, errors.New("not running CONFIDENTIAL_SPACE")
 		return StatusInfo{}, errors.New("not running CONFIDENTIAL_SPACE")
 	}
 	// Check Confidential Space image version
@@ -308,7 +303,6 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 		return StatusInfo{}, err
 	}
 
-	// return attestationtypes.VALID, statusInfo, nil
 	return statusInfo, nil
 }
 

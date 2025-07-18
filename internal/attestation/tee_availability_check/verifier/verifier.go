@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -59,18 +60,13 @@ func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (ve
 
 func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityRequestData) (types.TeeAvailabilityResponseData, error) {
 	// Build challenge instruction id
-	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
-	if err != nil {
-		// return attestationtypes.TEE_DATA_NOT_AVAILABLE, attestationtypes.ITeeAvailabilityCheckResponseBody{}, err
-		return types.TeeAvailabilityResponseData{}, err
-	}
+	challengeInstructionId := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	// Fetch from tee proxy
 	response, err := v.fetchTEEAvailabilityResult(ctx, req.Url, challengeInstructionId)
 	if err != nil {
-		valid, err := v.isTeeInfoValid(req.TeeId)
-		if err != nil { // Not enough data has been polled
-			// return attestationtypes.INSUFFICIENT_POLLING_DATA, types.TeeAvailabilityResponseData{}, err
-			return types.TeeAvailabilityResponseData{}, err
+		valid, infoErr := v.isTeeInfoValid(req.TeeId)
+		if infoErr != nil { // Not enough data has been polled
+			return types.TeeAvailabilityResponseData{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Insufficient polling data %v", infoErr))
 		}
 		if !valid { // No response in the last 5 minutes
 			var responseBody types.TeeAvailabilityResponseData
@@ -82,14 +78,12 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 			responseBody.InitialTeeId = common.Address{}
 			responseBody.RewardEpochId = &big.Int{}
 
-			// return attestationtypes.VALID, responseBody, nil
 			return responseBody, nil
 		}
-		// There are valid responses from /info
-		// return attestationtypes.TEE_DATA_NOT_AVAILABLE, types.TeeAvailabilityResponseData{}, err
-		return types.TeeAvailabilityResponseData{}, err
+		// There are valid responses from /info, but no response on /action/result/<challengeInstructionId>
+		return types.TeeAvailabilityResponseData{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Tee %s data not available %v", req.TeeId, err))
 	}
-
+	//TODO - continue
 	statusInfo, err := v.dataVerification(response)
 	infoData := response.Data
 	if err != nil {
@@ -116,33 +110,26 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	// Certificate checks
 	cert, err := LoadRootCert()
 	if err != nil {
-		// return attestationtypes.CANNOT_LOAD_ROOT_CERTIFICATE, StatusInfo{}, fmt.Errorf("failed to load root cert: %w", err)
-		return StatusInfo{}, fmt.Errorf("failed to load root cert: %w", err)
+		return StatusInfo{}, huma.Error500InternalServerError("failed to load root cert: %w", err)
 	}
 	token, err := ValidatePKIToken(cert, attestationToken)
 	if err != nil {
-		// return attestationtypes.CERTIFICATE_CHECK_FAILED, StatusInfo{}, fmt.Errorf("failed to validate PKI token: %w", err)
-		return StatusInfo{}, fmt.Errorf("failed to validate PKI token: %w", err)
+		return StatusInfo{}, err
 	}
 	if !token.Valid {
-		// return attestationtypes.CERTIFICATE_INVALID, StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", attestationToken)
-		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %s", attestationToken)
+		return StatusInfo{}, huma.Error400BadRequest(fmt.Sprintf("attestation token is invalid: %s", attestationToken))
 	}
 	lastSigningPolicyHash, err := v.getLastSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
 	if err != nil {
-		// return attestationtypes.CANNOT_FETCH_LAST_SIGNING_POLICY, StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
-		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
+		return StatusInfo{}, huma.Error503ServiceUnavailable("failed to retrieve last signing policy hash: %w", err)
 	}
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
-		// return attestationtypes.LAST_SIGNING_POLICY_MISMATCH, StatusInfo{}, fmt.Errorf("failed to validate last signing policy hash")
-		return StatusInfo{}, fmt.Errorf("failed to validate last signing policy hash")
+		return StatusInfo{}, huma.Error400BadRequest("failed to validate last signing policy hash")
 	}
 	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
-		// return attestationStatus, StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
-		return StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+		return StatusInfo{}, huma.Error400BadRequest("failed to validate claims: %w", err)
 	}
-	// return attestationStatus, statusInfo, nil
 	return statusInfo, nil
 }
 
@@ -176,30 +163,30 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("creating HTTP request failed: %w", err)
+		return types.ProxyInfoResponseBody{}, huma.Error500InternalServerError(fmt.Sprintf("fetchTEEData: creating HTTP request failed: %v", err))
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("error making request to tee: %w", err)
+		return types.ProxyInfoResponseBody{}, huma.Error503ServiceUnavailable(fmt.Sprintf("fetchTEEData: error making request to tee: %v", err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("tee returned non-200 status: %d", resp.StatusCode)
+		return types.ProxyInfoResponseBody{}, huma.Error503ServiceUnavailable(fmt.Sprintf("fetchTEEData: teeProxy %s returned non-200 status: %d", baseURL, resp.StatusCode))
 	}
-	var result types.ProxyInfoResponseBody
+	var result types.ProxyInfoResponseBody //TODO -> do it with ToInternal()
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("error decoding tee response: %w", err)
+		return types.ProxyInfoResponseBody{}, huma.Error400BadRequest("error decoding tee response: %w", err)
 	}
 	return result, nil
 }
 
-func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge *big.Int) (string, error) {
+func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge *big.Int) string {
 	reg := common.BytesToHash([]byte(regOperationType))
 	teeAttestation := common.BytesToHash([]byte(attestationType))
 	teeIdHash := common.BytesToHash(teeId.Bytes())
 	challengeHash := common.BytesToHash(challenge.Bytes())
 	challengeInstructionId := crypto.Keccak256(reg[:], teeAttestation[:], teeIdHash[:], challengeHash[:])
-	return hex.EncodeToString(challengeInstructionId), nil
+	return hex.EncodeToString(challengeInstructionId)
 }
 
 func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId *big.Int) (common.Hash, error) {
