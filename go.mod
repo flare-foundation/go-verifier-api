@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/ethereum/go-ethereum v1.16.1
-	github.com/flare-foundation/go-flare-common v1.2.0
+	github.com/flare-foundation/go-flare-common v1.2.1-0.20250718113110-52b2596639eb
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
@@ -14,8 +14,6 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.0
 )
-
-replace github.com/flare-foundation/go-flare-common => ../go-flare-common
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
