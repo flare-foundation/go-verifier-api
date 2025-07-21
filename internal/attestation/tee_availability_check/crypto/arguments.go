@@ -32,7 +32,7 @@ func AbiArgumentsForResponseData() (abi.Arguments, error) {
 	if err != nil {
 		return nil, err
 	}
-	uint24Type, err := abi.NewType("uint24", "", nil)
+	uint32Type, err := abi.NewType("uint32", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +46,8 @@ func AbiArgumentsForResponseData() (abi.Arguments, error) {
 		{Type: uint64Type},  //teeTimestamp
 		{Type: bytes32Type}, //codeHash
 		{Type: bytes32Type}, //platform
-		{Type: uint24Type},  //lastSigningPolicyId
-		{Type: uint24Type},  //initialSigningPolicyId
+		{Type: uint32Type},  //lastSigningPolicyId
+		{Type: uint32Type},  //initialSigningPolicyId
 		{Type: bytes32Type}, //stateHash
 	}, nil
 }

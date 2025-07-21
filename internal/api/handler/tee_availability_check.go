@@ -15,7 +15,7 @@ import (
 
 func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], sourceID string) {
 	// prepare RequestBody
-	huma.Post(api, fmt.Sprintf("/%s/%s", attestationType, "prepareRequestBody"), func(ctx context.Context, request *struct {
+	huma.Post(api, fmt.Sprintf("/%s/prepareRequestBody", attestationType), func(ctx context.Context, request *struct {
 		Body types.TeeAvailabilityRequest
 	}) (*types.Response[types.EncodedRequestBody], error) {
 		if err := ValidateRequest(request); err != nil {
@@ -37,7 +37,7 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		}), nil
 	})
 	// prepare ResponseBody
-	huma.Post(api, fmt.Sprintf("/%s/%s", attestationType, "prepareResponseBody"), func(ctx context.Context, request *struct {
+	huma.Post(api, fmt.Sprintf("/%s/prepareResponseBody", attestationType), func(ctx context.Context, request *struct {
 		Body types.TeeAvailabilityEncodedRequest
 	}) (*types.Response[types.RawAndEncodedResponseBody], error) {
 		if err := ValidateRequest(request); err != nil {
@@ -59,19 +59,19 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		if err != nil {
 			return nil, err
 		}
-		responseBody := responseData.FromInternal()
+		// responseBody := responseData.FromInternal()
 
 		responseDataBytes, err := teecrypto.AbiEncodeResponseData(responseData)
 		if err != nil {
 			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding response body failed: %v", err))
 		}
 		return types.NewResponse(types.RawAndEncodedResponseBody{
-			ResponseBody:        responseBody,
+			ResponseBody:        responseData,
 			EncodedResponseBody: HexWith0x(responseDataBytes),
 		}), nil
 	})
 	// verify
-	huma.Post(api, fmt.Sprintf("/%s/%s", attestationType, "verify"), func(ctx context.Context, request *struct {
+	huma.Post(api, fmt.Sprintf("/%s/verify", attestationType), func(ctx context.Context, request *struct {
 		Body types.TeeAvailabilityEncodedRequest
 	}) (*types.Response[types.EncodedResponseBody], error) {
 		if err := ValidateRequest(request); err != nil {

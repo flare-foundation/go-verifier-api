@@ -73,11 +73,11 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 			var responseBody types.TeeAvailabilityResponseData
 			responseBody.Status = uint8(types.DOWN)
 			responseBody.TeeTimestamp = 0
-			responseBody.CodeHash = [32]byte{}
-			responseBody.Platform = [32]byte{}
-			responseBody.InitialSigningPolicyId = big.NewInt(0)
-			responseBody.LastSigningPolicyId = big.NewInt(0)
-			responseBody.StateHash = [32]byte{}
+			responseBody.CodeHash = common.Hash{}
+			responseBody.Platform = common.Hash{}
+			responseBody.InitialSigningPolicyId = uint32(0)
+			responseBody.LastSigningPolicyId = uint32(0)
+			responseBody.StateHash = common.Hash{}
 
 			return responseBody, nil
 		}
@@ -88,7 +88,6 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 	statusInfo, err := v.dataVerification(response)
 	infoData := response.TeeInfo
 	if err != nil {
-		// return attestationStatus, types.TeeAvailabilityResponseData{}, err
 		return types.TeeAvailabilityResponseData{}, err
 	}
 
@@ -105,7 +104,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 }
 
 func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
-	attestationToken := response.AttestationInfo.Attestation
+	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks
 	cert, err := LoadRootCert()
@@ -194,19 +193,20 @@ func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, chall
 	return challengeInstructionId
 }
 
-func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId *big.Int) (common.Hash, error) {
+func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId uint32) (common.Hash, error) {
 	callOpts := &bind.CallOpts{
 		Context: context.Background(),
 	}
-	lastSigningPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, lastSigningPolicyId)
+	lastSigningPolicyIdBigInt := new(big.Int).SetUint64(uint64(lastSigningPolicyId))
+	lastSigningPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, lastSigningPolicyIdBigInt)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to call ToSigningPolicyHash: %w", err)
 	}
 	return common.Hash(lastSigningPolicyHashBytes), nil
 }
 
-func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash string) (bool, error) {
-	block, err := v.ethClient.BlockByHash(ctx, common.HexToHash(blockHash))
+func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.Hash) (bool, error) {
+	block, err := v.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return false, fmt.Errorf("failed to get block: %w", err)
 	}

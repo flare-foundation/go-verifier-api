@@ -2,11 +2,12 @@ package attestationtypes
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type TeeAvailabilityEncodedRequest struct {
@@ -48,40 +49,18 @@ func (requestBody TeeAvailabilityRequestBody) ToInternal() (TeeAvailabilityReque
 	}, nil
 }
 
-type TeeAvailabilityResponseBody struct {
-	Status                 uint8    `json:"status"`
-	TeeTimestamp           uint64   `json:"teeTimestamp"`
-	CodeHash               string   `json:"codeHash"`
-	Platform               string   `json:"platform"`
-	InitialSigningPolicyId *big.Int `json:"initialSigningPolicyId"` // TODO for type
-	LastSigningPolicyId    *big.Int `json:"lastSigningPolicyId"`    // TODO for type
-	StateHash              [32]byte `json:"stateHash"`              // TODO for type
-}
-
 type TeeAvailabilityResponseData struct {
-	Status                 uint8
-	TeeTimestamp           uint64
-	CodeHash               [32]byte
-	Platform               [32]byte
-	InitialSigningPolicyId *big.Int
-	LastSigningPolicyId    *big.Int
-	StateHash              [32]byte
-}
-
-func (internal TeeAvailabilityResponseData) FromInternal() TeeAvailabilityResponseBody {
-	return TeeAvailabilityResponseBody{
-		Status:                 internal.Status,
-		TeeTimestamp:           internal.TeeTimestamp,
-		CodeHash:               hex.EncodeToString(internal.CodeHash[:]),
-		Platform:               hex.EncodeToString(internal.Platform[:]),
-		InitialSigningPolicyId: internal.InitialSigningPolicyId,
-		LastSigningPolicyId:    internal.LastSigningPolicyId,
-		StateHash:              internal.StateHash,
-	}
+	Status                 uint8       `json:"status"`
+	TeeTimestamp           uint64      `json:"teeTimestamp"`
+	CodeHash               common.Hash `json:"codeHash"`
+	Platform               common.Hash `json:"platform"`
+	InitialSigningPolicyId uint32      `json:"initialSigningPolicyId"`
+	LastSigningPolicyId    uint32      `json:"lastSigningPolicyId"`
+	StateHash              common.Hash `json:"stateHash"`
 }
 
 type RawAndEncodedResponseBody struct {
-	ResponseBody        TeeAvailabilityResponseBody `json:"responseBody"`
+	ResponseBody        TeeAvailabilityResponseData `json:"responseBody"`
 	EncodedResponseBody string                      `json:"encodedResponseBody" example:"0x0000abcd..."`
 }
 
@@ -95,24 +74,32 @@ const (
 )
 
 type ProxyInfoResponseBody struct {
-	TeeInfo         ProxyInfoData   `json:"teeInfo"`     //TODO: ProxyInfoData TBD
-	State           string          `json:"state"`       //TODO: ProxyInfoData TBD
-	Version         string          `json:"version"`     //TODO: ProxyInfoData TBD
-	AttestationInfo AttestationInfo `json:"attestation"` //TODO: AttestationInfo TBD
-}
-
-type AttestationInfo struct {
-	Platform    string `json:"platform"`
-	Attestation string `json:"attestation"`
+	TeeInfo     ProxyInfoData `json:"teeInfo"`
+	State       string        `json:"state"`
+	Version     string        `json:"version"`
+	Attestation string        `json:"attestation"`
+	Platform    string        `json:"platform"`
 }
 
 type ProxyInfoData struct {
-	Challenge                string          `json:"challenge"`
+	Challenge                common.Hash     `json:"challenge"` // TODO is this challengeInstructionId ?
 	PublicKey                ecdsa.PublicKey `json:"publicKey"`
-	InitialSigningPolicyId   *big.Int        `json:"initialSigningPolicyId"`
+	InitialSigningPolicyId   uint32          `json:"initialSigningPolicyId"`
 	InitialSigningPolicyHash common.Hash     `json:"initialSigningPolicyHash"`
-	LastSigningPolicyId      *big.Int        `json:"lastSigningPolicyId"`
+	LastSigningPolicyId      uint32          `json:"lastSigningPolicyId"`
 	LastSigningPolicyHash    common.Hash     `json:"lastSigningPolicyHash"`
 	StateHash                common.Hash     `json:"stateHash"`
 	TeeTimestamp             uint64          `json:"teeTimestamp"`
+}
+
+func (teeInfo ProxyInfoData) Hash() (common.Hash, error) {
+	encoded, err := json.Marshal(teeInfo)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	hash := crypto.Keccak256(encoded)
+	var res common.Hash
+	copy(res[:], hash)
+
+	return res, nil
 }

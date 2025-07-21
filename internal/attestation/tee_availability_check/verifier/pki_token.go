@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang-jwt/jwt/v4"
 	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
 )
@@ -263,13 +261,13 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 	if !ok {
 		return StatusInfo{}, errors.New("cannot parse claims")
 	}
-	// TODO validate eat_nonce with data from tee proxy using infoData
-	teeId := crypto.PubkeyToAddress(infoData.PublicKey)
-	if len(claims.EATNonce) == 0 {
-		return StatusInfo{}, errors.New("EATNonce is missing")
+
+	teeInfoHash, err := infoData.Hash()
+	if err != nil {
+		return StatusInfo{}, err
 	}
-	eatNonce := crypto.Keccak256([]byte(infoData.Challenge), teeId[:], crypto.Keccak256([]byte{byte(infoData.Status)}), infoData.InitialSigningPolicyHash[:], infoData.LastSigningPolicyHash[:])
-	if claims.EATNonce[0] != common.Bytes2Hex(eatNonce) {
+
+	if claims.EATNonce[0] != hex.EncodeToString(teeInfoHash[:]) {
 		return StatusInfo{}, errors.New("EATNonce does not match")
 	}
 	// Check if running in production
@@ -293,7 +291,6 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 	} else {
 		statusInfo.Status = attestationtypes.OK
 	}
-	var err error
 	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubModules.Container.ImageDigest, "sha256:"))
 	if err != nil {
 		return StatusInfo{}, err
