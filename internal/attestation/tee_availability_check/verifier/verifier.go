@@ -1,8 +1,8 @@
 package verifier
 
 import (
+	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -18,12 +18,13 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeregistry"
 	types "gitlab.com/urskak/verifier-api/internal/api/type"
 	teeavailabilitycheckconfig "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/config"
+	"gitlab.com/urskak/verifier-api/internal/attestation/utils"
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 )
 
 const (
 	regOperationType        = "REG"
-	attestationType         = "ATTESTATION_TYPE"
+	teeAttestationType      = "TEE_ATTESTATION"
 	fetchTimeout            = 5 * time.Second
 	blockFreshnessInSeconds = 30
 )
@@ -133,7 +134,7 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	return statusInfo, nil
 }
 
-func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL, challengeInstructionId string) (types.ProxyInfoResponseBody, error) {
+func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL string, challengeInstructionId common.Hash) (types.ProxyInfoResponseBody, error) {
 	return v.fetchTEEData(ctx, baseURL, fmt.Sprintf("/action/result/%s", challengeInstructionId))
 }
 
@@ -180,13 +181,18 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 	return result, nil
 }
 
-func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge *big.Int) string {
-	reg := common.BytesToHash([]byte(regOperationType))
-	teeAttestation := common.BytesToHash([]byte(attestationType))
-	teeIdHash := common.BytesToHash(teeId.Bytes())
-	challengeHash := common.BytesToHash(challenge.Bytes())
-	challengeInstructionId := crypto.Keccak256(reg[:], teeAttestation[:], teeIdHash[:], challengeHash[:])
-	return hex.EncodeToString(challengeInstructionId)
+func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge *big.Int) common.Hash {
+	REG_OP_TYPE := utils.Bytes32(regOperationType)
+	TEE_ATTESTATION := utils.Bytes32(teeAttestationType)
+
+	buf := new(bytes.Buffer)
+	buf.Write(REG_OP_TYPE[:])
+	buf.Write(TEE_ATTESTATION[:])
+	buf.Write(common.LeftPadBytes(teeId.Bytes(), 32))
+	buf.Write(common.LeftPadBytes(challenge.Bytes(), 32))
+
+	challengeInstructionId := crypto.Keccak256Hash(buf.Bytes())
+	return challengeInstructionId
 }
 
 func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId *big.Int) (common.Hash, error) {
