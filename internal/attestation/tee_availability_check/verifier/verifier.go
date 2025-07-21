@@ -26,7 +26,7 @@ const (
 	regOperationType        = "REG"
 	teeAttestationType      = "TEE_ATTESTATION"
 	fetchTimeout            = 5 * time.Second
-	blockFreshnessInSeconds = 30
+	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
 )
 
 type TeeVerifier struct {
@@ -104,6 +104,9 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 }
 
 func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
+	if response.Platform != "google" { //TODO
+		return StatusInfo{}, huma.Error501NotImplemented(fmt.Sprintf("Platform %s is not supported", response.Platform))
+	}
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks
@@ -174,7 +177,7 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 	}
 	var result types.ProxyInfoResponseBody //TODO -> do it with ToInternal()
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return types.ProxyInfoResponseBody{}, huma.Error400BadRequest("error decoding tee response: %w", err)
+		return types.ProxyInfoResponseBody{}, huma.Error400BadRequest(fmt.Sprintf("error decoding tee response: %v", err))
 	}
 	return result, nil
 }
@@ -206,7 +209,7 @@ func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId uint
 }
 
 func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.Hash) (bool, error) {
-	block, err := v.ethClient.BlockByHash(ctx, blockHash)
+	challengeBlock, err := v.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return false, fmt.Errorf("failed to get block: %w", err)
 	}
@@ -214,7 +217,7 @@ func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.H
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest block: %w", err)
 	}
-	if latestBlock.Time()-block.Time() <= blockFreshnessInSeconds {
+	if latestBlock.Time()-challengeBlock.Time() <= blockFreshnessInSeconds {
 		return true, nil
 	}
 	return false, nil
