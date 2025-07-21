@@ -17,5 +17,5 @@ func AbiEncodeResponseData(data types.TeeAvailabilityResponseData) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	return arguments.Pack(data.Status, data.MachineStatus, data.TeeTimestamp, data.InitialTeeId, data.CodeHash, data.Platform, data.RewardEpochId)
+	return arguments.Pack(data.Status, data.TeeTimestamp, data.CodeHash, data.Platform, data.LastSigningPolicyId, data.InitialSigningPolicyId, data.StateHash)
 }

@@ -17,9 +17,9 @@ func AbiArgumentsForRequestData() (abi.Arguments, error) {
 	}
 
 	return abi.Arguments{
-		{Type: addressType},
-		{Type: stringType},
-		{Type: uint256Type},
+		{Type: addressType}, //teeId
+		{Type: stringType},  //url
+		{Type: uint256Type}, //challenge
 	}, nil
 }
 
@@ -32,7 +32,7 @@ func AbiArgumentsForResponseData() (abi.Arguments, error) {
 	if err != nil {
 		return nil, err
 	}
-	addressType, err := abi.NewType("address", "", nil)
+	uint24Type, err := abi.NewType("uint24", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -40,18 +40,14 @@ func AbiArgumentsForResponseData() (abi.Arguments, error) {
 	if err != nil {
 		return nil, err
 	}
-	uint256Type, err := abi.NewType("uint256", "", nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return abi.Arguments{
-		{Type: uint8Type},
-		{Type: uint8Type},
-		{Type: uint64Type},
-		{Type: addressType},
-		{Type: bytes32Type},
-		{Type: bytes32Type},
-		{Type: uint256Type},
+		{Type: uint8Type},   //status
+		{Type: uint64Type},  //teeTimestamp
+		{Type: bytes32Type}, //codeHash
+		{Type: bytes32Type}, //platform
+		{Type: uint24Type},  //lastSigningPolicyId
+		{Type: uint24Type},  //initialSigningPolicyId
+		{Type: bytes32Type}, //stateHash
 	}, nil
 }

@@ -31,7 +31,7 @@ const (
 
 type TeeVerifier struct {
 	cfg               *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig
-	client            *ethclient.Client
+	ethClient         *ethclient.Client
 	TeeRegistryCaller *teeregistry.TeeRegistryCaller
 	RelayCaller       *relay.RelayCaller
 	TeeSamples        map[common.Address][]bool
@@ -52,7 +52,7 @@ func NewVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (ve
 		return nil, fmt.Errorf("failed to create contract Relay caller: %w", err)
 	}
 	samplesToConsider := 5
-	return &TeeVerifier{cfg: cfg, client: client, TeeRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
+	return &TeeVerifier{cfg: cfg, ethClient: client, TeeRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
 func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
@@ -72,12 +72,12 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 		if !valid { // No response in the last 5 minutes
 			var responseBody types.TeeAvailabilityResponseData
 			responseBody.Status = uint8(types.DOWN)
+			responseBody.TeeTimestamp = 0
 			responseBody.CodeHash = [32]byte{}
 			responseBody.Platform = [32]byte{}
-			responseBody.MachineStatus = uint8(types.INDETERMINATE)
-			responseBody.TeeTimestamp = 0
-			responseBody.InitialTeeId = common.Address{}
-			responseBody.RewardEpochId = &big.Int{}
+			responseBody.InitialSigningPolicyId = big.NewInt(0)
+			responseBody.LastSigningPolicyId = big.NewInt(0)
+			responseBody.StateHash = [32]byte{}
 
 			return responseBody, nil
 		}
@@ -86,7 +86,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 	}
 	//TODO - continue
 	statusInfo, err := v.dataVerification(response)
-	infoData := response.Data
+	infoData := response.TeeInfo
 	if err != nil {
 		// return attestationStatus, types.TeeAvailabilityResponseData{}, err
 		return types.TeeAvailabilityResponseData{}, err
@@ -94,20 +94,19 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 
 	var responseBody types.TeeAvailabilityResponseData
 	responseBody.Status = uint8(statusInfo.Status)
+	responseBody.TeeTimestamp = infoData.TeeTimestamp
 	responseBody.CodeHash = statusInfo.CodeHash
 	responseBody.Platform = statusInfo.Platform
-	responseBody.MachineStatus = uint8(infoData.Status)
-	responseBody.TeeTimestamp = infoData.TeeTimestamp
-	responseBody.InitialTeeId = infoData.InitialTeeId
-	responseBody.RewardEpochId = infoData.LastSigningPolicyId
+	responseBody.InitialSigningPolicyId = infoData.InitialSigningPolicyId
+	responseBody.LastSigningPolicyId = infoData.LastSigningPolicyId
+	responseBody.StateHash = infoData.StateHash
 
-	// return attestationStatus, responseBody, nil
 	return responseBody, nil
 }
 
 func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
 	attestationToken := response.AttestationInfo.Attestation
-	infoData := response.Data
+	infoData := response.TeeInfo
 	// Certificate checks
 	cert, err := LoadRootCert()
 	if err != nil {
@@ -143,7 +142,7 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 	if err != nil {
 		return false, err
 	}
-	checkInfoChallenge, err := v.checkInfoChallenge(ctx, infoResponse.Data.Challenge)
+	checkInfoChallenge, err := v.checkInfoChallenge(ctx, infoResponse.TeeInfo.Challenge)
 	if err != nil {
 		return false, err
 	}
@@ -159,14 +158,14 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 
 func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (types.ProxyInfoResponseBody, error) {
 	url := fmt.Sprintf("%s%s", baseURL, path)
-	client := &http.Client{
+	httpClient := &http.Client{
 		Timeout: fetchTimeout,
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return types.ProxyInfoResponseBody{}, huma.Error500InternalServerError(fmt.Sprintf("fetchTEEData: creating HTTP request failed: %v", err))
 	}
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return types.ProxyInfoResponseBody{}, huma.Error503ServiceUnavailable(fmt.Sprintf("fetchTEEData: error making request to tee: %v", err))
 	}
@@ -207,11 +206,11 @@ func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId *big
 }
 
 func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash string) (bool, error) {
-	block, err := v.client.BlockByHash(ctx, common.HexToHash(blockHash))
+	block, err := v.ethClient.BlockByHash(ctx, common.HexToHash(blockHash))
 	if err != nil {
 		return false, fmt.Errorf("failed to get block: %w", err)
 	}
-	latestBlock, err := v.client.BlockByNumber(ctx, nil)
+	latestBlock, err := v.ethClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest block: %w", err)
 	}

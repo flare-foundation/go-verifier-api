@@ -49,34 +49,34 @@ func (requestBody TeeAvailabilityRequestBody) ToInternal() (TeeAvailabilityReque
 }
 
 type TeeAvailabilityResponseBody struct {
-	Status        uint8  `json:"status"`
-	MachineStatus uint8  `json:"machineStatus"`
-	TeeTimestamp  uint64 `json:"teeTimestamp"`
-	InitialTeeId  string `json:"initialTeeId"`
-	CodeHash      string `json:"codeHash"`
-	Platform      string `json:"platform"`
-	RewardEpochId string `json:"rewardEpochId"`
+	Status                 uint8    `json:"status"`
+	TeeTimestamp           uint64   `json:"teeTimestamp"`
+	CodeHash               string   `json:"codeHash"`
+	Platform               string   `json:"platform"`
+	InitialSigningPolicyId *big.Int `json:"initialSigningPolicyId"` // TODO for type
+	LastSigningPolicyId    *big.Int `json:"lastSigningPolicyId"`    // TODO for type
+	StateHash              [32]byte `json:"stateHash"`              // TODO for type
 }
 
 type TeeAvailabilityResponseData struct {
-	Status        uint8
-	MachineStatus uint8
-	TeeTimestamp  uint64
-	InitialTeeId  common.Address
-	CodeHash      [32]byte
-	Platform      [32]byte
-	RewardEpochId *big.Int
+	Status                 uint8
+	TeeTimestamp           uint64
+	CodeHash               [32]byte
+	Platform               [32]byte
+	InitialSigningPolicyId *big.Int
+	LastSigningPolicyId    *big.Int
+	StateHash              [32]byte
 }
 
 func (internal TeeAvailabilityResponseData) FromInternal() TeeAvailabilityResponseBody {
 	return TeeAvailabilityResponseBody{
-		Status:        internal.Status,
-		MachineStatus: internal.MachineStatus,
-		TeeTimestamp:  internal.TeeTimestamp,
-		InitialTeeId:  internal.InitialTeeId.Hex(),
-		CodeHash:      hex.EncodeToString(internal.CodeHash[:]),
-		Platform:      hex.EncodeToString(internal.Platform[:]),
-		RewardEpochId: internal.RewardEpochId.String(),
+		Status:                 internal.Status,
+		TeeTimestamp:           internal.TeeTimestamp,
+		CodeHash:               hex.EncodeToString(internal.CodeHash[:]),
+		Platform:               hex.EncodeToString(internal.Platform[:]),
+		InitialSigningPolicyId: internal.InitialSigningPolicyId,
+		LastSigningPolicyId:    internal.LastSigningPolicyId,
+		StateHash:              internal.StateHash,
 	}
 }
 
@@ -94,18 +94,10 @@ const (
 	DOWN
 )
 
-type TeeMachineStatus uint8
-
-// Match SC https://gitlab.com/flarenetwork/FSP/flare-smart-contracts-v2/-/blob/tee/contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol?ref_type=heads#L13
-const (
-	INDETERMINATE TeeMachineStatus = 255 // TODO: check if this is ok
-	ACTIVE        TeeMachineStatus = iota
-	PAUSED
-	PAUSED_FOR_UPGRADE
-)
-
 type ProxyInfoResponseBody struct {
-	Data            ProxyInfoData   `json:"data"`        //TODO: ProxyInfoData TBD
+	TeeInfo         ProxyInfoData   `json:"teeInfo"`     //TODO: ProxyInfoData TBD
+	State           string          `json:"state"`       //TODO: ProxyInfoData TBD
+	Version         string          `json:"version"`     //TODO: ProxyInfoData TBD
 	AttestationInfo AttestationInfo `json:"attestation"` //TODO: AttestationInfo TBD
 }
 
@@ -115,15 +107,12 @@ type AttestationInfo struct {
 }
 
 type ProxyInfoData struct {
-	Challenge                string           `json:"challenge"`
-	PublicKey                ecdsa.PublicKey  `json:"publicKey"`
-	InitialTeeId             common.Address   `json:"initialTeeId"`
-	Status                   TeeMachineStatus `json:"status"`
-	InitialSigningPolicyId   *big.Int         `json:"initialSigningPolicyId"`
-	InitialSigningPolicyHash common.Hash      `json:"initialSigningPolicyHash"`
-	LastSigningPolicyId      *big.Int         `json:"lastSigningPolicyId"`
-	LastSigningPolicyHash    common.Hash      `json:"lastSigningPolicyHash"`
-	Nonce                    *big.Int         `json:"nonce"`
-	PauseNonce               *big.Int         `json:"pauseNonce"`
-	TeeTimestamp             uint64           `json:"teeTimestamp"`
+	Challenge                string          `json:"challenge"`
+	PublicKey                ecdsa.PublicKey `json:"publicKey"`
+	InitialSigningPolicyId   *big.Int        `json:"initialSigningPolicyId"`
+	InitialSigningPolicyHash common.Hash     `json:"initialSigningPolicyHash"`
+	LastSigningPolicyId      *big.Int        `json:"lastSigningPolicyId"`
+	LastSigningPolicyHash    common.Hash     `json:"lastSigningPolicyHash"`
+	StateHash                common.Hash     `json:"stateHash"`
+	TeeTimestamp             uint64          `json:"teeTimestamp"`
 }
