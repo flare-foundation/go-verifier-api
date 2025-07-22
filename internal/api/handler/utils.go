@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/go-playground/validator/v10"
 	"gitlab.com/urskak/verifier-api/internal/api/validation"
@@ -20,27 +19,28 @@ func init() {
 
 func ValidateRequest(request interface{}) error {
 	if err := validate.Struct(request); err != nil {
-		return huma.Error400BadRequest(fmt.Sprintf("validation failed: %v", err))
+		return err
 	}
 	return nil
 }
 
+// TODO separate validation
 func ValidateSystemAndRequestAttestationNameAndSourceId(systemAttestationType connector.AttestationType, systemSourceId string, requestAttestationName string, requestSourceId string) error {
 	verifierAttestationNameEnc, err := encodeAttestationOrSourceName(string(systemAttestationType))
 	if err != nil {
-		return huma.Error500InternalServerError(fmt.Sprintf("system attestation type name encoding failed: %v", err))
+		return fmt.Errorf("system attestation type name encoding failed: %v", err)
 	}
 	verifierSourceNameEnc, err := encodeAttestationOrSourceName(systemSourceId)
 	if err != nil {
-		return huma.Error500InternalServerError(fmt.Sprintf("system source name encoding failed: %v", err))
+		return fmt.Errorf("system source name encoding failed: %v", err)
 	}
 	if requestAttestationName != verifierAttestationNameEnc || string(requestSourceId) != verifierSourceNameEnc {
-		return huma.Error400BadRequest(fmt.Sprintf(
-			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s).",
+		return fmt.Errorf(
+			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s)",
 			requestAttestationName, requestSourceId,
 			string(systemAttestationType), verifierAttestationNameEnc,
 			systemSourceId, verifierSourceNameEnc,
-		))
+		)
 	}
 	return nil
 }

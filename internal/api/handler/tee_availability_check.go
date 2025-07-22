@@ -19,18 +19,19 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		Body types.TeeAvailabilityRequest
 	}) (*types.Response[types.EncodedRequestBody], error) {
 		if err := ValidateRequest(request); err != nil {
-			return nil, err
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 		}
 		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.Header.AttestationType, request.Body.Header.SourceId); err != nil {
-			return nil, err
+			return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 		}
 		requestData, err := request.Body.RequestBody.ToInternal()
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("converting request body failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 		}
+		// TODO validate
 		requestDataBytes, err := teecrypto.AbiEncodeRequestData(requestData)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding request body failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 		}
 		return types.NewResponse(types.EncodedRequestBody{
 			EncodedRequestBody: HexWith0x(requestDataBytes),
@@ -41,31 +42,30 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		Body types.TeeAvailabilityEncodedRequest
 	}) (*types.Response[types.RawAndEncodedResponseBody], error) {
 		if err := ValidateRequest(request); err != nil {
-			return nil, err
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 		}
 		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.Header.AttestationType, request.Body.Header.SourceId); err != nil {
-			return nil, err
+			return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 		}
 		cleanRequestBodyHex := strings.TrimPrefix(request.Body.RequestBody, "0x")
 		requestBodyBytes, err := hex.DecodeString(cleanRequestBodyHex)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("decoding request body to bytes failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to bytes failed: %v", err))
 		}
 		requestData, err := teecrypto.AbiDecodeRequestData(requestBodyBytes)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("decoding request body failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 		}
 		responseData, err := verifier.Verify(ctx, requestData)
 		if err != nil {
-			return nil, err
+			return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 		}
-		responseBody := responseData.ToExternal()
 		responseDataBytes, err := teecrypto.AbiEncodeResponseData(responseData)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding response body failed: %v", err))
+			return nil, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 		}
 		return types.NewResponse(types.RawAndEncodedResponseBody{
-			ResponseBody:        responseBody,
+			ResponseBody:        responseData.ToExternal(),
 			EncodedResponseBody: HexWith0x(responseDataBytes),
 		}), nil
 	})
@@ -74,27 +74,27 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		Body types.TeeAvailabilityEncodedRequest
 	}) (*types.Response[types.EncodedResponseBody], error) {
 		if err := ValidateRequest(request); err != nil {
-			return nil, err
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 		}
 		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.Header.AttestationType, request.Body.Header.SourceId); err != nil {
-			return nil, err
+			return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 		}
 		cleanRequestBodyHex := strings.TrimPrefix(request.Body.RequestBody, "0x")
 		requestBodyBytes, err := hex.DecodeString(cleanRequestBodyHex)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("decoding request body to bytes failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to bytes failed: %v", err))
 		}
 		requestData, err := teecrypto.AbiDecodeRequestData(requestBodyBytes)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("decoding request body failed: %v", err))
+			return nil, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 		}
 		responseData, err := verifier.Verify(ctx, requestData)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("verification failed: %v", err))
+			return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 		}
 		responseDataBytes, err := teecrypto.AbiEncodeResponseData(responseData)
 		if err != nil {
-			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding response body failed: %v", err))
+			return nil, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 		}
 		return types.NewResponse(types.EncodedResponseBody{
 			EncodedResponseBody: HexWith0x(responseDataBytes),

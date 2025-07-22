@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -62,12 +62,14 @@ func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (ve
 func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityRequestData) (types.TeeAvailabilityResponseData, error) {
 	// Build challenge instruction id
 	challengeInstructionId := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
-	// Fetch from tee proxy
+	// Fetch from tee proxy /action/result/<challengeInstructionId>
 	response, err := v.fetchTEEAvailabilityResult(ctx, req.Url, challengeInstructionId)
-	if err != nil {
+	// Result is not yet available
+	if response.Attestation == "" && err == nil {
+		// check polled data
 		valid, infoErr := v.isTeeInfoValid(req.TeeId)
 		if infoErr != nil { // Not enough data has been polled
-			return types.TeeAvailabilityResponseData{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Insufficient polling data %v", infoErr))
+			return types.TeeAvailabilityResponseData{}, fmt.Errorf("Insufficient polling data: %v", infoErr)
 		}
 		if !valid { // No response in the last 5 minutes
 			var responseData types.TeeAvailabilityResponseData
@@ -81,8 +83,10 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 
 			return responseData, nil
 		}
-		// There are valid responses from /info, but no response on /action/result/<challengeInstructionId>
-		return types.TeeAvailabilityResponseData{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Tee %s data not available %v", req.TeeId, err))
+	}
+	// Error while fetching from tee proxy /action/result/<challengeInstructionId>
+	if err != nil {
+		return types.TeeAvailabilityResponseData{}, fmt.Errorf("Cannot fetch tee %s data: %v", req.TeeId, err)
 	}
 	statusInfo, err := v.dataVerification(response)
 	if err != nil {
@@ -103,25 +107,25 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 
 func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
 	if response.Platform != "google" { //TODO
-		return StatusInfo{}, huma.Error501NotImplemented(fmt.Sprintf("Platform %s is not supported", response.Platform))
+		return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	}
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks
 	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, attestationToken)
 	if err != nil {
-		return StatusInfo{}, huma.Error422UnprocessableEntity(fmt.Sprintf("Failed to validate certificate signature: %v", err))
+		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
 	}
 	lastSigningPolicyHash, err := v.getLastSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
 	if err != nil {
-		return StatusInfo{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Failed to retrieve last signing policy hash: %v", err))
+		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
 	}
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
-		return StatusInfo{}, huma.Error422UnprocessableEntity("Failed to validate last signing policy hash")
+		return StatusInfo{}, errors.New("failed to validate last signing policy hash")
 	}
 	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
-		return StatusInfo{}, huma.Error422UnprocessableEntity(fmt.Sprintf("Failed to validate claims: %v", err))
+		return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
 	}
 	return statusInfo, nil
 }
@@ -156,19 +160,23 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return types.ProxyInfoResponseBody{}, huma.Error500InternalServerError(fmt.Sprintf("fetchTEEData: creating HTTP request failed: %v", err))
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("creating HTTP request failed: %v", err)
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return types.ProxyInfoResponseBody{}, huma.Error503ServiceUnavailable(fmt.Sprintf("fetchTEEData: error making request to tee: %v", err))
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("error making request to tee: %v", err)
 	}
 	defer resp.Body.Close()
+	// No result yet available
+	if resp.StatusCode == http.StatusNotFound {
+		return types.ProxyInfoResponseBody{}, nil
+	}
 	if resp.StatusCode != http.StatusOK {
-		return types.ProxyInfoResponseBody{}, huma.Error503ServiceUnavailable(fmt.Sprintf("fetchTEEData: teeProxy %s returned non-200 status: %d", baseURL, resp.StatusCode))
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("teeProxy %s returned non-200 status: %d", baseURL, resp.StatusCode)
 	}
 	var result types.ProxyInfoResponseBody //TODO -> do it with ToInternal()
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return types.ProxyInfoResponseBody{}, huma.Error400BadRequest(fmt.Sprintf("error decoding tee response: %v", err))
+		return types.ProxyInfoResponseBody{}, fmt.Errorf("error decoding tee response: %v", err)
 	}
 	return result, nil
 }
@@ -200,7 +208,7 @@ func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId uint
 func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.Hash) (bool, error) {
 	challengeBlock, err := v.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
-		return false, fmt.Errorf("failed to get block: %w", err)
+		return false, fmt.Errorf("failed to get challenge block: %w", err)
 	}
 	latestBlock, err := v.ethClient.BlockByNumber(ctx, nil)
 	if err != nil {
@@ -215,7 +223,7 @@ func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.H
 func (v *TeeVerifier) isTeeInfoValid(teeId common.Address) (bool, error) {
 	samples := v.TeeSamples[teeId]
 	if len(samples) < v.SamplesToConsider {
-		return false, fmt.Errorf("not enough data for tee %s (%d samples: %+v)", teeId, len(samples), samples)
+		return false, fmt.Errorf("not enough polling data for tee %s (%d samples: %+v)", teeId, len(samples), samples)
 	}
 	for _, sample := range samples {
 		if sample {
