@@ -18,11 +18,11 @@ type TeeAvailabilityHeader struct {
 }
 
 type TeeAvailabilityEncodedRequest struct {
-	Header      TeeAvailabilityHeader
+	FTDCHeader  TeeAvailabilityHeader
 	RequestBody string `json:"requestBody" example:"0x000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
 }
 type TeeAvailabilityRequest struct {
-	Header      TeeAvailabilityHeader      `json:"header"`
+	FTDCHeader  TeeAvailabilityHeader      `json:"header"`
 	RequestBody TeeAvailabilityRequestBody `json:"requestBody"`
 }
 
