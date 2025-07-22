@@ -2,6 +2,7 @@ package teeavailabilitycheckconfig
 
 import (
 	"crypto/x509"
+	_ "embed"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -48,11 +49,10 @@ func LoadTeeAvailabilityCheckConfig() (*TeeAvailabilityCheckConfig, error) {
 	}, nil
 }
 
+//go:embed assets/google_confidential_space_root.crt
+var rootCertBytes []byte
+
 func LoadGoogleRootCert() (*x509.Certificate, error) {
-	rootCertBytes, err := os.ReadFile("../google_confidential_space_root.crt")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read root certificate: %w", err)
-	}
 	cert, err := DecodeAndParsePEMCertificate(string(rootCertBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse root certificate: %w", err)
