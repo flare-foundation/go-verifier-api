@@ -21,7 +21,7 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		if err := ValidateRequest(request); err != nil {
 			return nil, err
 		}
-		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.AttestationType, request.Body.SourceId); err != nil {
+		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.Header.AttestationType, request.Body.Header.SourceId); err != nil {
 			return nil, err
 		}
 		requestData, err := request.Body.RequestBody.ToInternal()
@@ -43,7 +43,7 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		if err := ValidateRequest(request); err != nil {
 			return nil, err
 		}
-		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.AttestationType, request.Body.SourceId); err != nil {
+		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.Header.AttestationType, request.Body.Header.SourceId); err != nil {
 			return nil, err
 		}
 		cleanRequestBodyHex := strings.TrimPrefix(request.Body.RequestBody, "0x")
@@ -76,7 +76,7 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		if err := ValidateRequest(request); err != nil {
 			return nil, err
 		}
-		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.AttestationType, request.Body.SourceId); err != nil {
+		if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.Header.AttestationType, request.Body.Header.SourceId); err != nil {
 			return nil, err
 		}
 		cleanRequestBodyHex := strings.TrimPrefix(request.Body.RequestBody, "0x")

@@ -9,16 +9,21 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-type TeeAvailabilityEncodedRequest struct {
-	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
-	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465650000000000000000000000000000000000000000000000000000000000"`
-	RequestBody     string `json:"requestBody" example:"0x000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
+type TeeAvailabilityHeader struct {
+	AttestationType    string   `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
+	SourceId           string   `json:"sourceId" validate:"required,hash32" example:"0x7465650000000000000000000000000000000000000000000000000000000000"`
+	ThresholdBIPS      uint16   `json:"thresholdBIPS" example:"0"`
+	Cosigners          []string `json:"cosigners" example:"[]"`
+	CosignersThreshold uint64   `json:"cosignersThreshold" example:"0"`
 }
 
+type TeeAvailabilityEncodedRequest struct {
+	Header      TeeAvailabilityHeader
+	RequestBody string `json:"requestBody" example:"0x000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
+}
 type TeeAvailabilityRequest struct {
-	AttestationType string                     `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
-	SourceId        string                     `json:"sourceId" validate:"required,hash32" example:"0x7465650000000000000000000000000000000000000000000000000000000000"`
-	RequestBody     TeeAvailabilityRequestBody `json:"requestBody"`
+	Header      TeeAvailabilityHeader      `json:"header"`
+	RequestBody TeeAvailabilityRequestBody `json:"requestBody"`
 }
 
 type TeeAvailabilityRequestBody struct {

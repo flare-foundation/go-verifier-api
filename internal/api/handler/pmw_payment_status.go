@@ -7,6 +7,6 @@ import (
 	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
 )
 
-func PMWPaymentStatusHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.IPMWPaymentStatusRequestBody, types.IPMWPaymentStatusResponseBody], sourceID string) {
+func PMWPaymentStatusHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.PMWPaymentStatusRequestBody, types.PMWPaymentStatusResponseBody], sourceID string) {
 	huma.Error501NotImplemented("PMW payment status not implemented yet")
 }

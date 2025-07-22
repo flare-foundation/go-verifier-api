@@ -1,22 +1,29 @@
 package attestationtypes
 
-type IFtdcHubFtdcRequestHeaderPMWPaymentStatus struct {
-	Body struct {
-		AttestationType string `json:"attestationType" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000" validate:"required,hash32"`
-		SourceId        string `json:"sourceId" example:"0x7872700000000000000000000000000000000000000000000000000000000000" validate:"required,hash32"`
-		RequestBody     []byte
-	}
+type PMWPaymentStatusHeader struct {
+	AttestationType    string   `json:"attestationType" validate:"required,hash32" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000"`
+	SourceId           string   `json:"sourceId" validate:"required,hash32" example:"0x7872700000000000000000000000000000000000000000000000000000000000"`
+	ThresholdBIPS      uint16   `json:"thresholdBIPS" example:"0"`
+	Cosigners          []string `json:"cosigners" example:"[]"`
+	CosignersThreshold uint64   `json:"cosignersThreshold" example:"0"`
 }
 
-// copied from connector.IPMWPaymentStatusRequestBody
-type IPMWPaymentStatusRequestBody struct {
+type PMWPaymentStatusEncodedRequest struct {
+	Header      PMWPaymentStatusHeader
+	RequestBody string `json:"requestBody"`
+}
+type PMWPaymentStatusRequest struct {
+	Header      PMWPaymentStatusHeader      `json:"header"`
+	RequestBody PMWPaymentStatusRequestBody `json:"requestBody"`
+}
+
+type PMWPaymentStatusRequestBody struct {
 	WalletId string `json:"walletId" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	Nonce    uint64 `json:"nonce" validate:"required" example:"1"`
 	SubNonce uint64 `json:"subNonce" validate:"required" example:"1"`
 }
 
-// copied from connector.IPMWPaymentStatusResponseBody
-type IPMWPaymentStatusResponseBody struct {
+type PMWPaymentStatusResponseBody struct {
 	SenderAddress     string `json:"senderAddress"`
 	RecipientAddress  string `json:"recipientAddress"`
 	Amount            string `json:"amount"`

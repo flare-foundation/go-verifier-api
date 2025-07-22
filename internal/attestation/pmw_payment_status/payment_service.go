@@ -12,8 +12,8 @@ import (
 
 type PaymentService struct {
 	verifier verifierinterface.VerifierInterface[
-		attestationtypes.IPMWPaymentStatusRequestBody,
-		attestationtypes.IPMWPaymentStatusResponseBody,
+		attestationtypes.PMWPaymentStatusRequestBody,
+		attestationtypes.PMWPaymentStatusResponseBody,
 	]
 	config *pmwpaymentstatusconfig.PMWPaymentStatusConfig
 }
@@ -40,8 +40,8 @@ func NewPaymentService() (*PaymentService, error) {
 }
 
 func (s *PaymentService) GetVerifier() verifierinterface.VerifierInterface[
-	attestationtypes.IPMWPaymentStatusRequestBody,
-	attestationtypes.IPMWPaymentStatusResponseBody,
+	attestationtypes.PMWPaymentStatusRequestBody,
+	attestationtypes.PMWPaymentStatusResponseBody,
 ] {
 	return s.verifier
 }
