@@ -3,22 +3,26 @@ package pmwpaymentstatusconfig
 import (
 	"fmt"
 	"os"
+	"sync"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-type PMWPaymentStatusConfig struct {
-	SourceID          string
-	DatabaseURL       string
-	CchainDatabaseURL string
+var (
+	pmyPaymentStatusConfig     *config.PMWPaymentStatusConfig
+	pmyPaymentStatusConfigOnce sync.Once
+	pmyPaymentStatusConfigErr  error
+)
+
+func GetPMWPaymentStatusConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.PMWPaymentStatusConfig, error) {
+	pmyPaymentStatusConfigOnce.Do(func() {
+		pmyPaymentStatusConfig, pmyPaymentStatusConfigErr = LoadPMWPaymentStatusConfig(sourceId, attestationType)
+	})
+	return pmyPaymentStatusConfig, pmyPaymentStatusConfigErr
 }
 
-func LoadPMWPaymentStatusConfig() (*PMWPaymentStatusConfig, error) {
-	sourceID := os.Getenv("SOURCE_ID")
-	if sourceID == "" {
-		return nil, fmt.Errorf("SOURCE_ID not set")
-	}
-	if len(sourceID) > 32 {
-		return nil, fmt.Errorf("SOURCE_ID longer than 32 bytes")
-	}
+func LoadPMWPaymentStatusConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.PMWPaymentStatusConfig, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL not set")
@@ -27,10 +31,18 @@ func LoadPMWPaymentStatusConfig() (*PMWPaymentStatusConfig, error) {
 	if cChainDbURL == "" {
 		return nil, fmt.Errorf("CCHAIN_DATABASE_URL not set")
 	}
-
-	return &PMWPaymentStatusConfig{
-		SourceID:          sourceID,
-		DatabaseURL:       dbURL,
-		CchainDatabaseURL: cChainDbURL,
+	sourceIdEnc, err := config.EncodeAttestationOrSourceName(string(sourceId))
+	if err != nil {
+		return nil, err
+	}
+	attestationTypeEnc, err := config.EncodeAttestationOrSourceName(string(attestationType))
+	if err != nil {
+		return nil, err
+	}
+	return &config.PMWPaymentStatusConfig{
+		SourcePair:          config.SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
+		DatabaseURL:         dbURL,
+		CchainDatabaseURL:   cChainDbURL,
+		AttestationTypePair: config.AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
 	}, nil
 }

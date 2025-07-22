@@ -17,20 +17,20 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeregistry"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
 const (
-	regOperationType        = "REG"
-	teeAttestationType      = "TEE_ATTESTATION"
+	regOperationConst       = "REG"
+	teeAttestationConst     = "TEE_ATTESTATION"
 	fetchTimeout            = 5 * time.Second
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
 )
 
 type TeeVerifier struct {
-	cfg               *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig
+	cfg               *config.TeeAvailabilityCheckConfig
 	ethClient         *ethclient.Client
 	TeeRegistryCaller *teeregistry.TeeRegistryCaller
 	RelayCaller       *relay.RelayCaller
@@ -38,7 +38,7 @@ type TeeVerifier struct {
 	SamplesToConsider int
 }
 
-func NewVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
+func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum node: %w", err)
@@ -55,7 +55,7 @@ func NewVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (ve
 	return &TeeVerifier{cfg: cfg, ethClient: client, TeeRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
-func GetVerifier(cfg *teeavailabilitycheckconfig.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
+func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
 	return NewVerifier(cfg)
 }
 
@@ -182,8 +182,8 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 }
 
 func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) common.Hash {
-	REG_OP_TYPE := utils.Bytes32(regOperationType)
-	TEE_ATTESTATION := utils.Bytes32(teeAttestationType)
+	REG_OP_TYPE := utils.Bytes32(regOperationConst)
+	TEE_ATTESTATION := utils.Bytes32(teeAttestationConst)
 	buf := new(bytes.Buffer)
 	buf.Write(REG_OP_TYPE[:])
 	buf.Write(TEE_ATTESTATION[:])

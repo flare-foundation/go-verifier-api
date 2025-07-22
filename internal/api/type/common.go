@@ -1,12 +1,5 @@
 package attestationtypes
 
-type SourceName string
-
-const (
-	SourceTEE SourceName = "tee"
-	SourceXRP SourceName = "xrp"
-)
-
 type EncodedRequestBody struct {
 	EncodedRequestBody string `json:"encodedRequestBody" example:"0x0000abcd..."`
 }

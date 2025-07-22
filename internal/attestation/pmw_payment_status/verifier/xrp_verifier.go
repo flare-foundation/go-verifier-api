@@ -13,8 +13,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/models"
+	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
 )
 
@@ -31,7 +31,7 @@ type chainQuery struct {
 
 func (x *XRPVerifier) Verify(ctx context.Context, req attestationtypes.PMWPaymentStatusRequestBody) (attestationtypes.PMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
-	sourceEnv := x.config.SourceID
+	sourceEnv := string(x.config.SourcePair.SourceId)
 	instructionId := GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
 	// Query event
 	chainLog, err := x.fetchInstructionLog(ctx, x.cChainDb, instructionId)

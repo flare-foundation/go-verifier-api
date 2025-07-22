@@ -6,24 +6,26 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"sync"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-type TeeAvailabilityCheckConfig struct {
-	SourceID                   string
-	RelayContractAddress       string
-	TeeRegistryContractAddress string
-	RPCURL                     string
-	GoogleRootCertificate      *x509.Certificate
+var (
+	teeAvailabilityCheckConfig     *config.TeeAvailabilityCheckConfig
+	teeAvailabilityCheckConfigOnce sync.Once
+	teeAvailabilityCheckConfigErr  error
+)
+
+func GetTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.TeeAvailabilityCheckConfig, error) {
+	teeAvailabilityCheckConfigOnce.Do(func() {
+		teeAvailabilityCheckConfig, teeAvailabilityCheckConfigErr = LoadTeeAvailabilityCheckConfig(sourceId, attestationType)
+	})
+	return teeAvailabilityCheckConfig, teeAvailabilityCheckConfigErr
 }
 
-func LoadTeeAvailabilityCheckConfig() (*TeeAvailabilityCheckConfig, error) {
-	sourceID := os.Getenv("SOURCE_ID")
-	if sourceID == "" {
-		return nil, fmt.Errorf("SOURCE_ID not set in .env")
-	}
-	if len(sourceID) > 32 {
-		return nil, fmt.Errorf("SOURCE_ID longer than 32 bytes")
-	}
+func LoadTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.TeeAvailabilityCheckConfig, error) {
 	relayContractAddress := os.Getenv("RELAY_CONTRACT_ADDRESS")
 	if relayContractAddress == "" {
 		return nil, fmt.Errorf("RELAY_CONTRACT_ADDRESS not set in .env")
@@ -40,12 +42,21 @@ func LoadTeeAvailabilityCheckConfig() (*TeeAvailabilityCheckConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TeeAvailabilityCheckConfig{
-		SourceID:                   sourceID,
+	sourceIdEnc, err := config.EncodeAttestationOrSourceName(string(sourceId))
+	if err != nil {
+		return nil, err
+	}
+	attestationTypeEnc, err := config.EncodeAttestationOrSourceName(string(attestationType))
+	if err != nil {
+		return nil, err
+	}
+	return &config.TeeAvailabilityCheckConfig{
+		SourcePair:                 config.SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
 		RelayContractAddress:       relayContractAddress,
 		TeeRegistryContractAddress: teeRegistryContractAddress,
 		RPCURL:                     rpcURL,
 		GoogleRootCertificate:      googleRootCert,
+		AttestationTypePair:        config.AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
 	}, nil
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
-	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 )
@@ -25,11 +25,11 @@ func RunServer() {
 	if verifierTypeStr == "" || port == "" || sourceIdStr == "" {
 		logger.Fatal("VERIFIER_TYPE, PORT and SOURCE_ID must be set")
 	}
-	verifierType, err := parseAttestationType(verifierTypeStr)
+	attestationType, err := parseAttestationType(verifierTypeStr)
 	if err != nil {
 		logger.Fatalf("Invalid VERIFIER_TYPE in .env: %v", err)
 	}
-	_, err = parseSourceId(sourceIdStr)
+	sourceId, err := parseSourceId(sourceIdStr)
 	if err != nil {
 		logger.Fatalf("Invalid SOURCE_ID in .env: %v", err)
 	}
@@ -54,33 +54,9 @@ func RunServer() {
 	api := humachi.New(router, config)
 	api.UseMiddleware(middleware.APIKeyAuthMiddleware(apiKeys))
 
-	router.Get("/api-doc", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html>
-			<html lang="en">
-			<head>
-			<meta charset="utf-8" />
-			<meta name="viewport" content="width=device-width, initial-scale=1" />
-			<meta name="description" content="SwaggerUI" />
-			<title>SwaggerUI</title>
-			<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
-			</head>
-			<body>
-			<div id="swagger-ui"></div>
-			<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
-			<script>
-			window.onload = () => {
-				window.ui = SwaggerUIBundle({
-				url: '/openapi.json',
-				dom_id: '#swagger-ui',
-				});
-			};
-			</script>
-			</body>
-			</html>`))
-	})
+	router.Get("/api-doc", swagger)
 
-	err = LoadModule(api, verifierType)
+	err = LoadModule(api, sourceId, attestationType)
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
@@ -103,7 +79,7 @@ var attestationTypes = []connector.AttestationType{
 	connector.PMWPaymentStatus,
 }
 
-func parseSourceId(value string) (types.SourceName, error) {
+func parseSourceId(value string) (config.SourceName, error) {
 	for _, at := range sourceIds {
 		if string(at) == value {
 			return at, nil
@@ -112,9 +88,9 @@ func parseSourceId(value string) (types.SourceName, error) {
 	return "", fmt.Errorf("invalid attestation type: %s", value)
 }
 
-var sourceIds = []types.SourceName{
-	types.SourceTEE,
-	types.SourceXRP,
+var sourceIds = []config.SourceName{
+	config.SourceTEE,
+	config.SourceXRP,
 }
 
 func getAPIKeys() ([]string, error) {
@@ -137,4 +113,30 @@ func getAPIKeys() ([]string, error) {
 	}
 
 	return apiKeys, nil
+}
+
+func swagger(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(`<!DOCTYPE html>
+			<html lang="en">
+			<head>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1" />
+			<meta name="description" content="SwaggerUI" />
+			<title>SwaggerUI</title>
+			<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+			</head>
+			<body>
+			<div id="swagger-ui"></div>
+			<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
+			<script>
+			window.onload = () => {
+				window.ui = SwaggerUIBundle({
+				url: '/openapi.json',
+				dom_id: '#swagger-ui',
+				});
+			};
+			</script>
+			</body>
+			</html>`))
 }

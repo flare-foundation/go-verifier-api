@@ -8,26 +8,27 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	teecrypto "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/crypto"
+	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], sourceID string) {
+func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
 		Method:      http.MethodPost,
-		Path:        fmt.Sprintf("/%s/prepareRequestBody", attestationType),
-		Tags:        []string{string(attestationType)}},
+		Path:        fmt.Sprintf("/%s/prepareRequestBody", config.AttestationTypePair.AttestationType),
+		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
-			if err := ValidateRequest(request); err != nil {
+			if err := validation.ValidateRequest(request); err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 			}
-			if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
+			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 			}
 			requestData, err := request.Body.RequestBody.ToInternal()
@@ -47,12 +48,12 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareResponseBody",
 		Method:      http.MethodPost,
-		Path:        fmt.Sprintf("/%s/prepareResponseBody", attestationType),
-		Tags:        []string{string(attestationType)}},
+		Path:        fmt.Sprintf("/%s/prepareResponseBody", config.AttestationTypePair.AttestationType),
+		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityEncodedRequest
 		}) (*types.Response[types.RawAndEncodedResponseBody], error) {
-			responseData, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, attestationType, verifier, sourceID)
+			responseData, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, config, verifier)
 			if err != nil {
 				return nil, err
 			}
@@ -65,12 +66,12 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 	huma.Register(api, huma.Operation{
 		OperationID: "post-verify",
 		Method:      http.MethodPost,
-		Path:        fmt.Sprintf("/%s/verify", attestationType),
-		Tags:        []string{string(attestationType)}},
+		Path:        fmt.Sprintf("/%s/verify", config.AttestationTypePair.AttestationType),
+		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityEncodedRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
-			_, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, attestationType, verifier, sourceID)
+			_, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, config, verifier)
 			if err != nil {
 				return nil, err
 			}
@@ -82,11 +83,11 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 
 // func validate
 
-func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest, ctx context.Context, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], sourceID string) (types.TeeAvailabilityResponseData, []byte, error) {
-	if err := ValidateRequest(request); err != nil {
+func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest, ctx context.Context, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData]) (types.TeeAvailabilityResponseData, []byte, error) {
+	if err := validation.ValidateRequest(request); err != nil {
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	if err := ValidateSystemAndRequestAttestationNameAndSourceId(attestationType, sourceID, request.FTDCHeader.AttestationType, request.FTDCHeader.SourceId); err != nil {
+	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.FTDCHeader.AttestationType, request.FTDCHeader.SourceId); err != nil {
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
 	cleanRequestBodyHex := strings.TrimPrefix(request.RequestBody, "0x")
@@ -107,4 +108,8 @@ func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
 	return responseData, responseDataBytes, nil
+}
+
+func HexWith0x(data []byte) string {
+	return "0x" + hex.EncodeToString(data)
 }

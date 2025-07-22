@@ -3,27 +3,27 @@ package paymentservice
 import (
 	"fmt"
 
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	pmwstatuspaymentconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
 	pmwpaymentstatusverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/verifier"
-	"github.com/flare-foundation/go-verifier-api/internal/config"
+	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
 type PaymentService struct {
 	verifier verifierinterface.VerifierInterface[
-		attestationtypes.PMWPaymentStatusRequestBody,
-		attestationtypes.PMWPaymentStatusResponseBody,
+		types.PMWPaymentStatusRequestBody,
+		types.PMWPaymentStatusResponseBody,
 	]
-	config *pmwpaymentstatusconfig.PMWPaymentStatusConfig
+	config *config.PMWPaymentStatusConfig
 }
 
-func NewPaymentService() (*PaymentService, error) {
-	cfg, err := config.GetPMWPaymentStatusConfig()
+func NewPaymentService(sourceId config.SourceName, attestationType connector.AttestationType) (*PaymentService, error) {
+	cfg, err := pmwstatuspaymentconfig.GetPMWPaymentStatusConfig(sourceId, attestationType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load PMWPaymentStatus config: %w", err)
 	}
-	sourceID := cfg.SourceID
 	db, err := config.InitMainDB(cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to DB: %w", err)
@@ -32,7 +32,7 @@ func NewPaymentService() (*PaymentService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to CChain DB: %w", err)
 	}
-	verifierImpl, err := pmwpaymentstatusverifier.GetVerifier(sourceID, cfg, db, cchainDB)
+	verifierImpl, err := pmwpaymentstatusverifier.GetVerifier(cfg, db, cchainDB)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize verifier: %w", err)
 	}
@@ -40,12 +40,12 @@ func NewPaymentService() (*PaymentService, error) {
 }
 
 func (s *PaymentService) GetVerifier() verifierinterface.VerifierInterface[
-	attestationtypes.PMWPaymentStatusRequestBody,
-	attestationtypes.PMWPaymentStatusResponseBody,
+	types.PMWPaymentStatusRequestBody,
+	types.PMWPaymentStatusResponseBody,
 ] {
 	return s.verifier
 }
 
-func (s *PaymentService) GetConfig() *pmwpaymentstatusconfig.PMWPaymentStatusConfig {
+func (s *PaymentService) GetConfig() *config.PMWPaymentStatusConfig {
 	return s.config
 }
