@@ -182,7 +182,7 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 	return result, nil
 }
 
-func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge *big.Int) common.Hash {
+func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) common.Hash {
 	REG_OP_TYPE := utils.Bytes32(regOperationType)
 	TEE_ATTESTATION := utils.Bytes32(teeAttestationType)
 
@@ -190,7 +190,7 @@ func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, chall
 	buf.Write(REG_OP_TYPE[:])
 	buf.Write(TEE_ATTESTATION[:])
 	buf.Write(common.LeftPadBytes(teeId.Bytes(), 32))
-	buf.Write(common.LeftPadBytes(challenge.Bytes(), 32))
+	buf.Write(challenge.Bytes())
 
 	challengeInstructionId := crypto.Keccak256Hash(buf.Bytes())
 	return challengeInstructionId

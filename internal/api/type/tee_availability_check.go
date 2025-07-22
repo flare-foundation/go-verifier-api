@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -13,7 +12,7 @@ import (
 type TeeAvailabilityEncodedRequest struct {
 	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
 	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465650000000000000000000000000000000000000000000000000000000000"`
-	RequestBody     string `json:"requestBody" example:"0x000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000ab54a98ceb1f0ad2000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
+	RequestBody     string `json:"requestBody" example:"0x000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
 }
 
 type TeeAvailabilityRequest struct {
@@ -25,30 +24,32 @@ type TeeAvailabilityRequest struct {
 type TeeAvailabilityRequestBody struct {
 	TeeId     string `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
 	Url       string `json:"url" validate:"required,url" example:"https://supertee.proxy"`
-	Challenge string `json:"challenge" validate:"required,numeric" example:"12345678901234567890"`
+	Challenge string `json:"challenge" validate:"required,hash32" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
 }
 
 type TeeAvailabilityRequestData struct {
 	TeeId     common.Address
 	Url       string
-	Challenge *big.Int
+	Challenge common.Hash
 }
 
 func (requestBody TeeAvailabilityRequestBody) ToInternal() (TeeAvailabilityRequestData, error) {
-	addr := common.HexToAddress(requestBody.TeeId)
-
-	challenge := new(big.Int)
-	if _, ok := challenge.SetString(requestBody.Challenge, 10); !ok {
-		return TeeAvailabilityRequestData{}, fmt.Errorf("invalid challenge value: %s", requestBody.Challenge)
-	}
-
 	return TeeAvailabilityRequestData{
-		TeeId:     addr,
+		TeeId:     common.HexToAddress(requestBody.TeeId),
 		Url:       requestBody.Url,
-		Challenge: challenge,
+		Challenge: common.HexToHash(requestBody.Challenge),
 	}, nil
 }
 
+type TeeAvailabilityResponseBody struct {
+	Status                 json.Number `json:"status"`
+	TeeTimestamp           json.Number `json:"teeTimestamp"`
+	CodeHash               string      `json:"codeHash"`
+	Platform               string      `json:"platform"`
+	InitialSigningPolicyId json.Number `json:"initialSigningPolicyId"` // TODO for type
+	LastSigningPolicyId    json.Number `json:"lastSigningPolicyId"`    // TODO for type
+	StateHash              string      `json:"stateHash"`              // TODO for type
+}
 type TeeAvailabilityResponseData struct {
 	Status                 uint8       `json:"status"`
 	TeeTimestamp           uint64      `json:"teeTimestamp"`
@@ -59,8 +60,20 @@ type TeeAvailabilityResponseData struct {
 	StateHash              common.Hash `json:"stateHash"`
 }
 
+func (data TeeAvailabilityResponseData) ToExternal() TeeAvailabilityResponseBody {
+	return TeeAvailabilityResponseBody{
+		Status:                 json.Number(fmt.Sprintf("%d", data.Status)),
+		TeeTimestamp:           json.Number(fmt.Sprintf("%d", data.TeeTimestamp)),
+		CodeHash:               data.CodeHash.Hex(),
+		Platform:               data.Platform.Hex(),
+		InitialSigningPolicyId: json.Number(fmt.Sprintf("%d", data.InitialSigningPolicyId)),
+		LastSigningPolicyId:    json.Number(fmt.Sprintf("%d", data.LastSigningPolicyId)),
+		StateHash:              data.StateHash.Hex(),
+	}
+}
+
 type RawAndEncodedResponseBody struct {
-	ResponseBody        TeeAvailabilityResponseData `json:"responseBody"`
+	ResponseBody        TeeAvailabilityResponseBody `json:"responseBody"`
 	EncodedResponseBody string                      `json:"encodedResponseBody" example:"0x0000abcd..."`
 }
 

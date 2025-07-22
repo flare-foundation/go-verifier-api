@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	types "gitlab.com/urskak/verifier-api/internal/api/type"
@@ -30,10 +29,12 @@ func AbiDecodeRequestData(data []byte) (types.TeeAvailabilityRequestData, error)
 	if !ok {
 		return types.TeeAvailabilityRequestData{}, fmt.Errorf("expected string, got %T", values[1])
 	}
-	challenge, ok := values[2].(*big.Int)
+	bytesVal, ok := values[2].([32]byte)
 	if !ok {
-		return types.TeeAvailabilityRequestData{}, fmt.Errorf("expected *big.Int, got %T", values[2])
+		return types.TeeAvailabilityRequestData{}, fmt.Errorf("expected [32]byte for common.Hash, got %T", values[2])
 	}
+	var challenge common.Hash
+	copy(challenge[:], bytesVal[:])
 
 	return types.TeeAvailabilityRequestData{
 		TeeId:     addr,

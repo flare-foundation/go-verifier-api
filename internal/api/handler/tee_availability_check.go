@@ -59,14 +59,13 @@ func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.Attesta
 		if err != nil {
 			return nil, err
 		}
-		// responseBody := responseData.FromInternal()
-
+		responseBody := responseData.ToExternal()
 		responseDataBytes, err := teecrypto.AbiEncodeResponseData(responseData)
 		if err != nil {
 			return nil, huma.Error400BadRequest(fmt.Sprintf("encoding response body failed: %v", err))
 		}
 		return types.NewResponse(types.RawAndEncodedResponseBody{
-			ResponseBody:        responseData,
+			ResponseBody:        responseBody,
 			EncodedResponseBody: HexWith0x(responseDataBytes),
 		}), nil
 	})

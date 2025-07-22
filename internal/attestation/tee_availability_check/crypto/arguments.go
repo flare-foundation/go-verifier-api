@@ -11,7 +11,7 @@ func AbiArgumentsForRequestData() (abi.Arguments, error) {
 	if err != nil {
 		return nil, err
 	}
-	uint256Type, err := abi.NewType("uint256", "", nil)
+	bytes32Type, err := abi.NewType("bytes32", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -19,7 +19,7 @@ func AbiArgumentsForRequestData() (abi.Arguments, error) {
 	return abi.Arguments{
 		{Type: addressType}, //teeId
 		{Type: stringType},  //url
-		{Type: uint256Type}, //challenge
+		{Type: bytes32Type}, //challenge
 	}, nil
 }
 
