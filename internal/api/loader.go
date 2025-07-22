@@ -8,11 +8,11 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"gitlab.com/urskak/verifier-api/internal/api/handler"
-	paymentservice "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status"
-	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/polling"
-	teeavailabilitycheck "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
-	"gitlab.com/urskak/verifier-api/internal/config"
+	"github.com/flare-foundation/go-verifier-api/internal/api/handler"
+	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/polling"
+	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
 func LoadModule(api huma.API, attType connector.AttestationType) error {

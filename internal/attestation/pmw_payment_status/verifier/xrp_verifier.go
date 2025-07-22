@@ -12,9 +12,9 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
-	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
-	"gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/models"
+	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/models"
 	"gorm.io/gorm"
 )
 

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gitlab.com/urskak/verifier-api/internal/api"
+	"github.com/flare-foundation/go-verifier-api/internal/api"
 )
 
 func main() {

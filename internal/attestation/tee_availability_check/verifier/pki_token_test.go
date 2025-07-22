@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	teeavailabilitycheckconfig "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/config"
-	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
+	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 )
 
 func TestValidatePKIToken(t *testing.T) { // TODO

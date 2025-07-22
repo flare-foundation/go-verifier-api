@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	types "gitlab.com/urskak/verifier-api/internal/api/type"
+	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 )
 
 func AbiDecodeRequestData(data []byte) (types.TeeAvailabilityRequestData, error) {

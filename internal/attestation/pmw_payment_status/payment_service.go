@@ -3,11 +3,11 @@ package paymentservice
 import (
 	"fmt"
 
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
-	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
-	pmwpaymentstatusverifier "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/verifier"
-	"gitlab.com/urskak/verifier-api/internal/config"
-	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
+	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
+	pmwpaymentstatusverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
+	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
 type PaymentService struct {

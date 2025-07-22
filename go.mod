@@ -1,4 +1,4 @@
-module gitlab.com/urskak/verifier-api
+module github.com/flare-foundation/go-verifier-api
 
 go 1.24.4
 

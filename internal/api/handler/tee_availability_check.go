@@ -8,9 +8,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	types "gitlab.com/urskak/verifier-api/internal/api/type"
-	teecrypto "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/crypto"
-	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
+	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	teecrypto "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/crypto"
+	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
 func TeeAvailabilityCheckHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], sourceID string) {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	"github.com/go-playground/validator/v10"
-	"gitlab.com/urskak/verifier-api/internal/api/validation"
 )
 
 var validate *validator.Validate

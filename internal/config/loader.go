@@ -3,8 +3,8 @@ package config
 import (
 	"sync"
 
-	pmwpaymentstatusconfig "gitlab.com/urskak/verifier-api/internal/attestation/pmw_payment_status/config"
-	teeavailabilitycheckconfig "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/config"
+	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
+	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 )
 
 var (

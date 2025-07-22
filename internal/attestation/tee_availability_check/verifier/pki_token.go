@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/golang-jwt/jwt/v4"
-	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
 )
 
 // Taken from https://cloud.google.com/confidential-computing/confidential-space/docs/connect-external-resources#pki-attestation-tokens

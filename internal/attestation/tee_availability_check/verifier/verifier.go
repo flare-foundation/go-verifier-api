@@ -16,10 +16,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeregistry"
-	types "gitlab.com/urskak/verifier-api/internal/api/type"
-	teeavailabilitycheckconfig "gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/config"
-	"gitlab.com/urskak/verifier-api/internal/attestation/utils"
-	verifierinterface "gitlab.com/urskak/verifier-api/internal/verifier_interface"
+	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
 const (

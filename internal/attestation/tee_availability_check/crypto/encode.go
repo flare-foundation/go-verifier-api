@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	types "gitlab.com/urskak/verifier-api/internal/api/type"
+	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 )
 
 func AbiEncodeRequestData(data types.TeeAvailabilityRequestData) ([]byte, error) {

@@ -10,10 +10,10 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
+	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
-	"gitlab.com/urskak/verifier-api/internal/api/middleware"
-	types "gitlab.com/urskak/verifier-api/internal/api/type"
 )
 
 func RunServer() {

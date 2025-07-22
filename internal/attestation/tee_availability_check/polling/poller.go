@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"gitlab.com/urskak/verifier-api/internal/attestation/tee_availability_check/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 )
 
 const SampleInterval = 1 * time.Minute
