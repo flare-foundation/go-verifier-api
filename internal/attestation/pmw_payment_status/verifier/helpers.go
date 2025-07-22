@@ -13,16 +13,16 @@ import (
 const pay = "PAY"
 
 func GenerateInstructionId(walletId string, nonce uint64, sourceEnv string) string {
-	var wallet [32]byte
+	var wallet common.Hash
 	copy(wallet[:], []byte(walletId))
 
-	var sourceID [32]byte
+	var sourceID common.Hash
 	copy(sourceID[:], []byte(sourceEnv))
 
-	var opCommand [32]byte
+	var opCommand common.Hash
 	copy(opCommand[:], []byte(pay))
 
-	var nonceByte [32]byte
+	var nonceByte common.Hash
 	nonceBig := big.NewInt(int64(nonce))
 	copy(nonceByte[:], common.LeftPadBytes((nonceBig).Bytes(), 32))
 
@@ -30,8 +30,8 @@ func GenerateInstructionId(walletId string, nonce uint64, sourceEnv string) stri
 	return hex.EncodeToString(instructionId)
 }
 
-func HexStringToBytes32(s string) ([32]byte, error) {
-	var arr [32]byte
+func HexStringToBytes32(s string) (common.Hash, error) {
+	var arr common.Hash
 	s = strings.TrimPrefix(s, "0x")
 	b, err := hex.DecodeString(s)
 	if err != nil {

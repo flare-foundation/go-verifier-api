@@ -84,7 +84,7 @@ type RawAndEncodedResponseBody struct {
 
 type AvailabilityCheckStatus uint8
 
-// Match SC https://gitlab.com/flarenetwork/FSP/flare-smart-contracts-v2/-/blob/tee/contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol?ref_type=heads#L12
+// Should match SC https://gitlab.com/flarenetwork/FSP/flare-smart-contracts-v2/-/blob/tee/contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol?ref_type=heads#L12
 const (
 	OK AvailabilityCheckStatus = iota
 	OBSOLETE

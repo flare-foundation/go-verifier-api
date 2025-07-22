@@ -70,37 +70,35 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 			return types.TeeAvailabilityResponseData{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Insufficient polling data %v", infoErr))
 		}
 		if !valid { // No response in the last 5 minutes
-			var responseBody types.TeeAvailabilityResponseData
-			responseBody.Status = uint8(types.DOWN)
-			responseBody.TeeTimestamp = 0
-			responseBody.CodeHash = common.Hash{}
-			responseBody.Platform = common.Hash{}
-			responseBody.InitialSigningPolicyId = uint32(0)
-			responseBody.LastSigningPolicyId = uint32(0)
-			responseBody.StateHash = common.Hash{}
+			var responseData types.TeeAvailabilityResponseData
+			responseData.Status = uint8(types.DOWN)
+			responseData.TeeTimestamp = 0
+			responseData.CodeHash = common.Hash{}
+			responseData.Platform = common.Hash{}
+			responseData.InitialSigningPolicyId = uint32(0)
+			responseData.LastSigningPolicyId = uint32(0)
+			responseData.StateHash = common.Hash{}
 
-			return responseBody, nil
+			return responseData, nil
 		}
 		// There are valid responses from /info, but no response on /action/result/<challengeInstructionId>
 		return types.TeeAvailabilityResponseData{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Tee %s data not available %v", req.TeeId, err))
 	}
-	//TODO - continue
 	statusInfo, err := v.dataVerification(response)
-	infoData := response.TeeInfo
 	if err != nil {
 		return types.TeeAvailabilityResponseData{}, err
 	}
+	infoData := response.TeeInfo
+	var responseData types.TeeAvailabilityResponseData
+	responseData.Status = uint8(statusInfo.Status)
+	responseData.TeeTimestamp = infoData.TeeTimestamp
+	responseData.CodeHash = statusInfo.CodeHash
+	responseData.Platform = statusInfo.Platform
+	responseData.InitialSigningPolicyId = infoData.InitialSigningPolicyId
+	responseData.LastSigningPolicyId = infoData.LastSigningPolicyId
+	responseData.StateHash = infoData.StateHash
 
-	var responseBody types.TeeAvailabilityResponseData
-	responseBody.Status = uint8(statusInfo.Status)
-	responseBody.TeeTimestamp = infoData.TeeTimestamp
-	responseBody.CodeHash = statusInfo.CodeHash
-	responseBody.Platform = statusInfo.Platform
-	responseBody.InitialSigningPolicyId = infoData.InitialSigningPolicyId
-	responseBody.LastSigningPolicyId = infoData.LastSigningPolicyId
-	responseBody.StateHash = infoData.StateHash
-
-	return responseBody, nil
+	return responseData, nil
 }
 
 func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
@@ -112,25 +110,22 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	// Certificate checks
 	cert, err := LoadRootCert()
 	if err != nil {
-		return StatusInfo{}, huma.Error500InternalServerError("failed to load root cert: %w", err)
+		return StatusInfo{}, huma.Error500InternalServerError(fmt.Sprintf("Failed to load root cert: %v", err))
 	}
 	token, err := ValidatePKIToken(cert, attestationToken)
 	if err != nil {
 		return StatusInfo{}, err
 	}
-	if !token.Valid {
-		return StatusInfo{}, huma.Error400BadRequest(fmt.Sprintf("attestation token is invalid: %s", attestationToken))
-	}
 	lastSigningPolicyHash, err := v.getLastSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
 	if err != nil {
-		return StatusInfo{}, huma.Error503ServiceUnavailable("failed to retrieve last signing policy hash: %w", err)
+		return StatusInfo{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Failed to retrieve last signing policy hash: %v", err))
 	}
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
-		return StatusInfo{}, huma.Error400BadRequest("failed to validate last signing policy hash")
+		return StatusInfo{}, huma.Error400BadRequest("Failed to validate last signing policy hash")
 	}
 	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
-		return StatusInfo{}, huma.Error400BadRequest("failed to validate claims: %w", err)
+		return StatusInfo{}, huma.Error400BadRequest(fmt.Sprintf("Failed to validate claims: %v", err))
 	}
 	return statusInfo, nil
 }
@@ -185,13 +180,11 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) common.Hash {
 	REG_OP_TYPE := utils.Bytes32(regOperationType)
 	TEE_ATTESTATION := utils.Bytes32(teeAttestationType)
-
 	buf := new(bytes.Buffer)
 	buf.Write(REG_OP_TYPE[:])
 	buf.Write(TEE_ATTESTATION[:])
 	buf.Write(common.LeftPadBytes(teeId.Bytes(), 32))
 	buf.Write(challenge.Bytes())
-
 	challengeInstructionId := crypto.Keccak256Hash(buf.Bytes())
 	return challengeInstructionId
 }
