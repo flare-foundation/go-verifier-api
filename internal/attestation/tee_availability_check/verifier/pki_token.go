@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v4"
 	attestationtypes "gitlab.com/urskak/verifier-api/internal/api/type"
@@ -24,10 +23,10 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	// the signature is verified.
 	jwtHeaders, err := ExtractJWTHeaders(attestationToken)
 	if err != nil {
-		return jwt.Token{}, huma.Error400BadRequest("Cannot extract JWTHeaders returned error: %v", err)
+		return jwt.Token{}, fmt.Errorf("cannot extract JWTHeaders returned error: %v", err)
 	}
 	if jwtHeaders["alg"] != "RS256" {
-		return jwt.Token{}, huma.Error400BadRequest(fmt.Sprintf("Cannot validate PKI TOKEN - got Alg: %v, want: %v", jwtHeaders["alg"], "RS256"), nil)
+		return jwt.Token{}, fmt.Errorf(fmt.Sprintf("Cannot validate PKI TOKEN - got Alg: %v, want: %v", jwtHeaders["alg"], "RS256"), nil)
 	}
 	// Additional Check: Validate the ALG in the header matches the certificate SPKI.
 	// https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.7
@@ -35,32 +34,32 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	x5cHeaders := jwtHeaders["x5c"].([]any)
 	certificates, err := ExtractCertificatesFromX5CHeader(x5cHeaders)
 	if err != nil {
-		return jwt.Token{}, huma.Error400BadRequest("Cannot ExtractCertificatesFromX5CHeader", err)
+		return jwt.Token{}, fmt.Errorf("cannot ExtractCertificatesFromX5CHeader: %v", err)
 	}
 	// Verify the leaf certificate signature algorithm is an RSA key
 	if certificates.LeafCert.SignatureAlgorithm != x509.SHA256WithRSA {
-		return jwt.Token{}, huma.Error400BadRequest("leaf certificate signature algorithm is not SHA256WithRSA", err)
+		return jwt.Token{}, errors.New("leaf certificate signature algorithm is not SHA256WithRSA")
 	}
 	// Verify the leaf certificate public key algorithm is RSA
 	if certificates.LeafCert.PublicKeyAlgorithm != x509.RSA {
-		return jwt.Token{}, huma.Error400BadRequest("leaf certificate public key algorithm is not RSA", err)
+		return jwt.Token{}, errors.New("leaf certificate public key algorithm is not RSA")
 	}
 	// Verify the storedRootCertificate is the same as the root certificate returned in the token.
 	// storedRootCertificate is downloaded from the confidential computing well known endpoint
 	// https://confidentialcomputing.googleapis.com/.well-known/attestation-pki-root
 	err = CompareCertificates(storedRootCertificate, certificates.RootCert)
 	if err != nil {
-		return jwt.Token{}, huma.Error400BadRequest("failed to verify certificate chain: %v", err)
+		return jwt.Token{}, fmt.Errorf("failed to verify certificate chain: %v", err)
 	}
 	err = VerifyCertificateChain(certificates)
 	if err != nil {
-		return jwt.Token{}, huma.Error400BadRequest("verification certificate chain failed: %v", err)
+		return jwt.Token{}, fmt.Errorf("verification certificate chain failed: %v", err)
 	}
 	keyFunc := func(token *jwt.Token) (any, error) {
 		return certificates.LeafCert.PublicKey, nil
 	}
 	verifiedJWT, err := jwt.Parse(attestationToken, keyFunc)
-	return *verifiedJWT, huma.Error400BadRequest("jwt.Parse error: %v", err)
+	return *verifiedJWT, fmt.Errorf("jwt.Parse error: %v", err)
 }
 
 // ExtractJWTHeaders parses the JWT and returns the headers.
@@ -155,15 +154,15 @@ func VerifyCertificateChain(certificates PKICertificates) error {
 }
 
 func isCertificateLifetimeValid(certificate *x509.Certificate) bool {
-	currentTime := time.Now()
-	// check the current time should be after the certificate NotBefore time
+	currentTime := time.Now().UTC()
+	fmt.Println(certificate.NotBefore, currentTime, certificate.NotAfter)
 	if currentTime.Before(certificate.NotBefore) {
 		return false
 	}
-	// check the current time should be before the certificate NotAfter time
 	if currentTime.After(certificate.NotAfter) {
 		return false
 	}
+
 	return true
 }
 
@@ -249,7 +248,7 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %v", err)
 	}
-	statusInfo.Platform, err = hexStringToBytes32(strings.TrimPrefix(claims.HWModel, "sha256:"))
+	statusInfo.Platform, err = hexStringToBytes32(strings.TrimPrefix(claims.HWModel, "sha256:")) //TODO - fix
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %v", err)
 	}

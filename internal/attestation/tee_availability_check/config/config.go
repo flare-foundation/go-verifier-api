@@ -35,26 +35,33 @@ func LoadTeeAvailabilityCheckConfig() (*TeeAvailabilityCheckConfig, error) {
 	if teeRegistryContractAddress == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")
 	}
-	rootCertBytes, err := os.ReadFile("../google_confidential_space_root.crt")
+	googleRootCert, err := LoadGoogleRootCert()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read Google root certificate: %v", err)
+		return nil, err
 	}
-	cert, err := decodeAndParsePEMCertificate(string(rootCertBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Google root certificate: %v", err)
-	}
-
 	return &TeeAvailabilityCheckConfig{
 		SourceID:                   sourceID,
 		RelayContractAddress:       relayContractAddress,
 		TeeRegistryContractAddress: teeRegistryContractAddress,
 		RPCURL:                     rpcURL,
-		GoogleRootCertificate:      cert,
+		GoogleRootCertificate:      googleRootCert,
 	}, nil
 }
 
-// decodeAndParsePEMCertificate decodes the given PEM certificate string and parses it into an x509 certificate.
-func decodeAndParsePEMCertificate(certificate string) (*x509.Certificate, error) {
+func LoadGoogleRootCert() (*x509.Certificate, error) {
+	rootCertBytes, err := os.ReadFile("../google_confidential_space_root.crt")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read root certificate: %w", err)
+	}
+	cert, err := DecodeAndParsePEMCertificate(string(rootCertBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse root certificate: %w", err)
+	}
+	return cert, nil
+}
+
+// DecodeAndParsePEMCertificate decodes the given PEM certificate string and parses it into an x509 certificate.
+func DecodeAndParsePEMCertificate(certificate string) (*x509.Certificate, error) {
 	block, _ := pem.Decode([]byte(certificate))
 	if block == nil {
 		return nil, fmt.Errorf("cannot decode certificate: invalid PEM format")

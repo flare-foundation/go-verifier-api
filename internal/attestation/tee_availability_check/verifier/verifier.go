@@ -110,18 +110,18 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	// Certificate checks
 	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, attestationToken)
 	if err != nil {
-		return StatusInfo{}, err
+		return StatusInfo{}, huma.Error422UnprocessableEntity(fmt.Sprintf("Failed to validate certificate signature: %v", err))
 	}
 	lastSigningPolicyHash, err := v.getLastSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
 	if err != nil {
 		return StatusInfo{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Failed to retrieve last signing policy hash: %v", err))
 	}
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
-		return StatusInfo{}, huma.Error400BadRequest("Failed to validate last signing policy hash")
+		return StatusInfo{}, huma.Error422UnprocessableEntity("Failed to validate last signing policy hash")
 	}
 	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
-		return StatusInfo{}, huma.Error400BadRequest(fmt.Sprintf("Failed to validate claims: %v", err))
+		return StatusInfo{}, huma.Error422UnprocessableEntity(fmt.Sprintf("Failed to validate claims: %v", err))
 	}
 	return statusInfo, nil
 }
