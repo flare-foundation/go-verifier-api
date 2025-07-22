@@ -108,11 +108,7 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks
-	cert, err := LoadRootCert()
-	if err != nil {
-		return StatusInfo{}, huma.Error500InternalServerError(fmt.Sprintf("Failed to load root cert: %v", err))
-	}
-	token, err := ValidatePKIToken(cert, attestationToken)
+	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, attestationToken)
 	if err != nil {
 		return StatusInfo{}, err
 	}

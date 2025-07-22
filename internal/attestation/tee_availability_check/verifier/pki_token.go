@@ -5,10 +5,8 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -123,19 +121,6 @@ func ExtractCertificatesFromX5CHeader(x5cHeaders []any) (PKICertificates, error)
 func DecodeAndParseDERCertificate(certificate string) (*x509.Certificate, error) {
 	bytes, _ := base64.StdEncoding.DecodeString(certificate)
 	cert, err := x509.ParseCertificate(bytes)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse certificate: %v", err)
-	}
-	return cert, nil
-}
-
-// DecodeAndParsePEMCertificate decodes the given PEM certificate string and parses it into an x509 certificate.
-func DecodeAndParsePEMCertificate(certificate string) (*x509.Certificate, error) {
-	block, _ := pem.Decode([]byte(certificate))
-	if block == nil {
-		return nil, fmt.Errorf("cannot decode certificate: invalid PEM format")
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse certificate: %v", err)
 	}
@@ -269,18 +254,6 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %v", err)
 	}
 	return statusInfo, nil
-}
-
-func LoadRootCert() (*x509.Certificate, error) {
-	rootCertBytes, err := os.ReadFile("../google_confidential_space_root.crt")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read root certificate: %w", err)
-	}
-	cert, err := DecodeAndParsePEMCertificate(string(rootCertBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse root certificate: %w", err)
-	}
-	return cert, nil
 }
 
 func hexStringToBytes32(hexStr string) (common.Hash, error) {
