@@ -10,7 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
-	teecrypto "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/crypto"
+	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
@@ -36,7 +36,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
 			// TODO validate
-			requestDataBytes, err := teecrypto.AbiEncodeRequestData(requestData)
+			requestDataBytes, err := utils.AbiEncodeRequestData(requestData)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -81,8 +81,6 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 		})
 }
 
-// func validate
-
 func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest, ctx context.Context, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData]) (types.TeeAvailabilityResponseData, []byte, error) {
 	if err := validation.ValidateRequest(request); err != nil {
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
@@ -95,7 +93,7 @@ func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest
 	if err != nil {
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to bytes failed: %v", err))
 	}
-	requestData, err := teecrypto.AbiDecodeRequestData(requestBodyBytes)
+	requestData, err := utils.AbiDecodeRequestData(requestBodyBytes)
 	if err != nil {
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}
@@ -103,7 +101,7 @@ func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest
 	if err != nil {
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 	}
-	responseDataBytes, err := teecrypto.AbiEncodeResponseData(responseData)
+	responseDataBytes, err := utils.AbiEncodeResponseData(responseData)
 	if err != nil {
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
