@@ -103,3 +103,78 @@ Verify the encoded request body and returns ABI-encoded `TeeAttestationAvailabil
 |----------------------------|----------------------|
 | 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, conversion, encoding, or decoding failures) |
 | 500 Internal Server Error  | Any other errors, with description provided in the `detail` field 
+
+
+# Data Structures
+
+- `TeeAvailabilityHeader` has shared metadata used in requests.
+```json
+{
+  "attestationType": "0x546565417661696c6162696c697479436865636b000000000000000000000000",
+  "sourceId": "0x7465650000000000000000000000000000000000000000000000000000000000",
+  "thresholdBIPS": 0,
+  "cosigners": [],
+  "cosignersThreshold": 0
+}
+```
+
+| Field              | Type     | Description            |
+|--------------------|----------|-----------------------|
+| attestationType    | string   | 32-byte hex-encoded identifier of the attestation type
+| sourceId           | string   | 32-byte hex-encoded source identifier
+| thresholdBIPS      | uint16   | Not relevant for verifier
+| cosigners          | []string | Not relevant for verifier
+| cosignersThreshold | uint64   | Not relevant for verifier
+
+
+- `TeeAvailabilityRequestBody`
+```json
+{
+  "teeId": "0x000000000000000000000000000000000000dEaD",
+  "url": "https://proxy.url/tee",
+  "challenge": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+}
+```
+| Field    | Type   | Description
+|----------|--------|----------------------|
+| teeId    | string | Ethereum address of the TEE
+| url      | string | TEE proxy endpoint URL
+| challenge| string | 32-byte hex-encoded challenge hash
+
+- `TeeAvailabilityResponseBody`
+```json
+{
+  "status": 0,
+  "teeTimestamp": 123456789,
+  "codeHash": "0x...",
+  "platform": "0x...",
+  "initialSigningPolicyId": 1,
+  "lastSigningPolicyId": 2,
+  "stateHash": "0x..."
+}
+```
+| Field                  | Type   | Description
+|------------------------|--------|----------------------|
+| status                 | number | Ethereum address of the TEE
+| teeTimestamp           | uint64 | TEE timestamp
+| codeHash               | string |	32-byte hex-encoded SHA-256 digest of the workload container image
+| platform               | string | //TBD - TODO
+| initialSigningPolicyId | uint32 | initial signing policy id
+| lastSigningPolicyId    | uint32 |	last signing policy id
+| stateHash              | string |	32-byte hex-encoded state
+
+- `EncodedRequestBody`
+Used for ABI-encoded request bodies:
+```json
+{
+  "encodedRequestBody": "0x0000abcd...",
+}
+```
+
+- `EncodedResponseBody`
+Used for ABI-encoded response bodies:
+```json
+{
+  "encodedResponseBody": "0x0000abcd...",
+}
+```
