@@ -6,11 +6,11 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 )
 
-func APIKeyAuthMiddleware(apiKeys []string) func(ctx huma.Context, next func(huma.Context)) { // TODO return also body
+func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context, next func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		apiKey := ctx.Header("X-API-KEY")
 		if apiKey == "" {
-			ctx.SetStatus(http.StatusUnauthorized)
+			huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 		found := false
@@ -21,7 +21,7 @@ func APIKeyAuthMiddleware(apiKeys []string) func(ctx huma.Context, next func(hum
 			}
 		}
 		if !found {
-			ctx.SetStatus(http.StatusUnauthorized)
+			huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 		next(ctx)

@@ -52,7 +52,7 @@ func RunServer() {
 		{"ApiKeyAuth": {}},
 	}
 	api := humachi.New(router, config)
-	api.UseMiddleware(middleware.APIKeyAuthMiddleware(apiKeys))
+	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, apiKeys))
 
 	router.Get("/api-doc", swagger)
 
