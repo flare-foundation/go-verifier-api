@@ -1,11 +1,13 @@
 package attestationtypes
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 )
 
@@ -110,14 +112,13 @@ type ProxyInfoData struct {
 	TeeTimestamp             uint64        `json:"teeTimestamp"`
 }
 
-func (teeInfo ProxyInfoData) Hash() (common.Hash, error) {
-	encoded, err := json.Marshal(teeInfo)
+// Copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/attestation/attestation.go#L55
+func (teeInfo ProxyInfoData) TeeInfoHash() (string, error) {
+	encoded, err := structs.Encode(tee.StructArg[tee.Attestation], teeInfo)
 	if err != nil {
-		return common.Hash{}, err
+		return "", fmt.Errorf("cannot create teeInfoHash: %v", err)
 	}
-	hash := crypto.Keccak256(encoded)
-	var res common.Hash
-	copy(res[:], hash)
-
-	return res, nil
+	hashBytes := crypto.Keccak256(encoded)
+	hashString := hex.EncodeToString(hashBytes[:])
+	return hashString, nil
 }

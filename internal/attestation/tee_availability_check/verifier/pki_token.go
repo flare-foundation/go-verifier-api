@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -202,10 +202,10 @@ type Container struct {
 type StatusInfo struct {
 	CodeHash common.Hash
 	Platform common.Hash
-	Status   attestationtypes.AvailabilityCheckStatus
+	Status   apitypes.AvailabilityCheckStatus
 }
 
-func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (StatusInfo, error) {
+func ValidateClaims(token jwt.Token, infoData apitypes.ProxyInfoData) (StatusInfo, error) {
 	var statusInfo StatusInfo
 	if !token.Valid { // probably unnecessary
 		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
@@ -214,12 +214,13 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 	if !ok {
 		return StatusInfo{}, errors.New("cannot parse claims")
 	}
-	teeInfoHash, err := infoData.Hash()
+	// generate teeInfo hash
+	teeInfoHash, err := infoData.TeeInfoHash()
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
-
-	if claims.EATNonce[0] != hex.EncodeToString(teeInfoHash[:]) {
+	// match with eat_nonce - TODO check if it is really string array or just string
+	if claims.EATNonce[0] != teeInfoHash {
 		return StatusInfo{}, errors.New("eat_nonce does not match")
 	}
 	// Check if running in production
@@ -239,9 +240,9 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 		}
 	}
 	if !foundIsStable {
-		statusInfo.Status = attestationtypes.OBSOLETE
+		statusInfo.Status = apitypes.OBSOLETE
 	} else {
-		statusInfo.Status = attestationtypes.OK
+		statusInfo.Status = apitypes.OK
 	}
 	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubModules.Container.ImageDigest, "sha256:"))
 	if err != nil {
