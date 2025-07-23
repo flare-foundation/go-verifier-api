@@ -69,7 +69,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 		// check polled data
 		valid, infoErr := v.isTeeInfoValid(req.TeeId)
 		if infoErr != nil { // Not enough data has been polled
-			return types.TeeAvailabilityResponseData{}, fmt.Errorf("Insufficient polling data: %v", infoErr)
+			return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data: %v", infoErr)
 		}
 		if !valid { // No response in the last 5 minutes
 			var responseData types.TeeAvailabilityResponseData
@@ -86,7 +86,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 	}
 	// Error while fetching from tee proxy /action/result/<challengeInstructionId>
 	if err != nil {
-		return types.TeeAvailabilityResponseData{}, fmt.Errorf("Cannot fetch tee %s data: %v", req.TeeId, err)
+		return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot fetch tee %s data: %v", req.TeeId, err)
 	}
 	statusInfo, err := v.dataVerification(response)
 	if err != nil {
