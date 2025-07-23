@@ -248,7 +248,7 @@ func ValidateClaims(token jwt.Token, infoData attestationtypes.ProxyInfoData) (S
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %v", err)
 	}
-	statusInfo.Platform, err = hexStringToBytes32(strings.TrimPrefix(claims.HWModel, "sha256:")) //TODO - fix
+	statusInfo.Platform, err = hexStringToBytes32(strings.TrimPrefix(claims.HWModel, "sha256:")) //TODO - fix need to decide about the type first
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %v", err)
 	}
