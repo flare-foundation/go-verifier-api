@@ -3,9 +3,9 @@
 This API exposes a POST endpoints to verify the availability of a Trusted Execution Environment (TEE).
 
 ## 1. `POST /TeeAvailabilityCheck/prepareRequestBody`
-Returns ABI-encoded `TeeAttestationAvailabilityRequest` request data. This is a helper endpoint used to generate the ABI-encoded `requestBody` to send on-chain.
+Returns ABI-encoded `TeeAttestationAvailabilityRequest` request data. This helper endpoint generates the ABI-encoded `requestBody`.
 
-- Note: Does not yet validate the request, it only encodes it. This will be added later.
+- Note: Currently, this endpoint only performs encoding. Verification functionality will be added later.
 
 ### Request:
 ```json
@@ -38,7 +38,7 @@ Returns ABI-encoded `TeeAttestationAvailabilityRequest` request data. This is a 
 
 
 ## 2. `POST /TeeAvailabilityCheck/prepareResponseBody`
-Verify the encoded request body and returns `TeeAttestationAvailabilityResponse` and ABI-encoded `TeeAttestationAvailabilityResponse`.
+Verify the encoded request body and returns both the decoded `TeeAttestationAvailabilityResponse` and its ABI-encoded form.
 
 
 ### Request:

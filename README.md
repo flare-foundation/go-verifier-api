@@ -1,8 +1,7 @@
 # Go Verifier Api
 
 - [Attestation type specification](https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0)
-- [Huma website](https://huma.rocks)
-- [Huma api tutorual](https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma)
+- [Huma framework website](https://huma.rocks)
 
 
 ## How to run
