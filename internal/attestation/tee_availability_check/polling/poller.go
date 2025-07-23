@@ -13,14 +13,14 @@ import (
 
 const SampleInterval = 1 * time.Minute
 
-func SampleAllTees(teeVerifier *verifier.TeeVerifier) {
+func SampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	activeTees, err := getActiveTees(teeVerifier)
-	if err != nil {
+	if err != nil { // TODO - probably should be handled more appropriately
 		logger.Errorf("Failed to get active TEEs:", err)
 	}
 	for i, teeId := range activeTees.TeeIds {
 		proxyUrl := activeTees.Urls[i]
-		valid, _ := queryTeeInfoAndValidate(teeVerifier, proxyUrl) // TODO how to consider error? should it be undetermined of simply false
+		valid, _ := queryTeeInfoAndValidate(ctx, teeVerifier, proxyUrl) // TODO how to consider error? should it be undetermined of simply false
 		// Sliding window
 		teeVerifier.TeeSamples[teeId] = append(teeVerifier.TeeSamples[teeId], valid)
 		if len(teeVerifier.TeeSamples[teeId]) > teeVerifier.SamplesToConsider {
@@ -30,8 +30,8 @@ func SampleAllTees(teeVerifier *verifier.TeeVerifier) {
 	}
 }
 
-func queryTeeInfoAndValidate(teeVerifier *verifier.TeeVerifier, proxyUrl string) (bool, error) {
-	valid, err := teeVerifier.FetchTEEInfoResultAndValidate(context.Background(), proxyUrl) // TODO ctx??
+func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyUrl string) (bool, error) {
+	valid, err := teeVerifier.FetchTEEInfoResultAndValidate(ctx, proxyUrl)
 	if err != nil {
 		return false, err
 	}

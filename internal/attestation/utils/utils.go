@@ -28,7 +28,6 @@ func AbiEncodeRequestData(data types.TeeAvailabilityRequestData) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode 'TeeAvailabilityCheckRequestBody': %v", err)
 	}
-	fmt.Println(arg)
 	structs.Encode(connector.AttestationRequestArg, &connector.IFtdcHubFtdcAttestationRequest{})
 
 	return encoded, nil
@@ -52,7 +51,6 @@ func AbiEncodeResponseData(data types.TeeAvailabilityResponseData) ([]byte, erro
 		return nil, fmt.Errorf("failed to get 'TeeAvailabilityCheckResponseBody' ABI argument: %v", err)
 	}
 	encoded, err := structs.Encode(arg, data)
-	fmt.Println(arg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode 'TeeAvailabilityCheckResponseBody': %v", err)
 	}

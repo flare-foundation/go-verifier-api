@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -38,7 +39,7 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 			ticker := time.NewTicker(polling.SampleInterval)
 			defer ticker.Stop()
 			for range ticker.C {
-				polling.SampleAllTees(teeVerifier)
+				polling.SampleAllTees(context.Background(), teeVerifier)
 			}
 		}()
 	case connector.PMWPaymentStatus:

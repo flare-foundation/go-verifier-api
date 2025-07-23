@@ -155,7 +155,6 @@ func VerifyCertificateChain(certificates PKICertificates) error {
 
 func isCertificateLifetimeValid(certificate *x509.Certificate) bool {
 	currentTime := time.Now().UTC()
-	fmt.Println(certificate.NotBefore, currentTime, certificate.NotAfter)
 	if currentTime.Before(certificate.NotBefore) {
 		return false
 	}
