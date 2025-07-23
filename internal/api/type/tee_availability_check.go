@@ -1,12 +1,12 @@
 package attestationtypes
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 )
 
 type TeeAvailabilityHeader struct {
@@ -100,14 +100,14 @@ type ProxyInfoResponseBody struct {
 }
 
 type ProxyInfoData struct {
-	Challenge                common.Hash     `json:"challenge"`
-	PublicKey                ecdsa.PublicKey `json:"publicKey"`
-	InitialSigningPolicyId   uint32          `json:"initialSigningPolicyId"`
-	InitialSigningPolicyHash common.Hash     `json:"initialSigningPolicyHash"`
-	LastSigningPolicyId      uint32          `json:"lastSigningPolicyId"`
-	LastSigningPolicyHash    common.Hash     `json:"lastSigningPolicyHash"`
-	StateHash                common.Hash     `json:"stateHash"`
-	TeeTimestamp             uint64          `json:"teeTimestamp"`
+	Challenge                common.Hash   `json:"challenge"`
+	PublicKey                tee.PublicKey `json:"publicKey"`
+	InitialSigningPolicyId   uint32        `json:"initialSigningPolicyId"`
+	InitialSigningPolicyHash common.Hash   `json:"initialSigningPolicyHash"`
+	LastSigningPolicyId      uint32        `json:"lastSigningPolicyId"`
+	LastSigningPolicyHash    common.Hash   `json:"lastSigningPolicyHash"`
+	StateHash                common.Hash   `json:"stateHash"`
+	TeeTimestamp             uint64        `json:"teeTimestamp"`
 }
 
 func (teeInfo ProxyInfoData) Hash() (common.Hash, error) {

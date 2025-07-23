@@ -181,8 +181,9 @@ func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (t
 	if resp.StatusCode != http.StatusOK {
 		return types.ProxyInfoResponseBody{}, fmt.Errorf("teeProxy %s returned non-200 status: %d", baseURL, resp.StatusCode)
 	}
-	var result types.ProxyInfoResponseBody //TODO -> do it with ToInternal()
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	var result types.ProxyInfoResponseBody
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
 		return types.ProxyInfoResponseBody{}, fmt.Errorf("error decoding tee response: %v", err)
 	}
 	return result, nil
