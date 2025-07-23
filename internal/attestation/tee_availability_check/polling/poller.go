@@ -50,7 +50,7 @@ func getActiveTees(teeVerifier *verifier.TeeVerifier) (ActiveTees, error) {
 	callOpts := &bind.CallOpts{
 		Context: context.Background(),
 	}
-	activeTees, err := teeVerifier.TeeRegistryCaller.GetActiveTees(callOpts) // TODO check if connection works
+	activeTees, err := teeVerifier.TeeRegistryCaller.GetActiveTees(callOpts)
 	if err != nil {
 		return ActiveTees{}, fmt.Errorf("failed to call GetActiveTeeIds: %w", err)
 	}

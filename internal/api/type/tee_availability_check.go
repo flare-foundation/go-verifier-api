@@ -51,9 +51,9 @@ type TeeAvailabilityResponseBody struct {
 	TeeTimestamp           json.Number `json:"teeTimestamp"`
 	CodeHash               string      `json:"codeHash"`
 	Platform               string      `json:"platform"`
-	InitialSigningPolicyId json.Number `json:"initialSigningPolicyId"` // TODO for type
-	LastSigningPolicyId    json.Number `json:"lastSigningPolicyId"`    // TODO for type
-	StateHash              string      `json:"stateHash"`              // TODO for type
+	InitialSigningPolicyId json.Number `json:"initialSigningPolicyId"`
+	LastSigningPolicyId    json.Number `json:"lastSigningPolicyId"`
+	StateHash              string      `json:"stateHash"`
 }
 type TeeAvailabilityResponseData struct {
 	Status                 uint8       `json:"status"`
@@ -100,7 +100,7 @@ type ProxyInfoResponseBody struct {
 }
 
 type ProxyInfoData struct {
-	Challenge                common.Hash     `json:"challenge"` // TODO is this challengeInstructionId ?
+	Challenge                common.Hash     `json:"challenge"`
 	PublicKey                ecdsa.PublicKey `json:"publicKey"`
 	InitialSigningPolicyId   uint32          `json:"initialSigningPolicyId"`
 	InitialSigningPolicyHash common.Hash     `json:"initialSigningPolicyHash"`

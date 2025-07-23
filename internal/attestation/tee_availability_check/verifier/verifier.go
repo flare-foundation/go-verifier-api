@@ -116,12 +116,19 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
 	}
-	lastSigningPolicyHash, err := v.getLastSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
+	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
 	}
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
 		return StatusInfo{}, errors.New("failed to validate last signing policy hash")
+	}
+	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyId)
+	if err != nil {
+		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %v", err)
+	}
+	if initialSigningPolicyHash != infoData.InitialSigningPolicyHash {
+		return StatusInfo{}, errors.New("failed to validate initial signing policy hash")
 	}
 	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
@@ -193,16 +200,16 @@ func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, chall
 	return challengeInstructionId
 }
 
-func (v *TeeVerifier) getLastSigningPolicyHashFromChain(lastSigningPolicyId uint32) (common.Hash, error) {
+func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (common.Hash, error) {
 	callOpts := &bind.CallOpts{
 		Context: context.Background(),
 	}
-	lastSigningPolicyIdBigInt := new(big.Int).SetUint64(uint64(lastSigningPolicyId))
-	lastSigningPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, lastSigningPolicyIdBigInt)
+	signingPolicyIdBigInt := new(big.Int).SetUint64(uint64(signingPolicyId))
+	signingPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, signingPolicyIdBigInt)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to call ToSigningPolicyHash: %w", err)
 	}
-	return common.Hash(lastSigningPolicyHashBytes), nil
+	return common.Hash(signingPolicyHashBytes), nil
 }
 
 func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.Hash) (bool, error) {
