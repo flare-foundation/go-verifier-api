@@ -71,7 +71,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 		if infoErr != nil { // Not enough data has been polled
 			return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data: %v", infoErr)
 		}
-		if !valid { // No response in the last 5 minutes
+		if !valid { // No response in the last 5 minutes => tee is down
 			var responseData types.TeeAvailabilityResponseData
 			responseData.Status = uint8(types.DOWN)
 			responseData.TeeTimestamp = 0
@@ -111,11 +111,17 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	}
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
-	// Certificate checks
+	// Certificate checks - check if we can trust the data in token
 	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, attestationToken)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
 	}
+	// check claims
+	statusInfo, err := ValidateClaims(token, infoData)
+	if err != nil {
+		return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
+	}
+	// check last signing policy hash
 	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
@@ -123,16 +129,13 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
 		return StatusInfo{}, errors.New("failed to validate last signing policy hash")
 	}
+	// check initial signing policy hash
 	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyId)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %v", err)
 	}
 	if initialSigningPolicyHash != infoData.InitialSigningPolicyHash {
 		return StatusInfo{}, errors.New("failed to validate initial signing policy hash")
-	}
-	statusInfo, err := ValidateClaims(token, infoData)
-	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
 	}
 	return statusInfo, nil
 }

@@ -1,32 +1,9 @@
-# Verifier Api
+# Go Verifier Api
 
-This is the start repo to introduce FTDC attestation types.
+- [Attestation type specification](https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0)
+- [Huma website](https://huma.rocks)
+- [Huma api tutorual](https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma)
 
-Docs: 
-- https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0
-- https://huma.rocks/
-- https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma
-
-## On the top level:
-- [x] Add in readme "How to run" (but more like write about local requirements)
-- [x] Missing "general" API framework (like it is in current https://gitlab.com/flarenetwork/fdc/verifier-indexer-api)
-- [ ]
-- [ ]
-- [ ]
-
-## Tee availability check
-
-- [ ] /info response from TEE proxy needs to be defined
-- [ ] data to include in eat_nonce needs to be defined
-- [x] should new status MISMATCH be added
-- [x] challenge between tee and proxy need to be defined for /info
-- [x] missing logic to prove /info has fresh data
-
-## PMWPaymentStatus
-
-- [ ] check GetTransactionStatus if still suffices
-- [ ] check GetReceivedAmount if deleted node does not spend money
-- [ ] check parseRawTransactionData - should we validate required fields before further processing
 
 ## How to run
 1. Fill in the `.env` file
@@ -38,24 +15,32 @@ Docs:
     SOURCE_ID=tee                            # Up to 32 characters, e.g., 'xrp' or 'tee'
     PORT=3120
     ```
-    For `TeeAvailabilityCheck`, set:
+    - For `TeeAvailabilityCheck`, set:
     ```env
     RELAY_CONTRACT_ADDRESS=0x...
     TEE_REGISTRY_CONTRACT_ADDRESS=0x...
     RPC_URL=https://...
     ```
 
-    For `PMWPaymentStatus`, set:
+    - For `PMWPaymentStatus`, set:
+
+        You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
+
     ```env
     CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
     DATABASE_URL=postgres://user:pass@host:port/db
     ```
-    You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
+
+    ---
+    To run it on Coston, for now you can copy `.env.coston` to `.env`. Please note that after the `TeeRegistryContract` is deployed, its address must be added to the `.env` file.
+    ---
 
 2. Install dependencies
     ```bash
     go mod tidy
     ```
+
+    If there are new commits to the `tee` branch of the project `go-flare-common` project (https://github.com/flare-foundation/go-flare-common/commits/tee), you can fetch the updates using `go get https://github.com/flare-foundation/go-flare-common@<commitHash>`
 
 3. Run the project
     ```bash
@@ -64,17 +49,25 @@ Docs:
 
 4. Access Swagger UI
     ```
-    localhost:3120/swagger/index.html
+    http://localhost:3120/api-doc
     ```
 
-<!-- ## Tools (experimental)
+## File structure
+// TODO
 
-https://www.alexedwards.net/blog/how-to-manage-tool-dependencies-in-go-1.24-plus
-```
-go mod vendor
-go tool -n staticcheck 
-```
-- Upgrade the module `go get github.com/golang-jwt/jwt/v4@latest`
-- Clean up unused modules `go mod tidy`
-- Sync vendor dir (important!) `go mod vendor`
-- Re-run audit `make audit` -->
+
+
+## TeeAvailabilityCheck TODO list
+- [ ] poller.go: After TeeRegistry is added to Coston, check needs to be made to ensure, the contract is actually called.
+- [ ] poller.go: If getActiveTees call on contract fails, what to do? Now it just logs it.
+- [ ] poller.go: We should distinguish between invalid validation and other errors while queryTeeInfoAndValidate? Now, we don't. If error during or invalid validation -> the sample is considered invalid. This could probably lead to false proof that tee is down.
+- [ ] pki_token.go: claims.HWModel -> what is platform enum or bytes?
+- [ ] verifier.go: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform  is)
+- [ ] verifier.go: When contracts are updated with extension regOperationConst will change to "F_REG"
+
+## PMWPaymentStatus TODO list
+ (after TeeAvailabilityCheck will be done)
+- [ ] implement http handlers
+- [ ] check GetTransactionStatus if still suffices
+- [ ] check GetReceivedAmount if deleted node does not spend money
+- [ ] check parseRawTransactionData - should we validate required fields before further processing
