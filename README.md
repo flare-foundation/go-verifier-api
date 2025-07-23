@@ -52,6 +52,11 @@
     http://localhost:3120/api-doc
     ```
 
+
+## API Reference
+See [API reference](docs/api.md) for endpoint definitions and examples. 
+
+
 ## File structure
 // TODO
 
