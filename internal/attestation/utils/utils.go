@@ -2,12 +2,11 @@ package utils
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 )
 
 func Bytes32(s string) [32]byte {
@@ -20,7 +19,7 @@ func Bytes32(s string) [32]byte {
 }
 
 func AbiEncodeRequestData(data types.TeeAvailabilityRequestData) ([]byte, error) {
-	arg, err := getTeeAvailabilityCheckRequestBodyStruct()
+	arg, err := teeavailabilitycheckconfig.GetTeeRequestArg()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get 'TeeAvailabilityCheckRequestBody' ABI argument: %v", err)
 	}
@@ -34,7 +33,7 @@ func AbiEncodeRequestData(data types.TeeAvailabilityRequestData) ([]byte, error)
 }
 
 func AbiDecodeRequestData(data []byte) (types.TeeAvailabilityRequestData, error) {
-	arg, err := getTeeAvailabilityCheckRequestBodyStruct()
+	arg, err := teeavailabilitycheckconfig.GetTeeRequestArg()
 	if err != nil {
 		return types.TeeAvailabilityRequestData{}, fmt.Errorf("failed to get 'TeeAvailabilityCheckRequestBody' ABI argument: %v", err)
 	}
@@ -46,7 +45,7 @@ func AbiDecodeRequestData(data []byte) (types.TeeAvailabilityRequestData, error)
 }
 
 func AbiEncodeResponseData(data types.TeeAvailabilityResponseData) ([]byte, error) {
-	arg, err := getTeeAvailabilityCheckResponseBodyStruct()
+	arg, err := teeavailabilitycheckconfig.GetTeeResponseArg()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get 'TeeAvailabilityCheckResponseBody' ABI argument: %v", err)
 	}
@@ -55,28 +54,4 @@ func AbiEncodeResponseData(data types.TeeAvailabilityResponseData) ([]byte, erro
 		return nil, fmt.Errorf("failed to encode 'TeeAvailabilityCheckResponseBody': %v", err)
 	}
 	return encoded, nil
-}
-
-func getTeeAvailabilityCheckRequestBodyStruct() (abi.Argument, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(connector.ConnectorMetaData.ABI))
-	if err != nil {
-		return abi.Argument{}, fmt.Errorf("failed to parse ABI: %v", err)
-	}
-	method := parsedABI.Methods["availabilityCheckRequestBodyStruct"]
-	if len(method.Inputs) != 1 {
-		return abi.Argument{}, fmt.Errorf("expected 1 input in 'availabilityCheckRequestBodyStruct', got %d", len(method.Inputs))
-	}
-	return method.Inputs[0], nil
-}
-
-func getTeeAvailabilityCheckResponseBodyStruct() (abi.Argument, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(connector.ConnectorMetaData.ABI))
-	if err != nil {
-		return abi.Argument{}, fmt.Errorf("failed to parse ABI: %v", err)
-	}
-	method := parsedABI.Methods["availabilityCheckResponseBodyStruct"]
-	if len(method.Inputs) != 1 {
-		return abi.Argument{}, fmt.Errorf("expected 1 input in 'availabilityCheckResponseBodyStruct', got %d", len(method.Inputs))
-	}
-	return method.Inputs[0], nil
 }
