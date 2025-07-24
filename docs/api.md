@@ -155,7 +155,7 @@ Verify the encoded request body and returns ABI-encoded `TeeAttestationAvailabil
 ```
 | Field                  | Type   | Description
 |------------------------|--------|----------------------|
-| status                 | number | Ethereum address of the TEE
+| status                 | number | Enum  AvailabilityCheckStatus { OK, OBSOLETE, DOWN }
 | teeTimestamp           | uint64 | TEE timestamp
 | codeHash               | string |	32-byte hex-encoded SHA-256 digest of the workload container image
 | platform               | string | //TBD - TODO
