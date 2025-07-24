@@ -92,18 +92,15 @@ const (
 )
 
 // copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/pkg/types/tee.go?ref_type=heads#L16
-// TODO: If moved to common pkg, fetch from there
 type TeeInfoResponse struct {
 	TeeInfo     tee.TeeStructsAttestation
 	State       []byte
 	Version     string
 	Attestation hexutil.Bytes
-	//TODO add platform
+	//TODO if platform will be added in tee-node, it also needs to be added here
 }
 
 // copied from here: https://gitlab.com/flarenetwork/tee/tee-node/-/blob/main/pkg/types/actions.go?ref_type=heads#L40
-// TODO: If moved to common pkg, fetch from there
-
 type ActionType string
 
 const (

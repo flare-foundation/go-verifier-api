@@ -157,8 +157,8 @@ Verify the encoded request body and returns ABI-encoded `TeeAttestationAvailabil
 |------------------------|--------|----------------------|
 | status                 | number | Enum  AvailabilityCheckStatus { OK, OBSOLETE, DOWN }
 | teeTimestamp           | uint64 | TEE timestamp
-| codeHash               | string |	32-byte hex-encoded SHA-256 digest of the workload container image
-| platform               | string | //TBD - TODO
+| codeHash               | string |	32-byte hex-encoded SHA-256 digest of the workload container image (from JWT)
+| platform               | string | 32-byte hex-encoded hwmodel (from JWT)
 | initialSigningPolicyId | uint32 | initial signing policy id
 | lastSigningPolicyId    | uint32 |	last signing policy id
 | stateHash              | string |	32-byte hex-encoded state

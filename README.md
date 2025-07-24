@@ -62,12 +62,15 @@ See [API reference](docs/api.md) for endpoint definitions and examples.
 
 
 ## TeeAvailabilityCheck TODO list
-- [ ] poller.go: After TeeRegistry is added to Coston, check needs to be made to ensure, the contract is actually called.
+- [ ] poller.go: After TeeRegistry is added to Coston, check needs to be made to ensure, the contract is actually called.
 - [ ] poller.go: If getActiveTees call on contract fails, what to do? Now it just logs it.
 - [ ] poller.go: We should distinguish between invalid validation and other errors while queryTeeInfoAndValidate? Now, we don't. If error during or invalid validation -> the sample is considered invalid. This could probably lead to false proof that tee is down.
+- [ ] poller.go: Split in go routines inside SampleAllTees
 - [ ] pki_token.go: claims.HWModel -> what is platform enum or bytes?
-- [ ] verifier.go: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform  is)
+- [ ] pki_token.go: If fn TeeInfoHash will be in common package, fetch from there
+- [ ] verifier.go: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform  is)
 - [ ] verifier.go: When contracts are updated with extension regOperationConst will change to "F_REG"
+- [ ] type/tee_availability_check.go: If types (TeeInfoResponse, ActionResponse) copied from tee-node will be moved to common pkg -> fetch from there
 
 ## PMWPaymentStatus TODO list
  (after TeeAvailabilityCheck will be done)

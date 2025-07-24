@@ -272,7 +272,6 @@ func hexStringToBytes32(hexStr string) (common.Hash, error) {
 }
 
 // Copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/attestation/attestation.go#L55
-// TODO if moved to common pkg, fetch from there
 func TeeInfoHash(teeInfo tee.TeeStructsAttestation) (string, error) {
 	encoded, err := structs.Encode(tee.StructArg[tee.Attestation], teeInfo)
 	if err != nil {
