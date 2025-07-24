@@ -28,6 +28,10 @@ const (
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
 )
 
+var (
+	ErrIndeterminate = errors.New("indeterminate verifier status")
+)
+
 type TeeVerifier struct {
 	cfg               *config.TeeAvailabilityCheckConfig
 	ethClient         *ethclient.Client
@@ -74,7 +78,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 				return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data to determine status: %v", infoErr)
 			}
 			if valid {
-				return types.TeeAvailabilityResponseData{}, errors.New("indeterminate: No action response available, polling data is valid")
+				return types.TeeAvailabilityResponseData{}, ErrIndeterminate
 			} else { // No response in the last 5 minutes => tee is down
 				var responseData types.TeeAvailabilityResponseData
 				responseData.Status = uint8(types.DOWN)

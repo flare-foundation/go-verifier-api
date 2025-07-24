@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
+	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
@@ -99,6 +101,9 @@ func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest
 	}
 	responseData, err := verifier.Verify(ctx, requestData)
 	if err != nil {
+		if errors.Is(err, teeverifier.ErrIndeterminate) {
+			return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
+		}
 		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 	}
 	responseDataBytes, err := utils.AbiEncodeResponseData(responseData)

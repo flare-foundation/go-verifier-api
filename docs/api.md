@@ -6,7 +6,6 @@ This API exposes a POST endpoints to verify the availability of a Trusted Execut
 Returns ABI-encoded `TeeAttestationAvailabilityRequest` request data. This helper endpoint generates the ABI-encoded `requestBody`.
 
 - Note: Currently, this endpoint only performs encoding. Verification functionality will be added later.
-
 ### Request:
 ```json
 {
@@ -30,17 +29,9 @@ Returns ABI-encoded `TeeAttestationAvailabilityRequest` request data. This helpe
   "encodedRequestBody": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"
 }
 ```
-### Errors:
-| HTTP Status Code           | Description          |
-|----------------------------|----------------------|
-| 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, conversion, encoding, or decoding failures) |
-| 500 Internal Server Error  | Any other errors, with description provided in the `detail` field 
-
 
 ## 2. `POST /TeeAvailabilityCheck/prepareResponseBody`
 Verify the encoded request body and returns both the decoded `TeeAttestationAvailabilityResponse` and its ABI-encoded form.
-
-
 ### Request:
 ```json
 {
@@ -69,16 +60,9 @@ Verify the encoded request body and returns both the decoded `TeeAttestationAvai
   "encodedResponseBody": "0x0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 }
 ```
-### Errors:
-| HTTP Status Code           | Description          |
-|----------------------------|----------------------|
-| 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, conversion, encoding, or decoding failures) |
-| 500 Internal Server Error  | Any other errors, with description provided in the `detail` field 
 
 ## 3. `POST /TeeAvailabilityCheck/verify`
 Verify the encoded request body and returns ABI-encoded `TeeAttestationAvailabilityResponse`.
-
-
 ### Request:
 ```json
 {
@@ -98,12 +82,14 @@ Verify the encoded request body and returns ABI-encoded `TeeAttestationAvailabil
   "encodedResponseBody": "0x0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 }
 ```
-### Errors:
+
+# Response statuses:
 | HTTP Status Code           | Description          |
 |----------------------------|----------------------|
-| 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, conversion, encoding, or decoding failures) |
-| 500 Internal Server Error  | Any other errors, with description provided in the `detail` field 
-
+| 200 OK                     | The request succeeded.
+| 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, or conversion, encoding, or decoding errors). |
+| 503 Service Unavailable    | Indeterminate status - the request can be retried.
+| 500 Internal Server Error  | Any other errors, with description provided in the `detail` field.
 
 # Data Structures
 
