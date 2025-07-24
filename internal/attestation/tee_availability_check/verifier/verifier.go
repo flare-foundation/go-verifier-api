@@ -63,30 +63,30 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 	challengeInstructionId := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	// Fetch from tee proxy /action/result/<challengeInstructionId>
 	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionId)
-	// Result is not yet available
-	if len(response.Attestation) == 0 && err == nil { //TODO
-		// check polled data
-		valid, infoErr := v.isTeeInfoValid(req.TeeId)
-		if infoErr != nil { // Not enough data has been polled
-			return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data to determine status: %v", infoErr)
-		}
-		if !valid { // No response in the last 5 minutes => tee is down
-			var responseData types.TeeAvailabilityResponseData
-			responseData.Status = uint8(types.DOWN)
-			responseData.TeeTimestamp = 0
-			responseData.CodeHash = common.Hash{}
-			responseData.Platform = common.Hash{}
-			responseData.InitialSigningPolicyId = uint32(0)
-			responseData.LastSigningPolicyId = uint32(0)
-			responseData.StateHash = common.Hash{}
-
-			return responseData, nil
-		}
-		//TODO valid case
-	}
-	// Error while fetching from tee proxy /action/result/<challengeInstructionId>
 	if err != nil {
-		return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot fetch tee %s data: %v", req.TeeId, err)
+		if errors.Is(err, utils.ErrNotFound) {
+			// check polled data
+			valid, infoErr := v.isTeeInfoValid(req.TeeId)
+			if infoErr != nil { // Not enough data has been polled
+				return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data to determine status: %v", infoErr)
+			}
+			if valid {
+				return types.TeeAvailabilityResponseData{}, errors.New("indeterminate: No action response available, polling data is valid")
+			} else { // No response in the last 5 minutes => tee is down
+				var responseData types.TeeAvailabilityResponseData
+				responseData.Status = uint8(types.DOWN)
+				responseData.TeeTimestamp = 0
+				responseData.CodeHash = common.Hash{}
+				responseData.Platform = common.Hash{}
+				responseData.InitialSigningPolicyId = uint32(0)
+				responseData.LastSigningPolicyId = uint32(0)
+				responseData.StateHash = common.Hash{}
+
+				return responseData, nil
+			}
+		} else {
+			return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot fetch tee %s data: %v", req.TeeId, err)
+		}
 	}
 	statusInfo, err := v.dataVerification(response)
 	if err != nil {
@@ -142,12 +142,12 @@ func (v *TeeVerifier) dataVerification(response types.TeeInfoResponse) (StatusIn
 
 func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionId common.Hash) (types.TeeInfoResponse, error) {
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, challengeInstructionId)
-	// https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
+	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
 	actionResp, err := utils.FetchJSON[types.ActionResponse](ctx, url, fetchTimeout)
 	if err != nil {
 		return types.TeeInfoResponse{}, err
 	}
-	// teeInfo is marshaled in inside actionResponse.Result.Data
+	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo types.TeeInfoResponse
 	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
 	if err != nil {

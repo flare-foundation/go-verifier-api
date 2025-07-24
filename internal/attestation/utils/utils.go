@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -12,6 +13,10 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
+)
+
+var (
+	ErrNotFound = errors.New("resource not found (404)")
 )
 
 func Bytes32(s string) [32]byte {
@@ -77,7 +82,7 @@ func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duratio
 	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		return zero, nil
+		return zero, ErrNotFound
 	case http.StatusOK:
 		// proceed
 	default:
