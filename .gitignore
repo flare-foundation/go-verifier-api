@@ -1,5 +1,2 @@
 .env
-
 tmp/
-
-/vendor
