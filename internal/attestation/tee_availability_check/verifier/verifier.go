@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -39,6 +40,7 @@ type TeeVerifier struct {
 	RelayCaller       *relay.RelayCaller
 	TeeSamples        map[common.Address][]bool
 	SamplesToConsider int
+	SamplesMu         sync.RWMutex
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
@@ -233,9 +235,12 @@ func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.H
 }
 
 func (v *TeeVerifier) isTeeInfoValid(teeId common.Address) (bool, error) {
+	v.SamplesMu.RLock()
 	samples := v.TeeSamples[teeId]
+	v.SamplesMu.RUnlock()
+
 	if len(samples) < v.SamplesToConsider {
-		return false, fmt.Errorf("tee %s (%d samples: %+v)", teeId, len(samples), samples)
+		return false, fmt.Errorf("tee %s (%d samples: %+v)", teeId.Hex(), len(samples), samples)
 	}
 	for _, sample := range samples {
 		if sample {

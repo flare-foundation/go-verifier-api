@@ -20,12 +20,16 @@ func SampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	}
 	for i, teeId := range activeTees.TeeIds {
 		proxyUrl := activeTees.Urls[i]
-		valid, _ := queryTeeInfoAndValidate(ctx, teeVerifier, proxyUrl) // TODO how to consider error? should it be undetermined of simply false
-		// Sliding window
-		teeVerifier.TeeSamples[teeId] = append(teeVerifier.TeeSamples[teeId], valid)
-		if len(teeVerifier.TeeSamples[teeId]) > teeVerifier.SamplesToConsider {
-			teeVerifier.TeeSamples[teeId] = teeVerifier.TeeSamples[teeId][1:]
+		valid, _ := queryTeeInfoAndValidate(ctx, teeVerifier, proxyUrl) // TODO: consider error handling
+
+		teeVerifier.SamplesMu.Lock()
+		samples := teeVerifier.TeeSamples[teeId]
+		samples = append(samples, valid)
+		if len(samples) > teeVerifier.SamplesToConsider {
+			samples = samples[1:] // sliding window: drop oldest
 		}
+		teeVerifier.TeeSamples[teeId] = samples
+		teeVerifier.SamplesMu.Unlock()
 	}
 }
 
