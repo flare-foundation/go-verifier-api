@@ -15,6 +15,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -251,7 +252,7 @@ func ValidateClaims(token jwt.Token, infoData tee.TeeStructsAttestation) (Status
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %v", err)
 	}
-	statusInfo.Platform, err = hexStringToBytes32(strings.TrimPrefix(claims.HWModel, "sha256:")) //TODO - fix need to decide about the type first
+	statusInfo.Platform, err = utils.Bytes32(claims.HWModel)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %v", err)
 	}

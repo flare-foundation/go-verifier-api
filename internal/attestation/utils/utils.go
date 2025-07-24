@@ -19,13 +19,13 @@ var (
 	ErrNotFound = errors.New("resource not found (404)")
 )
 
-func Bytes32(s string) [32]byte {
+func Bytes32(s string) ([32]byte, error) {
 	var b [32]byte
-	// if len(s) > 32 { // TODO - need this check?
-	// 	return b, fmt.Errorf("string too long for Bytes32")
-	// }
+	if len(s) > 32 {
+		return b, fmt.Errorf("string %s too long for Bytes32", s)
+	}
 	copy(b[:], s)
-	return b
+	return b, nil
 }
 
 func AbiEncodeRequestData(data types.TeeAvailabilityRequestData) ([]byte, error) {

@@ -60,7 +60,10 @@ func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 
 func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityRequestData) (types.TeeAvailabilityResponseData, error) {
 	// Build challenge instruction id
-	challengeInstructionId := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
+	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
+	if err != nil {
+		return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot generate challenge instruction id: %v", v)
+	}
 	// Fetch from tee proxy /action/result/<challengeInstructionId>
 	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionId)
 	if err != nil {
@@ -180,16 +183,22 @@ func (v *TeeVerifier) fetchTEEInfoData(ctx context.Context, baseURL, path string
 	return utils.FetchJSON[types.TeeInfoResponse](ctx, url, fetchTimeout)
 }
 
-func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) common.Hash {
-	REG_OP_TYPE := utils.Bytes32(regOperationConst)
-	TEE_ATTESTATION := utils.Bytes32(teeAttestationConst)
+func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) (common.Hash, error) {
+	REG_OP_TYPE, err := utils.Bytes32(regOperationConst)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	TEE_ATTESTATION, err := utils.Bytes32(teeAttestationConst)
+	if err != nil {
+		return common.Hash{}, err
+	}
 	buf := new(bytes.Buffer)
 	buf.Write(REG_OP_TYPE[:])
 	buf.Write(TEE_ATTESTATION[:])
 	buf.Write(common.LeftPadBytes(teeId.Bytes(), 32))
 	buf.Write(challenge.Bytes())
 	challengeInstructionId := crypto.Keccak256Hash(buf.Bytes())
-	return challengeInstructionId
+	return challengeInstructionId, nil
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (common.Hash, error) {
