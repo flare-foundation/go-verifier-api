@@ -108,7 +108,7 @@ func (x *XRPVerifier) parseRawTransactionData(response string) (RawTransactionDa
 		logger.Errorf("failed to unmarshal XRP transaction response: %v, response: %s", err, response)
 		return rawTransactionData, err
 	}
-	// Validate required fields // TODO
+	// Validate required fields // TODO-later
 	if rawTransactionData.MetaData.TransactionResult == "" {
 		return rawTransactionData, fmt.Errorf("missing transaction result in raw transaction data")
 	}

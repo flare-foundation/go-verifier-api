@@ -35,7 +35,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			// TODO add validation (later, now just use it as a helper to generate abi encoded request)
+			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
 			requestDataBytes, err := utils.AbiEncodeRequestData(requestData)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))

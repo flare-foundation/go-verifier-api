@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	regOperationConst       = "REG"
+	regOperationConst       = "F_REG"
 	teeAttestationConst     = "TEE_ATTESTATION"
 	fetchTimeout            = 5 * time.Second
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
