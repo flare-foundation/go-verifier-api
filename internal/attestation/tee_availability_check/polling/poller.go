@@ -15,7 +15,7 @@ const SampleInterval = 1 * time.Minute
 
 func SampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	activeTees, err := getActiveTees(teeVerifier)
-	if err != nil { // TODO - probably should be handled more appropriately
+	if err != nil {
 		logger.Errorf("Failed to get active TEEs:", err)
 	}
 	for i, teeId := range activeTees.TeeIds {
@@ -26,7 +26,6 @@ func SampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 		if len(teeVerifier.TeeSamples[teeId]) > teeVerifier.SamplesToConsider {
 			teeVerifier.TeeSamples[teeId] = teeVerifier.TeeSamples[teeId][1:]
 		}
-
 	}
 }
 

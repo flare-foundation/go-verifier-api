@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -205,7 +208,7 @@ type StatusInfo struct {
 	Status   apitypes.AvailabilityCheckStatus
 }
 
-func ValidateClaims(token jwt.Token, infoData apitypes.ProxyInfoData) (StatusInfo, error) {
+func ValidateClaims(token jwt.Token, infoData tee.TeeStructsAttestation) (StatusInfo, error) {
 	var statusInfo StatusInfo
 	if !token.Valid { // probably unnecessary
 		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
@@ -215,7 +218,7 @@ func ValidateClaims(token jwt.Token, infoData apitypes.ProxyInfoData) (StatusInf
 		return StatusInfo{}, errors.New("cannot parse claims")
 	}
 	// generate teeInfo hash
-	teeInfoHash, err := infoData.TeeInfoHash()
+	teeInfoHash, err := TeeInfoHash(infoData)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
@@ -266,4 +269,16 @@ func hexStringToBytes32(hexStr string) (common.Hash, error) {
 	}
 	copy(b32[:], b)
 	return b32, nil
+}
+
+// Copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/attestation/attestation.go#L55
+// TODO if moved to common pkg, fetch from there
+func TeeInfoHash(teeInfo tee.TeeStructsAttestation) (string, error) {
+	encoded, err := structs.Encode(tee.StructArg[tee.Attestation], teeInfo)
+	if err != nil {
+		return "", fmt.Errorf("cannot create teeInfoHash: %v", err)
+	}
+	hashBytes := crypto.Keccak256(encoded)
+	hashString := hex.EncodeToString(hashBytes[:])
+	return hashString, nil
 }

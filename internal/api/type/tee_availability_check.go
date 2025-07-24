@@ -1,13 +1,11 @@
 package attestationtypes
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 )
 
@@ -93,32 +91,64 @@ const (
 	DOWN
 )
 
-type ProxyInfoResponseBody struct {
-	TeeInfo     ProxyInfoData `json:"teeInfo"`
-	State       string        `json:"state"`
-	Version     string        `json:"version"`
-	Attestation string        `json:"attestation"`
-	Platform    string        `json:"platform"`
+// copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/pkg/types/tee.go?ref_type=heads#L16
+// TODO: If moved to common pkg, fetch from there
+type TeeInfoResponse struct {
+	TeeInfo     tee.TeeStructsAttestation
+	State       []byte
+	Version     string
+	Attestation hexutil.Bytes
+	//TODO add platform
 }
 
-type ProxyInfoData struct {
-	Challenge                common.Hash   `json:"challenge"`
-	PublicKey                tee.PublicKey `json:"publicKey"`
-	InitialSigningPolicyId   uint32        `json:"initialSigningPolicyId"`
-	InitialSigningPolicyHash common.Hash   `json:"initialSigningPolicyHash"`
-	LastSigningPolicyId      uint32        `json:"lastSigningPolicyId"`
-	LastSigningPolicyHash    common.Hash   `json:"lastSigningPolicyHash"`
-	StateHash                common.Hash   `json:"stateHash"`
-	TeeTimestamp             uint64        `json:"teeTimestamp"`
+// copied from here: https://gitlab.com/flarenetwork/tee/tee-node/-/blob/main/pkg/types/actions.go?ref_type=heads#L40
+// TODO: If moved to common pkg, fetch from there
+
+type ActionType string
+
+const (
+	Instruction ActionType = "instruction"
+	Direct      ActionType = "direct"
+)
+
+type SubmissionTag string
+
+const (
+	Threshold SubmissionTag = "threshold"
+	End       SubmissionTag = "end"
+	Submit    SubmissionTag = "submit"
+)
+
+type Action struct {
+	Data                       ActionData      `json:"data"`
+	AdditionalVariableMessages []hexutil.Bytes `json:"additionalVariableMessages"`
+	Timestamps                 []uint64        `json:"timestamps"`
+	AdditionalActionData       hexutil.Bytes   `json:"additionalActionData"`
+	Signatures                 []hexutil.Bytes `json:"signatures"`
 }
 
-// Copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/attestation/attestation.go#L55
-func (teeInfo ProxyInfoData) TeeInfoHash() (string, error) {
-	encoded, err := structs.Encode(tee.StructArg[tee.Attestation], teeInfo)
-	if err != nil {
-		return "", fmt.Errorf("cannot create teeInfoHash: %v", err)
-	}
-	hashBytes := crypto.Keccak256(encoded)
-	hashString := hex.EncodeToString(hashBytes[:])
-	return hashString, nil
+type ActionData struct {
+	ID            common.Hash   `json:"id"`
+	Type          ActionType    `json:"type"`
+	SubmissionTag SubmissionTag `json:"submissionTag"`
+	Message       hexutil.Bytes `json:"message"`
+}
+
+type ActionResponse struct {
+	Result    ActionResult  `json:"result"`
+	Signature hexutil.Bytes `json:"signature"`
+}
+
+type ActionResult struct {
+	ID            common.Hash   `json:"id"`
+	SubmissionTag SubmissionTag `json:"submissionTag"`
+	Status        bool          `json:"status"`
+	Log           string        `json:"log"`
+
+	OPType                 common.Hash   `json:"opType"`
+	OPCommand              common.Hash   `json:"opCommand"`
+	AdditionalResultStatus hexutil.Bytes `json:"additionalResultStatus"`
+
+	Version string        `json:"version"`
+	Data    hexutil.Bytes `json:"message"`
 }

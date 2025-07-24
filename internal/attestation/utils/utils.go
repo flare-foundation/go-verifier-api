@@ -1,7 +1,12 @@
 package utils
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"reflect"
+	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -54,4 +59,33 @@ func AbiEncodeResponseData(data types.TeeAvailabilityResponseData) ([]byte, erro
 		return nil, fmt.Errorf("failed to encode 'TeeAvailabilityCheckResponseBody': %v", err)
 	}
 	return encoded, nil
+}
+
+func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
+	var zero T
+	httpClient := &http.Client{
+		Timeout: fetchTimeout,
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return zero, fmt.Errorf("creating HTTP request failed for url %s: %w", url, err)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return zero, fmt.Errorf("HTTP request failed for url %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusNotFound:
+		return zero, nil
+	case http.StatusOK:
+		// proceed
+	default:
+		return zero, fmt.Errorf("unexpected status code: %d for url %s", resp.StatusCode, url)
+	}
+	err = json.NewDecoder(resp.Body).Decode(&zero)
+	if err != nil {
+		return zero, fmt.Errorf("decoding failed for type %s: %w", reflect.TypeOf(zero), err)
+	}
+	return zero, nil
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -63,13 +62,13 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 	// Build challenge instruction id
 	challengeInstructionId := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	// Fetch from tee proxy /action/result/<challengeInstructionId>
-	response, err := v.fetchTEEAvailabilityResult(ctx, req.Url, challengeInstructionId)
+	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionId)
 	// Result is not yet available
-	if response.Attestation == "" && err == nil {
+	if len(response.Attestation) == 0 && err == nil { //TODO
 		// check polled data
 		valid, infoErr := v.isTeeInfoValid(req.TeeId)
 		if infoErr != nil { // Not enough data has been polled
-			return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data: %v", infoErr)
+			return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data to determine status: %v", infoErr)
 		}
 		if !valid { // No response in the last 5 minutes => tee is down
 			var responseData types.TeeAvailabilityResponseData
@@ -83,6 +82,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 
 			return responseData, nil
 		}
+		//TODO valid case
 	}
 	// Error while fetching from tee proxy /action/result/<challengeInstructionId>
 	if err != nil {
@@ -105,14 +105,14 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 	return responseData, nil
 }
 
-func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (StatusInfo, error) {
-	if response.Platform != "google" { //TODO
-		return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
-	}
+func (v *TeeVerifier) dataVerification(response types.TeeInfoResponse) (StatusInfo, error) {
+	// if response.Platform != "google" { //TODO - add after teeInfo.Platform is defined
+	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
+	// }
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
-	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, attestationToken)
+	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
 	}
@@ -140,12 +140,24 @@ func (v *TeeVerifier) dataVerification(response types.ProxyInfoResponseBody) (St
 	return statusInfo, nil
 }
 
-func (v *TeeVerifier) fetchTEEAvailabilityResult(ctx context.Context, baseURL string, challengeInstructionId common.Hash) (types.ProxyInfoResponseBody, error) {
-	return v.fetchTEEData(ctx, baseURL, fmt.Sprintf("/action/result/%s", challengeInstructionId))
+func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionId common.Hash) (types.TeeInfoResponse, error) {
+	url := fmt.Sprintf("%s/action/result/%s", baseURL, challengeInstructionId)
+	// https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
+	actionResp, err := utils.FetchJSON[types.ActionResponse](ctx, url, fetchTimeout)
+	if err != nil {
+		return types.TeeInfoResponse{}, err
+	}
+	// teeInfo is marshaled in inside actionResponse.Result.Data
+	var teeInfo types.TeeInfoResponse
+	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
+	if err != nil {
+		return types.TeeInfoResponse{}, fmt.Errorf("unmarshal tee result: %w", err)
+	}
+	return teeInfo, nil
 }
 
 func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL string) (bool, error) {
-	infoResponse, err := v.fetchTEEData(ctx, baseURL, "/info")
+	infoResponse, err := v.fetchTEEInfoData(ctx, baseURL, "/info")
 	if err != nil {
 		return false, err
 	}
@@ -163,33 +175,9 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 	return true, nil
 }
 
-func (v *TeeVerifier) fetchTEEData(ctx context.Context, baseURL, path string) (types.ProxyInfoResponseBody, error) {
+func (v *TeeVerifier) fetchTEEInfoData(ctx context.Context, baseURL, path string) (types.TeeInfoResponse, error) {
 	url := fmt.Sprintf("%s%s", baseURL, path)
-	httpClient := &http.Client{
-		Timeout: fetchTimeout,
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("creating HTTP request failed: %v", err)
-	}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("error making request to tee: %v", err)
-	}
-	defer resp.Body.Close()
-	// No result yet available
-	if resp.StatusCode == http.StatusNotFound {
-		return types.ProxyInfoResponseBody{}, nil
-	}
-	if resp.StatusCode != http.StatusOK {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("teeProxy %s returned non-200 status: %d", baseURL, resp.StatusCode)
-	}
-	var result types.ProxyInfoResponseBody
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		return types.ProxyInfoResponseBody{}, fmt.Errorf("error decoding tee response: %v", err)
-	}
-	return result, nil
+	return utils.FetchJSON[types.TeeInfoResponse](ctx, url, fetchTimeout)
 }
 
 func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) common.Hash {
@@ -234,7 +222,7 @@ func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.H
 func (v *TeeVerifier) isTeeInfoValid(teeId common.Address) (bool, error) {
 	samples := v.TeeSamples[teeId]
 	if len(samples) < v.SamplesToConsider {
-		return false, fmt.Errorf("not enough polling data for tee %s (%d samples: %+v)", teeId, len(samples), samples)
+		return false, fmt.Errorf("tee %s (%d samples: %+v)", teeId, len(samples), samples)
 	}
 	for _, sample := range samples {
 		if sample {
