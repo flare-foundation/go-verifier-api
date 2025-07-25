@@ -4,15 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/handler"
 	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilityconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/polling"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/poller"
 	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -34,14 +32,7 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 		if !ok {
 			log.Fatalf("unexpected type for verifier instance")
 		}
-		teeVerifier.TeeSamples = make(map[common.Address][]bool)
-		go func() {
-			ticker := time.NewTicker(polling.SampleInterval)
-			defer ticker.Stop()
-			for range ticker.C {
-				polling.SampleAllTees(context.Background(), teeVerifier)
-			}
-		}()
+		poller.StartPoller(context.Background(), teeVerifier)
 	case connector.PMWPaymentStatus:
 		service, err := paymentservice.NewPaymentService(sourceId, attestationType)
 		if err != nil {
