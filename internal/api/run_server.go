@@ -10,9 +10,9 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	apidocs "github.com/flare-foundation/go-verifier-api/internal/api-docs"
 	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	"github.com/flare-foundation/go-verifier-api/internal/docs"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 )
@@ -56,8 +56,8 @@ func RunServer() {
 	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, apiKeys))
 
 	// swagger setup
-	router.Get("/api-doc", docs.SwaggerIndexHandler)
-	router.Get("/api-doc/*", docs.SwaggerFileHandler)
+	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
+	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
 
 	err = LoadModule(api, sourceId, attestationType)
 	if err != nil {

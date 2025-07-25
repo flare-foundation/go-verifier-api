@@ -1,8 +1,7 @@
-package docs
+package apidocs
 
 import (
 	"embed"
-	"fmt"
 	"io/fs"
 	"net/http"
 )
@@ -16,9 +15,7 @@ func SwaggerIndexHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", 500)
 		return
 	}
-	fmt.Println("fs", subFS)
 	data, err := fs.ReadFile(subFS, "index.html")
-	fmt.Println("data", data)
 	if err != nil {
 		http.Error(w, "File not found", 404)
 		return
