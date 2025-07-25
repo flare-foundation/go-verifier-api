@@ -18,12 +18,12 @@ type TeeAvailabilityHeader struct {
 }
 
 type TeeAvailabilityEncodedRequest struct {
-	FTDCHeader  TeeAvailabilityHeader
-	RequestBody string `json:"requestBody" example:"0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
+	FTDCHeader  TeeAvailabilityHeader `json:"header"`
+	RequestBody string                `json:"requestBody" example:"0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
 }
 type TeeAvailabilityRequest struct {
 	FTDCHeader  TeeAvailabilityHeader      `json:"header"`
-	RequestBody TeeAvailabilityRequestBody `json:"requestBody"`
+	RequestData TeeAvailabilityRequestBody `json:"requestData"`
 }
 
 type TeeAvailabilityRequestBody struct {
@@ -78,8 +78,8 @@ func (data TeeAvailabilityResponseData) ToExternal() TeeAvailabilityResponseBody
 }
 
 type RawAndEncodedResponseBody struct {
-	ResponseBody        TeeAvailabilityResponseBody `json:"responseBody"`
-	EncodedResponseBody string                      `json:"encodedResponseBody" example:"0x0000abcd..."`
+	ResponseData TeeAvailabilityResponseBody `json:"responseData"`
+	ResponseBody string                      `json:"responseBody" example:"0x0000abcd..."`
 }
 
 type AvailabilityCheckStatus uint8

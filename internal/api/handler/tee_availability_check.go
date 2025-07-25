@@ -33,7 +33,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 			}
-			requestData, err := request.Body.RequestBody.ToInternal()
+			requestData, err := request.Body.RequestData.ToInternal()
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
@@ -43,7 +43,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
 			return types.NewResponse(types.EncodedRequestBody{
-				EncodedRequestBody: HexWith0x(requestDataBytes),
+				RequestBody: HexWith0x(requestDataBytes),
 			}), nil
 		})
 	// prepare ResponseBody
@@ -60,8 +60,8 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, err
 			}
 			return types.NewResponse(types.RawAndEncodedResponseBody{
-				ResponseBody:        responseData.ToExternal(),
-				EncodedResponseBody: HexWith0x(responseDataBytes),
+				ResponseData: responseData.ToExternal(),
+				ResponseBody: HexWith0x(responseDataBytes),
 			}), nil
 		})
 	// verify
@@ -78,7 +78,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, err
 			}
 			return types.NewResponse(types.EncodedResponseBody{
-				EncodedResponseBody: HexWith0x(responseDataBytes),
+				ResponseBody: HexWith0x(responseDataBytes),
 			}), nil
 		})
 }

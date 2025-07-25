@@ -1,11 +1,11 @@
 package attestationtypes
 
 type EncodedRequestBody struct {
-	EncodedRequestBody string `json:"encodedRequestBody" example:"0x0000abcd..."`
+	RequestBody string `json:"requestBody" example:"0x0000abcd..."`
 }
 
 type EncodedResponseBody struct {
-	EncodedResponseBody string `json:"encodedResponseBody" example:"0x0000abcd..."`
+	ResponseBody string `json:"responseBody" example:"0x0000abcd..."`
 }
 
 // Response is a generic response type for the API with just a simple body. https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma
