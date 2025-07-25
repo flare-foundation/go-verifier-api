@@ -27,7 +27,7 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 			return fmt.Errorf("failed to initialize tee verifier: %w", err)
 		}
 		handler.TeeAvailabilityCheckHandler(api, *config, verifier)
-		// Start polling
+		// Start poller
 		teeVerifier, ok := verifier.(*teeavailabilitycheck.TeeVerifier)
 		if !ok {
 			log.Fatalf("unexpected type for verifier instance")

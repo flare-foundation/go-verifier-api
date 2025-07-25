@@ -73,11 +73,11 @@ func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duratio
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return zero, fmt.Errorf("creating HTTP request failed for url %s: %w", url, err)
+		return zero, err
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return zero, fmt.Errorf("HTTP request failed for url %s: %w", url, err)
+		return zero, err
 	}
 	defer resp.Body.Close()
 	switch resp.StatusCode {

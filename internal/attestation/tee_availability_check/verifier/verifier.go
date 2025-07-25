@@ -94,7 +94,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 				return responseData, nil
 			}
 		} else {
-			return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot fetch tee %s data: %v", req.TeeId, err)
+			return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot fetch tee data %s: %v", req.TeeId, err)
 		}
 	}
 	statusInfo, err := v.dataVerification(response)
