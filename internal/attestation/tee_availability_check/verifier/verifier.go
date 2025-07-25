@@ -170,7 +170,7 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 	if err != nil {
 		return false, err
 	}
-	checkInfoChallenge, err := v.checkInfoChallenge(ctx, infoResponse.TeeInfo.Challenge)
+	checkInfoChallenge, err := v.checkInfoChallengeIsValid(ctx, infoResponse.TeeInfo.Challenge)
 	if err != nil {
 		return false, err
 	}
@@ -219,7 +219,7 @@ func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (com
 	return common.Hash(signingPolicyHashBytes), nil
 }
 
-func (v *TeeVerifier) checkInfoChallenge(ctx context.Context, blockHash common.Hash) (bool, error) {
+func (v *TeeVerifier) checkInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (bool, error) {
 	challengeBlock, err := v.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return false, fmt.Errorf("failed to get challenge block: %w", err)
