@@ -85,6 +85,7 @@ Decoded `TeeAvailabilityRequestData`
 ```
 
 - `responseBody`: a hex-encoded byte string representing an ABI-encoded structure `TeeAvailabilityResponseData`
+
 Decoded `TeeAvailabilityResponseData`
 ```json
 {
