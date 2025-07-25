@@ -3,32 +3,19 @@
 - [Attestation type specification](https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0)
 - [Huma framework website](https://huma.rocks)
 
-## How to run
+## How to run `TeeAvailabilityCheck` verifier
 1. Fill in the `.env` file
 
-    Open `.env` and set the following values according to the attestation type you want to run:
+    Open `.env` and set the following values according to the attestation type and source you want to run:
 
     ```env
     VERIFIER_TYPE=TeeAvailabilityCheck       # or PMWPaymentStatus
     SOURCE_ID=tee                            # Up to 32 characters, e.g., 'xrp' or 'tee'
     PORT=3120
-    ```
-    - For `TeeAvailabilityCheck`, set:
-    ```env
     RELAY_CONTRACT_ADDRESS=0x...
     TEE_REGISTRY_CONTRACT_ADDRESS=0x...
     RPC_URL=https://...
     ```
-
-    - For `PMWPaymentStatus`, set:
-
-        You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
-
-    ```env
-    CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
-    DATABASE_URL=postgres://user:pass@host:port/db
-    ```
-
     ---
     To run it on Coston, for now you can copy `.env.coston` to `.env`. Please note that after the `TeeRegistryContract` is deployed, its address must be added to the `.env` file.
     ---
@@ -63,14 +50,36 @@ Needed for Coston deploy:
 
 <br><br>
 To think about it (later):
-- [ ] *poller.go*: We should distinguish between invalid validation and other errors while queryTeeInfoAndValidate? Now, we don't. If error during or invalid validation -> the sample is considered invalid. This could probably lead to false proof that tee is down.
+- [ ] *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
 - [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
 
 <br><br>
 TODO later:
-- [ ] *pki_token.go*: If fn TeeInfoHash will be in common package, fetch from there
-- [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform  is)
-- [ ] *api/type/tee_availability_check.go*: If types (TeeInfoResponse, ActionResponse) copied from tee-node will be moved to common pkg -> fetch from there
+- [ ] *pki_token.go*: If fn `TeeInfoHash` will be in common package, fetch from there
+- [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform is)
+- [ ] *api/type/tee_availability_check.go*: If types (`TeeInfoResponse`, `ActionResponse`) currently copied from `tee-node` will be moved to some common pkg -> fetch from there
+
+<br><br>
+<br><br>
+
+---
+---
+---
+---
+⚠️ `PMWPaymentStatus` is work in progress
+## How to run `PMWPaymentStatus` verifier
+
+    - For `PMWPaymentStatus`, set:
+
+        You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
+
+    ```env
+    VERIFIER_TYPE=PMWPaymentStatus       # or PMWPaymentStatus
+    SOURCE_ID=xrp                            # Up to 32 characters, e.g., 'xrp' or 'tee'
+    PORT=3120
+    CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
+    DATABASE_URL=postgres://user:pass@host:port/db
+    ```
 
 ## PMWPaymentStatus TODO list
  (after TeeAvailabilityCheck will be done)
