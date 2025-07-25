@@ -3,7 +3,6 @@
 - [Attestation type specification](https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0)
 - [Huma framework website](https://huma.rocks)
 
-
 ## How to run
 1. Fill in the `.env` file
 
@@ -51,24 +50,27 @@
     http://localhost:3120/api-doc
     ```
 
-
 ## API Reference
-See [API reference](docs/api.md) for endpoint definitions and examples. 
-
+See [API reference](docs/api.md) for endpoint definitions and examples.
 
 ## File structure
-// TODO
-
-
+See [File structure](docs/overview.md) for a detailed explanation of the directory layout.
 
 ## TeeAvailabilityCheck TODO list
-- [ ] poller.go: After TeeRegistry is added to Coston, check needs to be made to ensure, the contract is actually called and .env updated.
-- [ ] poller.go: If getActiveTees call on contract fails, what to do? Now it just logs it.
-- [ ] poller.go: We should distinguish between invalid validation and other errors while queryTeeInfoAndValidate? Now, we don't. If error during or invalid validation -> the sample is considered invalid. This could probably lead to false proof that tee is down.
-- [ ] poller.go: Split in go routines inside SampleAllTees
-- [ ] pki_token.go: If fn TeeInfoHash will be in common package, fetch from there
-- [ ] verifier.go: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform  is)
-- [ ] type/tee_availability_check.go: If types (TeeInfoResponse, ActionResponse) copied from tee-node will be moved to common pkg -> fetch from there
+Needed for Coston deploy:
+- [ ] *poller.go*: After `TeeRegistry` contract is deployed to Coston, add its address to `.env`.
+- [ ] *api/type/tee_availability_check.go*: After variable `Platform` will be added to struct `TeeInfoResponse` in `tee-node`, [add it also in this package](https://gitlab.com/flarenetwork/tee/go-verifier-api/-/blob/main/internal/api/type/tee_availability_check.go?ref_type=heads#L100).
+
+<br><br>
+To think about it (later):
+- [ ] *poller.go*: We should distinguish between invalid validation and other errors while queryTeeInfoAndValidate? Now, we don't. If error during or invalid validation -> the sample is considered invalid. This could probably lead to false proof that tee is down.
+- [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
+
+<br><br>
+TODO later:
+- [ ] *pki_token.go*: If fn TeeInfoHash will be in common package, fetch from there
+- [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform  is)
+- [ ] *api/type/tee_availability_check.go*: If types (TeeInfoResponse, ActionResponse) copied from tee-node will be moved to common pkg -> fetch from there
 
 ## PMWPaymentStatus TODO list
  (after TeeAvailabilityCheck will be done)
