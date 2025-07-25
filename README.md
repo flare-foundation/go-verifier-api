@@ -62,6 +62,9 @@ TODO later:
 <br><br>
 <br><br>
 
+
+## Server TODO list
+- [ ] Add security headers (something like [`helmet`](https://www.npmjs.com/package/helmet/v/6.1.2) does in `ts`). Possible candidates: `github.com/rs/cors v1.11.1` and `github.com/unrolled/secure v1.17.0`.
 ---
 ---
 ---
