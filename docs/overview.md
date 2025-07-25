@@ -6,6 +6,8 @@ go-verifier-api/
 │   └── main.go                          # Starts the server
 │
 ├── docs/                                # Project documentation
+│   ├── verifier_components
+|   |   └── tee_availability_check.md    # Overview of TEE availability verifier and poller
 │   ├── api.md                           # API specifications and usage
 │   └── overview.md                      # File structure overview
 │
