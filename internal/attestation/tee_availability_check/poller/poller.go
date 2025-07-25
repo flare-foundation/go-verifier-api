@@ -42,7 +42,7 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	activeTees, err := getActiveTees(teeVerifier)
 	if err != nil {
-		logger.Errorf("Failed to get active TEEs: %v", err)
+		logger.Errorf("Failed to: %v", err)
 		return
 	}
 	taskCh := make(chan task, len(activeTees.TeeIds))
@@ -60,8 +60,10 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					if !ok {
 						return
 					}
-					valid, _ := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyUrl) // TODO error handling
-
+					valid, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyUrl)
+					if err != nil {
+						logger.Errorf("Failed query teeInfo %s and validate: %v", t.proxyUrl, err)
+					}
 					teeVerifier.SamplesMu.Lock()
 					samples := teeVerifier.TeeSamples[t.teeId]
 					samples = append(samples, valid)
@@ -100,7 +102,7 @@ func getActiveTees(teeVerifier *verifier.TeeVerifier) (teeList, error) {
 	}
 	activeTees, err := teeVerifier.TeeRegistryCaller.GetActiveTees(callOpts)
 	if err != nil {
-		return teeList{}, fmt.Errorf("failed to call GetActiveTeeIds: %w", err)
+		return teeList{}, fmt.Errorf("getActiveTees: %w", err)
 	}
 	return activeTees, nil
 }
