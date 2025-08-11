@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 )
 
 type TeeAvailabilityHeader struct {
@@ -90,62 +88,3 @@ const (
 	OBSOLETE
 	DOWN
 )
-
-// copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/pkg/types/tee.go?ref_type=heads#L16
-type TeeInfoResponse struct {
-	TeeInfo     tee.TeeStructsAttestation
-	State       []byte
-	Version     string
-	Attestation hexutil.Bytes
-	//TODO if platform will be added in tee-node, it also needs to be added here
-}
-
-// copied from here: https://gitlab.com/flarenetwork/tee/tee-node/-/blob/main/pkg/types/actions.go?ref_type=heads#L40
-type ActionType string
-
-const (
-	Instruction ActionType = "instruction"
-	Direct      ActionType = "direct"
-)
-
-type SubmissionTag string
-
-const (
-	Threshold SubmissionTag = "threshold"
-	End       SubmissionTag = "end"
-	Submit    SubmissionTag = "submit"
-)
-
-type Action struct {
-	Data                       ActionData      `json:"data"`
-	AdditionalVariableMessages []hexutil.Bytes `json:"additionalVariableMessages"`
-	Timestamps                 []uint64        `json:"timestamps"`
-	AdditionalActionData       hexutil.Bytes   `json:"additionalActionData"`
-	Signatures                 []hexutil.Bytes `json:"signatures"`
-}
-
-type ActionData struct {
-	ID            common.Hash   `json:"id"`
-	Type          ActionType    `json:"type"`
-	SubmissionTag SubmissionTag `json:"submissionTag"`
-	Message       hexutil.Bytes `json:"message"`
-}
-
-type ActionResponse struct {
-	Result    ActionResult  `json:"result"`
-	Signature hexutil.Bytes `json:"signature"`
-}
-
-type ActionResult struct {
-	ID            common.Hash   `json:"id"`
-	SubmissionTag SubmissionTag `json:"submissionTag"`
-	Status        bool          `json:"status"`
-	Log           string        `json:"log"`
-
-	OPType                 common.Hash   `json:"opType"`
-	OPCommand              common.Hash   `json:"opCommand"`
-	AdditionalResultStatus hexutil.Bytes `json:"additionalResultStatus"`
-
-	Version string        `json:"version"`
-	Data    hexutil.Bytes `json:"message"`
-}

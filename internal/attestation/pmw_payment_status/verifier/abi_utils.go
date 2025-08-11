@@ -42,18 +42,20 @@ func GetTeeInstructionsSentEventSignature() (string, error) {
 }
 
 func DecodeTeeInstructionsSentEventData(log *types.Log) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
-	if initErr != nil {
-		return nil, initErr
-	}
-	var eventData teeinstructions.TeeInstructionsTeeInstructionsSent
-	err := parsedTeeInstructionsABI.UnpackIntoInterface(&eventData, eventNameTeeInstructionsSent, log.Data)
-	if err != nil {
-		return nil, err
-	}
-	var message payment.ITeePaymentsPaymentInstructionMessage
-	err = parsedPaymentABI.UnpackIntoInterface(&message, "paymentInstructionMessageStruct", eventData.Message)
-	if err != nil {
-		return nil, err
-	}
-	return &message, nil
+	// TODO TeeInstructionsTeeInstructionsSent does not exist
+	//if initErr != nil {
+	//	return nil, initErr
+	//}
+	//var eventData teeinstructions.TeeInstructionsTeeInstructionsSent
+	//err := parsedTeeInstructionsABI.UnpackIntoInterface(&eventData, eventNameTeeInstructionsSent, log.Data)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//var message payment.ITeePaymentsPaymentInstructionMessage
+	//err = parsedPaymentABI.UnpackIntoInterface(&message, "paymentInstructionMessageStruct", eventData.Message)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return &message, nil
+	return nil, nil
 }

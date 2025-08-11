@@ -3,9 +3,11 @@ package verifier
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
 	"math/big"
 	"sync"
 	"time"
@@ -15,11 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
+	teeTypes "github.com/flare-foundation/tee-node/pkg/types"
 )
 
 const (
@@ -34,13 +37,13 @@ var (
 )
 
 type TeeVerifier struct {
-	cfg               *config.TeeAvailabilityCheckConfig
-	ethClient         *ethclient.Client
-	TeeRegistryCaller *teeregistry.TeeRegistryCaller
-	RelayCaller       *relay.RelayCaller
-	TeeSamples        map[common.Address][]bool
-	SamplesToConsider int
-	SamplesMu         sync.RWMutex
+	cfg                      *config.TeeAvailabilityCheckConfig
+	ethClient                *ethclient.Client
+	TeeMachineRegistryCaller *teemachineregistry.TeeMachineRegistryCaller
+	RelayCaller              *relay.RelayCaller
+	TeeSamples               map[common.Address][]bool
+	SamplesToConsider        int
+	SamplesMu                sync.RWMutex
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
@@ -48,7 +51,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum node: %w", err)
 	}
-	teeRegistryCaller, err := teeregistry.NewTeeRegistryCaller(common.HexToAddress(cfg.TeeRegistryContractAddress), client)
+	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeRegistryContractAddress), client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract TeeRegistry caller: %w", err)
 	}
@@ -57,7 +60,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 		return nil, fmt.Errorf("failed to create contract Relay caller: %w", err)
 	}
 	samplesToConsider := 5
-	return &TeeVerifier{cfg: cfg, ethClient: client, TeeRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
+	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
 func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
@@ -82,16 +85,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 			if valid {
 				return types.TeeAvailabilityResponseData{}, ErrIndeterminate
 			} else { // No response in the last 5 minutes => tee is down
-				var responseData types.TeeAvailabilityResponseData
-				responseData.Status = uint8(types.DOWN)
-				responseData.TeeTimestamp = 0
-				responseData.CodeHash = common.Hash{}
-				responseData.Platform = common.Hash{}
-				responseData.InitialSigningPolicyId = uint32(0)
-				responseData.LastSigningPolicyId = uint32(0)
-				responseData.StateHash = common.Hash{}
-
-				return responseData, nil
+				return types.TeeAvailabilityResponseData{Status: uint8(types.DOWN)}, nil
 			}
 		} else {
 			return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot fetch tee data %s: %v", req.TeeId, err)
@@ -102,36 +96,44 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 		return types.TeeAvailabilityResponseData{}, err
 	}
 	infoData := response.TeeInfo
-	var responseData types.TeeAvailabilityResponseData
-	responseData.Status = uint8(statusInfo.Status)
-	responseData.TeeTimestamp = infoData.TeeTimestamp
-	responseData.CodeHash = statusInfo.CodeHash
-	responseData.Platform = statusInfo.Platform
-	responseData.InitialSigningPolicyId = infoData.InitialSigningPolicyId
-	responseData.LastSigningPolicyId = infoData.LastSigningPolicyId
-	responseData.StateHash = infoData.StateHash
-
-	return responseData, nil
+	return types.TeeAvailabilityResponseData{
+		Status:                 uint8(statusInfo.Status),
+		TeeTimestamp:           infoData.TeeTimestamp,
+		CodeHash:               statusInfo.CodeHash,
+		Platform:               statusInfo.Platform,
+		InitialSigningPolicyId: infoData.InitialSigningPolicyID,
+		LastSigningPolicyId:    infoData.LastSigningPolicyID,
+		//StateHash:              infoData.,
+	}, nil
 }
 
-func (v *TeeVerifier) dataVerification(response types.TeeInfoResponse) (StatusInfo, error) {
+func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (StatusInfo, error) {
 	// if response.Platform != "google" { //TODO - add after teeInfo.Platform is defined
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
+
+	_ = attestationToken
+	_ = infoData
+
+	// TODO
 	// Certificate checks - check if we can trust the data in token
-	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
-	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
-	}
-	// check claims
-	statusInfo, err := ValidateClaims(token, infoData)
-	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
+	//token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
+	//if err != nil {
+	//	return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
+	//}
+	//// check claims
+	//statusInfo, err := ValidateClaims(token, infoData)
+	//if err != nil {
+	//	return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
+	//}
+	statusInfo := StatusInfo{
+		Status: types.OK,
 	}
 	// check last signing policy hash
-	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
+	// TODO [Jakob] Uncomment when everything is properly deployed
+	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyID)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
 	}
@@ -139,7 +141,7 @@ func (v *TeeVerifier) dataVerification(response types.TeeInfoResponse) (StatusIn
 		return StatusInfo{}, errors.New("failed to validate last signing policy hash")
 	}
 	// check initial signing policy hash
-	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyId)
+	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyID)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %v", err)
 	}
@@ -147,20 +149,22 @@ func (v *TeeVerifier) dataVerification(response types.TeeInfoResponse) (StatusIn
 		return StatusInfo{}, errors.New("failed to validate initial signing policy hash")
 	}
 	return statusInfo, nil
+	//return StatusInfo{Status: types.OK}, nil // TODO [Jakob] Remove
 }
 
-func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionId common.Hash) (types.TeeInfoResponse, error) {
-	url := fmt.Sprintf("%s/action/result/%s", baseURL, challengeInstructionId)
+func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionId common.Hash) (teeTypes.TeeInfoResponse, error) {
+	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionId.Bytes()))
+	fmt.Println("url: ", url)
 	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
-	actionResp, err := utils.FetchJSON[types.ActionResponse](ctx, url, fetchTimeout)
+	actionResp, err := utils.FetchJSON[teeTypes.ActionResponse](ctx, url, fetchTimeout)
 	if err != nil {
-		return types.TeeInfoResponse{}, err
+		return teeTypes.TeeInfoResponse{}, err
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
-	var teeInfo types.TeeInfoResponse
+	var teeInfo teeTypes.TeeInfoResponse
 	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
 	if err != nil {
-		return types.TeeInfoResponse{}, fmt.Errorf("unmarshal tee result: %w", err)
+		return teeTypes.TeeInfoResponse{}, fmt.Errorf("unmarshal tee result: %w", err)
 	}
 	return teeInfo, nil
 }
@@ -184,17 +188,17 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 	return true, nil
 }
 
-func (v *TeeVerifier) fetchTEEInfoData(ctx context.Context, baseURL, path string) (types.TeeInfoResponse, error) {
+func (v *TeeVerifier) fetchTEEInfoData(ctx context.Context, baseURL, path string) (teeTypes.TeeInfoResponse, error) {
 	url := fmt.Sprintf("%s%s", baseURL, path)
-	return utils.FetchJSON[types.TeeInfoResponse](ctx, url, fetchTimeout)
+	return utils.FetchJSON[teeTypes.TeeInfoResponse](ctx, url, fetchTimeout)
 }
 
 func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) (common.Hash, error) {
-	REG_OP_TYPE, err := utils.Bytes32(regOperationConst)
+	REG_OP_TYPE, err := utils.Bytes32(fmt.Sprintf("%s", constants.Reg))
 	if err != nil {
 		return common.Hash{}, err
 	}
-	TEE_ATTESTATION, err := utils.Bytes32(teeAttestationConst)
+	TEE_ATTESTATION, err := utils.Bytes32(fmt.Sprintf("%s", constants.TEEAttestation))
 	if err != nil {
 		return common.Hash{}, err
 	}

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"strings"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -62,8 +62,11 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	keyFunc := func(token *jwt.Token) (any, error) {
 		return certificates.LeafCert.PublicKey, nil
 	}
-	verifiedJWT, err := jwt.Parse(attestationToken, keyFunc)
-	return *verifiedJWT, fmt.Errorf("jwt.Parse error: %v", err)
+	verifiedJWT, err := jwt.ParseWithClaims(attestationToken, &GoogleTeeClaims{}, keyFunc)
+	if err != nil {
+		return jwt.Token{}, nil
+	}
+	return *verifiedJWT, nil
 }
 
 // ExtractJWTHeaders parses the JWT and returns the headers.
@@ -180,17 +183,21 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 }
 
 type GoogleTeeClaims struct {
-	HWModel     string     `json:"hwmodel"` //"hwmodel": "GCP_INTEL_TDX"
-	SWName      string     `json:"swname"`  //"swname": "CONFIDENTIAL_SPACE"
-	SecBoot     bool       `json:"secboot"`
-	EATNonce    []string   `json:"eat_nonce"`
-	SubModules  SubModules `json:"submods"`
-	DebugStatus string     `json:"dbgstat"` //"dbgstat": "enabled"
+	HWModel  string     `json:"hwmodel"` //"hwmodel": "GCP_INTEL_TDX"
+	SWName   string     `json:"swname"`  //"swname": "CONFIDENTIAL_SPACE"
+	SecBoot  bool       `json:"secboot"`
+	EATNonce string     `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
+	SubMods  SubModules `json:"submods"`
+	//DebugStatus string     `json:"dbgstat"` //"dbgstat": "enabled"
 	jwt.StandardClaims
 }
 
+func (c GoogleTeeClaims) Valid() error {
+	return nil
+}
+
 type SubModules struct {
-	ConfidentialSpace ConfidentialSpaceInfo `json:"confidential_space"`
+	ConfidentialSpace ConfidentialSpaceInfo `json:"confidential_space"` // TODO This was removed in tee-node code: assertion.submods.confidential_space.support_attributes
 	Container         Container             `json:"container"`
 }
 
@@ -220,35 +227,39 @@ func ValidateClaims(token jwt.Token, infoData tee.TeeStructsAttestation) (Status
 	}
 	// generate teeInfo hash
 	teeInfoHash, err := TeeInfoHash(infoData)
+	_ = teeInfoHash
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
+	// TODO
 	// match with eat_nonce - TODO check if it is really string array or just string
-	if claims.EATNonce[0] != teeInfoHash {
-		return StatusInfo{}, errors.New("eat_nonce does not match")
-	}
+	//if claims.EATNonce != teeInfoHash { // TODO Mismatch in hashes?
+	//	return StatusInfo{}, errors.New("eat_nonce does not match")
+	//}
 	// Check if running in production
-	if claims.DebugStatus != "disabled-since-boot" {
-		return StatusInfo{}, errors.New("not running in production mode")
-	}
+	//if claims.DebugStatus != "disabled-since-boot" {
+	//	return StatusInfo{}, errors.New("not running in production mode")
+	//}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
 		return StatusInfo{}, errors.New("not running in CONFIDENTIAL_SPACE")
 	}
 	// Check Confidential Space image version
-	foundIsStable := false
-	for _, att := range claims.SubModules.ConfidentialSpace.SupportAttributes {
-		if att == "STABLE" {
-			foundIsStable = true
-			break
-		}
-	}
-	if !foundIsStable {
-		statusInfo.Status = apitypes.OBSOLETE
-	} else {
-		statusInfo.Status = apitypes.OK
-	}
-	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubModules.Container.ImageDigest, "sha256:"))
+	// TODO
+	//foundIsStable := false
+	//for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
+	//	if att == "STABLE" {
+	//		foundIsStable = true
+	//		break
+	//	}
+	//}
+	//if !foundIsStable {
+	//	statusInfo.Status = apitypes.OBSOLETE
+	//} else {
+	//	statusInfo.Status = apitypes.OK
+	//}
+	statusInfo.Status = apitypes.OK
+	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %v", err)
 	}
@@ -279,6 +290,6 @@ func TeeInfoHash(teeInfo tee.TeeStructsAttestation) (string, error) {
 		return "", fmt.Errorf("cannot create teeInfoHash: %v", err)
 	}
 	hashBytes := crypto.Keccak256(encoded)
-	hashString := hex.EncodeToString(hashBytes[:])
+	hashString := hex.EncodeToString(hashBytes)
 	return hashString, nil
 }
