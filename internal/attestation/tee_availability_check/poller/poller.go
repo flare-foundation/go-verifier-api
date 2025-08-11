@@ -3,9 +3,10 @@ package poller
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	SampleInterval     = 1 * time.Second
+	SampleInterval     = 1 * time.Minute
 	DefaultWorkerCount = 10
 )
 
@@ -98,19 +99,12 @@ type teeList struct {
 
 func getActiveTees(teeVerifier *verifier.TeeVerifier) (teeList, error) {
 	callOpts := &bind.CallOpts{
-		Context: context.TODO(),
+		Context: context.Background(),
 	}
 
-	// TODO returns just empty list?
-	t, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts)
-	fmt.Println(t)
-	// TODO
-	result, err := teeVerifier.TeeMachineRegistryCaller.GetTeeMachine(callOpts, common.HexToAddress("0xAb4AAA8953Db48CDF509Acf2bEba6B1c223B507C"))
+	activeTees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts)
 	if err != nil {
 		return teeList{}, fmt.Errorf("getActiveTees: %w", err)
 	}
-	return teeList{
-		TeeIds: []common.Address{result.TeeId},
-		Urls:   []string{result.Url},
-	}, nil
+	return activeTees, nil
 }

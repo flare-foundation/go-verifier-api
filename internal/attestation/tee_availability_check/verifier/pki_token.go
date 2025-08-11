@@ -7,9 +7,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"strings"
 	"time"
+
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -183,12 +184,12 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 }
 
 type GoogleTeeClaims struct {
-	HWModel  string     `json:"hwmodel"` //"hwmodel": "GCP_INTEL_TDX"
-	SWName   string     `json:"swname"`  //"swname": "CONFIDENTIAL_SPACE"
-	SecBoot  bool       `json:"secboot"`
-	EATNonce string     `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
-	SubMods  SubModules `json:"submods"`
-	//DebugStatus string     `json:"dbgstat"` //"dbgstat": "enabled"
+	HWModel     string     `json:"hwmodel"` //"hwmodel": "GCP_INTEL_TDX"
+	SWName      string     `json:"swname"`  //"swname": "CONFIDENTIAL_SPACE"
+	SecBoot     bool       `json:"secboot"`
+	EATNonce    string     `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
+	SubMods     SubModules `json:"submods"`
+	DebugStatus string     `json:"dbgstat"` //"dbgstat": "enabled"
 	jwt.StandardClaims
 }
 
@@ -227,38 +228,34 @@ func ValidateClaims(token jwt.Token, infoData tee.TeeStructsAttestation) (Status
 	}
 	// generate teeInfo hash
 	teeInfoHash, err := TeeInfoHash(infoData)
-	_ = teeInfoHash
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
-	// TODO
 	// match with eat_nonce - TODO check if it is really string array or just string
-	//if claims.EATNonce != teeInfoHash { // TODO Mismatch in hashes?
-	//	return StatusInfo{}, errors.New("eat_nonce does not match")
-	//}
+	if claims.EATNonce != teeInfoHash { // TODO Mismatch in hashes?
+		return StatusInfo{}, errors.New("eat_nonce does not match")
+	}
 	// Check if running in production
-	//if claims.DebugStatus != "disabled-since-boot" {
-	//	return StatusInfo{}, errors.New("not running in production mode")
-	//}
+	if claims.DebugStatus != "disabled-since-boot" {
+		return StatusInfo{}, errors.New("not running in production mode")
+	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
 		return StatusInfo{}, errors.New("not running in CONFIDENTIAL_SPACE")
 	}
 	// Check Confidential Space image version
-	// TODO
-	//foundIsStable := false
-	//for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
-	//	if att == "STABLE" {
-	//		foundIsStable = true
-	//		break
-	//	}
-	//}
-	//if !foundIsStable {
-	//	statusInfo.Status = apitypes.OBSOLETE
-	//} else {
-	//	statusInfo.Status = apitypes.OK
-	//}
-	statusInfo.Status = apitypes.OK
+	foundIsStable := false
+	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
+		if att == "STABLE" {
+			foundIsStable = true
+			break
+		}
+	}
+	if !foundIsStable {
+		statusInfo.Status = apitypes.OBSOLETE
+	} else {
+		statusInfo.Status = apitypes.OK
+	}
 	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %v", err)

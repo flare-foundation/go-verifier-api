@@ -7,10 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -101,9 +102,9 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 		TeeTimestamp:           infoData.TeeTimestamp,
 		CodeHash:               statusInfo.CodeHash,
 		Platform:               statusInfo.Platform,
-		InitialSigningPolicyId: infoData.InitialSigningPolicyID,
-		LastSigningPolicyId:    infoData.LastSigningPolicyID,
-		//StateHash:              infoData.,
+		InitialSigningPolicyId: infoData.InitialSigningPolicyId,
+		LastSigningPolicyId:    infoData.LastSigningPolicyId,
+		StateHash:              common.Hash(response.State),
 	}, nil
 }
 
@@ -113,48 +114,37 @@ func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (Statu
 	// }
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
-
-	_ = attestationToken
-	_ = infoData
-
-	// TODO
 	// Certificate checks - check if we can trust the data in token
-	//token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
-	//if err != nil {
-	//	return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
-	//}
-	//// check claims
-	//statusInfo, err := ValidateClaims(token, infoData)
-	//if err != nil {
-	//	return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
-	//}
-	statusInfo := StatusInfo{
-		Status: types.OK,
-	}
-	// check last signing policy hash
-	// TODO [Jakob] Uncomment when everything is properly deployed
-	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyID)
+	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
+		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
 	}
-	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
-		return StatusInfo{}, errors.New("failed to validate last signing policy hash")
+	// check claims
+	statusInfo, err := ValidateClaims(token, infoData)
+	if err != nil {
+		return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
 	}
 	// check initial signing policy hash
-	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyID)
+	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyId)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %v", err)
 	}
 	if initialSigningPolicyHash != infoData.InitialSigningPolicyHash {
 		return StatusInfo{}, errors.New("failed to validate initial signing policy hash")
 	}
+	// check last signing policy hash
+	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
+	if err != nil {
+		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
+	}
+	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
+		return StatusInfo{}, errors.New("failed to validate last signing policy hash")
+	}
 	return statusInfo, nil
-	//return StatusInfo{Status: types.OK}, nil // TODO [Jakob] Remove
 }
 
 func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionId common.Hash) (teeTypes.TeeInfoResponse, error) {
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionId.Bytes()))
-	fmt.Println("url: ", url)
 	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
 	actionResp, err := utils.FetchJSON[teeTypes.ActionResponse](ctx, url, fetchTimeout)
 	if err != nil {
@@ -194,11 +184,11 @@ func (v *TeeVerifier) fetchTEEInfoData(ctx context.Context, baseURL, path string
 }
 
 func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) (common.Hash, error) {
-	REG_OP_TYPE, err := utils.Bytes32(fmt.Sprintf("%s", constants.Reg))
+	REG_OP_TYPE, err := utils.Bytes32(string(constants.Reg))
 	if err != nil {
 		return common.Hash{}, err
 	}
-	TEE_ATTESTATION, err := utils.Bytes32(fmt.Sprintf("%s", constants.TEEAttestation))
+	TEE_ATTESTATION, err := utils.Bytes32(string(constants.TEEAttestation))
 	if err != nil {
 		return common.Hash{}, err
 	}
