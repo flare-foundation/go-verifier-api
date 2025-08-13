@@ -17,6 +17,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	teeTypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -187,14 +188,10 @@ type GoogleTeeClaims struct {
 	HWModel     string     `json:"hwmodel"` //"hwmodel": "GCP_INTEL_TDX"
 	SWName      string     `json:"swname"`  //"swname": "CONFIDENTIAL_SPACE"
 	SecBoot     bool       `json:"secboot"`
-	EATNonce    string     `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
+	EATNonce    []string   `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
 	SubMods     SubModules `json:"submods"`
 	DebugStatus string     `json:"dbgstat"` //"dbgstat": "enabled"
 	jwt.StandardClaims
-}
-
-func (c GoogleTeeClaims) Valid() error {
-	return nil
 }
 
 type SubModules struct {
@@ -217,7 +214,7 @@ type StatusInfo struct {
 	Status   apitypes.AvailabilityCheckStatus
 }
 
-func ValidateClaims(token jwt.Token, infoData tee.TeeStructsAttestation) (StatusInfo, error) {
+func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, error) {
 	var statusInfo StatusInfo
 	if !token.Valid { // probably unnecessary
 		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
@@ -227,12 +224,12 @@ func ValidateClaims(token jwt.Token, infoData tee.TeeStructsAttestation) (Status
 		return StatusInfo{}, errors.New("cannot parse claims")
 	}
 	// generate teeInfo hash
-	teeInfoHash, err := TeeInfoHash(infoData)
+	teeInfoBytes, err := teeInfoData.Hash()
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
 	// match with eat_nonce - TODO check if it is really string array or just string
-	if claims.EATNonce != teeInfoHash { // TODO Mismatch in hashes?
+	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) { // TODO Mismatch in hashes?
 		return StatusInfo{}, errors.New("eat_nonce does not match")
 	}
 	// Check if running in production
@@ -280,7 +277,7 @@ func hexStringToBytes32(hexStr string) (common.Hash, error) {
 	return b32, nil
 }
 
-// Copied from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/attestation/attestation.go#L55
+// Taken from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/main/pkg/types/tee.go?ref_type=heads#L28
 func TeeInfoHash(teeInfo tee.TeeStructsAttestation) (string, error) {
 	encoded, err := structs.Encode(tee.StructArg[tee.Attestation], teeInfo)
 	if err != nil {

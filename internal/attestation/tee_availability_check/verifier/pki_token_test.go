@@ -47,7 +47,7 @@ func TestTeeInfoHash(t *testing.T) {
 	t.Logf("Generated TeeInfoHash: %s", hash)
 }
 
-func TestValidateClaims(t *testing.T) {
+func TestValidateCertainClaims(t *testing.T) {
 	tokenString := attestationTokenNotValid
 
 	claims := &verifier.GoogleTeeClaims{}
@@ -56,11 +56,10 @@ func TestValidateClaims(t *testing.T) {
 		panic(err)
 	}
 
-	// TODO
-	//expectedDebugStatus := "enabled"
-	//if claims.DebugStatus != expectedDebugStatus {
-	//	t.Errorf("DebugStatus: got %v, want %v", claims.DebugStatus, expectedDebugStatus)
-	//}
+	expectedDebugStatus := "enabled"
+	if claims.DebugStatus != expectedDebugStatus {
+		t.Errorf("DebugStatus: got %v, want %v", claims.DebugStatus, expectedDebugStatus)
+	}
 	expectedSWName := "CONFIDENTIAL_SPACE"
 	if claims.SWName != expectedSWName {
 		t.Errorf("SWName: got %v, want %v", claims.SWName, expectedSWName)

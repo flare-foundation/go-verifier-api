@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -39,12 +40,17 @@ var (
 
 type TeeVerifier struct {
 	cfg                      *config.TeeAvailabilityCheckConfig
-	ethClient                *ethclient.Client
+	ethClient                EthClient
 	TeeMachineRegistryCaller *teemachineregistry.TeeMachineRegistryCaller
 	RelayCaller              *relay.RelayCaller
 	TeeSamples               map[common.Address][]bool
 	SamplesToConsider        int
 	SamplesMu                sync.RWMutex
+}
+
+type EthClient interface {
+	BlockByHash(ctx context.Context, hash common.Hash) (*ethTypes.Block, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*ethTypes.Block, error)
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
@@ -102,9 +108,9 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 		TeeTimestamp:           infoData.TeeTimestamp,
 		CodeHash:               statusInfo.CodeHash,
 		Platform:               statusInfo.Platform,
-		InitialSigningPolicyId: infoData.InitialSigningPolicyId,
-		LastSigningPolicyId:    infoData.LastSigningPolicyId,
-		StateHash:              common.Hash(response.State),
+		InitialSigningPolicyId: infoData.InitialSigningPolicyID,
+		LastSigningPolicyId:    infoData.LastSigningPolicyID,
+		StateHash:              common.Hash(infoData.State.State), // TODO - is this it?
 	}, nil
 }
 
@@ -125,7 +131,7 @@ func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (Statu
 		return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
 	}
 	// check initial signing policy hash
-	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyId)
+	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyID)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %v", err)
 	}
@@ -133,7 +139,7 @@ func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (Statu
 		return StatusInfo{}, errors.New("failed to validate initial signing policy hash")
 	}
 	// check last signing policy hash
-	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyId)
+	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyID)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
 	}
