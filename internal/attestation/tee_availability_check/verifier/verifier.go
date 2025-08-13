@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/constants"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,14 +22,12 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
-	config "github.com/flare-foundation/go-verifier-api/internal/config"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 	teeTypes "github.com/flare-foundation/tee-node/pkg/types"
 )
 
 const (
-	regOperationConst       = "F_REG"
-	teeAttestationConst     = "TEE_ATTESTATION"
 	fetchTimeout            = 5 * time.Second
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
 )
@@ -190,11 +188,11 @@ func (v *TeeVerifier) fetchTEEInfoData(ctx context.Context, baseURL, path string
 }
 
 func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) (common.Hash, error) {
-	REG_OP_TYPE, err := utils.Bytes32(string(constants.Reg))
+	REG_OP_TYPE, err := utils.Bytes32(string(op.Reg))
 	if err != nil {
 		return common.Hash{}, err
 	}
-	TEE_ATTESTATION, err := utils.Bytes32(string(constants.TEEAttestation))
+	TEE_ATTESTATION, err := utils.Bytes32(string(op.TEEAttestation))
 	if err != nil {
 		return common.Hash{}, err
 	}
