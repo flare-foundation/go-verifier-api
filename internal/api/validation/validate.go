@@ -26,7 +26,7 @@ func ValidateRequest(request interface{}) error {
 }
 
 func ValidateSystemAndRequestAttestationNameAndSourceId(attestationTypePair config.AttestationTypeEncodedPair, sourceIdPair config.SourceIdEncodedPair, requestAttestationName string, requestSourceId string) error {
-	if requestAttestationName != attestationTypePair.AttestationTypeEncoded || string(requestSourceId) != sourceIdPair.SourceIdEncoded {
+	if requestAttestationName != attestationTypePair.AttestationTypeEncoded || requestSourceId != sourceIdPair.SourceIdEncoded {
 		return fmt.Errorf(
 			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s)",
 			requestAttestationName, requestSourceId,

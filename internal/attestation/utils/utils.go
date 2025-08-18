@@ -54,7 +54,7 @@ func AbiDecodeRequestData(data []byte) (types.TeeAvailabilityRequestData, error)
 	return decode, nil
 }
 
-func AbiEncodeResponseData(data types.TeeAvailabilityResponseData) ([]byte, error) {
+func AbiEncodeResponseData(data connector.ITeeAvailabilityCheckResponseBody) ([]byte, error) {
 	arg, err := teeavailabilitycheckconfig.GetTeeResponseArg()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get 'TeeAvailabilityCheckResponseBody' ABI argument: %v", err)

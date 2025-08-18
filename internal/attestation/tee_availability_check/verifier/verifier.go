@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"math/big"
 	"sync"
 	"time"
@@ -51,7 +52,7 @@ type EthClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*ethTypes.Block, error)
 }
 
-func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
+func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, connector.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum node: %w", err)
@@ -68,15 +69,15 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
-func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData], error) {
+func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, connector.ITeeAvailabilityCheckResponseBody], error) {
 	return NewVerifier(cfg)
 }
 
-func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityRequestData) (types.TeeAvailabilityResponseData, error) {
+func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityRequestData) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	// Build challenge instruction id
 	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	if err != nil {
-		return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot generate challenge instruction id: %v", v)
+		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot generate challenge instruction id: %v", v)
 	}
 	// Fetch from tee proxy /action/result/<challengeInstructionId>
 	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionId)
@@ -85,30 +86,36 @@ func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityReque
 			// check polled data
 			valid, infoErr := v.isTeeInfoValid(req.TeeId)
 			if infoErr != nil { // Not enough data has been polled
-				return types.TeeAvailabilityResponseData{}, fmt.Errorf("insufficient polling data to determine status: %v", infoErr)
+				return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("insufficient polling data to determine status: %v", infoErr)
 			}
 			if valid {
-				return types.TeeAvailabilityResponseData{}, ErrIndeterminate
+				return connector.ITeeAvailabilityCheckResponseBody{}, ErrIndeterminate
 			} else { // No response in the last 5 minutes => tee is down
-				return types.TeeAvailabilityResponseData{Status: uint8(types.DOWN)}, nil
+				return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(types.DOWN)}, nil
 			}
 		} else {
-			return types.TeeAvailabilityResponseData{}, fmt.Errorf("cannot fetch tee data %s: %v", req.TeeId, err)
+			return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot fetch tee data %s: %v", req.TeeId, err)
 		}
 	}
 	statusInfo, err := v.dataVerification(response)
 	if err != nil {
-		return types.TeeAvailabilityResponseData{}, err
+		return connector.ITeeAvailabilityCheckResponseBody{}, err
 	}
 	infoData := response.TeeInfo
-	return types.TeeAvailabilityResponseData{
+
+	return connector.ITeeAvailabilityCheckResponseBody{
 		Status:                 uint8(statusInfo.Status),
 		TeeTimestamp:           infoData.TeeTimestamp,
 		CodeHash:               statusInfo.CodeHash,
 		Platform:               statusInfo.Platform,
 		InitialSigningPolicyId: infoData.InitialSigningPolicyID,
 		LastSigningPolicyId:    infoData.LastSigningPolicyID,
-		StateHash:              common.Hash(infoData.State.State), // TODO - is this it?
+		State: connector.ITeeAvailabilityCheckTeeState{
+			SystemState:        infoData.State.SystemState,
+			SystemStateVersion: infoData.State.SystemStateVersion,
+			State:              infoData.State.State,
+			StateVersion:       infoData.State.StateVersion,
+		},
 	}, nil
 }
 

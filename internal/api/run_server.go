@@ -2,16 +2,19 @@ package api
 
 import (
 	"fmt"
+	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/rs/cors"
+	"github.com/unrolled/secure"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	apidocs "github.com/flare-foundation/go-verifier-api/internal/api-docs"
-	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
@@ -64,8 +67,21 @@ func RunServer() {
 		logger.Fatalf("%v", err)
 	}
 
-	fmt.Printf("Starting server on :%s...\n", port)
-	logger.Fatal(http.ListenAndServe(":"+port, router))
+	// TODO Which flags would we like to have?
+	secureMiddleware := secure.New(secure.Options{
+		BrowserXssFilter:      true,
+		ContentSecurityPolicy: "default-src 'self'",
+		ReferrerPolicy:        "strict-origin-when-cross-origin",
+	})
+
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+	})
+
+	routerWithSecurity := secureMiddleware.Handler(router)
+	routerWithCORS := corsHandler.Handler(routerWithSecurity)
+
+	logger.Fatal(http.ListenAndServe(":"+port, routerWithCORS))
 }
 
 var attestationTypes = []connector.AttestationType{

@@ -3,6 +3,7 @@ package attestationtypes
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -45,33 +46,29 @@ func (requestBody TeeAvailabilityRequestBody) ToInternal() (TeeAvailabilityReque
 }
 
 type TeeAvailabilityResponseBody struct {
-	Status                 json.Number `json:"status"`
-	TeeTimestamp           json.Number `json:"teeTimestamp"`
-	CodeHash               string      `json:"codeHash"`
-	Platform               string      `json:"platform"`
-	InitialSigningPolicyId json.Number `json:"initialSigningPolicyId"`
-	LastSigningPolicyId    json.Number `json:"lastSigningPolicyId"`
-	StateHash              string      `json:"stateHash"`
-}
-type TeeAvailabilityResponseData struct {
-	Status                 uint8       `json:"status"`
-	TeeTimestamp           uint64      `json:"teeTimestamp"`
-	CodeHash               common.Hash `json:"codeHash"`
-	Platform               common.Hash `json:"platform"`
-	InitialSigningPolicyId uint32      `json:"initialSigningPolicyId"`
-	LastSigningPolicyId    uint32      `json:"lastSigningPolicyId"`
-	StateHash              common.Hash `json:"stateHash"`
+	Status                 json.Number                             `json:"status"`
+	TeeTimestamp           json.Number                             `json:"teeTimestamp"`
+	CodeHash               string                                  `json:"codeHash"`
+	Platform               string                                  `json:"platform"`
+	InitialSigningPolicyId json.Number                             `json:"initialSigningPolicyId"`
+	LastSigningPolicyId    json.Number                             `json:"lastSigningPolicyId"`
+	StateHash              connector.ITeeAvailabilityCheckTeeState `json:"state"`
 }
 
-func (data TeeAvailabilityResponseData) ToExternal() TeeAvailabilityResponseBody {
+func ToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityResponseBody {
 	return TeeAvailabilityResponseBody{
 		Status:                 json.Number(fmt.Sprintf("%d", data.Status)),
 		TeeTimestamp:           json.Number(fmt.Sprintf("%d", data.TeeTimestamp)),
-		CodeHash:               data.CodeHash.Hex(),
-		Platform:               data.Platform.Hex(),
+		CodeHash:               common.BytesToHash(data.CodeHash[:]).Hex(),
+		Platform:               common.BytesToHash(data.Platform[:]).Hex(),
 		InitialSigningPolicyId: json.Number(fmt.Sprintf("%d", data.InitialSigningPolicyId)),
 		LastSigningPolicyId:    json.Number(fmt.Sprintf("%d", data.LastSigningPolicyId)),
-		StateHash:              data.StateHash.Hex(),
+		StateHash: connector.ITeeAvailabilityCheckTeeState{
+			SystemStateVersion: common.BytesToHash(data.State.SystemStateVersion[:]),
+			SystemState:        data.State.SystemState,
+			StateVersion:       common.BytesToHash(data.State.StateVersion[:]),
+			State:              data.State.State,
+		},
 	}
 }
 

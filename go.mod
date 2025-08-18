@@ -11,7 +11,9 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/joho/godotenv v1.5.1
+	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.10.0
+	github.com/unrolled/secure v1.17.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.0
