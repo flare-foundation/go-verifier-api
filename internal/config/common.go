@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
@@ -25,6 +26,11 @@ type AttestationTypeEncodedPair struct {
 	AttestationTypeEncoded string
 }
 
+type AbiArgPair struct {
+	Request  abi.Argument
+	Response abi.Argument
+}
+
 type TeeAvailabilityCheckConfig struct {
 	SourcePair                 SourceIdEncodedPair
 	RelayContractAddress       string
@@ -32,6 +38,7 @@ type TeeAvailabilityCheckConfig struct {
 	RPCURL                     string
 	GoogleRootCertificate      *x509.Certificate
 	AttestationTypePair        AttestationTypeEncodedPair
+	AbiPair                    AbiArgPair
 }
 
 type PMWPaymentStatusConfig struct {
@@ -39,12 +46,14 @@ type PMWPaymentStatusConfig struct {
 	DatabaseURL         string
 	CchainDatabaseURL   string
 	AttestationTypePair AttestationTypeEncodedPair
+	// TODO add abiPair
 }
 
 type PMWMultisigAccountConfig struct {
 	SourcePair          SourceIdEncodedPair
 	RPCURL              string
 	AttestationTypePair AttestationTypeEncodedPair
+	AbiPair             AbiArgPair
 }
 
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, error) {

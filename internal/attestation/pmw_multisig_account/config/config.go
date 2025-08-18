@@ -35,9 +35,18 @@ func LoadPMWMultisigAccountConfig(sourceId config.SourceName, attestationType co
 	if err != nil {
 		return nil, err
 	}
+	requestAbi, err := config.GetAbiArguments("pmwMultisigAccountConfiguredRequestBodyStruct")
+	if err != nil {
+		return nil, err
+	}
+	responseAbi, err := config.GetAbiArguments("pmwMultisigAccountConfiguredResponseBodyStruct")
+	if err != nil {
+		return nil, err
+	}
 	return &config.PMWMultisigAccountConfig{
 		SourcePair:          config.SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
 		RPCURL:              rpcURL,
 		AttestationTypePair: config.AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
+		AbiPair:             config.AbiArgPair{Request: requestAbi, Response: responseAbi},
 	}, nil
 }

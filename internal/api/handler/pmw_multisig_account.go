@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,13 +10,12 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
-	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData]) {
+func PMWMultisigAccountHandler(api huma.API, config config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[types.PMWMultisigAccountRequestData, types.PMWMultisigAccountResponseData]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
@@ -25,7 +23,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 		Path:        fmt.Sprintf("/%s/prepareRequestBody", config.AttestationTypePair.AttestationType),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
-			Body types.TeeAvailabilityRequest
+			Body types.PMWMultisigAccountRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
 			if err := validation.ValidateRequest(request); err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
@@ -38,7 +36,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
 			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
-			requestDataBytes, err := utils.AbiEncodeRequestData[types.TeeAvailabilityRequestData](requestData, config.AbiPair.Request)
+			requestDataBytes, err := utils.AbiEncodeRequestData[types.PMWMultisigAccountRequestData](requestData, config.AbiPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -53,13 +51,13 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 		Path:        fmt.Sprintf("/%s/prepareResponseBody", config.AttestationTypePair.AttestationType),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
-			Body types.TeeAvailabilityEncodedRequest
-		}) (*types.Response[types.RawAndEncodedTeeAvailabilityResponseBody], error) {
-			responseData, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, config, verifier)
+			Body types.PMWMultisigAccountEncodedRequest
+		}) (*types.Response[types.RawAndEncodedPMWMultisigAccountResponseBody], error) {
+			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWMultisigAccountRequest(request.Body, ctx, config, verifier)
 			if err != nil {
 				return nil, err
 			}
-			return types.NewResponse(types.RawAndEncodedTeeAvailabilityResponseBody{
+			return types.NewResponse(types.RawAndEncodedPMWMultisigAccountResponseBody{
 				ResponseData: responseData.ToExternal(),
 				ResponseBody: utils.HexWith0x(responseDataBytes),
 			}), nil
@@ -71,9 +69,9 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 		Path:        fmt.Sprintf("/%s/verify", config.AttestationTypePair.AttestationType),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
-			Body types.TeeAvailabilityEncodedRequest
+			Body types.PMWMultisigAccountEncodedRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
-			_, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, config, verifier)
+			_, responseDataBytes, err := validateAndVerifyEncodedPMWMultisigAccountRequest(request.Body, ctx, config, verifier)
 			if err != nil {
 				return nil, err
 			}
@@ -83,32 +81,29 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 		})
 }
 
-func validateAndVerifyEncodedRequest(request types.TeeAvailabilityEncodedRequest, ctx context.Context, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, types.TeeAvailabilityResponseData]) (types.TeeAvailabilityResponseData, []byte, error) {
+func validateAndVerifyEncodedPMWMultisigAccountRequest(request types.PMWMultisigAccountEncodedRequest, ctx context.Context, config config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[types.PMWMultisigAccountRequestData, types.PMWMultisigAccountResponseData]) (types.PMWMultisigAccountResponseData, []byte, error) {
 	if err := validation.ValidateRequest(request); err != nil {
-		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
+		return types.PMWMultisigAccountResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
 	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.FTDCHeader.AttestationType, request.FTDCHeader.SourceId); err != nil {
-		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+		return types.PMWMultisigAccountResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
 	cleanRequestBodyHex := strings.TrimPrefix(request.RequestBody, "0x")
 	requestBodyBytes, err := hex.DecodeString(cleanRequestBodyHex)
 	if err != nil {
-		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to bytes failed: %v", err))
+		return types.PMWMultisigAccountResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to bytes failed: %v", err))
 	}
-	requestData, err := utils.AbiDecodeRequestData[types.TeeAvailabilityRequestData](requestBodyBytes, config.AbiPair.Request)
+	requestData, err := utils.AbiDecodeRequestData[types.PMWMultisigAccountRequestData](requestBodyBytes, config.AbiPair.Request)
 	if err != nil {
-		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
+		return types.PMWMultisigAccountResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}
 	responseData, err := verifier.Verify(ctx, requestData)
 	if err != nil {
-		if errors.Is(err, teeverifier.ErrIndeterminate) {
-			return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
-		}
-		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+		return types.PMWMultisigAccountResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 	}
-	responseDataBytes, err := utils.AbiEncodeResponseData[types.TeeAvailabilityResponseData](responseData, config.AbiPair.Response)
+	responseDataBytes, err := utils.AbiEncodeResponseData[types.PMWMultisigAccountResponseData](responseData, config.AbiPair.Response)
 	if err != nil {
-		return types.TeeAvailabilityResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
+		return types.PMWMultisigAccountResponseData{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
 	return responseData, responseDataBytes, nil
 }

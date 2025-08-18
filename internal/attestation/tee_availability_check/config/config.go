@@ -50,6 +50,14 @@ func LoadTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType 
 	if err != nil {
 		return nil, err
 	}
+	requestAbi, err := config.GetAbiArguments("availabilityCheckRequestBodyStruct")
+	if err != nil {
+		return nil, err
+	}
+	responseAbi, err := config.GetAbiArguments("availabilityCheckResponseBodyStruct")
+	if err != nil {
+		return nil, err
+	}
 	return &config.TeeAvailabilityCheckConfig{
 		SourcePair:                 config.SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
 		RelayContractAddress:       relayContractAddress,
@@ -57,6 +65,7 @@ func LoadTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType 
 		RPCURL:                     rpcURL,
 		GoogleRootCertificate:      googleRootCert,
 		AttestationTypePair:        config.AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
+		AbiPair:                    config.AbiArgPair{Request: requestAbi, Response: responseAbi},
 	}, nil
 }
 

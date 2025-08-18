@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,10 +10,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 )
 
 var (
@@ -28,40 +28,29 @@ func Bytes32(s string) ([32]byte, error) {
 	return b, nil
 }
 
-func AbiEncodeRequestData(data types.TeeAvailabilityRequestData) ([]byte, error) {
-	arg, err := teeavailabilitycheckconfig.GetTeeRequestArg()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get 'TeeAvailabilityCheckRequestBody' ABI argument: %v", err)
-	}
+func AbiEncodeRequestData[T any](data T, arg abi.Argument) ([]byte, error) {
 	encoded, err := structs.Encode(arg, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode 'TeeAvailabilityCheckRequestBody': %v", err)
+		return nil, fmt.Errorf("failed to encode request data': %v", err)
 	}
 	structs.Encode(connector.AttestationRequestArg, &connector.IFtdcHubFtdcAttestationRequest{})
 
 	return encoded, nil
 }
 
-func AbiDecodeRequestData(data []byte) (types.TeeAvailabilityRequestData, error) {
-	arg, err := teeavailabilitycheckconfig.GetTeeRequestArg()
+func AbiDecodeRequestData[T any](data []byte, arg abi.Argument) (T, error) {
+	decode, err := structs.Decode[T](arg, data)
 	if err != nil {
-		return types.TeeAvailabilityRequestData{}, fmt.Errorf("failed to get 'TeeAvailabilityCheckRequestBody' ABI argument: %v", err)
-	}
-	decode, err := structs.Decode[types.TeeAvailabilityRequestData](arg, data)
-	if err != nil {
-		return types.TeeAvailabilityRequestData{}, err
+		var zero T
+		return zero, err
 	}
 	return decode, nil
 }
 
-func AbiEncodeResponseData(data types.TeeAvailabilityResponseData) ([]byte, error) {
-	arg, err := teeavailabilitycheckconfig.GetTeeResponseArg()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get 'TeeAvailabilityCheckResponseBody' ABI argument: %v", err)
-	}
+func AbiEncodeResponseData[T any](data T, arg abi.Argument) ([]byte, error) {
 	encoded, err := structs.Encode(arg, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode 'TeeAvailabilityCheckResponseBody': %v", err)
+		return nil, fmt.Errorf("failed to encode response data: %v", err)
 	}
 	return encoded, nil
 }
@@ -93,4 +82,8 @@ func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duratio
 		return zero, fmt.Errorf("decoding failed for type %s: %w", reflect.TypeOf(zero), err)
 	}
 	return zero, nil
+}
+
+func HexWith0x(data []byte) string {
+	return "0x" + hex.EncodeToString(data)
 }
