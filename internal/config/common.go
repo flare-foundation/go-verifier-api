@@ -41,6 +41,12 @@ type PMWPaymentStatusConfig struct {
 	AttestationTypePair AttestationTypeEncodedPair
 }
 
+type PMWMultisigAccountConfig struct {
+	SourcePair          SourceIdEncodedPair
+	RPCURL              string
+	AttestationTypePair AttestationTypeEncodedPair
+}
+
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, error) {
 	if len(attestationTypeOrSourceName) >= 2 && (attestationTypeOrSourceName[:2] == "0x" || attestationTypeOrSourceName[:2] == "0X") {
 		return "", fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: '%s'", attestationTypeOrSourceName)

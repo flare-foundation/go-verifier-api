@@ -35,7 +35,7 @@ func LoadTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType 
 		return nil, fmt.Errorf("TEE_REGISTRY_CONTRACT_ADDRESS not set in .env")
 	}
 	rpcURL := os.Getenv("RPC_URL")
-	if teeRegistryContractAddress == "" {
+	if rpcURL == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")
 	}
 	googleRootCert, err := LoadGoogleRootCert()
