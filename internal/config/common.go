@@ -12,8 +12,9 @@ import (
 type SourceName string
 
 const (
-	SourceTEE SourceName = "tee"
-	SourceXRP SourceName = "xrp"
+	SourceTEE     SourceName = "tee"
+	SourceXRP     SourceName = "xrp"
+	SourceTestXRP SourceName = "testxrp"
 )
 
 type SourceIdEncodedPair struct {

@@ -10,18 +10,21 @@ import (
 
 type VerifierConstructor func(
 	cfg *config.PMWMultisigAccountConfig,
-) (verifierinterface.VerifierInterface[attestationtypes.PMWMultisigAccountRequestBody, attestationtypes.PMWMultisigAccountResponseBody], error)
+) (verifierinterface.VerifierInterface[attestationtypes.PMWMultisigAccountRequestData, attestationtypes.PMWMultisigAccountResponseData], error)
+
+var xrpConstructor = func(cfg *config.PMWMultisigAccountConfig) (
+	verifierinterface.VerifierInterface[attestationtypes.PMWMultisigAccountRequestData, attestationtypes.PMWMultisigAccountResponseData], error,
+) {
+	return &XRPVerifier{config: cfg}, nil
+}
 
 var registry = map[string]VerifierConstructor{
-	string(config.SourceXRP): func(cfg *config.PMWMultisigAccountConfig) (
-		verifierinterface.VerifierInterface[attestationtypes.PMWMultisigAccountRequestBody, attestationtypes.PMWMultisigAccountResponseBody], error,
-	) {
-		return &XRPVerifier{config: cfg}, nil
-	},
+	string(config.SourceXRP):     xrpConstructor,
+	string(config.SourceTestXRP): xrpConstructor,
 }
 
 func GetVerifier(cfg *config.PMWMultisigAccountConfig) (
-	verifierinterface.VerifierInterface[attestationtypes.PMWMultisigAccountRequestBody, attestationtypes.PMWMultisigAccountResponseBody], error,
+	verifierinterface.VerifierInterface[attestationtypes.PMWMultisigAccountRequestData, attestationtypes.PMWMultisigAccountResponseData], error,
 ) {
 	sourceIdStr := string(cfg.SourcePair.SourceId)
 	constructor, ok := registry[sourceIdStr]

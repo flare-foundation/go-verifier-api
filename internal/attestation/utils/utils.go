@@ -31,7 +31,7 @@ func Bytes32(s string) ([32]byte, error) {
 func AbiEncodeRequestData[T any](data T, arg abi.Argument) ([]byte, error) {
 	encoded, err := structs.Encode(arg, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode request data': %v", err)
+		return nil, err
 	}
 	structs.Encode(connector.AttestationRequestArg, &connector.IFtdcHubFtdcAttestationRequest{})
 
@@ -50,7 +50,7 @@ func AbiDecodeRequestData[T any](data []byte, arg abi.Argument) (T, error) {
 func AbiEncodeResponseData[T any](data T, arg abi.Argument) ([]byte, error) {
 	encoded, err := structs.Encode(arg, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode response data: %v", err)
+		return nil, err
 	}
 	return encoded, nil
 }

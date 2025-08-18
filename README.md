@@ -9,8 +9,8 @@
     Open `.env` and set the following values according to the attestation type and source you want to run:
 
     ```env
-    VERIFIER_TYPE=TeeAvailabilityCheck       # or PMWPaymentStatus
-    SOURCE_ID=tee                            # Up to 32 characters, e.g., 'xrp' or 'tee'
+    VERIFIER_TYPE=TeeAvailabilityCheck
+    SOURCE_ID=tee
     PORT=3120
     RELAY_CONTRACT_ADDRESS=0x...
     TEE_REGISTRY_CONTRACT_ADDRESS=0x...
@@ -47,7 +47,7 @@ See [File structure](docs/overview.md) for a detailed explanation of the directo
 Needed for Coston deploy:
 - [ ] *poller.go*: After `TeeRegistry` contract is deployed to Coston, add its address to `.env`.
 
-<br><br>
+
 TODO:
 - [ ] ⚠️ *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
 - [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
@@ -58,24 +58,29 @@ TODO:
 ## Server TODO list
 - [ ] Add security headers (something like [`helmet`](https://www.npmjs.com/package/helmet/v/6.1.2) does in `ts`). Possible candidates: `github.com/rs/cors v1.11.1` and `github.com/unrolled/secure v1.17.0`.
 
-<br>
 
----
----
-⚠️ `PMWPaymentStatus` is work in progress
+## How to run `PMWMultisigAccountConfigured` verifier
+
+```
+VERIFIER_TYPE=PMWMultisigAccountConfigured
+SOURCE_ID=testxrp
+PORT=3120
+RPC_URL=https://s.altnet.rippletest.net:51234/	
+```
+
 ## How to run `PMWPaymentStatus` verifier
+⚠️ `PMWPaymentStatus` is work in progress
 
-    - For `PMWPaymentStatus`, set:
 
-        You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
+You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
 
-    ```env
-    VERIFIER_TYPE=PMWPaymentStatus       # or PMWPaymentStatus
-    SOURCE_ID=xrp                            # Up to 32 characters, e.g., 'xrp' or 'tee'
-    PORT=3120
-    CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
-    DATABASE_URL=postgres://user:pass@host:port/db
-    ```
+```env
+VERIFIER_TYPE=PMWPaymentStatus
+SOURCE_ID=xrp
+PORT=3120
+CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
+DATABASE_URL=postgres://user:pass@host:port/db
+```
 
 ## PMWPaymentStatus TODO list
  (after TeeAvailabilityCheck will be done)

@@ -5,26 +5,26 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	pmwmultisigconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/config"
-	pmwmulstisigaccountverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/verifier"
-	config "github.com/flare-foundation/go-verifier-api/internal/config"
+	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/config"
+	pmwmultisigaccountverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
 type MultisigService struct {
 	verifier verifierinterface.VerifierInterface[
-		types.PMWMultisigAccountRequestBody,
-		types.PMWMultisigAccountResponseBody,
+		types.PMWMultisigAccountRequestData,
+		types.PMWMultisigAccountResponseData,
 	]
 	config *config.PMWMultisigAccountConfig
 }
 
-func NewPaymentService(sourceId config.SourceName, attestationType connector.AttestationType) (*MultisigService, error) {
-	cfg, err := pmwmultisigconfig.GetPMWMultisigAccountConfig(sourceId, attestationType)
+func NewMultisigService(sourceId config.SourceName, attestationType connector.AttestationType) (*MultisigService, error) {
+	cfg, err := pmwmultisigaccountconfig.GetPMWMultisigAccountConfig(sourceId, attestationType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load PMWPaymentStatus config: %w", err)
 	}
-	verifierImpl, err := pmwmulstisigaccountverifier.GetVerifier(cfg)
+	verifierImpl, err := pmwmultisigaccountverifier.GetVerifier(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize verifier: %w", err)
 	}
@@ -32,8 +32,8 @@ func NewPaymentService(sourceId config.SourceName, attestationType connector.Att
 }
 
 func (s *MultisigService) GetVerifier() verifierinterface.VerifierInterface[
-	types.PMWMultisigAccountRequestBody,
-	types.PMWMultisigAccountResponseBody,
+	types.PMWMultisigAccountRequestData,
+	types.PMWMultisigAccountResponseData,
 ] {
 	return s.verifier
 }

@@ -11,7 +11,7 @@ type XRPVerifier struct {
 	config *pmwmultisigaccountconfig.PMWMultisigAccountConfig
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req attestationtypes.PMWMultisigAccountRequestBody) (attestationtypes.PMWMultisigAccountResponseBody, error) {
+func (x *XRPVerifier) Verify(ctx context.Context, req attestationtypes.PMWMultisigAccountRequestData) (attestationtypes.PMWMultisigAccountResponseData, error) {
 	// TODO
-	return attestationtypes.PMWMultisigAccountResponseBody{}, nil
+	return attestationtypes.PMWMultisigAccountResponseData{}, nil
 }

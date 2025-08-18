@@ -15,7 +15,7 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func PMWMultisigAccountHandler(api huma.API, config config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[types.PMWMultisigAccountRequestData, types.PMWMultisigAccountResponseData]) {
+func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[types.PMWMultisigAccountRequestData, types.PMWMultisigAccountResponseData]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
@@ -81,7 +81,7 @@ func PMWMultisigAccountHandler(api huma.API, config config.PMWMultisigAccountCon
 		})
 }
 
-func validateAndVerifyEncodedPMWMultisigAccountRequest(request types.PMWMultisigAccountEncodedRequest, ctx context.Context, config config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[types.PMWMultisigAccountRequestData, types.PMWMultisigAccountResponseData]) (types.PMWMultisigAccountResponseData, []byte, error) {
+func validateAndVerifyEncodedPMWMultisigAccountRequest(request types.PMWMultisigAccountEncodedRequest, ctx context.Context, config *config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[types.PMWMultisigAccountRequestData, types.PMWMultisigAccountResponseData]) (types.PMWMultisigAccountResponseData, []byte, error) {
 	if err := validation.ValidateRequest(request); err != nil {
 		return types.PMWMultisigAccountResponseData{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
