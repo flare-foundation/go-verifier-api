@@ -25,7 +25,7 @@
     go mod tidy
     ```
 
-    If there are new commits to the `tee` branch of the project `go-flare-common` project (https://github.com/flare-foundation/go-flare-common/commits/tee), you can fetch the updates using `go get https://github.com/flare-foundation/go-flare-common@<commitHash>`
+    If there are new commits to the `tee` branch of the project `go-flare-common` project (https://github.com/flare-foundation/go-flare-common/commits/tee), you can fetch the updates using `go get github.com/flare-foundation/go-flare-common@<commitHash>`
 
 3. Run the project
     ```bash
