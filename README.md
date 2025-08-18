@@ -46,27 +46,20 @@ See [File structure](docs/overview.md) for a detailed explanation of the directo
 ## TeeAvailabilityCheck TODO list
 Needed for Coston deploy:
 - [ ] *poller.go*: After `TeeRegistry` contract is deployed to Coston, add its address to `.env`.
-- [ ] *api/type/tee_availability_check.go*: After variable `Platform` will be added to struct `TeeInfoResponse` in `tee-node`, [add it also in this package](https://gitlab.com/flarenetwork/tee/go-verifier-api/-/blob/main/internal/api/type/tee_availability_check.go?ref_type=heads#L100).
 
 <br><br>
-To think about it (later):
-- [ ] *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
-- [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
-
-<br><br>
-TODO later:
-- [ ] *pki_token.go*: If fn `TeeInfoHash` will be in common package, fetch from there
-- [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (still debating what response.Platform is)
-- [ ] *api/type/tee_availability_check.go*: If types (`TeeInfoResponse`, `ActionResponse`) currently copied from `tee-node` will be moved to some common pkg -> fetch from there
-
-<br><br>
-<br><br>
+TODO:
+- [ ] ⚠️ *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
+- [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
+- [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (missing Platform in TeeInfoResponse)
+- [ ] other TODOs inside the code
 
 
 ## Server TODO list
 - [ ] Add security headers (something like [`helmet`](https://www.npmjs.com/package/helmet/v/6.1.2) does in `ts`). Possible candidates: `github.com/rs/cors v1.11.1` and `github.com/unrolled/secure v1.17.0`.
----
----
+
+<br>
+
 ---
 ---
 ⚠️ `PMWPaymentStatus` is work in progress
