@@ -1,7 +1,9 @@
 package attestationtypes
 
 import (
-	"github.com/ethereum/go-ethereum/common"
+	"encoding/hex"
+	"fmt"
+	"strings"
 )
 
 type PMWMultisigAccountHeader struct {
@@ -22,26 +24,30 @@ type PMWMultisigAccountRequest struct {
 }
 
 type PMWMultisigAccountRequestBody struct {
-	WalletAddress string   `json:"walletAddress" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"` // TODO
-	PublicKeys    []string `json:"publicKeys" validate:"required" example:"1"`                                                                            // TODO
-	Threshold     uint64   `json:"threshold" validate:"required" example:"1"`                                                                             // TODO
+	WalletAddress string   `json:"walletAddress" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	PublicKeys    []string `json:"publicKeys" validate:"required,min=1" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"`
+	Threshold     uint64   `json:"threshold" validate:"gte=1" example:"3"`
 }
 
 type PMWMultisigAccountRequestData struct {
 	WalletAddress string
-	PublicKeys    []common.Hash // TODO 32 byte or any
+	PublicKeys    [][]byte
 	Threshold     uint64
 }
 
 func (requestBody PMWMultisigAccountRequestBody) ToInternal() (PMWMultisigAccountRequestData, error) {
-	var hashes []common.Hash
+	var publicKeys [][]byte // TODO is bytes ok or do we want other types for later use
 	for _, pk := range requestBody.PublicKeys {
-		hashes = append(hashes, common.HexToHash(pk))
+		b, err := hex.DecodeString(strings.TrimPrefix(pk, "0x"))
+		if err != nil {
+			return PMWMultisigAccountRequestData{}, fmt.Errorf("invalid public key: %s, err: %w", pk, err)
+		}
+		publicKeys = append(publicKeys, b)
 	}
 
 	return PMWMultisigAccountRequestData{
 		WalletAddress: requestBody.WalletAddress,
-		PublicKeys:    hashes,
+		PublicKeys:    publicKeys,
 		Threshold:     requestBody.Threshold,
 	}, nil
 }
