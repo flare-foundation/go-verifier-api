@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
 type PMWMultisigAccountHeader struct {
@@ -29,23 +31,17 @@ type PMWMultisigAccountRequestBody struct {
 	Threshold     uint64   `json:"threshold" validate:"gte=1" example:"3"`
 }
 
-type PMWMultisigAccountRequestData struct {
-	WalletAddress string
-	PublicKeys    [][]byte
-	Threshold     uint64
-}
-
-func (requestBody PMWMultisigAccountRequestBody) ToInternal() (PMWMultisigAccountRequestData, error) {
-	var publicKeys [][]byte // TODO is bytes ok or do we want other types for later use
+func (requestBody PMWMultisigAccountRequestBody) ToInternal() (connector.IPMWMultisigAccountConfiguredRequestBody, error) {
+	var publicKeys [][]byte
 	for _, pk := range requestBody.PublicKeys {
 		b, err := hex.DecodeString(strings.TrimPrefix(pk, "0x"))
 		if err != nil {
-			return PMWMultisigAccountRequestData{}, fmt.Errorf("invalid public key: %s, err: %w", pk, err)
+			return connector.IPMWMultisigAccountConfiguredRequestBody{}, fmt.Errorf("invalid public key: %s, err: %w", pk, err)
 		}
 		publicKeys = append(publicKeys, b)
 	}
 
-	return PMWMultisigAccountRequestData{
+	return connector.IPMWMultisigAccountConfiguredRequestBody{
 		WalletAddress: requestBody.WalletAddress,
 		PublicKeys:    publicKeys,
 		Threshold:     requestBody.Threshold,
@@ -64,14 +60,9 @@ const (
 	PMWMultisigAccountStatusERROR
 )
 
-type PMWMultisigAccountResponseData struct {
-	PMWMultisigAccountStatus uint8
-	Sequence                 uint64
-}
-
-func (data PMWMultisigAccountResponseData) ToExternal() PMWMultisigAccountResponseBody {
+func MultiSigToExternal(data connector.IPMWMultisigAccountConfiguredResponseBody) PMWMultisigAccountResponseBody {
 	return PMWMultisigAccountResponseBody{
-		PMWMultisigAccountStatus: data.PMWMultisigAccountStatus,
+		PMWMultisigAccountStatus: data.Status,
 		Sequence:                 data.Sequence,
 	}
 }

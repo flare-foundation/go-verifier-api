@@ -40,7 +40,8 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 			return fmt.Errorf("%v", err)
 		}
 		verifier := service.GetVerifier()
-		handler.PMWPaymentStatusHandler(api, connector.PMWPaymentStatus, verifier)
+		config := service.GetConfig()
+		handler.PMWPaymentStatusHandler(api, config, verifier)
 	case connector.PMWMultisigAccountConfigured:
 		service, err := multisigservice.NewMultisigService(sourceId, attestationType)
 		if err != nil {

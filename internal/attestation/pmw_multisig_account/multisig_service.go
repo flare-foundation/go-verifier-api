@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/config"
 	pmwmultisigaccountverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -13,8 +12,8 @@ import (
 
 type MultisigService struct {
 	verifier verifierinterface.VerifierInterface[
-		types.PMWMultisigAccountRequestData,
-		types.PMWMultisigAccountResponseData,
+		connector.IPMWMultisigAccountConfiguredRequestBody,
+		connector.IPMWMultisigAccountConfiguredResponseBody,
 	]
 	config *config.PMWMultisigAccountConfig
 }
@@ -32,8 +31,8 @@ func NewMultisigService(sourceId config.SourceName, attestationType connector.At
 }
 
 func (s *MultisigService) GetVerifier() verifierinterface.VerifierInterface[
-	types.PMWMultisigAccountRequestData,
-	types.PMWMultisigAccountResponseData,
+	connector.IPMWMultisigAccountConfiguredRequestBody,
+	connector.IPMWMultisigAccountConfiguredResponseBody,
 ] {
 	return s.verifier
 }

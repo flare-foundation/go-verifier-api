@@ -3,7 +3,7 @@ package verifier
 import (
 	"context"
 
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -11,7 +11,7 @@ type XRPVerifier struct {
 	config *pmwmultisigaccountconfig.PMWMultisigAccountConfig
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req attestationtypes.PMWMultisigAccountRequestData) (attestationtypes.PMWMultisigAccountResponseData, error) {
+func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
 	// TODO
-	return attestationtypes.PMWMultisigAccountResponseData{}, nil
+	return connector.IPMWMultisigAccountConfiguredResponseBody{}, nil
 }

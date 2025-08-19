@@ -12,10 +12,7 @@ import (
 
 const pay = "PAY"
 
-func GenerateInstructionId(walletId string, nonce uint64, sourceEnv string) string {
-	var wallet common.Hash
-	copy(wallet[:], []byte(walletId))
-
+func GenerateInstructionId(walletId [32]byte, nonce uint64, sourceEnv string) string {
 	var sourceID common.Hash
 	copy(sourceID[:], []byte(sourceEnv))
 
@@ -26,7 +23,7 @@ func GenerateInstructionId(walletId string, nonce uint64, sourceEnv string) stri
 	nonceBig := big.NewInt(int64(nonce))
 	copy(nonceByte[:], common.LeftPadBytes((nonceBig).Bytes(), 32))
 
-	instructionId := crypto.Keccak256(sourceID[:], opCommand[:], wallet[:], nonceByte[:])
+	instructionId := crypto.Keccak256(sourceID[:], opCommand[:], walletId[:], nonceByte[:])
 	return hex.EncodeToString(instructionId)
 }
 

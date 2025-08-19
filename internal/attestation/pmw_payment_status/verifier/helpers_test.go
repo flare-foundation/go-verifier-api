@@ -7,10 +7,14 @@ import (
 )
 
 func TestGenerateInstructionId(t *testing.T) {
-	walletId := "testwalletid12345678901234567890"
+	walletId := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+	walletIdBytes, err := HexStringToBytes32(walletId)
+	if err != nil {
+		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
+	}
 	nonce := uint64(42)
 	sourceEnv := "testsourceid"
-	id := GenerateInstructionId(walletId, nonce, sourceEnv)
+	id := GenerateInstructionId(walletIdBytes, nonce, sourceEnv)
 	if len(id) == 0 {
 		t.Fatal("GenerateInstructionId returned empty string")
 	}

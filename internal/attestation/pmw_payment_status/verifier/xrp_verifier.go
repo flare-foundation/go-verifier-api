@@ -2,7 +2,6 @@ package verifier
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,8 +10,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/models"
 	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
@@ -29,45 +28,38 @@ type chainQuery struct {
 	Nonce         uint64
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req attestationtypes.PMWPaymentStatusRequestBody) (attestationtypes.PMWPaymentStatusResponseBody, error) {
+func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
 	sourceEnv := string(x.config.SourcePair.SourceId)
 	instructionId := GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
 	// Query event
 	chainLog, err := x.fetchInstructionLog(ctx, x.cChainDb, instructionId)
 	if err != nil {
-		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Decode event data
 	paymentMessage, err := DecodeTeeInstructionsSentEventData(chainLog)
 	if err != nil {
-		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
 	dbTransaction, err := x.getTransactionBySourceAndSequence(ctx, x.db, chainQuery{paymentMessage.SenderAddress, req.Nonce})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
-			return attestationtypes.PMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
+			return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
 		}
-		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Parse transaction response JSON into structured data
 	rawTransactionData, err := x.parseRawTransactionData(dbTransaction.Response)
 	if err != nil {
-		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Validate transaction and build response
 	resp, err := x.buildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
-		// return attestationtypes.INVALID, attestationtypes.IPMWPaymentStatusResponseBody{}, err
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
-	// return attestationtypes.VALID, resp, nil
 	return resp, nil
 }
 
@@ -115,32 +107,32 @@ func (x *XRPVerifier) parseRawTransactionData(response string) (RawTransactionDa
 	return rawTransactionData, nil
 }
 
-func (x *XRPVerifier) buildPaymentStatusResponse(raw RawTransactionData, paymentMsg *payment.ITeePaymentsPaymentInstructionMessage, tx models.DBTransaction) (attestationtypes.PMWPaymentStatusResponseBody, error) {
+func (x *XRPVerifier) buildPaymentStatusResponse(raw RawTransactionData, paymentMsg *payment.ITeePaymentsPaymentInstructionMessage, tx models.DBTransaction) (connector.IPMWPaymentStatusResponseBody, error) {
 	transactionResult, err := GetTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	transactionFee, err := NewBigIntFromString(raw.Fee)
 	if err != nil {
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
-	// hashBytes, err := HexStringToBytes32(tx.Hash)
-	// if err != nil {
-	// 	return attestationtypes.IPMWPaymentStatusResponseBody{}, err
-	// }
+	hashBytes, err := HexStringToBytes32(tx.Hash)
+	if err != nil {
+		return connector.IPMWPaymentStatusResponseBody{}, err
+	}
 	receivedAmount, err := FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
 	if err != nil {
-		return attestationtypes.PMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
-	return attestationtypes.PMWPaymentStatusResponseBody{
+	return connector.IPMWPaymentStatusResponseBody{
 		TransactionStatus: uint8(transactionResult),
 		SenderAddress:     GetStandardAddressHash(paymentMsg.SenderAddress),
 		RecipientAddress:  GetStandardAddressHash(paymentMsg.RecipientAddress),
-		Amount:            paymentMsg.Amount.String(),
-		PaymentReference:  hex.EncodeToString(paymentMsg.PaymentReference[:]),
-		ReceivedAmount:    receivedAmount.String(),
-		TransactionFee:    transactionFee.String(),
-		TransactionId:     tx.Hash, //hashBytes,
+		Amount:            paymentMsg.Amount,
+		PaymentReference:  paymentMsg.PaymentReference,
+		ReceivedAmount:    receivedAmount,
+		TransactionFee:    transactionFee,
+		TransactionId:     hashBytes,
 		BlockNumber:       tx.BlockNumber,
 		BlockTimestamp:    tx.Timestamp,
 	}, nil

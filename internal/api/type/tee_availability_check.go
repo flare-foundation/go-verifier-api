@@ -3,6 +3,7 @@ package attestationtypes
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -31,14 +32,8 @@ type TeeAvailabilityRequestBody struct {
 	Challenge string `json:"challenge" validate:"required,hash32" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
 }
 
-type TeeAvailabilityRequestData struct {
-	TeeId     common.Address
-	Url       string
-	Challenge common.Hash
-}
-
-func (requestBody TeeAvailabilityRequestBody) ToInternal() (TeeAvailabilityRequestData, error) {
-	return TeeAvailabilityRequestData{
+func (requestBody TeeAvailabilityRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
+	return connector.ITeeAvailabilityCheckRequestBody{
 		TeeId:     common.HexToAddress(requestBody.TeeId),
 		Url:       requestBody.Url,
 		Challenge: common.HexToHash(requestBody.Challenge),
@@ -55,7 +50,7 @@ type TeeAvailabilityResponseBody struct {
 	StateHash              connector.ITeeAvailabilityCheckTeeState `json:"state"`
 }
 
-func ToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityResponseBody {
+func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityResponseBody {
 	return TeeAvailabilityResponseBody{
 		Status:                 json.Number(fmt.Sprintf("%d", data.Status)),
 		TeeTimestamp:           json.Number(fmt.Sprintf("%d", data.TeeTimestamp)),

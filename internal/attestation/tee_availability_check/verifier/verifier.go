@@ -7,10 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 
@@ -52,7 +53,7 @@ type EthClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*ethTypes.Block, error)
 }
 
-func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, connector.ITeeAvailabilityCheckResponseBody], error) {
+func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum node: %w", err)
@@ -69,11 +70,11 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
-func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, connector.ITeeAvailabilityCheckResponseBody], error) {
+func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
 	return NewVerifier(cfg)
 }
 
-func (v *TeeVerifier) Verify(ctx context.Context, req types.TeeAvailabilityRequestData) (connector.ITeeAvailabilityCheckResponseBody, error) {
+func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	// Build challenge instruction id
 	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	if err != nil {

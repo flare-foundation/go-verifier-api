@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
 var (
@@ -28,13 +27,11 @@ func Bytes32(s string) ([32]byte, error) {
 	return b, nil
 }
 
-func AbiEncodeRequestData[T any](data T, arg abi.Argument) ([]byte, error) {
+func AbiEncodeData[T any](data T, arg abi.Argument) ([]byte, error) {
 	encoded, err := structs.Encode(arg, data)
 	if err != nil {
 		return nil, err
 	}
-	structs.Encode(connector.AttestationRequestArg, &connector.IFtdcHubFtdcAttestationRequest{})
-
 	return encoded, nil
 }
 
@@ -45,14 +42,6 @@ func AbiDecodeRequestData[T any](data []byte, arg abi.Argument) (T, error) {
 		return zero, err
 	}
 	return decode, nil
-}
-
-func AbiEncodeResponseData[T any](data T, arg abi.Argument) ([]byte, error) {
-	encoded, err := structs.Encode(arg, data)
-	if err != nil {
-		return nil, err
-	}
-	return encoded, nil
 }
 
 func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {

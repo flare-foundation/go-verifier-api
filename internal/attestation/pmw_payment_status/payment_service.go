@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	pmwstatuspaymentconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
 	pmwpaymentstatusverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/verifier"
 	config "github.com/flare-foundation/go-verifier-api/internal/config"
@@ -13,8 +12,8 @@ import (
 
 type PaymentService struct {
 	verifier verifierinterface.VerifierInterface[
-		types.PMWPaymentStatusRequestBody,
-		types.PMWPaymentStatusResponseBody,
+		connector.IPMWPaymentStatusRequestBody,
+		connector.IPMWPaymentStatusResponseBody,
 	]
 	config *config.PMWPaymentStatusConfig
 }
@@ -40,8 +39,8 @@ func NewPaymentService(sourceId config.SourceName, attestationType connector.Att
 }
 
 func (s *PaymentService) GetVerifier() verifierinterface.VerifierInterface[
-	types.PMWPaymentStatusRequestBody,
-	types.PMWPaymentStatusResponseBody,
+	connector.IPMWPaymentStatusRequestBody,
+	connector.IPMWPaymentStatusResponseBody,
 ] {
 	return s.verifier
 }

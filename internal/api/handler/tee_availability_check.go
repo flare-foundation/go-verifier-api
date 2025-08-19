@@ -19,7 +19,7 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, connector.ITeeAvailabilityCheckResponseBody]) {
+func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
@@ -40,7 +40,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
 			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
-			requestDataBytes, err := utils.AbiEncodeRequestData[types.TeeAvailabilityRequestData](requestData, config.AbiPair.Request)
+			requestDataBytes, err := utils.AbiEncodeData[connector.ITeeAvailabilityCheckRequestBody](requestData, config.AbiPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -66,7 +66,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, err
 			}
 			return types.NewResponse(types.RawAndEncodedTeeAvailabilityResponseBody{
-				ResponseData: types.ToExternal(responseData),
+				ResponseData: types.TeeToExternal(responseData),
 				ResponseBody: utils.HexWith0x(responseDataBytes),
 			}), nil
 		})
@@ -92,7 +92,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 		})
 }
 
-func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[types.TeeAvailabilityRequestData, connector.ITeeAvailabilityCheckResponseBody]) (connector.ITeeAvailabilityCheckResponseBody, []byte, error) {
+func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) (connector.ITeeAvailabilityCheckResponseBody, []byte, error) {
 	if err := validation.ValidateRequest(request); err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
@@ -100,7 +100,7 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
 	requestBodyBytes := request.RequestBody
-	requestData, err := utils.AbiDecodeRequestData[types.TeeAvailabilityRequestData](requestBodyBytes, config.AbiPair.Request)
+	requestData, err := utils.AbiDecodeRequestData[connector.ITeeAvailabilityCheckRequestBody](requestBodyBytes, config.AbiPair.Request)
 	if err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}
@@ -111,7 +111,7 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 		}
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 	}
-	responseDataBytes, err := utils.AbiEncodeResponseData[connector.ITeeAvailabilityCheckResponseBody](responseData, config.AbiPair.Response)
+	responseDataBytes, err := utils.AbiEncodeData[connector.ITeeAvailabilityCheckResponseBody](responseData, config.AbiPair.Response)
 	if err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
