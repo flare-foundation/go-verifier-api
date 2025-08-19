@@ -11,7 +11,6 @@
     ```env
     VERIFIER_TYPE=TeeAvailabilityCheck
     SOURCE_ID=tee
-    PORT=3120
     RELAY_CONTRACT_ADDRESS=0x...
     TEE_REGISTRY_CONTRACT_ADDRESS=0x...
     RPC_URL=https://...
@@ -47,7 +46,7 @@ See [File structure](docs/overview.md) for a detailed explanation of the directo
 - [ ] ⚠️ *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
 - [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
 - [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (missing Platform in TeeInfoResponse)
-- [ ] Other `TODO`s inside the code.
+- [ ] Other `TODO`s inside the code.
 
 
 ## How to run `PMWMultisigAccountConfigured` verifier
@@ -55,8 +54,7 @@ See [File structure](docs/overview.md) for a detailed explanation of the directo
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
 SOURCE_ID=testxrp
-PORT=3120
-RPC_URL=https://s.altnet.rippletest.net:51234/	
+RPC_URL=https://s.altnet.rippletest.net:51234/
 ```
 
 ## How to run `PMWPaymentStatus` verifier
@@ -67,8 +65,7 @@ You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-index
 
 ```env
 VERIFIER_TYPE=PMWPaymentStatus
-SOURCE_ID=xrp
-PORT=3120
+SOURCE_ID=testxrp
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 DATABASE_URL=postgres://user:pass@host:port/db
 ```
