@@ -21,7 +21,10 @@ import (
 )
 
 func RunServer() {
-	_ = godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		logger.Fatalf("Error loading .env file: %v", err)
+	}
 
 	verifierTypeStr := os.Getenv("VERIFIER_TYPE")
 	port := os.Getenv("PORT")
