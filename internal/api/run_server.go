@@ -68,7 +68,7 @@ func RunServer() {
 	}
 
 	secureMiddleware := secure.New(secure.Options{
-		SSLRedirect:               os.Getenv("ENV") != "development", // TODO is there a better way to do it?
+		SSLRedirect:               true,
 		STSSeconds:                15552000,
 		STSIncludeSubdomains:      true,
 		STSPreload:                true,
@@ -80,6 +80,7 @@ func RunServer() {
 		CrossOriginResourcePolicy: "same-origin",
 		CrossOriginEmbedderPolicy: "require-corp",
 		XDNSPrefetchControl:       "off",
+		IsDevelopment:             os.Getenv("ENV") == "development", // TODO can this be handled in a better way?
 	})
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
