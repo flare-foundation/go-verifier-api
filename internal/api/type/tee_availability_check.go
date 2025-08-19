@@ -72,7 +72,7 @@ func ToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilit
 	}
 }
 
-type RawAndEncodedResponseBody struct {
+type RawAndEncodedTeeAvailabilityResponseBody struct {
 	ResponseData TeeAvailabilityResponseBody `json:"responseData"`
 	ResponseBody string                      `json:"responseBody" example:"0x0000abcd..."`
 }

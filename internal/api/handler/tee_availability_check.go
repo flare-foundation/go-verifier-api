@@ -40,12 +40,12 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
 			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
-			requestDataBytes, err := utils.AbiEncodeRequestData(requestData)
+			requestDataBytes, err := utils.AbiEncodeRequestData[types.TeeAvailabilityRequestData](requestData, config.AbiPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
 			return types.NewResponse(types.EncodedRequestBody{
-				RequestBody: hexWith0x(requestDataBytes),
+				RequestBody: utils.HexWith0x(requestDataBytes),
 			}), nil
 		})
 	// prepare ResponseBody
@@ -56,7 +56,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityEncodedRequest
-		}) (*types.Response[types.RawAndEncodedResponseBody], error) {
+		}) (*types.Response[types.RawAndEncodedTeeAvailabilityResponseBody], error) {
 			attestationRequest, err := toIFTdcHubFtdcAttestationRequest(request.Body)
 			if err != nil {
 				return nil, err
@@ -65,9 +65,9 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 			if err != nil {
 				return nil, err
 			}
-			return types.NewResponse(types.RawAndEncodedResponseBody{
+			return types.NewResponse(types.RawAndEncodedTeeAvailabilityResponseBody{
 				ResponseData: types.ToExternal(responseData),
-				ResponseBody: hexWith0x(responseDataBytes),
+				ResponseBody: utils.HexWith0x(responseDataBytes),
 			}), nil
 		})
 	// verify
@@ -87,7 +87,7 @@ func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityChec
 				return nil, err
 			}
 			return types.NewResponse(types.EncodedResponseBody{
-				ResponseBody: hexWith0x(responseDataBytes),
+				ResponseBody: utils.HexWith0x(responseDataBytes),
 			}), nil
 		})
 }
@@ -96,13 +96,11 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 	if err := validation.ValidateRequest(request); err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
-
 	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, "0x"+hex.EncodeToString(request.Header.AttestationType[:]), "0x"+hex.EncodeToString(request.Header.SourceId[:])); err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
-
 	requestBodyBytes := request.RequestBody
-	requestData, err := utils.AbiDecodeRequestData(requestBodyBytes)
+	requestData, err := utils.AbiDecodeRequestData[types.TeeAvailabilityRequestData](requestBodyBytes, config.AbiPair.Request)
 	if err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}
@@ -113,15 +111,11 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 		}
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 	}
-	responseDataBytes, err := utils.AbiEncodeResponseData(responseData)
+	responseDataBytes, err := utils.AbiEncodeResponseData[connector.ITeeAvailabilityCheckResponseBody](responseData, config.AbiPair.Response)
 	if err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
 	return responseData, responseDataBytes, nil
-}
-
-func hexWith0x(data []byte) string {
-	return "0x" + hex.EncodeToString(data)
 }
 
 func toIFTdcHubFtdcAttestationRequest(data types.TeeAvailabilityEncodedRequest) (connector.IFtdcHubFtdcAttestationRequest, error) {

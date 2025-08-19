@@ -31,18 +31,15 @@ func LoadPMWPaymentStatusConfig(sourceId config.SourceName, attestationType conn
 	if cChainDbURL == "" {
 		return nil, fmt.Errorf("CCHAIN_DATABASE_URL not set")
 	}
-	sourceIdEnc, err := config.EncodeAttestationOrSourceName(string(sourceId))
-	if err != nil {
-		return nil, err
-	}
-	attestationTypeEnc, err := config.EncodeAttestationOrSourceName(string(attestationType))
+	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
 	if err != nil {
 		return nil, err
 	}
 	return &config.PMWPaymentStatusConfig{
-		SourcePair:          config.SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
+		SourcePair:          commonConfig.SourceIdPair,
 		DatabaseURL:         dbURL,
 		CchainDatabaseURL:   cChainDbURL,
-		AttestationTypePair: config.AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
+		AttestationTypePair: commonConfig.AttestationTypePair,
+		AbiPair:             commonConfig.AbiPair,
 	}, nil
 }

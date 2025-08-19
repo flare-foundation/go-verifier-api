@@ -96,11 +96,13 @@ func RunServer() {
 var attestationTypes = []connector.AttestationType{
 	connector.AvailabilityCheck,
 	connector.PMWPaymentStatus,
+	connector.PMWMultisigAccountConfigured,
 }
 
 var sourceIds = []config.SourceName{
 	config.SourceTEE,
 	config.SourceXRP,
+	config.SourceTestXRP,
 }
 
 func parseAttestationType(value string) (connector.AttestationType, error) {

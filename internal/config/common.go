@@ -5,14 +5,16 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
 type SourceName string
 
 const (
-	SourceTEE SourceName = "tee"
-	SourceXRP SourceName = "xrp"
+	SourceTEE     SourceName = "tee"
+	SourceXRP     SourceName = "xrp"
+	SourceTestXRP SourceName = "testxrp"
 )
 
 type SourceIdEncodedPair struct {
@@ -25,6 +27,11 @@ type AttestationTypeEncodedPair struct {
 	AttestationTypeEncoded string
 }
 
+type AbiArgPair struct {
+	Request  abi.Argument
+	Response abi.Argument
+}
+
 type TeeAvailabilityCheckConfig struct {
 	SourcePair                 SourceIdEncodedPair
 	RelayContractAddress       string
@@ -32,6 +39,7 @@ type TeeAvailabilityCheckConfig struct {
 	RPCURL                     string
 	GoogleRootCertificate      *x509.Certificate
 	AttestationTypePair        AttestationTypeEncodedPair
+	AbiPair                    AbiArgPair
 }
 
 type PMWPaymentStatusConfig struct {
@@ -39,6 +47,20 @@ type PMWPaymentStatusConfig struct {
 	DatabaseURL         string
 	CchainDatabaseURL   string
 	AttestationTypePair AttestationTypeEncodedPair
+	AbiPair             AbiArgPair
+}
+
+type PMWMultisigAccountConfig struct {
+	SourcePair          SourceIdEncodedPair
+	RPCURL              string
+	AttestationTypePair AttestationTypeEncodedPair
+	AbiPair             AbiArgPair
+}
+
+type EncodedAndAbi struct {
+	SourceIdPair        SourceIdEncodedPair
+	AttestationTypePair AttestationTypeEncodedPair
+	AbiPair             AbiArgPair
 }
 
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, error) {
@@ -52,4 +74,50 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, 
 	padded := make([]byte, 32)
 	copy(padded, bytes)
 	return "0x" + hex.EncodeToString(padded), nil
+}
+
+var abiStructNames = map[connector.AttestationType]struct {
+	Request  string
+	Response string
+}{
+	connector.AvailabilityCheck: {
+		Request:  "availabilityCheckRequestBodyStruct",
+		Response: "availabilityCheckResponseBodyStruct",
+	},
+	connector.PMWMultisigAccountConfigured: {
+		Request:  "pmwMultisigAccountConfiguredRequestBodyStruct",
+		Response: "pmwMultisigAccountConfiguredResponseBodyStruct",
+	},
+	connector.PMWPaymentStatus: {
+		Request:  "pmwPaymentStatusRequestBodyStruct",
+		Response: "pmwPaymentStatusResponseBodyStruct",
+	},
+}
+
+func LoadEncodedAndAbi(sourceId SourceName, attestationType connector.AttestationType) (EncodedAndAbi, error) {
+	names, ok := abiStructNames[attestationType]
+	if !ok {
+		return EncodedAndAbi{}, fmt.Errorf("no ABI struct names defined for attestation type %s", attestationType)
+	}
+	sourceIdEnc, err := EncodeAttestationOrSourceName(string(sourceId))
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	attestationTypeEnc, err := EncodeAttestationOrSourceName(string(attestationType))
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	requestAbi, err := GetAbiArguments(names.Request)
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	responseAbi, err := GetAbiArguments(names.Response)
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	return EncodedAndAbi{
+		SourceIdPair:        SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
+		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
+		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
+	}, nil
 }

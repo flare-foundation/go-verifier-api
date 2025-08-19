@@ -49,6 +49,16 @@ See [File structure](docs/overview.md) for a detailed explanation of the directo
 - [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (missing Platform in TeeInfoResponse)
 - [ ] Other `TODO`s inside the code.
 
+
+## How to run `PMWMultisigAccountConfigured` verifier
+⚠️ `PMWPaymentStatus` is work in progress
+```
+VERIFIER_TYPE=PMWMultisigAccountConfigured
+SOURCE_ID=testxrp
+PORT=3120
+RPC_URL=https://s.altnet.rippletest.net:51234/	
+```
+
 ## How to run `PMWPaymentStatus` verifier
 ⚠️ `PMWPaymentStatus` is work in progress
 

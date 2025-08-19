@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/handler"
+	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account"
 	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilityconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/poller"
@@ -39,7 +40,15 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 			return fmt.Errorf("%v", err)
 		}
 		verifier := service.GetVerifier()
-		handler.PMWPaymentStatusHandler(api, connector.PMWPaymentStatus, verifier, string(sourceId))
+		handler.PMWPaymentStatusHandler(api, connector.PMWPaymentStatus, verifier)
+	case connector.PMWMultisigAccountConfigured:
+		service, err := multisigservice.NewMultisigService(sourceId, attestationType)
+		if err != nil {
+			return fmt.Errorf("%v", err)
+		}
+		verifier := service.GetVerifier()
+		config := service.GetConfig()
+		handler.PMWMultisigAccountHandler(api, config, verifier)
 	default:
 		return fmt.Errorf("unsupported attestation type: %s", string(attestationType))
 	}

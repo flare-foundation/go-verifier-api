@@ -42,21 +42,18 @@ func LoadTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType 
 	if err != nil {
 		return nil, err
 	}
-	sourceIdEnc, err := config.EncodeAttestationOrSourceName(string(sourceId))
-	if err != nil {
-		return nil, err
-	}
-	attestationTypeEnc, err := config.EncodeAttestationOrSourceName(string(attestationType))
+	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
 	if err != nil {
 		return nil, err
 	}
 	return &config.TeeAvailabilityCheckConfig{
-		SourcePair:                 config.SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
+		SourcePair:                 commonConfig.SourceIdPair,
 		RelayContractAddress:       relayContractAddress,
 		TeeRegistryContractAddress: teeRegistryContractAddress,
 		RPCURL:                     rpcURL,
 		GoogleRootCertificate:      googleRootCert,
-		AttestationTypePair:        config.AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
+		AttestationTypePair:        commonConfig.AttestationTypePair,
+		AbiPair:                    commonConfig.AbiPair,
 	}, nil
 }
 

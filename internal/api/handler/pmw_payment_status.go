@@ -7,6 +7,6 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func PMWPaymentStatusHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.PMWPaymentStatusRequestBody, types.PMWPaymentStatusResponseBody], sourceID string) {
+func PMWPaymentStatusHandler(api huma.API, attestationType connector.AttestationType, verifier verifierinterface.VerifierInterface[types.PMWPaymentStatusRequestBody, types.PMWPaymentStatusResponseBody]) {
 	huma.Error501NotImplemented("PMW payment status not implemented yet")
 }
