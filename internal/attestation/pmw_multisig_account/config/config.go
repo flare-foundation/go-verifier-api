@@ -27,9 +27,7 @@ func LoadPMWMultisigAccountConfig(sourceId config.SourceName, attestationType co
 	if rpcURL == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType,
-		"pmwMultisigAccountConfiguredRequestBodyStruct",
-		"pmwMultisigAccountConfiguredResponseBodyStruct")
+	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
 	if err != nil {
 		return nil, err
 	}

@@ -42,9 +42,7 @@ func LoadTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType 
 	if err != nil {
 		return nil, err
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType,
-		"availabilityCheckRequestBodyStruct",
-		"availabilityCheckResponseBodyStruct")
+	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
 	if err != nil {
 		return nil, err
 	}

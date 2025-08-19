@@ -57,6 +57,12 @@ type PMWMultisigAccountConfig struct {
 	AbiPair             AbiArgPair
 }
 
+type EncodedAndAbi struct {
+	SourceIdPair        SourceIdEncodedPair
+	AttestationTypePair AttestationTypeEncodedPair
+	AbiPair             AbiArgPair
+}
+
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, error) {
 	if len(attestationTypeOrSourceName) >= 2 && (attestationTypeOrSourceName[:2] == "0x" || attestationTypeOrSourceName[:2] == "0X") {
 		return "", fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: '%s'", attestationTypeOrSourceName)
@@ -70,13 +76,29 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, 
 	return "0x" + hex.EncodeToString(padded), nil
 }
 
-type EncodedAndAbi struct {
-	SourceIdPair        SourceIdEncodedPair
-	AttestationTypePair AttestationTypeEncodedPair
-	AbiPair             AbiArgPair
+var abiStructNames = map[connector.AttestationType]struct {
+	Request  string
+	Response string
+}{
+	connector.AvailabilityCheck: {
+		Request:  "availabilityCheckRequestBodyStruct",
+		Response: "availabilityCheckResponseBodyStruct",
+	},
+	connector.PMWMultisigAccountConfigured: {
+		Request:  "pmwMultisigAccountConfiguredRequestBodyStruct",
+		Response: "pmwMultisigAccountConfiguredResponseBodyStruct",
+	},
+	connector.PMWPaymentStatus: {
+		Request:  "pmwPaymentStatusRequestBodyStruct",
+		Response: "pmwPaymentStatusResponseBodyStruct",
+	},
 }
 
-func LoadEncodedAndAbi(sourceId SourceName, attestationType connector.AttestationType, reqStructName, respStructName string) (EncodedAndAbi, error) {
+func LoadEncodedAndAbi(sourceId SourceName, attestationType connector.AttestationType) (EncodedAndAbi, error) {
+	names, ok := abiStructNames[attestationType]
+	if !ok {
+		return EncodedAndAbi{}, fmt.Errorf("no ABI struct names defined for attestation type %s", attestationType)
+	}
 	sourceIdEnc, err := EncodeAttestationOrSourceName(string(sourceId))
 	if err != nil {
 		return EncodedAndAbi{}, err
@@ -85,11 +107,11 @@ func LoadEncodedAndAbi(sourceId SourceName, attestationType connector.Attestatio
 	if err != nil {
 		return EncodedAndAbi{}, err
 	}
-	requestAbi, err := GetAbiArguments(reqStructName)
+	requestAbi, err := GetAbiArguments(names.Request)
 	if err != nil {
 		return EncodedAndAbi{}, err
 	}
-	responseAbi, err := GetAbiArguments(respStructName)
+	responseAbi, err := GetAbiArguments(names.Response)
 	if err != nil {
 		return EncodedAndAbi{}, err
 	}

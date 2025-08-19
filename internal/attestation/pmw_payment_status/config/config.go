@@ -31,9 +31,7 @@ func LoadPMWPaymentStatusConfig(sourceId config.SourceName, attestationType conn
 	if cChainDbURL == "" {
 		return nil, fmt.Errorf("CCHAIN_DATABASE_URL not set")
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType,
-		"pmwPaymentStatusRequestBodyStruct",
-		"pmwPaymentStatusResponseBodyStruct")
+	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
 	if err != nil {
 		return nil, err
 	}
