@@ -47,7 +47,7 @@ type PMWPaymentStatusConfig struct {
 	DatabaseURL         string
 	CchainDatabaseURL   string
 	AttestationTypePair AttestationTypeEncodedPair
-	// TODO add abiPair
+	AbiPair             AbiArgPair
 }
 
 type PMWMultisigAccountConfig struct {
@@ -68,4 +68,34 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, 
 	padded := make([]byte, 32)
 	copy(padded, bytes)
 	return "0x" + hex.EncodeToString(padded), nil
+}
+
+type EncodedAndAbi struct {
+	SourceIdPair        SourceIdEncodedPair
+	AttestationTypePair AttestationTypeEncodedPair
+	AbiPair             AbiArgPair
+}
+
+func LoadEncodedAndAbi(sourceId SourceName, attestationType connector.AttestationType, reqStructName, respStructName string) (EncodedAndAbi, error) {
+	sourceIdEnc, err := EncodeAttestationOrSourceName(string(sourceId))
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	attestationTypeEnc, err := EncodeAttestationOrSourceName(string(attestationType))
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	requestAbi, err := GetAbiArguments(reqStructName)
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	responseAbi, err := GetAbiArguments(respStructName)
+	if err != nil {
+		return EncodedAndAbi{}, err
+	}
+	return EncodedAndAbi{
+		SourceIdPair:        SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
+		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
+		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
+	}, nil
 }

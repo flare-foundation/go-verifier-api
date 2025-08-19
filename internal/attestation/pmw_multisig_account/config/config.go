@@ -27,26 +27,16 @@ func LoadPMWMultisigAccountConfig(sourceId config.SourceName, attestationType co
 	if rpcURL == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")
 	}
-	sourceIdEnc, err := config.EncodeAttestationOrSourceName(string(sourceId))
-	if err != nil {
-		return nil, err
-	}
-	attestationTypeEnc, err := config.EncodeAttestationOrSourceName(string(attestationType))
-	if err != nil {
-		return nil, err
-	}
-	requestAbi, err := config.GetAbiArguments("pmwMultisigAccountConfiguredRequestBodyStruct")
-	if err != nil {
-		return nil, err
-	}
-	responseAbi, err := config.GetAbiArguments("pmwMultisigAccountConfiguredResponseBodyStruct")
+	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType,
+		"pmwMultisigAccountConfiguredRequestBodyStruct",
+		"pmwMultisigAccountConfiguredResponseBodyStruct")
 	if err != nil {
 		return nil, err
 	}
 	return &config.PMWMultisigAccountConfig{
-		SourcePair:          config.SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
+		SourcePair:          commonConfig.SourceIdPair,
 		RPCURL:              rpcURL,
-		AttestationTypePair: config.AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
-		AbiPair:             config.AbiArgPair{Request: requestAbi, Response: responseAbi},
+		AttestationTypePair: commonConfig.AttestationTypePair,
+		AbiPair:             commonConfig.AbiPair,
 	}, nil
 }
