@@ -69,9 +69,3 @@ SOURCE_ID=testxrp
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 DATABASE_URL=postgres://user:pass@host:port/db
 ```
-
-## PMWPaymentStatus TODO list
-- [ ] implement http handlers
-- [ ] check GetTransactionStatus if still suffices
-- [ ] check GetReceivedAmount if deleted node does not spend money
-- [ ] check parseRawTransactionData - should we validate required fields before further processing

@@ -128,13 +128,20 @@ func (x *XRPVerifier) buildPaymentStatusResponse(raw RawTransactionData, payment
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
+	var revertReason string
+	if transactionResult == Success {
+		revertReason = ""
+	} else {
+		revertReason = raw.MetaData.TransactionResult
+	}
 	return connector.IPMWPaymentStatusResponseBody{
-		TransactionStatus: uint8(transactionResult),
 		SenderAddress:     GetStandardAddressHash(paymentMsg.SenderAddress),
 		RecipientAddress:  GetStandardAddressHash(paymentMsg.RecipientAddress),
 		Amount:            paymentMsg.Amount,
 		Fee:               paymentMsg.Fee,
 		PaymentReference:  paymentMsg.PaymentReference,
+		TransactionStatus: uint8(transactionResult),
+		RevertReason:      revertReason,
 		ReceivedAmount:    receivedAmount,
 		TransactionFee:    transactionFee,
 		TransactionId:     hashBytes,

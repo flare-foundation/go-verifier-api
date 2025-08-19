@@ -142,6 +142,7 @@ func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 				Amount:  balance,
 			})
 		} else if deleted := node.DeletedNode; deleted != nil {
+			// Deleted nodes are ignored for received amount calculation
 		}
 	}
 	return received, nil
