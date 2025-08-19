@@ -13,3 +13,7 @@ type DBTransaction struct {
 	TicketSequence      uint64
 	SourceAddress       string `gorm:"index:idx_source_sequence,priority:1;type:varchar(64)"`
 }
+
+func (DBTransaction) TableName() string {
+	return "transactions"
+}

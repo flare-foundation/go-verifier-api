@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
@@ -31,7 +32,10 @@ type chainQuery struct {
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
 	sourceEnv := string(x.config.SourcePair.SourceId)
-	instructionId := GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
+	instructionId, err := GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
+	if err != nil {
+		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %v", err)
+	}
 	// Query event
 	chainLog, err := x.fetchInstructionLog(ctx, x.cChainDb, instructionId)
 	if err != nil {
@@ -63,7 +67,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	return resp, nil
 }
 
-func (x *XRPVerifier) fetchInstructionLog(ctx context.Context, db *gorm.DB, instructionId string) (*types.Log, error) {
+func (x *XRPVerifier) fetchInstructionLog(ctx context.Context, db *gorm.DB, instructionId common.Hash) (*types.Log, error) {
 	var dbLog database.Log
 	teeInstructionsSentEventHash, e := GetTeeInstructionsSentEventSignature()
 	if e != nil {
@@ -129,6 +133,7 @@ func (x *XRPVerifier) buildPaymentStatusResponse(raw RawTransactionData, payment
 		SenderAddress:     GetStandardAddressHash(paymentMsg.SenderAddress),
 		RecipientAddress:  GetStandardAddressHash(paymentMsg.RecipientAddress),
 		Amount:            paymentMsg.Amount,
+		Fee:               paymentMsg.Fee,
 		PaymentReference:  paymentMsg.PaymentReference,
 		ReceivedAmount:    receivedAmount,
 		TransactionFee:    transactionFee,

@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -8,23 +9,30 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
-const pay = "PAY"
-
-func GenerateInstructionId(walletId [32]byte, nonce uint64, sourceEnv string) string {
-	var sourceID common.Hash
-	copy(sourceID[:], []byte(sourceEnv))
-
-	var opCommand common.Hash
-	copy(opCommand[:], []byte(pay))
-
+func GenerateInstructionId(walletId [32]byte, nonce uint64, sourceEnv string) (common.Hash, error) {
+	sourceID, err := utils.Bytes32(sourceEnv)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	PAY, err := utils.Bytes32(string(op.Pay))
+	if err != nil {
+		return common.Hash{}, err
+	}
 	var nonceByte common.Hash
 	nonceBig := big.NewInt(int64(nonce))
 	copy(nonceByte[:], common.LeftPadBytes((nonceBig).Bytes(), 32))
 
-	instructionId := crypto.Keccak256(sourceID[:], opCommand[:], walletId[:], nonceByte[:])
-	return hex.EncodeToString(instructionId)
+	buf := new(bytes.Buffer)
+	buf.Write(sourceID[:])
+	buf.Write(PAY[:])
+	buf.Write(walletId[:])
+	buf.Write(nonceByte[:])
+	instructionId := crypto.Keccak256Hash(buf.Bytes())
+	return instructionId, nil
 }
 
 func HexStringToBytes32(s string) (common.Hash, error) {

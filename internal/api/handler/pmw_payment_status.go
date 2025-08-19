@@ -2,12 +2,11 @@ package handler
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
@@ -56,7 +55,7 @@ func PMWPaymentStatusHandler(api huma.API, config *config.PMWPaymentStatusConfig
 				return nil, err
 			}
 			return types.NewResponse(types.RawAndEncodedPMWPaymentStatusResponseBody{
-				ResponseData: responseData,
+				ResponseData: types.PMWPaymentToExternal(responseData),
 				ResponseBody: utils.HexWith0x(responseDataBytes),
 			}), nil
 		})
@@ -86,11 +85,7 @@ func validateAndVerifyEncodedPMWPaymentStatusRequest(request types.PMWPaymentSta
 	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.FTDCHeader.AttestationType, request.FTDCHeader.SourceId); err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	cleanRequestBodyHex := strings.TrimPrefix(request.RequestBody, "0x")
-	requestBodyBytes, err := hex.DecodeString(cleanRequestBodyHex)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to bytes failed: %v", err))
-	}
+	requestBodyBytes := common.FromHex(request.RequestBody)
 	requestData, err := utils.AbiDecodeRequestData[connector.IPMWPaymentStatusRequestBody](requestBodyBytes, config.AbiPair.Request)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))

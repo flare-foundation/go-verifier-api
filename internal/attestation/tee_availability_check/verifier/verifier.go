@@ -78,7 +78,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	// Build challenge instruction id
 	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot generate challenge instruction id: %v", v)
+		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot generate challenge instruction id: %v", err)
 	}
 	// Fetch from tee proxy /action/result/<challengeInstructionId>
 	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionId)

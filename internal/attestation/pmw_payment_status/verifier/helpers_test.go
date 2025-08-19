@@ -14,10 +14,14 @@ func TestGenerateInstructionId(t *testing.T) {
 	}
 	nonce := uint64(42)
 	sourceEnv := "testsourceid"
-	id := GenerateInstructionId(walletIdBytes, nonce, sourceEnv)
+	id, err := GenerateInstructionId(walletIdBytes, nonce, sourceEnv)
+	if err != nil {
+		t.Fatalf("GenerateInstructionId failed for valid input: %v", err)
+	}
 	if len(id) == 0 {
 		t.Fatal("GenerateInstructionId returned empty string")
 	}
+	t.Logf("Instruction ID: %s", id.Hex())
 }
 
 func TestHexStringToBytes32(t *testing.T) {

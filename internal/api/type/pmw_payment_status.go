@@ -51,7 +51,24 @@ type PMWPaymentStatusResponseBody struct {
 	BlockTimestamp    uint64 `json:"blockTimestamp"`
 }
 
+func PMWPaymentToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPaymentStatusResponseBody {
+	return PMWPaymentStatusResponseBody{
+		SenderAddress:     data.SenderAddress,
+		RecipientAddress:  data.RecipientAddress,
+		Amount:            data.Amount.String(),
+		Fee:               data.Fee.String(),
+		PaymentReference:  common.BytesToHash(data.PaymentReference[:]).Hex(),
+		TransactionStatus: data.TransactionStatus,
+		RevertReason:      data.RevertReason,
+		ReceivedAmount:    data.ReceivedAmount.String(),
+		TransactionFee:    data.TransactionFee.String(),
+		TransactionId:     common.BytesToHash(data.TransactionId[:]).Hex(),
+		BlockNumber:       data.BlockNumber,
+		BlockTimestamp:    data.BlockTimestamp,
+	}
+}
+
 type RawAndEncodedPMWPaymentStatusResponseBody struct {
-	ResponseData connector.IPMWPaymentStatusResponseBody `json:"responseData"`
-	ResponseBody string                                  `json:"responseBody" example:"0x0000abcd..."`
+	ResponseData PMWPaymentStatusResponseBody `json:"responseData"`
+	ResponseBody string                       `json:"responseBody" example:"0x0000abcd..."`
 }
