@@ -50,7 +50,6 @@ See [File structure](docs/overview.md) for a detailed explanation of the directo
 
 
 ## How to run `PMWMultisigAccountConfigured` verifier
-⚠️ `PMWPaymentStatus` is work in progress
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
 SOURCE_ID=testxrp
@@ -58,8 +57,6 @@ RPC_URL=https://s.altnet.rippletest.net:51234/
 ```
 
 ## How to run `PMWPaymentStatus` verifier
-⚠️ `PMWPaymentStatus` is work in progress
-
 
 You will also need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
 
