@@ -43,11 +43,13 @@ type TeeAvailabilityCheckConfig struct {
 }
 
 type PMWPaymentStatusConfig struct {
-	SourcePair          SourceIdEncodedPair
-	DatabaseURL         string
-	CchainDatabaseURL   string
-	AttestationTypePair AttestationTypeEncodedPair
-	AbiPair             AbiArgPair
+	SourcePair               SourceIdEncodedPair
+	DatabaseURL              string
+	CchainDatabaseURL        string
+	AttestationTypePair      AttestationTypeEncodedPair
+	AbiPair                  AbiArgPair
+	ParsedTeeInstructionsABI abi.ABI
+	ParsedPaymentABI         abi.ABI
 }
 
 type PMWMultisigAccountConfig struct {

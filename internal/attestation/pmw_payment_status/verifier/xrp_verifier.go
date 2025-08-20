@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -30,6 +31,8 @@ type chainQuery struct {
 	Nonce         uint64
 }
 
+const eventNameTeeInstructionsSent = "TeeInstructionsSent"
+
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
 	sourceEnv := string(x.config.SourcePair.SourceId)
@@ -43,7 +46,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Decode event data
-	paymentMessage, err := DecodeTeeInstructionsSentEventData(chainLog)
+	paymentMessage, err := x.decodeTeeInstructionsSentEventData(chainLog)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
@@ -70,7 +73,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 
 func (x *XRPVerifier) fetchInstructionLog(ctx context.Context, db *gorm.DB, instructionId common.Hash) (*types.Log, error) {
 	var dbLog database.Log
-	teeInstructionsSentEventHash, e := GetTeeInstructionsSentEventSignature()
+	teeInstructionsSentEventHash, e := x.getTeeInstructionsSentEventSignature()
 	if e != nil {
 		return nil, e
 	}
@@ -148,4 +151,30 @@ func (x *XRPVerifier) buildPaymentStatusResponse(raw RawTransactionData, payment
 		BlockNumber:       tx.BlockNumber,
 		BlockTimestamp:    tx.Timestamp,
 	}, nil
+}
+
+func (x *XRPVerifier) getTeeInstructionsSentEventSignature() (string, error) {
+	event, exists := x.config.ParsedTeeInstructionsABI.Events[eventNameTeeInstructionsSent]
+	if !exists {
+		return "", fmt.Errorf("event %s not found", eventNameTeeInstructionsSent)
+	}
+	eventSignature := event.ID.Hex()
+	return eventSignature, nil
+}
+
+func (x *XRPVerifier) decodeTeeInstructionsSentEventData(log *types.Log) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
+	eventData, err := utils.AbiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
+		x.config.ParsedTeeInstructionsABI,
+		eventNameTeeInstructionsSent,
+		log.Data,
+	)
+	if err != nil {
+		return nil, err
+	}
+	var message payment.ITeePaymentsPaymentInstructionMessage
+	err = x.config.ParsedPaymentABI.UnpackIntoInterface(&message, "paymentInstructionMessageStruct", eventData.Message)
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
 }

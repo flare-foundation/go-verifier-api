@@ -47,6 +47,15 @@ func AbiDecodeRequestData[T any](data []byte, arg abi.Argument) (T, error) {
 	return decode, nil
 }
 
+func AbiDecodeEventData[T any](abiObj abi.ABI, eventName string, data []byte) (*T, error) {
+	var result T
+	err := abiObj.UnpackIntoInterface(&result, eventName, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode event %s: %w", eventName, err)
+	}
+	return &result, nil
+}
+
 func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
 	var zero T
 	httpClient := &http.Client{

@@ -3,9 +3,13 @@ package pmwpaymentstatusconfig
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -35,11 +39,21 @@ func LoadPMWPaymentStatusConfig(sourceId config.SourceName, attestationType conn
 	if err != nil {
 		return nil, err
 	}
+	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsABI))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse TeeInstructions ABI: %w", err)
+	}
+	parsedPaymentABI, err := abi.JSON(strings.NewReader(payment.PaymentMetaData.ABI))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Payment ABI: %w", err)
+	}
 	return &config.PMWPaymentStatusConfig{
-		SourcePair:          commonConfig.SourceIdPair,
-		DatabaseURL:         dbURL,
-		CchainDatabaseURL:   cChainDbURL,
-		AttestationTypePair: commonConfig.AttestationTypePair,
-		AbiPair:             commonConfig.AbiPair,
+		SourcePair:               commonConfig.SourceIdPair,
+		DatabaseURL:              dbURL,
+		CchainDatabaseURL:        cChainDbURL,
+		AttestationTypePair:      commonConfig.AttestationTypePair,
+		AbiPair:                  commonConfig.AbiPair,
+		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,
+		ParsedPaymentABI:         parsedPaymentABI,
 	}, nil
 }
