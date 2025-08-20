@@ -2,10 +2,8 @@ package pmwmultisigaccountconfig
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -15,25 +13,24 @@ var (
 	pmwMultisigAccountConfigErr  error
 )
 
-func GetPMWMultisigAccountConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.PMWMultisigAccountConfig, error) {
+func GetPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
 	pmwMultisigAccountConfigOnce.Do(func() {
-		pmwMultisigAccountConfig, pmwMultisigAccountConfigErr = LoadPMWMultisigAccountConfig(sourceId, attestationType)
+		pmwMultisigAccountConfig, pmwMultisigAccountConfigErr = LoadPMWMultisigAccountConfig(envConfig)
 	})
 	return pmwMultisigAccountConfig, pmwMultisigAccountConfigErr
 }
 
-func LoadPMWMultisigAccountConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.PMWMultisigAccountConfig, error) {
-	rpcURL := os.Getenv("RPC_URL")
-	if rpcURL == "" {
+func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
+	if envConfig.RPCURL == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
+	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &config.PMWMultisigAccountConfig{
 		SourcePair:          commonConfig.SourceIdPair,
-		RPCURL:              rpcURL,
+		RPCURL:              envConfig.RPCURL,
 		AttestationTypePair: commonConfig.AttestationTypePair,
 		AbiPair:             commonConfig.AbiPair,
 	}, nil

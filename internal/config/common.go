@@ -9,6 +9,19 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
+type EnvConfig struct {
+	RPCURL                     string
+	RelayContractAddress       string
+	TeeRegistryContractAddress string
+	DatabaseURL                string
+	CChainDatabaseURL          string
+	Env                        string
+	Port                       string
+	ApiKeys                    []string
+	AttestationType            connector.AttestationType
+	SourceID                   SourceName
+}
+
 type SourceName string
 
 const (
@@ -96,16 +109,16 @@ var abiStructNames = map[connector.AttestationType]struct {
 	},
 }
 
-func LoadEncodedAndAbi(sourceId SourceName, attestationType connector.AttestationType) (EncodedAndAbi, error) {
-	names, ok := abiStructNames[attestationType]
+func LoadEncodedAndAbi(envConfig EnvConfig) (EncodedAndAbi, error) {
+	names, ok := abiStructNames[envConfig.AttestationType]
 	if !ok {
-		return EncodedAndAbi{}, fmt.Errorf("no ABI struct names defined for attestation type %s", attestationType)
+		return EncodedAndAbi{}, fmt.Errorf("no ABI struct names defined for attestation type %s", envConfig.AttestationType)
 	}
-	sourceIdEnc, err := EncodeAttestationOrSourceName(string(sourceId))
+	sourceIdEnc, err := EncodeAttestationOrSourceName(string(envConfig.SourceID))
 	if err != nil {
 		return EncodedAndAbi{}, err
 	}
-	attestationTypeEnc, err := EncodeAttestationOrSourceName(string(attestationType))
+	attestationTypeEnc, err := EncodeAttestationOrSourceName(string(envConfig.AttestationType))
 	if err != nil {
 		return EncodedAndAbi{}, err
 	}
@@ -118,8 +131,8 @@ func LoadEncodedAndAbi(sourceId SourceName, attestationType connector.Attestatio
 		return EncodedAndAbi{}, err
 	}
 	return EncodedAndAbi{
-		SourceIdPair:        SourceIdEncodedPair{SourceId: sourceId, SourceIdEncoded: sourceIdEnc},
-		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: attestationType, AttestationTypeEncoded: attestationTypeEnc},
+		SourceIdPair:        SourceIdEncodedPair{SourceId: envConfig.SourceID, SourceIdEncoded: sourceIdEnc},
+		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: envConfig.AttestationType, AttestationTypeEncoded: attestationTypeEnc},
 		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
 	}, nil
 }

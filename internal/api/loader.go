@@ -16,10 +16,10 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-func LoadModule(api huma.API, sourceId config.SourceName, attestationType connector.AttestationType) error {
-	switch attestationType {
+func LoadModule(api huma.API, envConfig config.EnvConfig) error {
+	switch envConfig.AttestationType {
 	case connector.AvailabilityCheck:
-		config, err := teeavailabilityconfig.GetTeeAvailabilityCheckConfig(sourceId, attestationType)
+		config, err := teeavailabilityconfig.GetTeeAvailabilityCheckConfig(envConfig)
 		if err != nil {
 			return fmt.Errorf("cannot retrieve config %v", err)
 		}
@@ -35,7 +35,7 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 		}
 		poller.StartPoller(context.Background(), teeVerifier)
 	case connector.PMWPaymentStatus:
-		service, err := paymentservice.NewPaymentService(sourceId, attestationType)
+		service, err := paymentservice.NewPaymentService(envConfig)
 		if err != nil {
 			return fmt.Errorf("%v", err)
 		}
@@ -43,7 +43,7 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 		config := service.GetConfig()
 		handler.PMWPaymentStatusHandler(api, config, verifier)
 	case connector.PMWMultisigAccountConfigured:
-		service, err := multisigservice.NewMultisigService(sourceId, attestationType)
+		service, err := multisigservice.NewMultisigService(envConfig)
 		if err != nil {
 			return fmt.Errorf("%v", err)
 		}
@@ -51,7 +51,7 @@ func LoadModule(api huma.API, sourceId config.SourceName, attestationType connec
 		config := service.GetConfig()
 		handler.PMWMultisigAccountHandler(api, config, verifier)
 	default:
-		return fmt.Errorf("unsupported attestation type: %s", string(attestationType))
+		return fmt.Errorf("unsupported attestation type: %s", string(envConfig.AttestationType))
 	}
 	return nil
 }

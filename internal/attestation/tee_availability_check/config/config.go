@@ -5,10 +5,8 @@ import (
 	_ "embed"
 	"encoding/pem"
 	"fmt"
-	"os"
 	"sync"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -18,39 +16,36 @@ var (
 	teeAvailabilityCheckConfigErr  error
 )
 
-func GetTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.TeeAvailabilityCheckConfig, error) {
+func GetTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvailabilityCheckConfig, error) {
 	teeAvailabilityCheckConfigOnce.Do(func() {
-		teeAvailabilityCheckConfig, teeAvailabilityCheckConfigErr = LoadTeeAvailabilityCheckConfig(sourceId, attestationType)
+		teeAvailabilityCheckConfig, teeAvailabilityCheckConfigErr = LoadTeeAvailabilityCheckConfig(envConfig)
 	})
 	return teeAvailabilityCheckConfig, teeAvailabilityCheckConfigErr
 }
 
-func LoadTeeAvailabilityCheckConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.TeeAvailabilityCheckConfig, error) {
-	relayContractAddress := os.Getenv("RELAY_CONTRACT_ADDRESS")
-	if relayContractAddress == "" {
+func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvailabilityCheckConfig, error) {
+	if envConfig.RelayContractAddress == "" {
 		return nil, fmt.Errorf("RELAY_CONTRACT_ADDRESS not set in .env")
 	}
-	teeRegistryContractAddress := os.Getenv("TEE_REGISTRY_CONTRACT_ADDRESS")
-	if teeRegistryContractAddress == "" {
+	if envConfig.TeeRegistryContractAddress == "" {
 		return nil, fmt.Errorf("TEE_REGISTRY_CONTRACT_ADDRESS not set in .env")
 	}
-	rpcURL := os.Getenv("RPC_URL")
-	if rpcURL == "" {
+	if envConfig.RPCURL == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")
 	}
 	googleRootCert, err := LoadGoogleRootCert()
 	if err != nil {
 		return nil, err
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
+	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &config.TeeAvailabilityCheckConfig{
 		SourcePair:                 commonConfig.SourceIdPair,
-		RelayContractAddress:       relayContractAddress,
-		TeeRegistryContractAddress: teeRegistryContractAddress,
-		RPCURL:                     rpcURL,
+		RelayContractAddress:       envConfig.RelayContractAddress,
+		TeeRegistryContractAddress: envConfig.TeeRegistryContractAddress,
+		RPCURL:                     envConfig.RPCURL,
 		GoogleRootCertificate:      googleRootCert,
 		AttestationTypePair:        commonConfig.AttestationTypePair,
 		AbiPair:                    commonConfig.AbiPair,

@@ -2,13 +2,11 @@ package pmwpaymentstatusconfig
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -19,23 +17,21 @@ var (
 	pmyPaymentStatusConfigErr  error
 )
 
-func GetPMWPaymentStatusConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.PMWPaymentStatusConfig, error) {
+func GetPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentStatusConfig, error) {
 	pmyPaymentStatusConfigOnce.Do(func() {
-		pmyPaymentStatusConfig, pmyPaymentStatusConfigErr = LoadPMWPaymentStatusConfig(sourceId, attestationType)
+		pmyPaymentStatusConfig, pmyPaymentStatusConfigErr = LoadPMWPaymentStatusConfig(envConfig)
 	})
 	return pmyPaymentStatusConfig, pmyPaymentStatusConfigErr
 }
 
-func LoadPMWPaymentStatusConfig(sourceId config.SourceName, attestationType connector.AttestationType) (*config.PMWPaymentStatusConfig, error) {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
+func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentStatusConfig, error) {
+	if envConfig.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL not set")
 	}
-	cChainDbURL := os.Getenv("CCHAIN_DATABASE_URL")
-	if cChainDbURL == "" {
+	if envConfig.CChainDatabaseURL == "" {
 		return nil, fmt.Errorf("CCHAIN_DATABASE_URL not set")
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(sourceId, attestationType)
+	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +45,8 @@ func LoadPMWPaymentStatusConfig(sourceId config.SourceName, attestationType conn
 	}
 	return &config.PMWPaymentStatusConfig{
 		SourcePair:               commonConfig.SourceIdPair,
-		DatabaseURL:              dbURL,
-		CchainDatabaseURL:        cChainDbURL,
+		DatabaseURL:              envConfig.DatabaseURL,
+		CchainDatabaseURL:        envConfig.CChainDatabaseURL,
 		AttestationTypePair:      commonConfig.AttestationTypePair,
 		AbiPair:                  commonConfig.AbiPair,
 		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,

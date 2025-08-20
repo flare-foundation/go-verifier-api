@@ -18,8 +18,8 @@ type MultisigService struct {
 	config *config.PMWMultisigAccountConfig
 }
 
-func NewMultisigService(sourceId config.SourceName, attestationType connector.AttestationType) (*MultisigService, error) {
-	cfg, err := pmwmultisigaccountconfig.GetPMWMultisigAccountConfig(sourceId, attestationType)
+func NewMultisigService(envConfig config.EnvConfig) (*MultisigService, error) {
+	cfg, err := pmwmultisigaccountconfig.GetPMWMultisigAccountConfig(envConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load PMWPaymentStatus config: %w", err)
 	}

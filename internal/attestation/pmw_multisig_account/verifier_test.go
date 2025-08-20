@@ -1,19 +1,23 @@
 package multisigservice
 
 import (
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/joho/godotenv"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
-func TestMultisig(t *testing.T) {
-	err := godotenv.Load("./.env.test")
-	require.NoError(t, err)
+var envConfig = config.EnvConfig{
+	RPCURL:          "wss://s.altnet.rippletest.net:51233",
+	SourceID:        "testxrp",
+	AttestationType: connector.PMWMultisigAccountConfigured,
+}
 
-	service, err := NewMultisigService("testxrp", connector.PMWMultisigAccountConfigured)
+func TestMultisig(t *testing.T) {
+	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
 
 	decode1, err := hexutil.Decode("0xED3F12A88266246B4D6E3886E9906E3C905F4378ACA1CDBACF7F6989CD940FE7F7")
@@ -36,10 +40,7 @@ func TestMultisig(t *testing.T) {
 
 // Wallet without disabled master key should be rejected
 func TestMultisigWithoutDisabledMasterKey(t *testing.T) {
-	err := godotenv.Load("./.env.test")
-	require.NoError(t, err)
-
-	service, err := NewMultisigService("testxrp", connector.PMWMultisigAccountConfigured)
+	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
 
 	decode1, err := hexutil.Decode("0xEDB0977AA35E892128197DBBA01D84BECC5AD66C6E5C966A544D20895F51DD0494")
@@ -62,10 +63,7 @@ func TestMultisigWithoutDisabledMasterKey(t *testing.T) {
 
 // Wallet without multiple signer should be rejected
 func TestSingleSig(t *testing.T) {
-	err := godotenv.Load("./.env.test")
-	require.NoError(t, err)
-
-	service, err := NewMultisigService("testxrp", connector.PMWMultisigAccountConfigured)
+	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
 
 	decode1, err := hexutil.Decode("0xEDB0977AA35E892128197DBBA01D84BECC5AD66C6E5C966A544D20895F51DD0494")

@@ -18,8 +18,8 @@ type PaymentService struct {
 	config *config.PMWPaymentStatusConfig
 }
 
-func NewPaymentService(sourceId config.SourceName, attestationType connector.AttestationType) (*PaymentService, error) {
-	cfg, err := pmwstatuspaymentconfig.GetPMWPaymentStatusConfig(sourceId, attestationType)
+func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
+	cfg, err := pmwstatuspaymentconfig.GetPMWPaymentStatusConfig(envConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load PMWPaymentStatus config: %w", err)
 	}

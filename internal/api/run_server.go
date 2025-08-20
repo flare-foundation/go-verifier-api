@@ -21,28 +21,9 @@ import (
 )
 
 func RunServer() {
-	err := godotenv.Load()
+	envConfig, err := loadEnvConfig()
 	if err != nil {
-		logger.Fatalf("Error loading .env file: %v", err)
-	}
-
-	verifierTypeStr := os.Getenv("VERIFIER_TYPE")
-	port := os.Getenv("PORT")
-	sourceIdStr := os.Getenv("SOURCE_ID")
-	if verifierTypeStr == "" || port == "" || sourceIdStr == "" {
-		logger.Fatal("VERIFIER_TYPE, PORT and SOURCE_ID must be set")
-	}
-	attestationType, err := parseAttestationType(verifierTypeStr)
-	if err != nil {
-		logger.Fatalf("Invalid VERIFIER_TYPE in .env: %v", err)
-	}
-	sourceId, err := parseSourceId(sourceIdStr)
-	if err != nil {
-		logger.Fatalf("Invalid SOURCE_ID in .env: %v", err)
-	}
-	apiKeys, err := getAPIKeys()
-	if err != nil {
-		logger.Fatalf("%v", err)
+		logger.Fatal(err)
 	}
 
 	router := chi.NewRouter()
@@ -59,13 +40,13 @@ func RunServer() {
 		{"ApiKeyAuth": {}},
 	}
 	api := humachi.New(router, config)
-	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, apiKeys))
+	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, envConfig.ApiKeys))
 
 	// swagger setup
 	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
 	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
 
-	err = LoadModule(api, sourceId, attestationType)
+	err = LoadModule(api, envConfig)
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
@@ -83,7 +64,7 @@ func RunServer() {
 		CrossOriginResourcePolicy: "same-origin",
 		CrossOriginEmbedderPolicy: "require-corp",
 		XDNSPrefetchControl:       "off",
-		IsDevelopment:             os.Getenv("ENV") == "development", // TODO can this be handled in a better way?
+		IsDevelopment:             envConfig.Env == "development", // TODO can this be handled in a better way?
 	})
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
@@ -92,8 +73,8 @@ func RunServer() {
 	routerWithSecurity := secureMiddleware.Handler(router)
 	routerWithCORS := corsHandler.Handler(routerWithSecurity)
 
-	fmt.Printf("Starting server on: %s...\n", port)
-	logger.Fatal(http.ListenAndServe(": "+port, routerWithCORS))
+	fmt.Printf("Starting server on: %s...\n", envConfig.Port)
+	logger.Fatal(http.ListenAndServe(": "+envConfig.Port, routerWithCORS))
 }
 
 var attestationTypes = []connector.AttestationType{
@@ -142,4 +123,42 @@ func getAPIKeys() ([]string, error) {
 		return nil, fmt.Errorf("API_KEYS contains only empty values")
 	}
 	return apiKeys, nil
+}
+
+func loadEnvConfig() (config.EnvConfig, error) {
+	err := godotenv.Load()
+	if err != nil {
+		return config.EnvConfig{}, fmt.Errorf("error loading .env file: %v", err)
+	}
+	port := os.Getenv("PORT")
+	verifierTypeStr := os.Getenv("VERIFIER_TYPE")
+	sourceIDStr := os.Getenv("SOURCE_ID")
+	if port == "" || verifierTypeStr == "" || sourceIDStr == "" {
+		return config.EnvConfig{}, fmt.Errorf("PORT, VERIFIER_TYPE and SOURCE_ID must be set")
+	}
+	attestationType, err := parseAttestationType(verifierTypeStr)
+	if err != nil {
+		logger.Fatalf("Invalid VERIFIER_TYPE in .env: %v", err)
+	}
+	sourceID, err := parseSourceId(sourceIDStr)
+	if err != nil {
+		logger.Fatalf("Invalid SOURCE_ID in .env: %v", err)
+	}
+	apiKeys, err := getAPIKeys()
+	if err != nil {
+		logger.Fatalf("%v", err)
+	}
+
+	return config.EnvConfig{
+		RPCURL:                     os.Getenv("RPC_URL"),
+		RelayContractAddress:       os.Getenv("RELAY_CONTRACT_ADDRESS"),
+		TeeRegistryContractAddress: os.Getenv("TEE_REGISTRY_CONTRACT_ADDRESS"),
+		DatabaseURL:                os.Getenv("DATABASE_URL"),
+		CChainDatabaseURL:          os.Getenv("CCHAIN_DATABASE_URL"),
+		Env:                        os.Getenv("ENV"),
+		Port:                       port,
+		ApiKeys:                    apiKeys,
+		AttestationType:            attestationType,
+		SourceID:                   sourceID,
+	}, nil
 }
