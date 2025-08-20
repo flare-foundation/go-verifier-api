@@ -149,6 +149,12 @@ func loadEnvConfig() (config.EnvConfig, error) {
 		logger.Fatalf("%v", err)
 	}
 
+	env := os.Getenv("ENV")
+	if env == "" {
+		logger.Warn("ENV is not set, defaulting to production")
+		env = "production"
+	}
+
 	return config.EnvConfig{
 		RPCURL:                                 os.Getenv("RPC_URL"),
 		RelayContractAddress:                   os.Getenv("RELAY_CONTRACT_ADDRESS"),
@@ -157,7 +163,7 @@ func loadEnvConfig() (config.EnvConfig, error) {
 		TeeWalletProjectManagerContractAddress: os.Getenv("TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS"),
 		DatabaseURL:                            os.Getenv("DATABASE_URL"),
 		CChainDatabaseURL:                      os.Getenv("CCHAIN_DATABASE_URL"),
-		Env:                                    os.Getenv("ENV"),
+		Env:                                    env,
 		Port:                                   port,
 		ApiKeys:                                apiKeys,
 		AttestationType:                        attestationType,

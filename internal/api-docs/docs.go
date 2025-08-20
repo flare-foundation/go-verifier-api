@@ -2,6 +2,7 @@ package apidocs
 
 import (
 	"embed"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"io/fs"
 	"net/http"
 )
@@ -22,7 +23,11 @@ func SwaggerIndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:")
-	w.Write(data)
+	_, err = w.Write(data)
+	if err != nil {
+		logger.Error("Failed to write response: %v", err)
+		return
+	}
 }
 
 func SwaggerFileHandler(w http.ResponseWriter, r *http.Request) {

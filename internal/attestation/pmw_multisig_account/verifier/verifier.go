@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	config "github.com/flare-foundation/go-verifier-api/internal/config"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
@@ -15,7 +15,8 @@ type VerifierConstructor func(
 var xrpConstructor = func(cfg *config.PMWMultisigAccountConfig) (
 	verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
-	return &XRPVerifier{config: cfg}, nil
+	client := NewXrpClient(cfg.RPCURL)
+	return &XRPVerifier{config: cfg, client: client}, nil
 }
 
 var registry = map[string]VerifierConstructor{

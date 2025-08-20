@@ -3,23 +3,20 @@ package verifier
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
-	"fmt"
-
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/config"
-	"github.com/xrpscan/xrpl-go"
 )
 
 type XRPVerifier struct {
 	config *pmwmultisigaccountconfig.PMWMultisigAccountConfig
+	client XrpClient
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
-	sequence, ok, err := x.verifyMultisigConfiguration(req)
+	sequence, ok, err := x.verifyMultisigConfiguration(ctx, req)
 	if err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{}, err
 	}
@@ -35,67 +32,19 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 	}, nil
 }
 
-type signerList struct {
-	SignerQuorum  uint64 `json:"SignerQuorum"`
-	SignerEntries []struct {
-		SignerEntry struct {
-			Account      string `json:"Account"`
-			SignerWeight uint16 `json:"SignerWeight"`
-		} `json:"SignerEntry"`
-	} `json:"SignerEntries"`
-}
-
-type accountInfoResponse struct {
-	Result struct {
-		AccountData struct {
-			Account     string       `json:"Account"`
-			Sequence    uint64       `json:"Sequence"`
-			RegularKey  string       `json:"RegularKey,omitempty"`
-			SignerLists []signerList `json:"signer_lists"`
-		} `json:"account_data"`
-		AccountFlags struct {
-			DisableMasterKey      bool `json:"disableMasterKey"`
-			DepositAuth           bool `json:"depositAuth"`
-			RequireDestinationTag bool `json:"requireDestinationTag"`
-			DisallowIncomingXRP   bool `json:"disallowIncomingXRP"`
-		} `json:"account_flags"`
-	} `json:"result"`
-	Status string `json:"status"`
-}
-
-func (x *XRPVerifier) verifyMultisigConfiguration(req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, bool, error) {
-	client := xrpl.NewClient(xrpl.ClientConfig{URL: x.config.RPCURL})
-	request := xrpl.BaseRequest{
-		"command":      "account_info",
-		"account":      req.WalletAddress,
-		"ledger_index": "validated",
-		"signer_lists": true,
-	}
-	rpcResp, err := client.Request(request)
+func (x *XRPVerifier) verifyMultisigConfiguration(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, bool, error) {
+	accountInfo, err := x.client.GetAccountInfo(ctx, req.WalletAddress)
 	if err != nil {
-		return 0, false, fmt.Errorf("account_info request failed: %w", err)
+		return 0, false, err
 	}
 
-	var accountInfo accountInfoResponse
-	raw, err := json.Marshal(rpcResp)
-	if err != nil {
-		return 0, false, fmt.Errorf("marshal rpc response: %w", err)
-	}
-	if err := json.Unmarshal(raw, &accountInfo); err != nil {
-		return 0, false, fmt.Errorf("decode rpc response: %w", err)
-	}
-	if accountInfo.Status != "success" {
-		return 0, false, fmt.Errorf("xrp rpc returned non-success status: %s", accountInfo.Status)
-	}
+	// There is only a single signer list for an account.
+	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
 		return 0, false, nil
 	}
 
-	signersValid := false
-	for _, signerList := range accountInfo.Result.AccountData.SignerLists {
-		valid := x.verifySignerList(signerList, req)
-		signersValid = signersValid || valid
-	}
+	signersValid := x.verifySignerList(accountInfo.Result.AccountData.SignerLists[0], req)
 	if !signersValid {
 		return 0, false, nil
 	}
@@ -119,7 +68,7 @@ func (x *XRPVerifier) verifyMultisigConfiguration(req connector.IPMWMultisigAcco
 	return accountInfo.Result.AccountData.Sequence, true, nil
 }
 
-func (x *XRPVerifier) verifySignerList(signerList signerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
+func (x *XRPVerifier) verifySignerList(signerList SignerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
 	expectedAccounts := make([]string, 0, len(req.PublicKeys))
 	for _, pk := range req.PublicKeys {
 		addrStr, _ := address.PubToAddress(hex.EncodeToString(pk))

@@ -14,7 +14,6 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.10.0
 	github.com/unrolled/secure v1.17.0
-	github.com/xrpscan/xrpl-go v0.2.10
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.0

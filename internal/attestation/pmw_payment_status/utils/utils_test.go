@@ -16,7 +16,7 @@ func TestGenerateInstructionId(t *testing.T) {
 		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
 	}
 	nonce := uint64(42)
-	opTypeString := "testsource"
+	opTypeString := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	opTypeBytes, err := utils.HexStringToBytes32(opTypeString)
 	if err != nil {
 		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)

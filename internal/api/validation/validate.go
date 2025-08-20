@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"regexp"
 
 	"fmt"
@@ -14,8 +15,14 @@ var validate *validator.Validate
 
 func init() {
 	validate = validator.New()
-	validate.RegisterValidation("hash32", IsHash32)
-	validate.RegisterValidation("eth_addr", IsCommonAddress)
+	err := validate.RegisterValidation("hash32", IsHash32)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	err = validate.RegisterValidation("eth_addr", IsCommonAddress)
+	if err != nil {
+		logger.Fatal(err)
+	}
 }
 
 func ValidateRequest(request interface{}) error {
