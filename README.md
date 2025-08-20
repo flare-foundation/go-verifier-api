@@ -40,9 +40,6 @@
 ## API Reference
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
-## File structure
-See [File structure](docs/overview.md) for a detailed explanation of the directory layout.
-
 ## TeeAvailabilityCheck TODO list
 - [ ] ⚠️ *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
 - [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
