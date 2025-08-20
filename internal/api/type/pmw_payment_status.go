@@ -6,11 +6,9 @@ import (
 )
 
 type PMWPaymentStatusHeader struct {
-	AttestationType    string   `json:"attestationType" validate:"required,hash32" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000"`
-	SourceId           string   `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
-	ThresholdBIPS      uint16   `json:"thresholdBIPS" example:"0"`
-	Cosigners          []string `json:"cosigners" example:"[]"`
-	CosignersThreshold uint64   `json:"cosignersThreshold" example:"0"`
+	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000"`
+	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
+	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
 }
 
 type PMWPaymentStatusEncodedRequest struct {

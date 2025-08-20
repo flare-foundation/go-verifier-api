@@ -10,11 +10,9 @@ import (
 )
 
 type TeeAvailabilityHeader struct {
-	AttestationType    string   `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
-	SourceId           string   `json:"sourceId" validate:"required,hash32" example:"0x7465650000000000000000000000000000000000000000000000000000000000"`
-	ThresholdBIPS      uint16   `json:"thresholdBIPS" example:"0"`
-	Cosigners          []string `json:"cosigners" example:"[]"`
-	CosignersThreshold uint64   `json:"cosignersThreshold" example:"0"`
+	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
+	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465650000000000000000000000000000000000000000000000000000000000"`
+	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
 }
 
 type TeeAvailabilityEncodedRequest struct {

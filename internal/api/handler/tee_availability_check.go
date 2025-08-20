@@ -128,14 +128,6 @@ func toIFTdcHubFtdcAttestationRequest(data types.TeeAvailabilityEncodedRequest) 
 			AttestationType: common.HexToHash(data.FTDCHeader.AttestationType),
 			SourceId:        common.HexToHash(data.FTDCHeader.SourceId),
 			ThresholdBIPS:   data.FTDCHeader.ThresholdBIPS,
-			Cosigners: func(cs []string) []common.Address {
-				addrs := make([]common.Address, len(cs))
-				for i := range cs {
-					addrs[i] = common.HexToAddress(cs[i])
-				}
-				return addrs
-			}(data.FTDCHeader.Cosigners),
-			CosignersThreshold: data.FTDCHeader.CosignersThreshold,
 		},
 		RequestBody: encoded,
 	}, nil

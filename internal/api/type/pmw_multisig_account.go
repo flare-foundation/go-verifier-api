@@ -9,11 +9,9 @@ import (
 )
 
 type PMWMultisigAccountHeader struct {
-	AttestationType    string   `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
-	SourceId           string   `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
-	ThresholdBIPS      uint16   `json:"thresholdBIPS" example:"0"`
-	Cosigners          []string `json:"cosigners" example:"[]"`
-	CosignersThreshold uint64   `json:"cosignersThreshold" example:"0"`
+	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
+	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
+	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
 }
 
 type PMWMultisigAccountEncodedRequest struct {
