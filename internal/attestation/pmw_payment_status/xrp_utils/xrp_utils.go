@@ -145,8 +145,6 @@ func GetReceivedAmount(meta *xrptypes.TransactionMetaData) ([]xrptypes.AddressAm
 				Address: account,
 				Amount:  balance,
 			})
-		} else if deleted := node.DeletedNode; deleted != nil {
-			// Deleted nodes are ignored for received amount calculation
 		}
 	}
 	return received, nil

@@ -140,8 +140,5 @@ func (x *XRPVerifier) verifySignerList(signerList signerList, req connector.IPMW
 			return false
 		}
 	}
-	if signerList.SignerQuorum != req.Threshold {
-		return false
-	}
-	return true
+	return signerList.SignerQuorum == req.Threshold
 }

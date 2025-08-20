@@ -14,14 +14,14 @@ import (
 var (
 	pmyPaymentStatusConfig     *config.PMWPaymentStatusConfig
 	pmyPaymentStatusConfigOnce sync.Once
-	pmyPaymentStatusConfigErr  error
+	errPmyPaymentStatusConfig  error
 )
 
 func GetPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentStatusConfig, error) {
 	pmyPaymentStatusConfigOnce.Do(func() {
-		pmyPaymentStatusConfig, pmyPaymentStatusConfigErr = LoadPMWPaymentStatusConfig(envConfig)
+		pmyPaymentStatusConfig, errPmyPaymentStatusConfig = LoadPMWPaymentStatusConfig(envConfig)
 	})
-	return pmyPaymentStatusConfig, pmyPaymentStatusConfigErr
+	return pmyPaymentStatusConfig, errPmyPaymentStatusConfig
 }
 
 func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentStatusConfig, error) {

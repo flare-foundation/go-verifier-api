@@ -38,7 +38,7 @@ func TestMultisig(t *testing.T) {
 	require.Equal(t, uint64(9882340), verify.Sequence)
 }
 
-// Wallet without disabled master key should be rejected
+// Wallet without disabled master key should be rejected.
 func TestMultisigWithoutDisabledMasterKey(t *testing.T) {
 	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestMultisigWithoutDisabledMasterKey(t *testing.T) {
 	require.Equal(t, uint64(0), verify.Sequence)
 }
 
-// Wallet without multiple signer should be rejected
+// Wallet without multiple signer should be rejected.
 func TestSingleSig(t *testing.T) {
 	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)

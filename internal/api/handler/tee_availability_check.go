@@ -19,7 +19,10 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func TeeAvailabilityCheckHandler(api huma.API, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) {
+func TeeAvailabilityCheckHandler(
+	api huma.API,
+	config config.TeeAvailabilityCheckConfig,
+	verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",

@@ -13,14 +13,14 @@ import (
 var (
 	teeAvailabilityCheckConfig     *config.TeeAvailabilityCheckConfig
 	teeAvailabilityCheckConfigOnce sync.Once
-	teeAvailabilityCheckConfigErr  error
+	errTeeAvailabilityCheckConfig  error
 )
 
 func GetTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvailabilityCheckConfig, error) {
 	teeAvailabilityCheckConfigOnce.Do(func() {
-		teeAvailabilityCheckConfig, teeAvailabilityCheckConfigErr = LoadTeeAvailabilityCheckConfig(envConfig)
+		teeAvailabilityCheckConfig, errTeeAvailabilityCheckConfig = LoadTeeAvailabilityCheckConfig(envConfig)
 	})
-	return teeAvailabilityCheckConfig, teeAvailabilityCheckConfigErr
+	return teeAvailabilityCheckConfig, errTeeAvailabilityCheckConfig
 }
 
 func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvailabilityCheckConfig, error) {

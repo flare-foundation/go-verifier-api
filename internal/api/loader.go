@@ -21,7 +21,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 	case connector.AvailabilityCheck:
 		config, err := teeavailabilityconfig.GetTeeAvailabilityCheckConfig(envConfig)
 		if err != nil {
-			return fmt.Errorf("cannot retrieve config %v", err)
+			return fmt.Errorf("cannot retrieve config %w", err)
 		}
 		verifier, err := teeavailabilitycheck.GetVerifier(config)
 		if err != nil {

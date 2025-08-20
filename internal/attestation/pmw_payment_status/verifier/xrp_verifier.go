@@ -27,7 +27,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	sourceEnv := string(x.config.SourcePair.SourceId)
 	instructionId, err := pmwpaymentutils.GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %v", err)
+		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %w", err)
 	}
 	// Event log
 	eventHash, err := decoder.GetTeeInstructionsSentEventSignature(x.config.ParsedTeeInstructionsABI)

@@ -10,14 +10,14 @@ import (
 var (
 	pmwMultisigAccountConfig     *config.PMWMultisigAccountConfig
 	pmwMultisigAccountConfigOnce sync.Once
-	pmwMultisigAccountConfigErr  error
+	errPmwMultisigAccountConfig  error
 )
 
 func GetPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
 	pmwMultisigAccountConfigOnce.Do(func() {
-		pmwMultisigAccountConfig, pmwMultisigAccountConfigErr = LoadPMWMultisigAccountConfig(envConfig)
+		pmwMultisigAccountConfig, errPmwMultisigAccountConfig = LoadPMWMultisigAccountConfig(envConfig)
 	})
-	return pmwMultisigAccountConfig, pmwMultisigAccountConfigErr
+	return pmwMultisigAccountConfig, errPmwMultisigAccountConfig
 }
 
 func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {

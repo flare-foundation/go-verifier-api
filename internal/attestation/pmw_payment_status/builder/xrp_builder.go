@@ -15,7 +15,6 @@ func BuildPaymentStatusResponse(
 	paymentMsg *payment.ITeePaymentsPaymentInstructionMessage,
 	tx models.DBTransaction,
 ) (connector.IPMWPaymentStatusResponseBody, error) {
-
 	transactionResult, err := xrputils.GetTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err

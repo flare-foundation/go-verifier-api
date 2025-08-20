@@ -185,12 +185,12 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 }
 
 type GoogleTeeClaims struct {
-	HWModel     string     `json:"hwmodel"` //"hwmodel": "GCP_INTEL_TDX"
-	SWName      string     `json:"swname"`  //"swname": "CONFIDENTIAL_SPACE"
+	HWModel     string     `json:"hwmodel"` // "hwmodel": "GCP_INTEL_TDX"
+	SWName      string     `json:"swname"`  // "swname": "CONFIDENTIAL_SPACE"
 	SecBoot     bool       `json:"secboot"`
 	EATNonce    []string   `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
 	SubMods     SubModules `json:"submods"`
-	DebugStatus string     `json:"dbgstat"` //"dbgstat": "enabled"
+	DebugStatus string     `json:"dbgstat"` // "dbgstat": "enabled"
 	jwt.StandardClaims
 }
 
@@ -204,8 +204,8 @@ type ConfidentialSpaceInfo struct {
 }
 
 type Container struct {
-	ImageDigest string `json:"image_digest"` //"image_digest": "sha256:0f5455255ce543c2fa319153577e2ad75d7f8ea698df1cab1a8c782b391b6354",
-	ImageId     string `json:"image_id"`     //"image_id": "sha256:ec5873e29dd512750dfd21250db6243f106bbf82203e91ae33af94b234eee153"
+	ImageDigest string `json:"image_digest"` // "image_digest": "sha256:0f5455255ce543c2fa319153577e2ad75d7f8ea698df1cab1a8c782b391b6354",
+	ImageId     string `json:"image_id"`     // "image_id": "sha256:ec5873e29dd512750dfd21250db6243f106bbf82203e91ae33af94b234eee153"
 }
 
 type StatusInfo struct {

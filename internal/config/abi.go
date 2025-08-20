@@ -11,7 +11,7 @@ import (
 func GetAbiArguments(structNeeded string) (abi.Argument, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(connector.ConnectorMetaData.ABI))
 	if err != nil {
-		return abi.Argument{}, fmt.Errorf("failed to parse ABI: %v", err)
+		return abi.Argument{}, fmt.Errorf("failed to parse ABI: %w", err)
 	}
 
 	method, ok := parsedABI.Methods[structNeeded]
