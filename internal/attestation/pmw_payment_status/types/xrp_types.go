@@ -1,4 +1,4 @@
-package verifier
+package xrptypes
 
 import (
 	"math/big"

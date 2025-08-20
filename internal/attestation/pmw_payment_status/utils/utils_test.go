@@ -1,10 +1,11 @@
-package verifier
+package pmwpaymentutils_test
 
 import (
 	"math/big"
 	"strings"
 	"testing"
 
+	pmwpaymentutils "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
@@ -16,7 +17,7 @@ func TestGenerateInstructionId(t *testing.T) {
 	}
 	nonce := uint64(42)
 	sourceEnv := "testsourceid"
-	id, err := GenerateInstructionId(walletIdBytes, nonce, sourceEnv)
+	id, err := pmwpaymentutils.GenerateInstructionId(walletIdBytes, nonce, sourceEnv)
 	if err != nil {
 		t.Fatalf("GenerateInstructionId failed for valid input: %v", err)
 	}
@@ -116,19 +117,19 @@ func TestGetStringField(t *testing.T) {
 		"key2": 1234,
 	}
 	t.Run("valid string field", func(t *testing.T) {
-		val, ok := GetStringField(m, "key1")
+		val, ok := pmwpaymentutils.GetStringField(m, "key1")
 		if !ok || val != "val1" {
 			t.Fatal("GetStringField failed to get existing string value")
 		}
 	})
 	t.Run("number field", func(t *testing.T) {
-		_, ok := GetStringField(m, "key2")
+		_, ok := pmwpaymentutils.GetStringField(m, "key2")
 		if ok {
 			t.Fatal("GetStringField should return false for non-string value")
 		}
 	})
 	t.Run("missing field", func(t *testing.T) {
-		_, ok := GetStringField(m, "missing")
+		_, ok := pmwpaymentutils.GetStringField(m, "missing")
 		if ok {
 			t.Fatal("GetStringField should return false for missing key")
 		}
@@ -137,7 +138,7 @@ func TestGetStringField(t *testing.T) {
 
 func TestGetStandardAddressHash(t *testing.T) {
 	address := "rL7RGDcogfqDnEjCaz2qSpivXF1B1EnsvW"
-	val := GetStandardAddressHash(address)
+	val := pmwpaymentutils.GetStandardAddressHash(address)
 	expectedStdAddressHash := "0x00bafe0a11e53099df6fa8bc148cb4e054594c23c8fbc4ec5c5c85cf72a1e96c"
 	if val != expectedStdAddressHash {
 		t.Fatalf("GetStandardAddressHash returned wrong value, got %s", val)

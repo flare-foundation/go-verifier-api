@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/repo"
 	config "github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 	"gorm.io/gorm"
@@ -11,14 +12,16 @@ import (
 
 type VerifierConstructor func(
 	cfg *config.PMWPaymentStatusConfig,
-	db *gorm.DB,
-	cChainDB *gorm.DB,
+	db, cChainDB *gorm.DB,
 ) (verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error)
 
-var xrpConstructor = func(cfg *config.PMWPaymentStatusConfig, db *gorm.DB, cChainDB *gorm.DB) (
+var xrpConstructor = func(cfg *config.PMWPaymentStatusConfig, db, cChainDB *gorm.DB) (
 	verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
 ) {
-	return &XRPVerifier{db: db, cChainDb: cChainDB, config: cfg}, nil
+	return &XRPVerifier{
+		repo:   repo.NewXRPRepository(db, cChainDB),
+		config: cfg,
+	}, nil
 }
 
 var registry = map[string]VerifierConstructor{

@@ -6,52 +6,45 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
-	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/models"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/builder"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/decoder"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/repo"
+	xrptypes "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/types"
+	pmwpaymentutils "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/utils"
 	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
 )
 
 type XRPVerifier struct {
-	db       *gorm.DB
-	cChainDb *gorm.DB
-	config   *pmwpaymentstatusconfig.PMWPaymentStatusConfig
+	repo   *repo.XRPRepository
+	config *pmwpaymentstatusconfig.PMWPaymentStatusConfig
 }
-
-type chainQuery struct {
-	SourceAddress string
-	Nonce         uint64
-}
-
-const eventNameTeeInstructionsSent = "TeeInstructionsSent"
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
 	sourceEnv := string(x.config.SourcePair.SourceId)
-	instructionId, err := GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
+	instructionId, err := pmwpaymentutils.GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %v", err)
 	}
-	// Query event
-	chainLog, err := x.fetchInstructionLog(ctx, x.cChainDb, instructionId)
+	// Event log
+	eventHash, err := decoder.GetTeeInstructionsSentEventSignature(x.config.ParsedTeeInstructionsABI)
+	if err != nil {
+		return connector.IPMWPaymentStatusResponseBody{}, err
+	}
+	chainLog, err := x.repo.FetchInstructionLog(ctx, eventHash, instructionId)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Decode event data
-	paymentMessage, err := x.decodeTeeInstructionsSentEventData(chainLog)
+	paymentMessage, err := decoder.DecodeTeeInstructionsSentEventData(chainLog, x.config.ParsedTeeInstructionsABI, x.config.ParsedPaymentABI)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
-	dbTransaction, err := x.getTransactionBySourceAndSequence(ctx, x.db, chainQuery{paymentMessage.SenderAddress, req.Nonce})
+	dbTransaction, err := x.repo.GetTransactionBySourceAndSequence(ctx, repo.ChainQuery{paymentMessage.SenderAddress, req.Nonce})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
@@ -64,45 +57,15 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Validate transaction and build response
-	resp, err := x.buildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
+	resp, err := builder.BuildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	return resp, nil
 }
 
-func (x *XRPVerifier) fetchInstructionLog(ctx context.Context, db *gorm.DB, instructionId common.Hash) (*types.Log, error) {
-	var dbLog database.Log
-	teeInstructionsSentEventHash, e := x.getTeeInstructionsSentEventSignature()
-	if e != nil {
-		return nil, e
-	}
-	err := db.WithContext(ctx).
-		Where("topic0 = ? AND topic1 = ?", teeInstructionsSentEventHash, instructionId).
-		First(&dbLog).Error
-	if err != nil {
-		return nil, fmt.Errorf("log not found for instruction %s", instructionId)
-	}
-	log, err := events.ConvertDatabaseLogToChainLog(dbLog)
-	if err != nil {
-		return nil, err
-	}
-	return log, nil
-}
-
-func (x *XRPVerifier) getTransactionBySourceAndSequence(ctx context.Context, db *gorm.DB, query chainQuery) (models.DBTransaction, error) {
-	var tx models.DBTransaction
-	err := db.WithContext(ctx).
-		Where("source_address = ? AND sequence = ?", query.SourceAddress, query.Nonce).
-		First(&tx).Error
-	if err != nil {
-		return models.DBTransaction{}, err
-	}
-	return tx, nil
-}
-
-func (x *XRPVerifier) parseRawTransactionData(response string) (RawTransactionData, error) {
-	var rawTransactionData RawTransactionData
+func (x *XRPVerifier) parseRawTransactionData(response string) (xrptypes.RawTransactionData, error) {
+	var rawTransactionData xrptypes.RawTransactionData
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
 		logger.Errorf("failed to unmarshal XRP transaction response: %v, response: %s", err, response)
@@ -112,69 +75,4 @@ func (x *XRPVerifier) parseRawTransactionData(response string) (RawTransactionDa
 		return rawTransactionData, fmt.Errorf("missing transaction result in raw transaction data")
 	}
 	return rawTransactionData, nil
-}
-
-func (x *XRPVerifier) buildPaymentStatusResponse(raw RawTransactionData, paymentMsg *payment.ITeePaymentsPaymentInstructionMessage, tx models.DBTransaction) (connector.IPMWPaymentStatusResponseBody, error) {
-	transactionResult, err := GetTransactionStatus(raw.MetaData.TransactionResult)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
-	}
-	transactionFee, err := utils.NewBigIntFromString(raw.Fee)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
-	}
-	hashBytes, err := utils.HexStringToBytes32(tx.Hash)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
-	}
-	receivedAmount, err := FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
-	}
-	var revertReason string
-	if transactionResult == Success {
-		revertReason = ""
-	} else {
-		revertReason = raw.MetaData.TransactionResult
-	}
-	return connector.IPMWPaymentStatusResponseBody{
-		SenderAddress:     GetStandardAddressHash(paymentMsg.SenderAddress),
-		RecipientAddress:  GetStandardAddressHash(paymentMsg.RecipientAddress),
-		Amount:            paymentMsg.Amount,
-		Fee:               paymentMsg.Fee,
-		PaymentReference:  paymentMsg.PaymentReference,
-		TransactionStatus: uint8(transactionResult),
-		RevertReason:      revertReason,
-		ReceivedAmount:    receivedAmount,
-		TransactionFee:    transactionFee,
-		TransactionId:     hashBytes,
-		BlockNumber:       tx.BlockNumber,
-		BlockTimestamp:    tx.Timestamp,
-	}, nil
-}
-
-func (x *XRPVerifier) getTeeInstructionsSentEventSignature() (string, error) {
-	event, exists := x.config.ParsedTeeInstructionsABI.Events[eventNameTeeInstructionsSent]
-	if !exists {
-		return "", fmt.Errorf("event %s not found", eventNameTeeInstructionsSent)
-	}
-	eventSignature := event.ID.Hex()
-	return eventSignature, nil
-}
-
-func (x *XRPVerifier) decodeTeeInstructionsSentEventData(log *types.Log) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
-	eventData, err := utils.AbiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
-		x.config.ParsedTeeInstructionsABI,
-		eventNameTeeInstructionsSent,
-		log.Data,
-	)
-	if err != nil {
-		return nil, err
-	}
-	var message payment.ITeePaymentsPaymentInstructionMessage
-	err = x.config.ParsedPaymentABI.UnpackIntoInterface(&message, "paymentInstructionMessageStruct", eventData.Message)
-	if err != nil {
-		return nil, err
-	}
-	return &message, nil
 }

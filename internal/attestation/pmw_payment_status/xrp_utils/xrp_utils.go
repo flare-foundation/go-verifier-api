@@ -1,27 +1,29 @@
-package verifier
+package xrputils
 
 import (
 	"fmt"
 	"math/big"
 
+	xrptypes "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/types"
+	pmwpaymentutils "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
-func GetTransactionStatus(result string) (TransactionStatus, error) {
+func GetTransactionStatus(result string) (xrptypes.TransactionStatus, error) {
 	if len(result) < 3 {
 		return 0, fmt.Errorf("transaction result too short: %q", result)
 	}
 	prefix := result[:3]
 	switch prefix {
 	case "tes":
-		return Success, nil
+		return xrptypes.Success, nil
 	case "tec":
 		switch result {
 		case "tecDST_TAG_NEEDED",
 			"tecNO_DST",
 			"tecNO_DST_INSUF_XRP",
 			"tecNO_PERMISSION":
-			return ReceiverFault, nil
+			return xrptypes.ReceiverFault, nil
 		case "tecCANT_ACCEPT_OWN_NFTOKEN_OFFER",
 			"tecCLAIM",
 			"tecCRYPTOCONDITION_ERROR",
@@ -64,19 +66,19 @@ func GetTransactionStatus(result string) (TransactionStatus, error) {
 			"tecUNFUNDED_ADD",
 			"tecUNFUNDED_PAYMENT",
 			"tecUNFUNDED_OFFER":
-			return SenderFault, nil
+			return xrptypes.SenderFault, nil
 		default:
 			return 0, fmt.Errorf("unknown tec error code: %s", result)
 		}
 	case "tef", "tel", "tem", "ter":
-		return SenderFault, nil
+		return xrptypes.SenderFault, nil
 
 	default:
 		return 0, fmt.Errorf("unexpected transaction status prefix: %s", prefix)
 	}
 }
 
-func FindReceivedAmountForAddress(meta *TransactionMetaData, receiver string) (*big.Int, error) {
+func FindReceivedAmountForAddress(meta *xrptypes.TransactionMetaData, receiver string) (*big.Int, error) {
 	receivedAmounts, err := GetReceivedAmount(meta)
 	if err != nil {
 		return nil, err
@@ -89,11 +91,11 @@ func FindReceivedAmountForAddress(meta *TransactionMetaData, receiver string) (*
 	return big.NewInt(0), nil
 }
 
-func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
+func GetReceivedAmount(meta *xrptypes.TransactionMetaData) ([]xrptypes.AddressAmount, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("transaction meta is not available, thus received amounts cannot be calculated")
 	}
-	var received []AddressAmount
+	var received []xrptypes.AddressAmount
 
 	for _, node := range meta.AffectedNodes {
 		if mod := node.ModifiedNode; mod != nil && mod.LedgerEntryType == "AccountRoot" {
@@ -103,9 +105,9 @@ func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 			if finalFields == nil || previousFields == nil {
 				continue
 			}
-			account, ok1 := GetStringField(finalFields, "Account")
-			finalBalStr, ok2 := GetStringField(finalFields, "Balance")
-			prevBalStr, ok3 := GetStringField(previousFields, "Balance")
+			account, ok1 := pmwpaymentutils.GetStringField(finalFields, "Account")
+			finalBalStr, ok2 := pmwpaymentutils.GetStringField(finalFields, "Balance")
+			prevBalStr, ok3 := pmwpaymentutils.GetStringField(previousFields, "Balance")
 			if !ok1 || !ok2 || !ok3 {
 				continue
 			}
@@ -119,7 +121,7 @@ func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 			}
 			diff := new(big.Int).Sub(finalBal, prevBal)
 			if diff.Sign() > 0 {
-				received = append(received, AddressAmount{
+				received = append(received, xrptypes.AddressAmount{
 					Address: account,
 					Amount:  diff,
 				})
@@ -129,8 +131,8 @@ func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 			if newFields == nil {
 				continue
 			}
-			account, ok1 := GetStringField(newFields, "Account")
-			balanceStr, ok2 := GetStringField(newFields, "Balance")
+			account, ok1 := pmwpaymentutils.GetStringField(newFields, "Account")
+			balanceStr, ok2 := pmwpaymentutils.GetStringField(newFields, "Balance")
 			if !ok1 || !ok2 {
 				continue
 			}
@@ -139,7 +141,7 @@ func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 				return nil, fmt.Errorf("invalid balance format in CreatedNode: %s", balanceStr)
 			}
 
-			received = append(received, AddressAmount{
+			received = append(received, xrptypes.AddressAmount{
 				Address: account,
 				Amount:  balance,
 			})

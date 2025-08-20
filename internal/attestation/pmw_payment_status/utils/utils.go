@@ -1,4 +1,4 @@
-package verifier
+package pmwpaymentutils
 
 import (
 	"bytes"
