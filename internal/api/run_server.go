@@ -150,15 +150,17 @@ func loadEnvConfig() (config.EnvConfig, error) {
 	}
 
 	return config.EnvConfig{
-		RPCURL:                     os.Getenv("RPC_URL"),
-		RelayContractAddress:       os.Getenv("RELAY_CONTRACT_ADDRESS"),
-		TeeRegistryContractAddress: os.Getenv("TEE_REGISTRY_CONTRACT_ADDRESS"),
-		DatabaseURL:                os.Getenv("DATABASE_URL"),
-		CChainDatabaseURL:          os.Getenv("CCHAIN_DATABASE_URL"),
-		Env:                        os.Getenv("ENV"),
-		Port:                       port,
-		ApiKeys:                    apiKeys,
-		AttestationType:            attestationType,
-		SourceID:                   sourceID,
+		RPCURL:                                 os.Getenv("RPC_URL"),
+		RelayContractAddress:                   os.Getenv("RELAY_CONTRACT_ADDRESS"),
+		TeeRegistryContractAddress:             os.Getenv("TEE_REGISTRY_CONTRACT_ADDRESS"),
+		TeeWalletManagerContractAddress:        os.Getenv("TEE_WALLET_MANAGER_CONTRACT_ADDRESS"),
+		TeeWalletProjectManagerContractAddress: os.Getenv("TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS"),
+		DatabaseURL:                            os.Getenv("DATABASE_URL"),
+		CChainDatabaseURL:                      os.Getenv("CCHAIN_DATABASE_URL"),
+		Env:                                    os.Getenv("ENV"),
+		Port:                                   port,
+		ApiKeys:                                apiKeys,
+		AttestationType:                        attestationType,
+		SourceID:                               sourceID,
 	}, nil
 }

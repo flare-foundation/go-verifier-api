@@ -16,8 +16,12 @@ func TestGenerateInstructionId(t *testing.T) {
 		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
 	}
 	nonce := uint64(42)
-	sourceEnv := "testsourceid"
-	id, err := pmwpaymentutils.GenerateInstructionId(walletIdBytes, nonce, sourceEnv)
+	opTypeString := "testsource"
+	opTypeBytes, err := utils.HexStringToBytes32(opTypeString)
+	if err != nil {
+		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
+	}
+	id, err := pmwpaymentutils.GenerateInstructionId(walletIdBytes, opTypeBytes, nonce)
 	if err != nil {
 		t.Fatalf("GenerateInstructionId failed for valid input: %v", err)
 	}

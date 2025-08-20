@@ -31,6 +31,15 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 	if envConfig.CChainDatabaseURL == "" {
 		return nil, fmt.Errorf("CCHAIN_DATABASE_URL not set")
 	}
+	if envConfig.RPCURL == "" {
+		return nil, fmt.Errorf("RPCURL not set")
+	}
+	if envConfig.TeeWalletManagerContractAddress == "" {
+		return nil, fmt.Errorf("TEE_WALLET_MANAGER_CONTRACT_ADDRESS not set")
+	}
+	if envConfig.TeeWalletProjectManagerContractAddress == "" {
+		return nil, fmt.Errorf("TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS not set")
+	}
 	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
 	if err != nil {
 		return nil, err
@@ -44,12 +53,15 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 		return nil, fmt.Errorf("failed to parse Payment ABI: %w", err)
 	}
 	return &config.PMWPaymentStatusConfig{
-		SourcePair:               commonConfig.SourceIdPair,
-		DatabaseURL:              envConfig.DatabaseURL,
-		CchainDatabaseURL:        envConfig.CChainDatabaseURL,
-		AttestationTypePair:      commonConfig.AttestationTypePair,
-		AbiPair:                  commonConfig.AbiPair,
-		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,
-		ParsedPaymentABI:         parsedPaymentABI,
+		SourcePair:                     commonConfig.SourceIdPair,
+		DatabaseURL:                    envConfig.DatabaseURL,
+		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
+		RPCURL:                         envConfig.RPCURL,
+		TeeWalletManagerAddress:        envConfig.TeeWalletManagerContractAddress,
+		TeeWalletProjectManagerAddress: envConfig.TeeWalletProjectManagerContractAddress,
+		AttestationTypePair:            commonConfig.AttestationTypePair,
+		AbiPair:                        commonConfig.AbiPair,
+		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
+		ParsedPaymentABI:               parsedPaymentABI,
 	}, nil
 }

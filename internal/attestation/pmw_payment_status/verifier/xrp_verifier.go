@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletmanager"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletprojectmanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/builder"
@@ -18,14 +20,19 @@ import (
 )
 
 type XRPVerifier struct {
-	repo   *repo.XRPRepository
-	config *pmwpaymentstatusconfig.PMWPaymentStatusConfig
+	repo                 *repo.XRPRepository
+	WalletManagerCaller  *teewalletmanager.TeeWalletManagerCaller
+	ProjectManagerCaller *teewalletprojectmanager.TeeWalletProjectManagerCaller
+	config               *pmwpaymentstatusconfig.PMWPaymentStatusConfig
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
-	sourceEnv := string(x.config.SourcePair.SourceId)
-	instructionId, err := pmwpaymentutils.GenerateInstructionId(req.WalletId, req.Nonce, sourceEnv)
+	opType, err := pmwpaymentutils.GetWalletOpType(req.WalletId, x.WalletManagerCaller, x.ProjectManagerCaller)
+	if err != nil {
+		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot retrieve opType: %w", err)
+	}
+	instructionId, err := pmwpaymentutils.GenerateInstructionId(req.WalletId, opType, req.Nonce)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %w", err)
 	}

@@ -10,16 +10,18 @@ import (
 )
 
 type EnvConfig struct {
-	RPCURL                     string
-	RelayContractAddress       string
-	TeeRegistryContractAddress string
-	DatabaseURL                string
-	CChainDatabaseURL          string
-	Env                        string
-	Port                       string
-	ApiKeys                    []string
-	AttestationType            connector.AttestationType
-	SourceID                   SourceName
+	RPCURL                                 string
+	RelayContractAddress                   string
+	TeeRegistryContractAddress             string
+	TeeWalletManagerContractAddress        string
+	TeeWalletProjectManagerContractAddress string
+	DatabaseURL                            string
+	CChainDatabaseURL                      string
+	Env                                    string
+	Port                                   string
+	ApiKeys                                []string
+	AttestationType                        connector.AttestationType
+	SourceID                               SourceName
 }
 
 type SourceName string
@@ -56,13 +58,16 @@ type TeeAvailabilityCheckConfig struct {
 }
 
 type PMWPaymentStatusConfig struct {
-	SourcePair               SourceIdEncodedPair
-	DatabaseURL              string
-	CchainDatabaseURL        string
-	AttestationTypePair      AttestationTypeEncodedPair
-	AbiPair                  AbiArgPair
-	ParsedTeeInstructionsABI abi.ABI
-	ParsedPaymentABI         abi.ABI
+	SourcePair                     SourceIdEncodedPair
+	DatabaseURL                    string
+	CchainDatabaseURL              string
+	RPCURL                         string
+	TeeWalletManagerAddress        string
+	TeeWalletProjectManagerAddress string
+	AttestationTypePair            AttestationTypeEncodedPair
+	AbiPair                        AbiArgPair
+	ParsedTeeInstructionsABI       abi.ABI
+	ParsedPaymentABI               abi.ABI
 }
 
 type PMWMultisigAccountConfig struct {
