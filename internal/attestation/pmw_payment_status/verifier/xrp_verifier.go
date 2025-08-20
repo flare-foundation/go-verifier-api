@@ -14,6 +14,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/models"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
 )
@@ -104,7 +105,6 @@ func (x *XRPVerifier) parseRawTransactionData(response string) (RawTransactionDa
 		logger.Errorf("failed to unmarshal XRP transaction response: %v, response: %s", err, response)
 		return rawTransactionData, err
 	}
-	// Validate required fields // TODO-later
 	if rawTransactionData.MetaData.TransactionResult == "" {
 		return rawTransactionData, fmt.Errorf("missing transaction result in raw transaction data")
 	}
@@ -116,11 +116,11 @@ func (x *XRPVerifier) buildPaymentStatusResponse(raw RawTransactionData, payment
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
-	transactionFee, err := NewBigIntFromString(raw.Fee)
+	transactionFee, err := utils.NewBigIntFromString(raw.Fee)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
-	hashBytes, err := HexStringToBytes32(tx.Hash)
+	hashBytes, err := utils.HexStringToBytes32(tx.Hash)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}

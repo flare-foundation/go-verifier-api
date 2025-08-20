@@ -3,6 +3,8 @@ package verifier
 import (
 	"fmt"
 	"math/big"
+
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
 func GetTransactionStatus(result string) (TransactionStatus, error) {
@@ -107,11 +109,11 @@ func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 			if !ok1 || !ok2 || !ok3 {
 				continue
 			}
-			finalBal, err := NewBigIntFromString(finalBalStr)
+			finalBal, err := utils.NewBigIntFromString(finalBalStr)
 			if err != nil {
 				return nil, fmt.Errorf("invalid final balance format: %s", finalBalStr)
 			}
-			prevBal, err := NewBigIntFromString(prevBalStr)
+			prevBal, err := utils.NewBigIntFromString(prevBalStr)
 			if err != nil {
 				return nil, fmt.Errorf("invalid previous balance format: %s", prevBalStr)
 			}
@@ -132,7 +134,7 @@ func GetReceivedAmount(meta *TransactionMetaData) ([]AddressAmount, error) {
 			if !ok1 || !ok2 {
 				continue
 			}
-			balance, err := NewBigIntFromString(balanceStr)
+			balance, err := utils.NewBigIntFromString(balanceStr)
 			if err != nil {
 				return nil, fmt.Errorf("invalid balance format in CreatedNode: %s", balanceStr)
 			}

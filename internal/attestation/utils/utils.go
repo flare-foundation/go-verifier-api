@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 )
 
@@ -75,4 +78,26 @@ func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duratio
 
 func HexWith0x(data []byte) string {
 	return "0x" + hex.EncodeToString(data)
+}
+
+func HexStringToBytes32(s string) (common.Hash, error) {
+	var arr common.Hash
+	s = strings.TrimPrefix(s, "0x")
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return arr, err
+	}
+	if len(b) != 32 {
+		return arr, fmt.Errorf("invalid length for bytes32: got %d bytes, expected 32", len(b))
+	}
+	copy(arr[:], b)
+	return arr, nil
+}
+
+func NewBigIntFromString(s string) (*big.Int, error) {
+	i, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid big.Int string: %s", s)
+	}
+	return i, nil
 }

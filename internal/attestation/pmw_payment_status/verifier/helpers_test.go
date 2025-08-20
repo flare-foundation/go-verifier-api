@@ -4,11 +4,13 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
 func TestGenerateInstructionId(t *testing.T) {
 	walletId := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-	walletIdBytes, err := HexStringToBytes32(walletId)
+	walletIdBytes, err := utils.HexStringToBytes32(walletId)
 	if err != nil {
 		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
 	}
@@ -27,7 +29,7 @@ func TestGenerateInstructionId(t *testing.T) {
 func TestHexStringToBytes32(t *testing.T) {
 	t.Run("valid input", func(t *testing.T) {
 		validHex := "0x" + strings.Repeat("aa", 32)
-		arr, err := HexStringToBytes32(validHex)
+		arr, err := utils.HexStringToBytes32(validHex)
 		if err != nil {
 			t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
 		}
@@ -39,14 +41,14 @@ func TestHexStringToBytes32(t *testing.T) {
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		invalidHex := "0x1234"
-		_, err := HexStringToBytes32(invalidHex)
+		_, err := utils.HexStringToBytes32(invalidHex)
 		if err == nil {
 			t.Fatal("HexStringToBytes32 should fail for invalid length hex")
 		}
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		badHex := "0xzzyy"
-		_, err := HexStringToBytes32(badHex)
+		_, err := utils.HexStringToBytes32(badHex)
 		if err == nil {
 			t.Fatal("HexStringToBytes32 should fail for invalid length hex")
 		}
@@ -56,7 +58,7 @@ func TestHexStringToBytes32(t *testing.T) {
 func TestNewBigIntFromString(t *testing.T) {
 	t.Run("valid number", func(t *testing.T) {
 		input := "1234567890"
-		val, err := NewBigIntFromString(input)
+		val, err := utils.NewBigIntFromString(input)
 		if err != nil {
 			t.Fatalf("NewBigIntFromString failed for valid input: %v", err)
 		}
@@ -68,7 +70,7 @@ func TestNewBigIntFromString(t *testing.T) {
 	})
 	t.Run("leading zeros", func(t *testing.T) {
 		input := "00001234"
-		val, err := NewBigIntFromString(input)
+		val, err := utils.NewBigIntFromString(input)
 		if err != nil {
 			t.Fatalf("NewBigIntFromString failed with leading zeros: %v", err)
 		}
@@ -80,7 +82,7 @@ func TestNewBigIntFromString(t *testing.T) {
 	})
 	t.Run("leading and trailing whitespace", func(t *testing.T) {
 		input := "   1234  "
-		val, err := NewBigIntFromString(strings.TrimSpace(input))
+		val, err := utils.NewBigIntFromString(strings.TrimSpace(input))
 		if err != nil {
 			t.Fatalf("NewBigIntFromString failed with whitespace: %v", err)
 		}
@@ -91,7 +93,7 @@ func TestNewBigIntFromString(t *testing.T) {
 	})
 	t.Run("very large number", func(t *testing.T) {
 		input := strings.Repeat("9", 100)
-		val, err := NewBigIntFromString(input)
+		val, err := utils.NewBigIntFromString(input)
 		if err != nil {
 			t.Fatalf("NewBigIntFromString failed for large number: %v", err)
 		}
@@ -101,7 +103,7 @@ func TestNewBigIntFromString(t *testing.T) {
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		input := "notanumber"
-		_, err := NewBigIntFromString(input)
+		_, err := utils.NewBigIntFromString(input)
 		if err == nil {
 			t.Fatal("Expected error for invalid input, got nil")
 		}
