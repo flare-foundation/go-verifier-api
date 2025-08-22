@@ -62,10 +62,11 @@ TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS=
 ## API Reference
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
-## TeeAvailabilityCheck TODO list
+## TODO list
 - [ ] ⚠️ *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
 - [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
 - [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (missing Platform in TeeInfoResponse)
 - [ ] Other `TODO`s inside the code.
+- [ ] Check which types and functions can be fetched from other packages (go-flare-common, tee-node)
 
 

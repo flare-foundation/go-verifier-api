@@ -203,17 +203,17 @@ func (e *EatNonce) UnmarshalJSON(data []byte) error {
 }
 
 type GoogleTeeClaims struct {
-	HWModel     string     `json:"hwmodel"` // "hwmodel": "GCP_INTEL_TDX"
-	SWName      string     `json:"swname"`  // "swname": "CONFIDENTIAL_SPACE"
+	HWModel     string     `json:"hwmodel"`
+	SWName      string     `json:"swname"`
 	SecBoot     bool       `json:"secboot"`
 	EATNonce    EatNonce   `json:"eat_nonce"`
 	SubMods     SubModules `json:"submods"`
-	DebugStatus string     `json:"dbgstat"` // "dbgstat": "enabled"
+	DebugStatus string     `json:"dbgstat"`
 	jwt.StandardClaims
 }
 
 type SubModules struct {
-	ConfidentialSpace ConfidentialSpaceInfo `json:"confidential_space"` // TODO This was removed in tee-node code: assertion.submods.confidential_space.support_attributes
+	ConfidentialSpace ConfidentialSpaceInfo `json:"confidential_space"`
 	Container         Container             `json:"container"`
 }
 
@@ -222,8 +222,8 @@ type ConfidentialSpaceInfo struct {
 }
 
 type Container struct {
-	ImageDigest string `json:"image_digest"` // "image_digest": "sha256:0f5455255ce543c2fa319153577e2ad75d7f8ea698df1cab1a8c782b391b6354",
-	ImageId     string `json:"image_id"`     // "image_id": "sha256:ec5873e29dd512750dfd21250db6243f106bbf82203e91ae33af94b234eee153"
+	ImageDigest string `json:"image_digest"`
+	ImageId     string `json:"image_id"`
 }
 
 type StatusInfo struct {
@@ -234,7 +234,7 @@ type StatusInfo struct {
 
 func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, error) {
 	var statusInfo StatusInfo
-	if !token.Valid { // probably unnecessary
+	if !token.Valid {
 		return StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
 	claims, ok := token.Claims.(*GoogleTeeClaims)
@@ -262,8 +262,11 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 		return StatusInfo{}, errors.New("not running in CONFIDENTIAL_SPACE")
 	}
 	// Check Confidential Space image version
+	if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
+		return StatusInfo{}, errors.New("no supported attributes found")
+	}
 	foundIsStable := false
-	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes { // TODO if claims.SubMods.ConfidentialSpace.SupportAttributes does not exist -> throw error
+	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
 		if att == "STABLE" {
 			foundIsStable = true
 			break
