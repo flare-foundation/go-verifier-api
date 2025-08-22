@@ -72,7 +72,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					}
 					teeVerifier.TeeSamples[t.teeId] = samples
 					teeVerifier.SamplesMu.Unlock()
-					logger.Infof("Poller has following samples: %v", teeVerifier.SamplesMu) // TODO remove later
+					logger.Infof("Poller has following samples: %v", teeVerifier.TeeSamples) // TODO remove later
 				}
 			}
 		}()
