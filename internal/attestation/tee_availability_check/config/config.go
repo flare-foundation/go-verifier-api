@@ -28,7 +28,7 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 		return nil, fmt.Errorf("RELAY_CONTRACT_ADDRESS not set in .env")
 	}
 	if envConfig.TeeRegistryContractAddress == "" {
-		return nil, fmt.Errorf("TEE_REGISTRY_CONTRACT_ADDRESS not set in .env")
+		return nil, fmt.Errorf("TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS not set in .env")
 	}
 	if envConfig.RPCURL == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")

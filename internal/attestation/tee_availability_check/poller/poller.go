@@ -72,6 +72,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					}
 					teeVerifier.TeeSamples[t.teeId] = samples
 					teeVerifier.SamplesMu.Unlock()
+					logger.Infof("Poller has following samples: %v", teeVerifier.SamplesMu) // TODO remove later
 				}
 			}
 		}()
@@ -100,10 +101,10 @@ func getActiveTees(teeVerifier *verifier.TeeVerifier) (teeList, error) {
 	callOpts := &bind.CallOpts{
 		Context: context.Background(),
 	}
-
 	activeTees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts)
 	if err != nil {
 		return teeList{}, fmt.Errorf("getActiveTees: %w", err)
 	}
+	logger.Infof("Poller got active Tees: %v", activeTees) // TODO remove later
 	return activeTees, nil
 }
