@@ -7,7 +7,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletprojectmanager"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/repo"
-	config "github.com/flare-foundation/go-verifier-api/internal/config"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 	"gorm.io/gorm"
 )

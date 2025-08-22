@@ -11,8 +11,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
-	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
-	config "github.com/flare-foundation/go-verifier-api/internal/config"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
@@ -77,7 +77,7 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 				return nil, err
 			}
 			return types.NewResponse(types.EncodedResponseBody{
-				ResponseBody: utils.HexWith0x(responseDataBytes),
+				Response: responseDataBytes,
 			}), nil
 		})
 }

@@ -90,7 +90,7 @@ func TeeAvailabilityCheckHandler(
 				return nil, err
 			}
 			return types.NewResponse(types.EncodedResponseBody{
-				ResponseBody: utils.HexWith0x(responseDataBytes),
+				Response: responseDataBytes,
 			}), nil
 		})
 }
