@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -184,11 +185,28 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 	return nil
 }
 
+type EatNonce []string
+
+func (e *EatNonce) UnmarshalJSON(data []byte) error {
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err == nil {
+		*e = arr
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*e = []string{s}
+		return nil
+	}
+	*e = []string{}
+	return nil
+}
+
 type GoogleTeeClaims struct {
 	HWModel     string     `json:"hwmodel"` // "hwmodel": "GCP_INTEL_TDX"
 	SWName      string     `json:"swname"`  // "swname": "CONFIDENTIAL_SPACE"
 	SecBoot     bool       `json:"secboot"`
-	EATNonce    string     `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
+	EATNonce    EatNonce   `json:"eat_nonce"`
 	SubMods     SubModules `json:"submods"`
 	DebugStatus string     `json:"dbgstat"` // "dbgstat": "enabled"
 	jwt.StandardClaims
@@ -228,8 +246,8 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
-	// match with eat_nonce - TODO check if it is really string array or just string
-	if claims.EATNonce != hex.EncodeToString(teeInfoBytes) { // TODO Mismatch in hashes?
+	// match with eat_nonce
+	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) { // TODO is it ok to always check EATNonce[0]?
 		return StatusInfo{}, errors.New("eat_nonce does not match")
 	}
 	// Check if running in production
