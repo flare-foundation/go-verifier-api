@@ -242,7 +242,7 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 		return StatusInfo{}, errors.New("cannot parse claims")
 	}
 	if len(claims.EATNonce) != 1 {
-		return StatusInfo{}, errors.New("expected one eat_nonce")
+		return StatusInfo{}, fmt.Errorf("expected one eat_nonce")
 	}
 	// generate teeInfo hash
 	teeInfoBytes, err := teeInfoData.Hash()
