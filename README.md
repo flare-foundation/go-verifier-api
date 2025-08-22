@@ -41,13 +41,13 @@ TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS=
 1. Fill in the `.env` file according to the attestation type.
 
 2. Install dependencies:
+
+    Package [tee-node](https://gitlab.com/flarenetwork/tee/tee-node) should be pulled locally.
+
     ```bash
     go mod tidy
     ```
-
     If there are new commits to the `tee` branch of the project [`go-flare-common`](https://github.com/flare-foundation/go-flare-common/commits/tee), you can fetch the updates using `go get github.com/flare-foundation/go-flare-common@<commitHash>`
-
-    Package [tee-node](https://gitlab.com/flarenetwork/tee/tee-node) should be pulled locally.
 
 3. Run the project:
     ```bash

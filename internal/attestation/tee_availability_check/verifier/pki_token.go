@@ -241,13 +241,16 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 	if !ok {
 		return StatusInfo{}, errors.New("cannot parse claims")
 	}
+	if len(claims.EATNonce) != 1 {
+		return StatusInfo{}, errors.New("expected one eat_nonce")
+	}
 	// generate teeInfo hash
 	teeInfoBytes, err := teeInfoData.Hash()
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
 	// match with eat_nonce
-	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) { // TODO is it ok to always check EATNonce[0]?
+	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) {
 		return StatusInfo{}, errors.New("eat_nonce does not match")
 	}
 	// Check if running in production
