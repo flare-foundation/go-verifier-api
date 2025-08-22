@@ -10,7 +10,7 @@ import (
 
 type PMWMultisigAccountHeader struct {
 	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
-	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
+	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x5445535458525000000000000000000000000000000000000000000000000000"`
 	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
 }
 
@@ -24,7 +24,7 @@ type PMWMultisigAccountRequest struct {
 }
 
 type PMWMultisigAccountRequestBody struct {
-	WalletAddress string   `json:"walletAddress" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	WalletAddress string   `json:"walletAddress" validate:"required" example:"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"`
 	PublicKeys    []string `json:"publicKeys" validate:"required,min=1" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"`
 	Threshold     uint64   `json:"threshold" validate:"gte=1" example:"3"`
 }

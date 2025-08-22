@@ -11,7 +11,7 @@ import (
 
 type TeeAvailabilityHeader struct {
 	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
-	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465650000000000000000000000000000000000000000000000000000000000"`
+	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x5445450000000000000000000000000000000000000000000000000000000000"`
 	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
 }
 

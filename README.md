@@ -8,7 +8,7 @@
 `.env` variables:
  ```env
 VERIFIER_TYPE=TeeAvailabilityCheck
-SOURCE_ID=tee
+SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
 TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
@@ -18,7 +18,7 @@ RPC_URL=https://<flare>
 `.env` variables:
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
-SOURCE_ID=testxrp
+SOURCE_ID=TESTXRP
 RPC_URL=https://<xrpl>
 ```
 
@@ -29,7 +29,7 @@ You will need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/
 `.env` variables:
 ```env
 VERIFIER_TYPE=PMWPaymentStatus
-SOURCE_ID=testxrp
+SOURCE_ID=TESTXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 DATABASE_URL=postgres://user:pass@host:port/db
 RPC_URL=https://<flare>
