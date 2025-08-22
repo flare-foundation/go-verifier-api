@@ -1,11 +1,14 @@
 package attestationtypes
 
+import "github.com/ethereum/go-ethereum/common/hexutil"
+
 type EncodedRequestBody struct {
 	RequestBody string `json:"requestBody" example:"0x0000abcd..."`
 }
 
+// TODO Common types for verifier and relay client
 type EncodedResponseBody struct {
-	ResponseBody string `json:"responseBody" example:"0x0000abcd..."`
+	Response hexutil.Bytes `json:"Response" example:"0x0000abcd..."`
 }
 
 // Response is a generic response type for the API with just a simple body. https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma
