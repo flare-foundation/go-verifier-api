@@ -66,7 +66,7 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	}
 	verifiedJWT, err := jwt.ParseWithClaims(attestationToken, &GoogleTeeClaims{}, keyFunc)
 	if err != nil {
-		return jwt.Token{}, nil
+		return jwt.Token{}, err
 	}
 	return *verifiedJWT, nil
 }
@@ -188,7 +188,7 @@ type GoogleTeeClaims struct {
 	HWModel     string     `json:"hwmodel"` // "hwmodel": "GCP_INTEL_TDX"
 	SWName      string     `json:"swname"`  // "swname": "CONFIDENTIAL_SPACE"
 	SecBoot     bool       `json:"secboot"`
-	EATNonce    []string   `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
+	EATNonce    string     `json:"eat_nonce"` // TODO?? eat_nonce	String or string array
 	SubMods     SubModules `json:"submods"`
 	DebugStatus string     `json:"dbgstat"` // "dbgstat": "enabled"
 	jwt.StandardClaims
@@ -229,7 +229,7 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
 	}
 	// match with eat_nonce - TODO check if it is really string array or just string
-	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) { // TODO Mismatch in hashes?
+	if claims.EATNonce != hex.EncodeToString(teeInfoBytes) { // TODO Mismatch in hashes?
 		return StatusInfo{}, errors.New("eat_nonce does not match")
 	}
 	// Check if running in production
@@ -242,7 +242,7 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 	}
 	// Check Confidential Space image version
 	foundIsStable := false
-	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
+	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes { // TODO if claims.SubMods.ConfidentialSpace.SupportAttributes does not exist -> throw error
 		if att == "STABLE" {
 			foundIsStable = true
 			break
