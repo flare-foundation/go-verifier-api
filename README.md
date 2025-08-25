@@ -18,7 +18,7 @@ RPC_URL=https://<flare>
 `.env` variables:
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
-SOURCE_ID=TESTXRP
+SOURCE_ID=XRP
 RPC_URL=https://<xrpl>
 ```
 
@@ -29,7 +29,7 @@ You will need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/
 `.env` variables:
 ```env
 VERIFIER_TYPE=PMWPaymentStatus
-SOURCE_ID=TESTXRP
+SOURCE_ID=XRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 DATABASE_URL=postgres://user:pass@host:port/db
 RPC_URL=https://<flare>
@@ -60,6 +60,13 @@ TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS=
     ```
 
 ## API Reference
+<b>Base path for all verifier endpoints</b>:
+```
+/verifier/<sourceName>/<attestationType>/
+```
+- `<sourceName>` must be lowercase.
+- `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus).
+
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
 ## TODO list

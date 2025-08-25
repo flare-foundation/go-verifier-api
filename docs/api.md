@@ -2,7 +2,14 @@
 
 This API exposes a POST endpoints to verify different attestation types.
 
-## 1. Main endpoint `POST /<attestationType>/verify`
+<b>Base path for all verifier endpoints</b>:
+```
+/verifier/<sourceName>/<attestationType>/
+```
+- `<sourceName>` must be lowercase.
+- `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus).
+
+## 1. Main endpoint `POST /verifier/<sourceName>/<attestationType>/verify`
 Verify the encoded request body and returns ABI-encoded response.
 ### Request:
 ```json
@@ -32,7 +39,7 @@ Verify the encoded request body and returns ABI-encoded response.
 
 
 
-## 2. Helper endpoint `POST /<attestationType>/prepareRequestBody`
+## 2. Helper endpoint `POST /verifier/<sourceName>/<attestationType>/prepareRequestBody`
 Returns ABI-encoded request data. This helper endpoint generates the ABI-encoded `requestBody`.
 
 - Note: Currently, this endpoint only performs encoding. Verification functionality will be added later.
@@ -60,7 +67,7 @@ Returns ABI-encoded request data. This helper endpoint generates the ABI-encoded
 }
 ```
 
-## 3. Helper endpoint `POST /<attestationType>/prepareResponseBody`
+## 3. Helper endpoint `POST /verifier/<sourceName>/<attestationType>/prepareResponseBody`
 Verify the encoded request body and returns both the decoded response data and its ABI-encoded form.
 ### Request example for `TeeAvailabilityCheck`:
 ```json
@@ -232,3 +239,13 @@ type IPMWMultisigAccountConfiguredResponseBody struct {
 |----------|----------------------|
 | Status   | Enum PMWMultisigAccountStatus { OK, ERROR }
 | Sequence | Current sequence number of the account
+
+
+## 4. Health endpoint `GET /api/health`
+
+Returns 
+```json
+{
+  "healthy": true
+}
+```
