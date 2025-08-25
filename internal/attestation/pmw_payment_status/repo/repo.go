@@ -29,7 +29,7 @@ func NewXRPRepository(db, cChainDb *gorm.DB) *XRPRepository {
 func (r *XRPRepository) FetchInstructionLog(ctx context.Context, eventHash string, instructionId common.Hash) (*types.Log, error) {
 	var dbLog database.Log
 	err := r.cChainDb.WithContext(ctx).
-		Where("topic0 = ? AND topic1 = ?", eventHash, instructionId).
+		Where("topic0 = ? AND topic1 = ?", eventHash[2:], instructionId.Hex()[2:]).
 		First(&dbLog).Error
 	if err != nil {
 		return nil, fmt.Errorf("log not found for instruction %s", instructionId)

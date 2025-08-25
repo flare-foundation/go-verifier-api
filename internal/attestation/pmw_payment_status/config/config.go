@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -44,7 +44,7 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 	if err != nil {
 		return nil, err
 	}
-	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsABI))
+	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse TeeInstructions ABI: %w", err)
 	}
