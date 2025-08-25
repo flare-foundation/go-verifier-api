@@ -9,20 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type TeeAvailabilityHeader struct {
-	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x546565417661696c6162696c697479436865636b000000000000000000000000"`
-	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x5445450000000000000000000000000000000000000000000000000000000000"`
-	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
-}
-
-type TeeAvailabilityEncodedRequest struct {
-	FTDCHeader  TeeAvailabilityHeader `json:"header"`
-	RequestBody string                `json:"requestBody" example:"0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"`
-}
-type TeeAvailabilityRequest struct {
-	FTDCHeader  TeeAvailabilityHeader      `json:"header"`
-	RequestData TeeAvailabilityRequestBody `json:"requestData"`
-}
+type TeeAvailabilityRequest = FTDCRequest[TeeAvailabilityRequestBody]
 
 type TeeAvailabilityRequestBody struct {
 	TeeId     string `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`

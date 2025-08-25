@@ -24,6 +24,9 @@ func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultis
 	if envConfig.RPCURL == "" {
 		return nil, fmt.Errorf("RPC_URL not set in .env")
 	}
+	if envConfig.XRPClientURL == "" {
+		return nil, fmt.Errorf("XRP_CLIENT_URL not set in .env")
+	}
 	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
 	if err != nil {
 		return nil, err
@@ -31,6 +34,7 @@ func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultis
 	return &config.PMWMultisigAccountConfig{
 		SourcePair:          commonConfig.SourceIdPair,
 		RPCURL:              envConfig.RPCURL,
+		XRPClientURL:        envConfig.XRPClientURL,
 		AttestationTypePair: commonConfig.AttestationTypePair,
 		AbiPair:             commonConfig.AbiPair,
 	}, nil

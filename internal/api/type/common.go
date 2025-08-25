@@ -9,6 +9,22 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
+type FTDCHeader struct {
+	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
+	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
+	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
+}
+
+type FTDCRequest[T any] struct {
+	FTDCHeader  FTDCHeader `json:"header"`
+	RequestData T          `json:"requestData"`
+}
+
+type FTDCRequestEncoded struct {
+	FTDCHeader  FTDCHeader `json:"header"`
+	RequestBody string     `json:"responseBody" example:"0x0000abcd..."`
+}
+
 type EncodedRequestBody struct {
 	RequestBody string `json:"requestBody" example:"0x0000abcd..."`
 }

@@ -6,10 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
@@ -60,7 +59,7 @@ func TeeAvailabilityCheckHandler(
 		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
-			Body types.TeeAvailabilityEncodedRequest
+			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.RawAndEncodedTeeAvailabilityResponseBody], error) {
 			attestationRequest, err := toIFTdcHubFtdcAttestationRequest(request.Body)
 			if err != nil {
@@ -87,10 +86,13 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct {
 			Body connector.IFtdcHubFtdcAttestationRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
-			_, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, config, verifier)
+			logger.Debug("Received request for TEEAvailability")
+			response, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, config, verifier)
 			if err != nil {
+				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
+			logger.Debug("Result of TEEAvailability verification", response)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil
@@ -101,11 +103,15 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 	if err := validation.ValidateRequest(request); err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, "0x"+hex.EncodeToString(request.Header.AttestationType[:]), "0x"+hex.EncodeToString(request.Header.SourceId[:])); err != nil {
+	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
+		config.AttestationTypePair,
+		config.SourcePair,
+		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.AttestationType[:])),
+		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.SourceId[:])),
+	); err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	requestBodyBytes := request.RequestBody
-	requestData, err := utils.AbiDecodeRequestData[connector.ITeeAvailabilityCheckRequestBody](requestBodyBytes, config.AbiPair.Request)
+	requestData, err := utils.AbiDecodeRequestData[connector.ITeeAvailabilityCheckRequestBody](request.RequestBody, config.AbiPair.Request)
 	if err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}
@@ -121,19 +127,4 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
 	return responseData, responseDataBytes, nil
-}
-
-func toIFTdcHubFtdcAttestationRequest(data types.TeeAvailabilityEncodedRequest) (connector.IFtdcHubFtdcAttestationRequest, error) {
-	encoded, err := hex.DecodeString(strings.TrimPrefix(data.RequestBody, "0x"))
-	if err != nil {
-		return connector.IFtdcHubFtdcAttestationRequest{}, err
-	}
-	return connector.IFtdcHubFtdcAttestationRequest{
-		Header: connector.IFtdcHubFtdcRequestHeader{
-			AttestationType: common.HexToHash(data.FTDCHeader.AttestationType),
-			SourceId:        common.HexToHash(data.FTDCHeader.SourceId),
-			ThresholdBIPS:   data.FTDCHeader.ThresholdBIPS,
-		},
-		RequestBody: encoded,
-	}, nil
 }

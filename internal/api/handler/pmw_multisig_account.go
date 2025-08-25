@@ -5,7 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"strings"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -53,9 +54,13 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
-			Body types.PMWMultisigAccountEncodedRequest
+			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.RawAndEncodedPMWMultisigAccountResponseBody], error) {
-			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWMultisigAccountRequest(request.Body, ctx, config, verifier)
+			attestationRequest, err := toIFTdcHubFtdcAttestationRequest(request.Body)
+			if err != nil {
+				return nil, err
+			}
+			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWMultisigAccountRequest(attestationRequest, ctx, config, verifier)
 			if err != nil {
 				return nil, err
 			}
@@ -66,36 +71,42 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 		})
 	// verify
 	huma.Register(api, huma.Operation{
-		OperationID: "post-verify",
-		Method:      http.MethodPost,
-		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
-		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
+		OperationID:      "post-verify",
+		Method:           http.MethodPost,
+		Path:             attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
+		Tags:             []string{string(config.AttestationTypePair.AttestationType)},
+		SkipValidateBody: true, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
+	},
+
 		func(ctx context.Context, request *struct {
-			Body types.PMWMultisigAccountEncodedRequest
+			Body connector.IFtdcHubFtdcAttestationRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
-			_, responseDataBytes, err := validateAndVerifyEncodedPMWMultisigAccountRequest(request.Body, ctx, config, verifier)
+			logger.Debug("Received request for PMWMultisigAccount")
+			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWMultisigAccountRequest(request.Body, ctx, config, verifier)
 			if err != nil {
+				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
+			logger.Debug("Result after PMWMultisigAccount verification", responseData)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil
 		})
 }
 
-func validateAndVerifyEncodedPMWMultisigAccountRequest(request types.PMWMultisigAccountEncodedRequest, ctx context.Context, config *config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody]) (connector.IPMWMultisigAccountConfiguredResponseBody, []byte, error) {
+func validateAndVerifyEncodedPMWMultisigAccountRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody]) (connector.IPMWMultisigAccountConfiguredResponseBody, []byte, error) {
 	if err := validation.ValidateRequest(request); err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.FTDCHeader.AttestationType, request.FTDCHeader.SourceId); err != nil {
+	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
+		config.AttestationTypePair,
+		config.SourcePair,
+		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.AttestationType[:])),
+		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.SourceId[:])),
+	); err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	cleanRequestBodyHex := strings.TrimPrefix(request.RequestBody, "0x")
-	requestBodyBytes, err := hex.DecodeString(cleanRequestBodyHex)
-	if err != nil {
-		return connector.IPMWMultisigAccountConfiguredResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to bytes failed: %v", err))
-	}
-	requestData, err := utils.AbiDecodeRequestData[connector.IPMWMultisigAccountConfiguredRequestBody](requestBodyBytes, config.AbiPair.Request)
+	requestData, err := utils.AbiDecodeRequestData[connector.IPMWMultisigAccountConfiguredRequestBody](request.RequestBody, config.AbiPair.Request)
 	if err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}

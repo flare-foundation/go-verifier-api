@@ -11,7 +11,8 @@ import (
 )
 
 var envConfig = config.EnvConfig{
-	RPCURL:          "https://s.altnet.rippletest.net:51234",
+	RPCURL:          "localhost",
+	XRPClientURL:    "https://s.altnet.rippletest.net:51234",
 	SourceID:        "TESTXRP",
 	AttestationType: connector.PMWMultisigAccountConfigured,
 }

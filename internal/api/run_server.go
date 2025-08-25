@@ -73,7 +73,7 @@ func RunServer() {
 	routerWithSecurity := secureMiddleware.Handler(router)
 	routerWithCORS := corsHandler.Handler(routerWithSecurity)
 
-	fmt.Printf("Starting %s verifier server with type %s on: %s ...\n", envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
+	logger.Infof("Starting %s verifier server with type %s on: %s ...\n", envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
 	logger.Fatal(http.ListenAndServe(": "+envConfig.Port, routerWithCORS))
 }
 
@@ -163,6 +163,7 @@ func loadEnvConfig() (config.EnvConfig, error) {
 
 	return config.EnvConfig{
 		RPCURL:                                 os.Getenv("RPC_URL"),
+		XRPClientURL:                           os.Getenv("XRP_CLIENT_URL"),
 		RelayContractAddress:                   os.Getenv("RELAY_CONTRACT_ADDRESS"),
 		TeeRegistryContractAddress:             os.Getenv("TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"),
 		TeeWalletManagerContractAddress:        os.Getenv("TEE_WALLET_MANAGER_CONTRACT_ADDRESS"),

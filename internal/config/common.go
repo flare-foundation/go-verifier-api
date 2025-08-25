@@ -11,6 +11,7 @@ import (
 
 type EnvConfig struct {
 	RPCURL                                 string
+	XRPClientURL                           string
 	RelayContractAddress                   string
 	TeeRegistryContractAddress             string
 	TeeWalletManagerContractAddress        string
@@ -73,6 +74,7 @@ type PMWPaymentStatusConfig struct {
 type PMWMultisigAccountConfig struct {
 	SourcePair          SourceIdEncodedPair
 	RPCURL              string
+	XRPClientURL        string
 	AttestationTypePair AttestationTypeEncodedPair
 	AbiPair             AbiArgPair
 }

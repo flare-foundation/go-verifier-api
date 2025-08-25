@@ -5,20 +5,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
-type PMWPaymentStatusHeader struct {
-	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x504d575061796d656e7453746174757300000000000000000000000000000000"`
-	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x5445535458525000000000000000000000000000000000000000000000000000"`
-	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
-}
-
-type PMWPaymentStatusEncodedRequest struct {
-	FTDCHeader  PMWPaymentStatusHeader
-	RequestBody string `json:"requestBody" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"`
-}
-type PMWPaymentStatusRequest struct {
-	FTDCHeader  PMWPaymentStatusHeader      `json:"header"`
-	RequestData PMWPaymentStatusRequestBody `json:"requestData"`
-}
+type PMWPaymentStatusRequest = FTDCRequest[PMWPaymentStatusRequestBody]
 
 type PMWPaymentStatusRequestBody struct {
 	WalletId string `json:"walletId" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
