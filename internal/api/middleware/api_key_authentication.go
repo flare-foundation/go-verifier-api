@@ -1,14 +1,20 @@
 package middleware
 
 import (
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"net/http"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
 )
 
 func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context, next func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
+		// skip /health endpoint
+		if ctx.URL().Path == "/health" {
+			next(ctx)
+			return
+		}
 		apiKey := ctx.Header("X-API-KEY")
 		if apiKey == "" {
 			err := huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized")

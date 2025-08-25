@@ -17,6 +17,7 @@ import (
 )
 
 func LoadModule(api huma.API, envConfig config.EnvConfig) error {
+	handler.RegisterHealthHandler(api)
 	switch envConfig.AttestationType {
 	case connector.AvailabilityCheck:
 		config, err := teeavailabilityconfig.GetTeeAvailabilityCheckConfig(envConfig)

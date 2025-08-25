@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
@@ -21,7 +22,7 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
 		Method:      http.MethodPost,
-		Path:        fmt.Sprintf("/%s/prepareRequestBody", config.AttestationTypePair.AttestationType),
+		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
 			Body types.PMWMultisigAccountRequest
@@ -49,7 +50,7 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareResponseBody",
 		Method:      http.MethodPost,
-		Path:        fmt.Sprintf("/%s/prepareResponseBody", config.AttestationTypePair.AttestationType),
+		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
 			Body types.PMWMultisigAccountEncodedRequest
@@ -67,7 +68,7 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 	huma.Register(api, huma.Operation{
 		OperationID: "post-verify",
 		Method:      http.MethodPost,
-		Path:        fmt.Sprintf("/%s/verify", config.AttestationTypePair.AttestationType),
+		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
 		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
 		func(ctx context.Context, request *struct {
 			Body types.PMWMultisigAccountEncodedRequest
