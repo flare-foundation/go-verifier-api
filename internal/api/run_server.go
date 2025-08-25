@@ -73,7 +73,7 @@ func RunServer() {
 	routerWithSecurity := secureMiddleware.Handler(router)
 	routerWithCORS := corsHandler.Handler(routerWithSecurity)
 
-	fmt.Printf("Starting server on: %s...\n", envConfig.Port)
+	fmt.Printf("Starting %s verifier server with type %s on: %s ...\n", envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
 	logger.Fatal(http.ListenAndServe(": "+envConfig.Port, routerWithCORS))
 }
 
@@ -128,21 +128,27 @@ func getAPIKeys() ([]string, error) {
 func loadEnvConfig() (config.EnvConfig, error) {
 	err := godotenv.Load()
 	if err != nil {
-		return config.EnvConfig{}, fmt.Errorf("error loading .env file: %v", err)
+		logger.Warn("No .env file found, proceeding with environment variables")
 	}
 	port := os.Getenv("PORT")
+	if port == "" {
+		return config.EnvConfig{}, fmt.Errorf("PORT must be set")
+	}
 	verifierTypeStr := os.Getenv("VERIFIER_TYPE")
+	if verifierTypeStr == "" {
+		return config.EnvConfig{}, fmt.Errorf("VERIFIER_TYPE must be set")
+	}
 	sourceIDStr := os.Getenv("SOURCE_ID")
-	if port == "" || verifierTypeStr == "" || sourceIDStr == "" {
-		return config.EnvConfig{}, fmt.Errorf("PORT, VERIFIER_TYPE and SOURCE_ID must be set")
+	if sourceIDStr == "" {
+		return config.EnvConfig{}, fmt.Errorf("SOURCE_ID must be set")
 	}
 	attestationType, err := parseAttestationType(verifierTypeStr)
 	if err != nil {
-		logger.Fatalf("Invalid VERIFIER_TYPE in .env: %v", err)
+		logger.Fatalf("Invalid VERIFIER_TYPE: %v", err)
 	}
 	sourceID, err := parseSourceId(sourceIDStr)
 	if err != nil {
-		logger.Fatalf("Invalid SOURCE_ID in .env: %v", err)
+		logger.Fatalf("Invalid SOURCE_ID: %v", err)
 	}
 	apiKeys, err := getAPIKeys()
 	if err != nil {
@@ -151,8 +157,8 @@ func loadEnvConfig() (config.EnvConfig, error) {
 
 	env := os.Getenv("ENV")
 	if env == "" {
-		logger.Warn("ENV is not set, defaulting to production")
-		env = "production"
+		logger.Warn("ENV is not set, defaulting to development")
+		env = "development"
 	}
 
 	return config.EnvConfig{
