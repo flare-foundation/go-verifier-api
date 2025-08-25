@@ -74,7 +74,6 @@ type PMWPaymentStatusConfig struct {
 type PMWMultisigAccountConfig struct {
 	SourcePair          SourceIdEncodedPair
 	RPCURL              string
-	XRPClientURL        string
 	AttestationTypePair AttestationTypeEncodedPair
 	AbiPair             AbiArgPair
 }

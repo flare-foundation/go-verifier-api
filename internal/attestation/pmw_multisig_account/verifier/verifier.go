@@ -15,7 +15,7 @@ type VerifierConstructor func(
 var xrpConstructor = func(cfg *config.PMWMultisigAccountConfig) (
 	verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
-	client := NewXrpClient(cfg.XRPClientURL)
+	client := NewXrpClient(cfg.RPCURL)
 	return &XRPVerifier{config: cfg, client: client}, nil
 }
 
