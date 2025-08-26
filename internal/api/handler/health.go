@@ -8,6 +8,10 @@ import (
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 )
 
+type HealthResponse struct {
+	Healthy bool `json:"healthy"`
+}
+
 func RegisterHealthHandler(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-health",
@@ -16,8 +20,11 @@ func RegisterHealthHandler(api huma.API) {
 		Tags:        []string{"Health"},
 		Security:    []map[string][]string{},
 	},
-		func(ctx context.Context, req *struct{}) (*types.Response[map[string]bool], error) {
-			return types.NewResponse(map[string]bool{"healthy": true}), nil
+		func(ctx context.Context, req *struct{}) (*types.Response[HealthResponse], error) {
+			resp := HealthResponse{
+				Healthy: true,
+			}
+			return types.NewResponse(resp), nil
 		},
 	)
 }
