@@ -29,7 +29,7 @@ type EncodedRequestBody struct {
 	RequestBody string `json:"requestBody" example:"0x0000abcd..."`
 }
 
-// TODO Common types for verifier and relay client
+// TODO Common types for verifier and relay client.
 type EncodedResponseBody struct {
 	Response hexutil.Bytes `json:"Response" example:"0x0000abcd..."`
 }

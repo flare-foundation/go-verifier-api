@@ -15,7 +15,12 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func PMWPaymentStatusHandler(api huma.API, config *config.PMWPaymentStatusConfig, verifier verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody]) {
+func PMWPaymentStatusHandler(
+	api huma.API,
+	config *config.PMWPaymentStatusConfig,
+	verifier verifierinterface.VerifierInterface[
+		connector.IPMWPaymentStatusRequestBody,
+		connector.IPMWPaymentStatusResponseBody]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",

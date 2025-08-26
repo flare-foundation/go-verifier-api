@@ -38,7 +38,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 	case connector.PMWPaymentStatus:
 		service, err := paymentservice.NewPaymentService(envConfig)
 		if err != nil {
-			return fmt.Errorf("%v", err)
+			return fmt.Errorf("%w", err)
 		}
 		verifier := service.GetVerifier()
 		config := service.GetConfig()
@@ -46,7 +46,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 	case connector.PMWMultisigAccountConfigured:
 		service, err := multisigservice.NewMultisigService(envConfig)
 		if err != nil {
-			return fmt.Errorf("%v", err)
+			return fmt.Errorf("%w", err)
 		}
 		verifier := service.GetVerifier()
 		config := service.GetConfig()

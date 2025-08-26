@@ -21,8 +21,9 @@ import (
 func TeeAvailabilityCheckHandler(
 	api huma.API,
 	config config.TeeAvailabilityCheckConfig,
-	verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) {
-
+	verifier verifierinterface.VerifierInterface[
+		connector.ITeeAvailabilityCheckRequestBody,
+		connector.ITeeAvailabilityCheckResponseBody]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
@@ -95,7 +96,7 @@ func TeeAvailabilityCheckHandler(
 				Response: responseDataBytes,
 			}), nil
 		})
-	//helper poller function
+	// helper poller function
 	huma.Register(api, huma.Operation{
 		OperationID: "get-polled-tees",
 		Method:      http.MethodGet,

@@ -17,7 +17,12 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountConfig, verifier verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody]) {
+func PMWMultisigAccountHandler(
+	api huma.API,
+	config *config.PMWMultisigAccountConfig,
+	verifier verifierinterface.VerifierInterface[
+		connector.IPMWMultisigAccountConfiguredRequestBody,
+		connector.IPMWMultisigAccountConfiguredResponseBody]) {
 	// prepare RequestBody
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",

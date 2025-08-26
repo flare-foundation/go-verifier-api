@@ -71,7 +71,7 @@ func DecodeAndParsePEMCertificate(certificate string) (*x509.Certificate, error)
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse certificate: %v", err)
+		return nil, fmt.Errorf("cannot parse certificate: %w", err)
 	}
 	return cert, nil
 }

@@ -78,7 +78,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	// Build challenge instruction id
 	challengeInstructionId, err := v.generateChallengeInstructionId(req.TeeId, req.Challenge)
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot generate challenge instruction id: %v", err)
+		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from tee proxy /action/result/<challengeInstructionId>
 	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionId)
@@ -87,7 +87,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 			// check polled data
 			valid, infoErr := v.isTeeInfoValid(req.TeeId)
 			if infoErr != nil { // Not enough data has been polled
-				return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("insufficient polling data to determine status: %v", infoErr)
+				return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("insufficient polling data to determine status: %w", infoErr)
 			}
 			if valid {
 				return connector.ITeeAvailabilityCheckResponseBody{}, ErrIndeterminate
@@ -95,7 +95,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 				return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(types.DOWN)}, nil
 			}
 		} else {
-			return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot fetch tee data %s: %v", req.TeeId, err)
+			return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot fetch tee data %s: %w", req.TeeId, err)
 		}
 	}
 	statusInfo, err := v.dataVerification(response)
@@ -129,17 +129,17 @@ func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (Statu
 	// Certificate checks - check if we can trust the data in token
 	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %v", err)
+		return StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %w", err)
 	}
 	// check claims
 	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to validate claims: %v", err)
+		return StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}
 	// check initial signing policy hash
 	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyID)
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %v", err)
+		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %w", err)
 	}
 	if initialSigningPolicyHash != infoData.InitialSigningPolicyHash {
 		return StatusInfo{}, errors.New("failed to validate initial signing policy hash")
@@ -147,7 +147,7 @@ func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (Statu
 	// check last signing policy hash
 	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyID)
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %v", err)
+		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
 	}
 	if lastSigningPolicyHash != infoData.LastSigningPolicyHash {
 		return StatusInfo{}, errors.New("failed to validate last signing policy hash")

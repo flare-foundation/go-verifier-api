@@ -30,7 +30,7 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	// the signature is verified.
 	jwtHeaders, err := ExtractJWTHeaders(attestationToken)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("cannot extract JWTHeaders returned error: %v", err)
+		return jwt.Token{}, fmt.Errorf("cannot extract JWTHeaders returned error: %w", err)
 	}
 	if jwtHeaders["alg"] != "RS256" {
 		return jwt.Token{}, fmt.Errorf(fmt.Sprintf("Cannot validate PKI TOKEN - got Alg: %v, want: %v", jwtHeaders["alg"], "RS256"), nil)
@@ -38,10 +38,13 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	// Additional Check: Validate the ALG in the header matches the certificate SPKI.
 	// https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.7
 	// This is included in golangs jwt.Parse function
-	x5cHeaders := jwtHeaders["x5c"].([]any)
+	x5cHeaders, ok := jwtHeaders["x5c"].([]any)
+	if !ok {
+		return jwt.Token{}, errors.New("jwtHeaders[x5c] is not a slice")
+	}
 	certificates, err := ExtractCertificatesFromX5CHeader(x5cHeaders)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("cannot ExtractCertificatesFromX5CHeader: %v", err)
+		return jwt.Token{}, fmt.Errorf("cannot ExtractCertificatesFromX5CHeader: %w", err)
 	}
 	// Verify the leaf certificate signature algorithm is an RSA key
 	if certificates.LeafCert.SignatureAlgorithm != x509.SHA256WithRSA {
@@ -56,11 +59,11 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	// https://confidentialcomputing.googleapis.com/.well-known/attestation-pki-root
 	err = CompareCertificates(storedRootCertificate, certificates.RootCert)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("failed to verify certificate chain: %v", err)
+		return jwt.Token{}, fmt.Errorf("failed to verify certificate chain: %w", err)
 	}
 	err = VerifyCertificateChain(certificates)
 	if err != nil {
-		return jwt.Token{}, fmt.Errorf("verification certificate chain failed: %v", err)
+		return jwt.Token{}, fmt.Errorf("verification certificate chain failed: %w", err)
 	}
 	keyFunc := func(token *jwt.Token) (any, error) {
 		return certificates.LeafCert.PublicKey, nil
@@ -81,7 +84,7 @@ func ExtractJWTHeaders(token string) (map[string]any, error) {
 	unverifiedClaims := &jwt.MapClaims{}
 	parsedToken, _, err := parser.ParseUnverified(token, unverifiedClaims)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse claims token: %v", err)
+		return nil, fmt.Errorf("failed to parse claims token: %w", err)
 	}
 	return parsedToken.Header, nil
 }
@@ -100,7 +103,11 @@ func ExtractCertificatesFromX5CHeader(x5cHeaders []any) (PKICertificates, error)
 	}
 	x5c := []string{}
 	for _, header := range x5cHeaders {
-		x5c = append(x5c, header.(string))
+		h, ok := header.(string)
+		if !ok {
+			return PKICertificates{}, fmt.Errorf("header %v is not a string", header)
+		}
+		x5c = append(x5c, h)
 	}
 	// The PKI token x5c header should have 3 certificates - leaf, intermediate and root
 	if len(x5c) != 3 {
@@ -108,15 +115,15 @@ func ExtractCertificatesFromX5CHeader(x5cHeaders []any) (PKICertificates, error)
 	}
 	leafCert, err := DecodeAndParseDERCertificate(x5c[0])
 	if err != nil {
-		return PKICertificates{}, fmt.Errorf("cannot parse leaf certificate: %v", err)
+		return PKICertificates{}, fmt.Errorf("cannot parse leaf certificate: %w", err)
 	}
 	intermediateCert, err := DecodeAndParseDERCertificate(x5c[1])
 	if err != nil {
-		return PKICertificates{}, fmt.Errorf("cannot parse intermediate certificate: %v", err)
+		return PKICertificates{}, fmt.Errorf("cannot parse intermediate certificate: %w", err)
 	}
 	rootCert, err := DecodeAndParseDERCertificate(x5c[2])
 	if err != nil {
-		return PKICertificates{}, fmt.Errorf("cannot parse root certificate: %v", err)
+		return PKICertificates{}, fmt.Errorf("cannot parse root certificate: %w", err)
 	}
 	certificates := PKICertificates{
 		LeafCert:         leafCert,
@@ -131,7 +138,7 @@ func DecodeAndParseDERCertificate(certificate string) (*x509.Certificate, error)
 	bytes, _ := base64.StdEncoding.DecodeString(certificate)
 	cert, err := x509.ParseCertificate(bytes)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse certificate: %v", err)
+		return nil, fmt.Errorf("cannot parse certificate: %w", err)
 	}
 	return cert, nil
 }
@@ -158,7 +165,7 @@ func VerifyCertificateChain(certificates PKICertificates) error {
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to verify certificate chain: %v", err)
+		return fmt.Errorf("failed to verify certificate chain: %w", err)
 	}
 	return nil
 }
@@ -247,7 +254,7 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 	// generate teeInfo hash
 	teeInfoBytes, err := teeInfoData.Hash()
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %v", err)
+		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %w", err)
 	}
 	// match with eat_nonce
 	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) {
@@ -279,11 +286,11 @@ func ValidateClaims(token jwt.Token, teeInfoData teeTypes.TeeInfo) (StatusInfo, 
 	}
 	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %v", err)
+		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %w", err)
 	}
 	statusInfo.Platform, err = utils.Bytes32(claims.HWModel)
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %v", err)
+		return StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %w", err)
 	}
 	return statusInfo, nil
 }
@@ -305,7 +312,7 @@ func hexStringToBytes32(hexStr string) (common.Hash, error) {
 func TeeInfoHash(teeInfo tee.TeeStructsAttestation) (string, error) {
 	encoded, err := structs.Encode(tee.StructArg[tee.Attestation], teeInfo)
 	if err != nil {
-		return "", fmt.Errorf("cannot create teeInfoHash: %v", err)
+		return "", fmt.Errorf("cannot create teeInfoHash: %w", err)
 	}
 	hashBytes := crypto.Keccak256(encoded)
 	hashString := hex.EncodeToString(hashBytes)
