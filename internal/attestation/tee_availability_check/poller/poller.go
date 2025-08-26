@@ -72,7 +72,6 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					}
 					teeVerifier.TeeSamples[t.teeId] = samples
 					teeVerifier.SamplesMu.Unlock()
-					logger.Infof("Poller has following samples: %v", teeVerifier.TeeSamples) // TODO remove later
 				}
 			}
 		}()
@@ -82,6 +81,10 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	}
 	close(taskCh)
 	wg.Wait()
+	teeVerifier.SamplesMu.RLock()
+	logger.Debugf("Final samples: %v", teeVerifier.TeeSamples)
+	teeVerifier.SamplesMu.RUnlock()
+
 }
 
 func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyUrl string) (bool, error) {
@@ -105,6 +108,6 @@ func getActiveTees(teeVerifier *verifier.TeeVerifier) (teeList, error) {
 	if err != nil {
 		return teeList{}, fmt.Errorf("getActiveTees: %w", err)
 	}
-	logger.Infof("Poller got active Tees: %v", activeTees) // TODO remove later
+	logger.Debugf("Poller got active Tees: %v", activeTees)
 	return activeTees, nil
 }
