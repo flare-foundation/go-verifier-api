@@ -85,13 +85,17 @@ func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duratio
 	return zero, nil
 }
 
-func HexWith0x(data []byte) string {
+func BytesToHex0x(data []byte) string {
 	return "0x" + hex.EncodeToString(data)
+}
+
+func RemoveHexPrefix(s string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "0X")
 }
 
 func HexStringToBytes32(s string) (common.Hash, error) {
 	var arr common.Hash
-	s = strings.TrimPrefix(s, "0x")
+	s = RemoveHexPrefix(s)
 	b, err := hex.DecodeString(s)
 	if err != nil {
 		return arr, err

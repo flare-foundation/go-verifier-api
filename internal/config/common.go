@@ -2,11 +2,11 @@ package config
 
 import (
 	"crypto/x509"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
 type EnvConfig struct {
@@ -94,7 +94,7 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, 
 	}
 	padded := make([]byte, 32)
 	copy(padded, bytes)
-	return "0x" + hex.EncodeToString(padded), nil
+	return utils.BytesToHex0x(padded), nil
 }
 
 var abiStructNames = map[connector.AttestationType]struct {

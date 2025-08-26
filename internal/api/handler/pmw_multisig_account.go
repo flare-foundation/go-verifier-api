@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 
@@ -48,7 +47,7 @@ func PMWMultisigAccountHandler(
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
 			return types.NewResponse(types.EncodedRequestBody{
-				RequestBody: utils.HexWith0x(requestDataBytes),
+				RequestBody: utils.BytesToHex0x(requestDataBytes),
 			}), nil
 		})
 	// prepare ResponseBody
@@ -70,7 +69,7 @@ func PMWMultisigAccountHandler(
 			}
 			return types.NewResponse(types.RawAndEncodedPMWMultisigAccountResponseBody{
 				ResponseData: types.MultiSigToExternal(responseData),
-				ResponseBody: utils.HexWith0x(responseDataBytes),
+				ResponseBody: utils.BytesToHex0x(responseDataBytes),
 			}), nil
 		})
 	// verify
@@ -91,7 +90,8 @@ func PMWMultisigAccountHandler(
 				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
-			logger.Debug("Result after PMWMultisigAccount verification", responseData)
+			logger.Debugf("Result after PMWMultisigAccount verification: Status=%d, Sequence=%d",
+				responseData.Status, responseData.Sequence)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil
@@ -105,8 +105,8 @@ func validateAndVerifyEncodedPMWMultisigAccountRequest(request connector.IFtdcHu
 	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
 		config.AttestationTypePair,
 		config.SourcePair,
-		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.AttestationType[:])),
-		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.SourceId[:])),
+		utils.BytesToHex0x(request.Header.AttestationType[:]),
+		utils.BytesToHex0x(request.Header.SourceId[:]),
 	); err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}

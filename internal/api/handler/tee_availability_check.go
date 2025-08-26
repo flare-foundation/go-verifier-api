@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -49,7 +49,7 @@ func TeeAvailabilityCheckHandler(
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
 			return types.NewResponse(types.EncodedRequestBody{
-				RequestBody: utils.HexWith0x(requestDataBytes),
+				RequestBody: utils.BytesToHex0x(requestDataBytes),
 			}), nil
 		})
 	// prepare ResponseBody
@@ -71,7 +71,7 @@ func TeeAvailabilityCheckHandler(
 			}
 			return types.NewResponse(types.RawAndEncodedTeeAvailabilityResponseBody{
 				ResponseData: types.TeeToExternal(responseData),
-				ResponseBody: utils.HexWith0x(responseDataBytes),
+				ResponseBody: utils.BytesToHex0x(responseDataBytes),
 			}), nil
 		})
 	// verify
@@ -91,7 +91,14 @@ func TeeAvailabilityCheckHandler(
 				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
-			logger.Debug("Result of TEEAvailability verification", response)
+			logger.Debugf("Result of TEEAvailability verification: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyId:%d, LastSigningPolicyId=%d, State=%v",
+				response.Status,
+				response.TeeTimestamp,
+				response.CodeHash,
+				bytes.Trim(response.Platform[:], "\x00"),
+				response.InitialSigningPolicyId,
+				response.LastSigningPolicyId,
+				response.State)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil
@@ -134,8 +141,8 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
 		config.AttestationTypePair,
 		config.SourcePair,
-		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.AttestationType[:])),
-		fmt.Sprintf("0x%s", hex.EncodeToString(request.Header.SourceId[:])),
+		utils.BytesToHex0x(request.Header.AttestationType[:]),
+		utils.BytesToHex0x(request.Header.SourceId[:]),
 	); err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}

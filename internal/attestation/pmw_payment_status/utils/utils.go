@@ -44,7 +44,7 @@ func GetStringField(m map[string]interface{}, key string) (string, bool) {
 
 func GetStandardAddressHash(address string) string {
 	hash := crypto.Keccak256([]byte(address))
-	return fmt.Sprintf("0x%x", hash)
+	return utils.BytesToHex0x(hash)
 }
 
 func GetWalletOpType(walletID [32]byte, walletCaller *teewalletmanager.TeeWalletManagerCaller, projectCaller *teewalletprojectmanager.TeeWalletProjectManagerCaller) ([32]byte, error) {

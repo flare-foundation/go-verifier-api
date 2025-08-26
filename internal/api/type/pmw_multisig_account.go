@@ -3,9 +3,9 @@ package attestationtypes
 import (
 	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
 type PMWMultisigAccountRequest = FTDCRequest[PMWMultisigAccountRequestBody]
@@ -19,7 +19,7 @@ type PMWMultisigAccountRequestBody struct {
 func (requestBody PMWMultisigAccountRequestBody) ToInternal() (connector.IPMWMultisigAccountConfiguredRequestBody, error) {
 	var publicKeys [][]byte
 	for _, pk := range requestBody.PublicKeys {
-		b, err := hex.DecodeString(strings.TrimPrefix(pk, "0x"))
+		b, err := hex.DecodeString(utils.RemoveHexPrefix(pk))
 		if err != nil {
 			return connector.IPMWMultisigAccountConfiguredRequestBody{}, fmt.Errorf("invalid public key: %s, err: %w", pk, err)
 		}
