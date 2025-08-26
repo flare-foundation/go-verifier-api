@@ -65,7 +65,7 @@ TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS=
 /verifier/<sourceName>/<attestationType>/
 ```
 - `<sourceName>` must be lowercase.
-- `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus).
+- `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
@@ -77,4 +77,4 @@ See [API reference](docs/api.md) for endpoint definitions and examples.
 - [ ] Check which types and functions can be fetched from other packages (go-flare-common, tee-node).
 - [ ] `verify` route: support json friendly inputs or have direct types from other packages?
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
-- [ ] Add poller API endpoint in readme.
+- [ ] Add poller API endpoint in readme.

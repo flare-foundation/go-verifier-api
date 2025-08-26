@@ -7,7 +7,7 @@ This API exposes a POST endpoints to verify different attestation types.
 /verifier/<sourceName>/<attestationType>/
 ```
 - `<sourceName>` must be lowercase.
-- `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus).
+- `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 ## 1. Main endpoint `POST /verifier/<sourceName>/<attestationType>/verify`
 Verify the encoded request body and returns ABI-encoded response.
