@@ -65,3 +65,12 @@ const (
 	OBSOLETE
 	DOWN
 )
+
+type TeeSample struct {
+	TeeID  string `json:"tee_id"`
+	Values []bool `json:"values"`
+}
+
+type TeeSamplesResponse struct {
+	Samples []TeeSample `json:"samples"`
+}

@@ -81,7 +81,6 @@ func TeeAvailabilityCheckHandler(
 		Tags:             types.GetVerifierAPITag(config.AttestationTypePair.AttestationType),
 		SkipValidateBody: true, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
 	},
-
 		func(ctx context.Context, request *struct {
 			Body connector.IFtdcHubFtdcAttestationRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
@@ -94,6 +93,35 @@ func TeeAvailabilityCheckHandler(
 			logger.Debug("Result of TEEAvailability verification", response)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
+			}), nil
+		})
+	//helper poller function
+	huma.Register(api, huma.Operation{
+		OperationID: "get-polled-tees",
+		Method:      http.MethodGet,
+		Path:        "/poller/tees",
+		Tags:        []string{"Poller"},
+	},
+		func(ctx context.Context, req *struct{}) (*types.Response[types.TeeSamplesResponse], error) {
+			teeVerifier, ok := verifier.(*teeverifier.TeeVerifier)
+			if !ok {
+				return nil, huma.NewError(
+					http.StatusInternalServerError,
+					"Internal server error: invalid verifier type",
+				)
+			}
+			teeVerifier.SamplesMu.RLock()
+			defer teeVerifier.SamplesMu.RUnlock()
+
+			samples := make([]types.TeeSample, 0, len(teeVerifier.TeeSamples))
+			for teeID, values := range teeVerifier.TeeSamples {
+				samples = append(samples, types.TeeSample{
+					TeeID:  teeID.Hex(),
+					Values: values,
+				})
+			}
+			return types.NewResponse(types.TeeSamplesResponse{
+				Samples: samples,
 			}), nil
 		})
 }
