@@ -89,10 +89,10 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, 
 		return "", fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: '%s'", attestationTypeOrSourceName)
 	}
 	bytes := []byte(attestationTypeOrSourceName)
-	if len(bytes) > 32 {
+	if len(bytes) > utils.Bytes32Size {
 		return "", fmt.Errorf("attestation type or source id name '%s' is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
 	}
-	padded := make([]byte, 32)
+	padded := make([]byte, utils.Bytes32Size)
 	copy(padded, bytes)
 	return utils.BytesToHex0x(padded), nil
 }

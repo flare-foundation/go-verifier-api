@@ -28,8 +28,8 @@ func TeeAvailabilityCheckHandler(
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
 		Method:      http.MethodPost,
-		Path:        types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
-		Tags:        types.GetVerifierAPITag(config.AttestationTypePair.AttestationType)},
+		Path:        getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
+		Tags:        getVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
@@ -56,8 +56,8 @@ func TeeAvailabilityCheckHandler(
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareResponseBody",
 		Method:      http.MethodPost,
-		Path:        types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
-		Tags:        types.GetVerifierAPITag(config.AttestationTypePair.AttestationType)},
+		Path:        getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
+		Tags:        getVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.RawAndEncodedTeeAvailabilityResponseBody], error) {
@@ -78,8 +78,8 @@ func TeeAvailabilityCheckHandler(
 	huma.Register(api, huma.Operation{
 		OperationID:      "post-verify",
 		Method:           http.MethodPost,
-		Path:             types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
-		Tags:             types.GetVerifierAPITag(config.AttestationTypePair.AttestationType),
+		Path:             getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
+		Tags:             getVerifierAPITag(config.AttestationTypePair.AttestationType),
 		SkipValidateBody: true, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
 	},
 		func(ctx context.Context, request *struct {

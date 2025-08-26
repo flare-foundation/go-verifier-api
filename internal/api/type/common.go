@@ -1,12 +1,7 @@
 package attestationtypes
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
 type FTDCHeader struct {
@@ -42,12 +37,4 @@ type Response[T any] struct {
 // NewResponse returns the response type with the right body. https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma
 func NewResponse[T any](body T) *Response[T] {
 	return &Response[T]{Body: body}
-}
-
-func GetVerifierAPIPath(sourceName config.SourceName, attestationType connector.AttestationType, endpoint string) string {
-	return fmt.Sprintf("/verifier/%s/%s/%s", strings.ToLower(string(sourceName)), attestationType, endpoint)
-}
-
-func GetVerifierAPITag(attestationType connector.AttestationType) []string {
-	return []string{string(attestationType)}
 }

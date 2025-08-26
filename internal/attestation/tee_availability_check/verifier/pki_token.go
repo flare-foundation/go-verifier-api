@@ -110,7 +110,8 @@ func ExtractCertificatesFromX5CHeader(x5cHeaders []any) (PKICertificates, error)
 		x5c = append(x5c, h)
 	}
 	// The PKI token x5c header should have 3 certificates - leaf, intermediate and root
-	if len(x5c) != 3 {
+	const numberOfCertificates = 3
+	if len(x5c) != numberOfCertificates {
 		return PKICertificates{}, fmt.Errorf("incorrect number of certificates in x5c header, expected 3 certificates, but got %v", len(x5c))
 	}
 	leafCert, err := DecodeAndParseDERCertificate(x5c[0])
@@ -301,8 +302,8 @@ func hexStringToBytes32(hexStr string) (common.Hash, error) {
 	if err != nil {
 		return b32, fmt.Errorf("invalid hex string: %w", err)
 	}
-	if len(b) != 32 {
-		return b32, fmt.Errorf("expected 32 bytes but got %d bytes", len(b))
+	if len(b) != utils.Bytes32Size {
+		return b32, fmt.Errorf("expected %d bytes but got %d bytes", utils.Bytes32Size, len(b))
 	}
 	copy(b32[:], b)
 	return b32, nil

@@ -21,9 +21,13 @@ var (
 	ErrNotFound = errors.New("resource not found (404)")
 )
 
+const (
+	Bytes32Size = 32
+)
+
 func Bytes32(s string) ([32]byte, error) {
 	var b [32]byte
-	if len(s) > 32 {
+	if len(s) > Bytes32Size {
 		return b, fmt.Errorf("string %s too long for Bytes32", s)
 	}
 	copy(b[:], s)
@@ -100,7 +104,7 @@ func HexStringToBytes32(s string) (common.Hash, error) {
 	if err != nil {
 		return arr, err
 	}
-	if len(b) != 32 {
+	if len(b) != Bytes32Size {
 		return arr, fmt.Errorf("invalid length for bytes32: got %d bytes, expected 32", len(b))
 	}
 	copy(arr[:], b)
@@ -108,7 +112,8 @@ func HexStringToBytes32(s string) (common.Hash, error) {
 }
 
 func NewBigIntFromString(s string) (*big.Int, error) {
-	i, ok := new(big.Int).SetString(s, 10)
+	const decimalBase = 10
+	i, ok := new(big.Int).SetString(s, decimalBase)
 	if !ok {
 		return nil, fmt.Errorf("invalid big.Int string: %s", s)
 	}

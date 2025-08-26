@@ -52,10 +52,13 @@ func RunServer() {
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
-
+	const (
+		SecondsPerDay        = 24 * 60 * 60
+		STSDurationInSeconds = 180 * SecondsPerDay
+	)
 	secureMiddleware := secure.New(secure.Options{
 		SSLRedirect:               true,
-		STSSeconds:                15552000,
+		STSSeconds:                STSDurationInSeconds,
 		STSIncludeSubdomains:      true,
 		STSPreload:                true,
 		ForceSTSHeader:            true,
@@ -76,7 +79,7 @@ func RunServer() {
 	routerWithCORS := corsHandler.Handler(routerWithSecurity)
 
 	logger.Infof("Starting %s verifier server with type %s on: %s ...\n", envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
-	logger.Fatal(http.ListenAndServe(": "+envConfig.Port, routerWithCORS))
+	logger.Fatal(http.ListenAndServe(":"+envConfig.Port, routerWithCORS))
 }
 
 var attestationTypes = []connector.AttestationType{

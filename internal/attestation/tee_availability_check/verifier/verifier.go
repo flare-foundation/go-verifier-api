@@ -207,7 +207,7 @@ func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, chall
 	buf := new(bytes.Buffer)
 	buf.Write(REG_OP_TYPE[:])
 	buf.Write(TEE_ATTESTATION[:])
-	buf.Write(common.LeftPadBytes(teeId.Bytes(), 32))
+	buf.Write(common.LeftPadBytes(teeId.Bytes(), utils.Bytes32Size))
 	buf.Write(challenge.Bytes())
 	challengeInstructionId := crypto.Keccak256Hash(buf.Bytes())
 	return challengeInstructionId, nil

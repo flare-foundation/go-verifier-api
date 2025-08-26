@@ -22,7 +22,7 @@ func GenerateInstructionId(walletId, opType [32]byte, nonce uint64) (common.Hash
 	}
 	var nonceByte common.Hash
 	nonceBig := big.NewInt(int64(nonce))
-	copy(nonceByte[:], common.LeftPadBytes((nonceBig).Bytes(), 32))
+	copy(nonceByte[:], common.LeftPadBytes((nonceBig).Bytes(), utils.Bytes32Size))
 
 	buf := new(bytes.Buffer)
 	buf.Write(opType[:])

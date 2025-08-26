@@ -84,7 +84,6 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	teeVerifier.SamplesMu.RLock()
 	logger.Debugf("Poller samples: %v", teeVerifier.TeeSamples)
 	teeVerifier.SamplesMu.RUnlock()
-
 }
 
 func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyUrl string) (bool, error) {

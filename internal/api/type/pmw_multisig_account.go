@@ -38,7 +38,7 @@ type PMWMultisigAccountResponseBody struct {
 	Sequence                 uint64 `json:"sequence"`
 }
 
-type PMWMultisigAccountStatus int // TODO - from common?
+type PMWMultisigAccountStatus int
 
 const (
 	PMWMultisigAccountStatusOK PMWMultisigAccountStatus = iota

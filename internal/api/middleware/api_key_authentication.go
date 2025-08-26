@@ -10,7 +10,7 @@ import (
 
 func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context, next func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
-		// skip /health endpoint
+		// skip /api/health endpoint
 		if ctx.URL().Path == "/api/health" {
 			next(ctx)
 			return

@@ -10,7 +10,8 @@ import (
 )
 
 func GetTransactionStatus(result string) (xrptypes.TransactionStatus, error) {
-	if len(result) < 3 {
+	const transactionResultPrefixLength = 3
+	if len(result) < transactionResultPrefixLength {
 		return 0, fmt.Errorf("transaction result too short: %q", result)
 	}
 	prefix := result[:3]
