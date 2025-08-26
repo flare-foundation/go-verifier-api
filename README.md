@@ -76,3 +76,5 @@ See [API reference](docs/api.md) for endpoint definitions and examples.
 - [ ] Other `TODO`s inside the code.
 - [ ] Check which types and functions can be fetched from other packages (go-flare-common, tee-node).
 - [ ] `verify` route: support json friendly inputs or have direct types from other packages?
+- [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
+- [ ] Add poller API endpoint in readme.
