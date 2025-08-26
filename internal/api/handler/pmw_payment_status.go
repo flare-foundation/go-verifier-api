@@ -8,7 +8,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
@@ -21,8 +20,8 @@ func PMWPaymentStatusHandler(api huma.API, config *config.PMWPaymentStatusConfig
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
 		Method:      http.MethodPost,
-		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
-		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
+		Path:        types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
+		Tags:        types.GetVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.PMWPaymentStatusRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
@@ -46,8 +45,8 @@ func PMWPaymentStatusHandler(api huma.API, config *config.PMWPaymentStatusConfig
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareResponseBody",
 		Method:      http.MethodPost,
-		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
-		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
+		Path:        types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
+		Tags:        types.GetVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.RawAndEncodedPMWPaymentStatusResponseBody], error) {
@@ -68,8 +67,8 @@ func PMWPaymentStatusHandler(api huma.API, config *config.PMWPaymentStatusConfig
 	huma.Register(api, huma.Operation{
 		OperationID: "post-verify",
 		Method:      http.MethodPost,
-		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
-		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
+		Path:        types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
+		Tags:        types.GetVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.EncodedResponseBody], error) {

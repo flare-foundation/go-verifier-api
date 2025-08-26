@@ -10,7 +10,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
@@ -23,8 +22,8 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
 		Method:      http.MethodPost,
-		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
-		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
+		Path:        types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
+		Tags:        types.GetVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.PMWMultisigAccountRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
@@ -51,8 +50,8 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareResponseBody",
 		Method:      http.MethodPost,
-		Path:        attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
-		Tags:        []string{string(config.AttestationTypePair.AttestationType)}},
+		Path:        types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
+		Tags:        types.GetVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.RawAndEncodedPMWMultisigAccountResponseBody], error) {
@@ -73,8 +72,8 @@ func PMWMultisigAccountHandler(api huma.API, config *config.PMWMultisigAccountCo
 	huma.Register(api, huma.Operation{
 		OperationID:      "post-verify",
 		Method:           http.MethodPost,
-		Path:             attestationtypes.GetVerifierPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
-		Tags:             []string{string(config.AttestationTypePair.AttestationType)},
+		Path:             types.GetVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
+		Tags:             types.GetVerifierAPITag(config.AttestationTypePair.AttestationType),
 		SkipValidateBody: true, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
 	},
 

@@ -44,6 +44,10 @@ func NewResponse[T any](body T) *Response[T] {
 	return &Response[T]{Body: body}
 }
 
-func GetVerifierPath(sourceName config.SourceName, attestationType connector.AttestationType, endpoint string) string {
+func GetVerifierAPIPath(sourceName config.SourceName, attestationType connector.AttestationType, endpoint string) string {
 	return fmt.Sprintf("/verifier/%s/%s/%s", strings.ToLower(string(sourceName)), attestationType, endpoint)
+}
+
+func GetVerifierAPITag(attestationType connector.AttestationType) []string {
+	return []string{string(attestationType)}
 }

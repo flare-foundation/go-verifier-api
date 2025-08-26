@@ -28,6 +28,8 @@ func RunServer() {
 
 	router := chi.NewRouter()
 	config := huma.DefaultConfig("FTDC Verifier API", "1.0")
+	config.OpenAPI.Info.Description = "The FTDC Verifier API endpoints"
+
 	config.DocsPath = ""
 	config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"ApiKeyAuth": {
