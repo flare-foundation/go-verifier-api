@@ -82,7 +82,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	close(taskCh)
 	wg.Wait()
 	teeVerifier.SamplesMu.RLock()
-	logger.Debugf("Final samples: %v", teeVerifier.TeeSamples)
+	logger.Debugf("Poller samples: %v", teeVerifier.TeeSamples)
 	teeVerifier.SamplesMu.RUnlock()
 
 }
