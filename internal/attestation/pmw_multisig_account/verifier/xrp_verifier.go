@@ -3,6 +3,7 @@ package verifier
 import (
 	"context"
 	"encoding/hex"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
@@ -41,6 +42,7 @@ func (x *XRPVerifier) verifyMultisigConfiguration(ctx context.Context, req conne
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
+		logger.Debug("Account validation failed: doesnt have signers")
 		return 0, false, nil
 	}
 
@@ -51,18 +53,23 @@ func (x *XRPVerifier) verifyMultisigConfiguration(ctx context.Context, req conne
 
 	flags := accountInfo.Result.AccountFlags
 	if !flags.DisableMasterKey {
+		logger.Debug("Account validation failed: master key is not disabled")
 		return 0, false, nil
 	}
 	if flags.DepositAuth {
+		logger.Debug("Account validation failed: deposit authorization is enabled")
 		return 0, false, nil
 	}
 	if flags.RequireDestinationTag {
+		logger.Debug("Account validation failed: destination tag is required")
 		return 0, false, nil
 	}
 	if flags.DisallowIncomingXRP {
+		logger.Debug("Account validation failed: incoming XRP is disallowed")
 		return 0, false, nil
 	}
 	if accountInfo.Result.AccountData.RegularKey != "" {
+		logger.Debug("Account validation failed: regular key is set")
 		return 0, false, nil
 	}
 	return accountInfo.Result.AccountData.Sequence, true, nil

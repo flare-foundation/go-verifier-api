@@ -2,6 +2,8 @@ package decoder
 
 import (
 	"fmt"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -11,7 +13,6 @@ import (
 )
 
 const EventNameTeeInstructionsSent = "TeeInstructionsSent"
-const PaymentInstructionMessage = "paymentInstructionMessageStruct"
 
 func GetTeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 	event, exists := abiDef.Events[EventNameTeeInstructionsSent]
@@ -21,7 +22,7 @@ func GetTeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 	return event.ID.Hex(), nil
 }
 
-func DecodeTeeInstructionsSentEventData(log *types.Log, teeAbi abi.ABI, paymentAbi abi.ABI) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
+func DecodeTeeInstructionsSentEventData(log *types.Log, teeAbi abi.ABI) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
 	eventData, err := utils.AbiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
 		teeAbi,
 		EventNameTeeInstructionsSent,
@@ -31,7 +32,7 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeAbi abi.ABI, paymentA
 		return nil, err
 	}
 	var message payment.ITeePaymentsPaymentInstructionMessage
-	err = paymentAbi.UnpackIntoInterface(&message, PaymentInstructionMessage, eventData.Message)
+	err = structs.DecodeTo(payment.MessageArguments[op.Pay], eventData.Message, &message)
 	if err != nil {
 		return nil, err
 	}

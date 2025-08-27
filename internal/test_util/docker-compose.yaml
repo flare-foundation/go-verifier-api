@@ -1,0 +1,13 @@
+services:
+  db:
+    image: "mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+    volumes:
+      - ./dump.sql:/docker-entrypoint-initdb.d/db_init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "--silent", "--host", "localhost", "-proot" ]
+      timeout: 20s
+      retries: 10
+    ports:
+      - "${INDEXER_DB_PROXY_BIND:-127.0.0.1:3306}:3306"

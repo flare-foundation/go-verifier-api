@@ -46,7 +46,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Decode event data
-	paymentMessage, err := decoder.DecodeTeeInstructionsSentEventData(chainLog, x.config.ParsedTeeInstructionsABI, x.config.ParsedPaymentABI)
+	paymentMessage, err := decoder.DecodeTeeInstructionsSentEventData(chainLog, x.config.ParsedTeeInstructionsABI)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}

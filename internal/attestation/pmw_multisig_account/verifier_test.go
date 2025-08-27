@@ -20,16 +20,16 @@ func TestMultisig(t *testing.T) {
 	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
 
-	decode1, err := hexutil.Decode("0xED3F12A88266246B4D6E3886E9906E3C905F4378ACA1CDBACF7F6989CD940FE7F7")
+	pubkey1, err := hexutil.Decode("0xED3F12A88266246B4D6E3886E9906E3C905F4378ACA1CDBACF7F6989CD940FE7F7")
 	require.NoError(t, err)
 
-	decode2, err := hexutil.Decode("0xED5E7464EF81CA10829CADE12BF0EF298A3BDCF66BF68600B9D5C47147DCE394A2")
+	pubkey2, err := hexutil.Decode("0xED5E7464EF81CA10829CADE12BF0EF298A3BDCF66BF68600B9D5C47147DCE394A2")
 	require.NoError(t, err)
 
 	verifier := service.GetVerifier()
 	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
 		WalletAddress: "rGPKDtynj7g4s789Z4w84nWF6X1wZnavk3",
-		PublicKeys:    [][]byte{decode1, decode2},
+		PublicKeys:    [][]byte{pubkey1, pubkey2},
 		Threshold:     2,
 	})
 
@@ -43,16 +43,16 @@ func TestMultisigWithoutDisabledMasterKey(t *testing.T) {
 	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
 
-	decode1, err := hexutil.Decode("0xEDB0977AA35E892128197DBBA01D84BECC5AD66C6E5C966A544D20895F51DD0494")
+	pubkey1, err := hexutil.Decode("0xEDB0977AA35E892128197DBBA01D84BECC5AD66C6E5C966A544D20895F51DD0494")
 	require.NoError(t, err)
 
-	decode2, err := hexutil.Decode("0xED5CABB5E057B0341A0C9121B450CC348D5F6F516BF7B7A9963B42B962BE17F9BB")
+	pubkey2, err := hexutil.Decode("0xED5CABB5E057B0341A0C9121B450CC348D5F6F516BF7B7A9963B42B962BE17F9BB")
 	require.NoError(t, err)
 
 	verifier := service.GetVerifier()
 	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
 		WalletAddress: "rnk1bYEjfr24uvQHnGM9DkMU5HtwsjYW6N",
-		PublicKeys:    [][]byte{decode1, decode2},
+		PublicKeys:    [][]byte{pubkey1, pubkey2},
 		Threshold:     2,
 	})
 
@@ -66,20 +66,42 @@ func TestSingleSig(t *testing.T) {
 	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
 
-	decode1, err := hexutil.Decode("0xEDB0977AA35E892128197DBBA01D84BECC5AD66C6E5C966A544D20895F51DD0494")
+	pubkey1, err := hexutil.Decode("0xEDB0977AA35E892128197DBBA01D84BECC5AD66C6E5C966A544D20895F51DD0494")
 	require.NoError(t, err)
 
-	decode2, err := hexutil.Decode("0xED5CABB5E057B0341A0C9121B450CC348D5F6F516BF7B7A9963B42B962BE17F9BB")
+	pubkey2, err := hexutil.Decode("0xED5CABB5E057B0341A0C9121B450CC348D5F6F516BF7B7A9963B42B962BE17F9BB")
 	require.NoError(t, err)
 
 	verifier := service.GetVerifier()
 	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
 		WalletAddress: "rnVdREAw4HkdS7TJzwx1XpqfAz1v8iGHxr",
-		PublicKeys:    [][]byte{decode1, decode2},
+		PublicKeys:    [][]byte{pubkey1, pubkey2},
 		Threshold:     2,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, uint8(attestationtypes.PMWMultisigAccountStatusERROR), verify.Status)
 	require.Equal(t, uint64(0), verify.Sequence)
+}
+
+func TestBla(t *testing.T) {
+	service, err := NewMultisigService(envConfig)
+	require.NoError(t, err)
+
+	pubkey1, err := hexutil.Decode("0xED3F12A88266246B4D6E3886E9906E3C905F4378ACA1CDBACF7F6989CD940FE7F7")
+	require.NoError(t, err)
+
+	pubkey2, err := hexutil.Decode("0xED5E7464EF81CA10829CADE12BF0EF298A3BDCF66BF68600B9D5C47147DCE394A2")
+	require.NoError(t, err)
+
+	verifier := service.GetVerifier()
+	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
+		WalletAddress: "rH29jBMdiGcyqPcPqS6d6qW1LZ9fMpV1aD",
+		PublicKeys:    [][]byte{pubkey1, pubkey2},
+		Threshold:     2,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, uint8(attestationtypes.PMWMultisigAccountStatusOK), verify.Status)
+	require.Equal(t, uint64(9882340), verify.Sequence)
 }
