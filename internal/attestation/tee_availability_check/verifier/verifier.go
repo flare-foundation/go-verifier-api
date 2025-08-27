@@ -42,7 +42,7 @@ type TeeVerifier struct {
 	cfg                      *config.TeeAvailabilityCheckConfig
 	ethClient                EthClient
 	TeeMachineRegistryCaller *teemachineregistry.TeeMachineRegistryCaller
-	RelayCaller              *relay.RelayCaller
+	RelayCaller              RelayCallerInterface
 	TeeSamples               map[common.Address][]bool
 	SamplesToConsider        int
 	SamplesMu                sync.RWMutex
@@ -51,6 +51,10 @@ type TeeVerifier struct {
 type EthClient interface {
 	BlockByHash(ctx context.Context, hash common.Hash) (*ethTypes.Block, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*ethTypes.Block, error)
+}
+
+type RelayCallerInterface interface {
+	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
@@ -181,7 +185,7 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 		return false, err
 	}
 	if !checkInfoChallenge {
-		return false, nil
+		return false, fmt.Errorf("info challenge failed")
 	}
 	_, err = v.dataVerification(infoResponse)
 	if err != nil {
