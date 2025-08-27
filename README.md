@@ -5,7 +5,7 @@
 - [Formatters and Linters](https://gitlab.com/flarenetwork/flare-handbook/-/tree/main/tech_stack/golang?ref_type=heads)
 
 ## How to run `TeeAvailabilityCheck` verifier
-`.env` variables:
+Environment variables:
  ```env
 VERIFIER_TYPE=TeeAvailabilityCheck
 SOURCE_ID=TEE
@@ -15,7 +15,7 @@ RPC_URL=https://<flare>
 ```
 
 ## How to run `PMWMultisigAccountConfigured` verifier
-`.env` variables:
+Environment variables:
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
 SOURCE_ID=XRP
@@ -26,7 +26,7 @@ RPC_URL=https://<xrpl>
 
 You will need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
 
-`.env` variables:
+Environment variables:
 ```env
 VERIFIER_TYPE=PMWPaymentStatus
 SOURCE_ID=XRP
@@ -38,16 +38,16 @@ TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS=
 ```
 
 ## How to run setup verifier
-1. Fill in the `.env` file according to the attestation type.
+1. Fill in the `.env` file or use environment variables according to the attestation type.
 
 2. Install dependencies:
 
-    Package [tee-node](https://gitlab.com/flarenetwork/tee/tee-node) should be pulled locally.
+    Ensure the [tee-node](https://gitlab.com/flarenetwork/tee/tee-node) package is cloned locally.
 
     ```bash
     go mod tidy
     ```
-    If there are new commits to the `tee` branch of the project [`go-flare-common`](https://github.com/flare-foundation/go-flare-common/commits/tee), you can fetch the updates using `go get github.com/flare-foundation/go-flare-common@<commitHash>`
+    To update [`go-flare-common`](https://github.com/flare-foundation/go-flare-common/commits/tee) to the latest commit on `tee` branch, run `go get github.com/flare-foundation/go-flare-common@<commitHash>`
 
 3. Run the project:
     ```bash
