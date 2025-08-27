@@ -113,9 +113,9 @@ func parseSourceId(value string) (config.SourceName, error) {
 }
 
 func getAPIKeys() ([]string, error) {
-	raw := os.Getenv("API_KEYS")
+	raw := os.Getenv(config.EnvApiKeys)
 	if strings.TrimSpace(raw) == "" {
-		return nil, fmt.Errorf("API_KEYS must be set")
+		return nil, fmt.Errorf("%s must be set", config.EnvApiKeys)
 	}
 	var apiKeys []string
 	for _, key := range strings.Split(raw, ",") {
@@ -125,7 +125,7 @@ func getAPIKeys() ([]string, error) {
 		}
 	}
 	if len(apiKeys) == 0 {
-		return nil, fmt.Errorf("API_KEYS contains only empty values")
+		return nil, fmt.Errorf("%s contains only empty values", config.EnvApiKeys)
 	}
 	return apiKeys, nil
 }
@@ -135,45 +135,44 @@ func loadEnvConfig() (config.EnvConfig, error) {
 	if err != nil {
 		logger.Warn("No .env file found, proceeding with environment variables")
 	}
-	port := os.Getenv("PORT")
+	port := os.Getenv(config.EnvPort)
 	if port == "" {
-		return config.EnvConfig{}, fmt.Errorf("PORT must be set")
+		return config.EnvConfig{}, fmt.Errorf("%s must be set", config.EnvPort)
 	}
-	verifierTypeStr := os.Getenv("VERIFIER_TYPE")
+	verifierTypeStr := os.Getenv(config.EnvAttestationType)
 	if verifierTypeStr == "" {
-		return config.EnvConfig{}, fmt.Errorf("VERIFIER_TYPE must be set")
+		return config.EnvConfig{}, fmt.Errorf("%s must be set", config.EnvAttestationType)
 	}
-	sourceIDStr := os.Getenv("SOURCE_ID")
+	sourceIDStr := os.Getenv(config.EnvSourceID)
 	if sourceIDStr == "" {
-		return config.EnvConfig{}, fmt.Errorf("SOURCE_ID must be set")
+		return config.EnvConfig{}, fmt.Errorf("%s must be set", config.EnvSourceID)
 	}
 	attestationType, err := parseAttestationType(verifierTypeStr)
 	if err != nil {
-		logger.Fatalf("Invalid VERIFIER_TYPE: %v", err)
+		logger.Fatalf("Invalid %s: %v", config.EnvAttestationType, err)
 	}
 	sourceID, err := parseSourceId(sourceIDStr)
 	if err != nil {
-		logger.Fatalf("Invalid SOURCE_ID: %v", err)
+		logger.Fatalf("Invalid %s: %v", config.EnvSourceID, err)
 	}
 	apiKeys, err := getAPIKeys()
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
-
-	env := os.Getenv("ENV")
+	env := os.Getenv(config.EnvEnv)
 	if env == "" {
-		logger.Warn("ENV is not set, defaulting to development")
+		logger.Warnf("%s is not set, defaulting to development", config.EnvEnv)
 		env = "development"
 	}
 
 	return config.EnvConfig{
-		RPCURL:                                 os.Getenv("RPC_URL"),
-		RelayContractAddress:                   os.Getenv("RELAY_CONTRACT_ADDRESS"),
-		TeeRegistryContractAddress:             os.Getenv("TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"),
-		TeeWalletManagerContractAddress:        os.Getenv("TEE_WALLET_MANAGER_CONTRACT_ADDRESS"),
-		TeeWalletProjectManagerContractAddress: os.Getenv("TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS"),
-		DatabaseURL:                            os.Getenv("DATABASE_URL"),
-		CChainDatabaseURL:                      os.Getenv("CCHAIN_DATABASE_URL"),
+		RPCURL:                                 os.Getenv(config.EnvRPCURL),
+		RelayContractAddress:                   os.Getenv(config.EnvRelayContractAddress),
+		TeeMachineRegistryContractAddress:      os.Getenv(config.EnvTeeMachineRegistryContractAddress),
+		TeeWalletManagerContractAddress:        os.Getenv(config.EnvTeeWalletManagerContractAddress),
+		TeeWalletProjectManagerContractAddress: os.Getenv(config.EnvTeeWalletProjectManagerContractAddress),
+		DatabaseURL:                            os.Getenv(config.EnvDatabaseURL),
+		CChainDatabaseURL:                      os.Getenv(config.EnvCChainDatabaseURL),
 		Env:                                    env,
 		Port:                                   port,
 		ApiKeys:                                apiKeys,

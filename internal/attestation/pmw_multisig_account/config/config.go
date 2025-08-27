@@ -1,7 +1,6 @@
 package pmwmultisigaccountconfig
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -21,8 +20,9 @@ func GetPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisi
 }
 
 func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
-	if envConfig.RPCURL == "" {
-		return nil, fmt.Errorf("RPC_URL not set in .env")
+	err := config.CheckMissingFields(envConfig, []string{config.EnvRPCURL})
+	if err != nil {
+		return nil, err
 	}
 	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
 	if err != nil {

@@ -24,14 +24,9 @@ func GetTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvail
 }
 
 func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvailabilityCheckConfig, error) {
-	if envConfig.RelayContractAddress == "" {
-		return nil, fmt.Errorf("RELAY_CONTRACT_ADDRESS not set in .env")
-	}
-	if envConfig.TeeRegistryContractAddress == "" {
-		return nil, fmt.Errorf("TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS not set in .env")
-	}
-	if envConfig.RPCURL == "" {
-		return nil, fmt.Errorf("RPC_URL not set in .env")
+	err := config.CheckMissingFields(envConfig, []string{config.EnvRelayContractAddress, config.EnvTeeMachineRegistryContractAddress, config.EnvRPCURL})
+	if err != nil {
+		return nil, err
 	}
 	googleRootCert, err := LoadGoogleRootCert()
 	if err != nil {
@@ -44,7 +39,7 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 	return &config.TeeAvailabilityCheckConfig{
 		SourcePair:                 commonConfig.SourceIdPair,
 		RelayContractAddress:       envConfig.RelayContractAddress,
-		TeeRegistryContractAddress: envConfig.TeeRegistryContractAddress,
+		TeeRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
 		RPCURL:                     envConfig.RPCURL,
 		GoogleRootCertificate:      googleRootCert,
 		AttestationTypePair:        commonConfig.AttestationTypePair,

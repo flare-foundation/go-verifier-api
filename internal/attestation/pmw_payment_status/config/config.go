@@ -25,20 +25,9 @@ func GetPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentSt
 }
 
 func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentStatusConfig, error) {
-	if envConfig.DatabaseURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL not set")
-	}
-	if envConfig.CChainDatabaseURL == "" {
-		return nil, fmt.Errorf("CCHAIN_DATABASE_URL not set")
-	}
-	if envConfig.RPCURL == "" {
-		return nil, fmt.Errorf("RPCURL not set")
-	}
-	if envConfig.TeeWalletManagerContractAddress == "" {
-		return nil, fmt.Errorf("TEE_WALLET_MANAGER_CONTRACT_ADDRESS not set")
-	}
-	if envConfig.TeeWalletProjectManagerContractAddress == "" {
-		return nil, fmt.Errorf("TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS not set")
+	err := config.CheckMissingFields(envConfig, []string{config.EnvRPCURL, config.EnvCChainDatabaseURL, config.EnvDatabaseURL, config.EnvTeeWalletManagerContractAddress, config.EnvTeeWalletProjectManagerContractAddress})
+	if err != nil {
+		return nil, err
 	}
 	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
 	if err != nil {

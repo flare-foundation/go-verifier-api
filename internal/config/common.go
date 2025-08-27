@@ -9,11 +9,25 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
+const (
+	EnvRPCURL                                 = "RPC_URL"
+	EnvRelayContractAddress                   = "RELAY_CONTRACT_ADDRESS"
+	EnvTeeMachineRegistryContractAddress      = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
+	EnvTeeWalletManagerContractAddress        = "TEE_WALLET_MANAGER_CONTRACT_ADDRESS"
+	EnvTeeWalletProjectManagerContractAddress = "TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS"
+	EnvDatabaseURL                            = "DATABASE_URL"
+	EnvCChainDatabaseURL                      = "CCHAIN_DATABASE_URL"
+	EnvEnv                                    = "ENV"
+	EnvPort                                   = "PORT"
+	EnvApiKeys                                = "API_KEYS"
+	EnvAttestationType                        = "VERIFIER_TYPE"
+	EnvSourceID                               = "SOURCE_ID"
+)
+
 type EnvConfig struct {
 	RPCURL                                 string
-	XRPClientURL                           string
 	RelayContractAddress                   string
-	TeeRegistryContractAddress             string
+	TeeMachineRegistryContractAddress      string
 	TeeWalletManagerContractAddress        string
 	TeeWalletProjectManagerContractAddress string
 	DatabaseURL                            string
@@ -141,4 +155,44 @@ func LoadEncodedAndAbi(envConfig EnvConfig) (EncodedAndAbi, error) {
 		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: envConfig.AttestationType, AttestationTypeEncoded: attestationTypeEnc},
 		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
 	}, nil
+}
+
+func CheckMissingFields(cfg EnvConfig, fields []string) error {
+	missing := []string{}
+	for _, field := range fields {
+		switch field {
+		case EnvRPCURL:
+			if cfg.RPCURL == "" {
+				missing = append(missing, field)
+			}
+		case EnvRelayContractAddress:
+			if cfg.RelayContractAddress == "" {
+				missing = append(missing, field)
+			}
+		case EnvTeeMachineRegistryContractAddress:
+			if cfg.TeeMachineRegistryContractAddress == "" {
+				missing = append(missing, field)
+			}
+		case EnvTeeWalletManagerContractAddress:
+			if cfg.TeeWalletManagerContractAddress == "" {
+				missing = append(missing, field)
+			}
+		case EnvTeeWalletProjectManagerContractAddress:
+			if cfg.TeeWalletProjectManagerContractAddress == "" {
+				missing = append(missing, field)
+			}
+		case EnvDatabaseURL:
+			if cfg.DatabaseURL == "" {
+				missing = append(missing, field)
+			}
+		case EnvCChainDatabaseURL:
+			if cfg.CChainDatabaseURL == "" {
+				missing = append(missing, field)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing environment variables: %v", missing)
+	}
+	return nil
 }
