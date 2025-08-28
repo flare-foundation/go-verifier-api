@@ -185,7 +185,7 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 		return false, err
 	}
 	if !checkInfoChallenge {
-		return false, fmt.Errorf("info challenge failed")
+		return false, fmt.Errorf("info challenge failed %s", baseURL)
 	}
 	_, err = v.dataVerification(infoResponse)
 	if err != nil {
