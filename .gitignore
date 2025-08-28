@@ -1,2 +1,4 @@
 .env
 tmp/
+coverage.out
+gencover.sh
