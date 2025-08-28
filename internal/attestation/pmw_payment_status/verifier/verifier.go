@@ -45,7 +45,7 @@ func GetVerifier(
 	projectManagerCaller *teewalletprojectmanager.TeeWalletProjectManagerCaller) (
 	verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
 ) {
-	sourceIdStr := string(cfg.SourcePair.SourceId)
+	sourceIdStr := string(cfg.EncodedAndAbi.SourceIdPair.SourceId)
 	constructor, ok := registry[sourceIdStr]
 	if !ok {
 		return nil, fmt.Errorf("no verifier for sourceID: %s", sourceIdStr)

@@ -29,9 +29,7 @@ func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultis
 		return nil, err
 	}
 	return &config.PMWMultisigAccountConfig{
-		SourcePair:          commonConfig.SourceIdPair,
-		RPCURL:              envConfig.RPCURL,
-		AttestationTypePair: commonConfig.AttestationTypePair,
-		AbiPair:             commonConfig.AbiPair,
+		EncodedAndAbi: commonConfig,
+		RPCURL:        envConfig.RPCURL,
 	}, nil
 }

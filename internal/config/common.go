@@ -63,33 +63,27 @@ type AbiArgPair struct {
 }
 
 type TeeAvailabilityCheckConfig struct {
-	SourcePair                 SourceIdEncodedPair
+	EncodedAndAbi
 	RelayContractAddress       string
 	TeeRegistryContractAddress string
 	RPCURL                     string
 	GoogleRootCertificate      *x509.Certificate
-	AttestationTypePair        AttestationTypeEncodedPair
-	AbiPair                    AbiArgPair
 }
 
 type PMWPaymentStatusConfig struct {
-	SourcePair                     SourceIdEncodedPair
+	EncodedAndAbi
 	DatabaseURL                    string
 	CchainDatabaseURL              string
 	RPCURL                         string
 	TeeWalletManagerAddress        string
 	TeeWalletProjectManagerAddress string
-	AttestationTypePair            AttestationTypeEncodedPair
-	AbiPair                        AbiArgPair
 	ParsedTeeInstructionsABI       abi.ABI
 	ParsedPaymentABI               abi.ABI
 }
 
 type PMWMultisigAccountConfig struct {
-	SourcePair          SourceIdEncodedPair
-	RPCURL              string
-	AttestationTypePair AttestationTypeEncodedPair
-	AbiPair             AbiArgPair
+	EncodedAndAbi
+	RPCURL string
 }
 
 type EncodedAndAbi struct {
@@ -156,7 +150,6 @@ func LoadEncodedAndAbi(envConfig EnvConfig) (EncodedAndAbi, error) {
 		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
 	}, nil
 }
-
 func CheckMissingFields(cfg EnvConfig, fields []string) error {
 	missing := []string{}
 	for _, field := range fields {

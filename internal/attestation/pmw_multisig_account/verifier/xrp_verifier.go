@@ -2,7 +2,13 @@ package verifier
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
@@ -36,6 +42,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 func (x *XRPVerifier) verifyMultisigConfiguration(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, bool, error) {
 	accountInfo, err := x.client.GetAccountInfo(ctx, req.WalletAddress)
 	if err != nil {
+		logger.Debugf("Account validation failed (Failed to get account info): %v", err)
 		return 0, false, err
 	}
 
@@ -78,7 +85,11 @@ func (x *XRPVerifier) verifyMultisigConfiguration(ctx context.Context, req conne
 func (x *XRPVerifier) verifySignerList(signerList SignerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
 	expectedAccounts := make([]string, 0, len(req.PublicKeys))
 	for _, pk := range req.PublicKeys {
-		addrStr, _ := address.PubToAddress(hex.EncodeToString(pk))
+		addrStr, err := convertPubkeyToAddress(pk)
+		if err != nil {
+			logger.Debugf("Account validation failed (Failed to convert public key to address): %v", err)
+			return false
+		}
 		expectedAccounts = append(expectedAccounts, addrStr)
 	}
 	actualAccounts := make(map[string]uint16)
@@ -97,4 +108,27 @@ func (x *XRPVerifier) verifySignerList(signerList SignerList, req connector.IPMW
 		}
 	}
 	return signerList.SignerQuorum == req.Threshold
+}
+
+func convertPubkeyToAddress(pubkey []byte) (string, error) {
+	if len(pubkey) != 64 {
+		return "", errors.New("invalid public key length")
+	}
+	pk, err := ParsePubKey([64]byte(pubkey))
+	if err != nil {
+		return "", err
+	}
+	compressed := secp256k1.CompressPubkey(pk.X, pk.Y)
+	return address.PubToAddress(hex.EncodeToString(compressed))
+
+}
+
+func ParsePubKey(pubkey [64]byte) (*ecdsa.PublicKey, error) {
+	x := new(big.Int).SetBytes(pubkey[:32])
+	y := new(big.Int).SetBytes(pubkey[32:])
+	check := secp256k1.S256().IsOnCurve(x, y)
+	if !check {
+		return nil, errors.New("invalid public key bytes")
+	}
+	return &ecdsa.PublicKey{Curve: secp256k1.S256(), X: x, Y: y}, nil
 }
