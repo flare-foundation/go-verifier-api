@@ -3,8 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"net/http"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -37,6 +38,9 @@ func PMWPaymentStatusHandler(
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 			}
 			requestDataInternal, err := request.Body.RequestData.ToInternal()
+			if err != nil {
+				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
+			}
 			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
 			requestDataBytes, err := utils.AbiEncodeData[connector.IPMWPaymentStatusRequestBody](requestDataInternal, config.AbiPair.Request)
 			if err != nil {
@@ -80,12 +84,13 @@ func PMWPaymentStatusHandler(
 		func(ctx context.Context, request *struct {
 			Body connector.IFtdcHubFtdcAttestationRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
-			logger.Debug("Received request for PMWPaymentStatusRequest")
-			_, responseDataBytes, err := validateAndVerifyEncodedPMWPaymentStatusRequest(request.Body, ctx, config, verifier)
-			logger.Debug("Received request for PMWPaymentStatusRequest")
+			logger.Debug("Received request for PMWPaymentStatusRequest (verify)")
+			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWPaymentStatusRequest(request.Body, ctx, config, verifier)
 			if err != nil {
+				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
+			logPMWPaymentStatusResponse(responseData)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil

@@ -2,15 +2,10 @@ package pmwpaymentutils
 
 import (
 	"bytes"
-	"context"
-	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletmanager"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletprojectmanager"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
@@ -45,19 +40,4 @@ func GetStringField(m map[string]interface{}, key string) (string, bool) {
 func GetStandardAddressHash(address string) string {
 	hash := crypto.Keccak256([]byte(address))
 	return utils.BytesToHex0x(hash)
-}
-
-func GetWalletOpType(walletID [32]byte, walletCaller *teewalletmanager.TeeWalletManagerCaller, projectCaller *teewalletprojectmanager.TeeWalletProjectManagerCaller) ([32]byte, error) {
-	callOpts := &bind.CallOpts{
-		Context: context.Background(),
-	}
-	projectID, err := walletCaller.GetWalletProjectId(callOpts, walletID)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("GetWalletOpType: %w", err)
-	}
-	opType, err := projectCaller.GetOpType(callOpts, projectID)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("GetWalletOpType: %w", err)
-	}
-	return opType, nil
 }

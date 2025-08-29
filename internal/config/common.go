@@ -72,13 +72,10 @@ type TeeAvailabilityCheckConfig struct {
 
 type PMWPaymentStatusConfig struct {
 	EncodedAndAbi
-	DatabaseURL                    string
-	CchainDatabaseURL              string
-	RPCURL                         string
-	TeeWalletManagerAddress        string
-	TeeWalletProjectManagerAddress string
-	ParsedTeeInstructionsABI       abi.ABI
-	ParsedPaymentABI               abi.ABI
+	DatabaseURL              string
+	CchainDatabaseURL        string
+	ParsedTeeInstructionsABI abi.ABI
+	ParsedPaymentABI         abi.ABI
 }
 
 type PMWMultisigAccountConfig struct {

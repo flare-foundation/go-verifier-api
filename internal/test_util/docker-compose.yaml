@@ -1,5 +1,5 @@
 services:
-  db:
+  c-chain-db:
     image: "mysql"
     environment:
       MYSQL_ROOT_PASSWORD: "root"
@@ -10,4 +10,13 @@ services:
       timeout: 20s
       retries: 10
     ports:
-      - "${INDEXER_DB_PROXY_BIND:-127.0.0.1:3306}:3306"
+      - "127.0.0.1:3306:3306"
+  xrp-indexer-db:
+    image: "postgres"
+    environment:
+      POSTGRES_USER: "username"
+      POSTGRES_PASSWORD: "password"
+    volumes:
+      - ./indexer-db-init.sql:/docker-entrypoint-initdb.d/db_init.sql
+    ports:
+      - "127.0.0.1:5432:5432"

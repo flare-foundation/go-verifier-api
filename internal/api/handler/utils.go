@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
@@ -67,4 +68,26 @@ func handleVerifierResult[T any](verifierErr error, responseData T, config *conf
 		return empty, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", verifierErr))
 	}
 	return responseData, responseDataBytes, nil
+}
+
+func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
+	logger.Debugf("Result after PMWMultisigAccount verification: Status=%d, Sequence=%d",
+		response.Status, response.Sequence)
+}
+
+func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBody) {
+	logger.Debugf("Result after PMWPaymentStatusRequest verification: SenderAddress=%s, RecipientAddress=%s, Amount=%v, Fee=%v, PaymentReference=%x, TransactionStatus=%d, RevertReason=%s, ReceivedAmount=%v, TransactionFee=%v, TransactionId=%x, BlockNumber=%d, BlockTimestamp=%d",
+		response.SenderAddress,
+		response.RecipientAddress,
+		response.Amount,
+		response.Fee,
+		response.PaymentReference,
+		response.TransactionStatus,
+		response.RevertReason,
+		response.ReceivedAmount,
+		response.TransactionFee,
+		response.TransactionId,
+		response.BlockNumber,
+		response.BlockTimestamp,
+	)
 }

@@ -83,14 +83,13 @@ func PMWMultisigAccountHandler(
 		func(ctx context.Context, request *struct {
 			Body connector.IFtdcHubFtdcAttestationRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
-			logger.Debug("Received request for PMWMultisigAccount")
+			logger.Debug("Received request for PMWMultisigAccount (verify)")
 			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWMultisigAccountRequest(request.Body, ctx, config, verifier)
 			if err != nil {
 				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
-			logger.Debugf("Result after PMWMultisigAccount verification: Status=%d, Sequence=%d",
-				responseData.Status, responseData.Sequence)
+			logPMWMultisigAccountResponse(responseData)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil

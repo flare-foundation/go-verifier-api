@@ -42,13 +42,10 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 		return nil, fmt.Errorf("failed to parse Payment ABI: %w", err)
 	}
 	return &config.PMWPaymentStatusConfig{
-		EncodedAndAbi:                  commonConfig,
-		DatabaseURL:                    envConfig.DatabaseURL,
-		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
-		RPCURL:                         envConfig.RPCURL,
-		TeeWalletManagerAddress:        envConfig.TeeWalletManagerContractAddress,
-		TeeWalletProjectManagerAddress: envConfig.TeeWalletProjectManagerContractAddress,
-		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
-		ParsedPaymentABI:               parsedPaymentABI,
+		EncodedAndAbi:            commonConfig,
+		DatabaseURL:              envConfig.DatabaseURL,
+		CchainDatabaseURL:        envConfig.CChainDatabaseURL,
+		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,
+		ParsedPaymentABI:         parsedPaymentABI,
 	}, nil
 }
