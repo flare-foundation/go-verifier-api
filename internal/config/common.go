@@ -42,9 +42,8 @@ type EnvConfig struct {
 type SourceName string
 
 const (
-	SourceTEE     SourceName = "TEE"
-	SourceXRP     SourceName = "XRP"
-	SourceTestXRP SourceName = "TESTXRP"
+	SourceTEE SourceName = "TEE"
+	SourceXRP SourceName = "XRP"
 )
 
 type SourceIdEncodedPair struct {
