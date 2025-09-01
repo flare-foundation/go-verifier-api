@@ -2,7 +2,7 @@
 
 - [Attestation types specification](https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0)
 - [Huma framework website](https://huma.rocks)
-- [Formatters and Linters](https://gitlab.com/flarenetwork/flare-handbook/-/tree/main/tech_stack/golang?ref_type=heads)
+- [Formatters and Linters](https://gitlab.com/flarenetwork/flare-handbook/-/tree/main/resources/tech_stack/golang)
 
 ## How to run `TeeAvailabilityCheck` verifier
 Environment variables:

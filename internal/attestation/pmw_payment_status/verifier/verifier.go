@@ -34,7 +34,7 @@ func GetVerifier(
 	db, cChainDB *gorm.DB) (
 	verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
 ) {
-	sourceIdStr := string(cfg.EncodedAndAbi.SourceIdPair.SourceId)
+	sourceIdStr := string(cfg.SourceIdPair.SourceId)
 	constructor, ok := registry[sourceIdStr]
 	if !ok {
 		return nil, fmt.Errorf("no verifier for sourceID: %s", sourceIdStr)

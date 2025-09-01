@@ -91,5 +91,4 @@ func TestCheckMissingFields(t *testing.T) {
 			require.Contains(t, err.Error(), f)
 		}
 	})
-
 }

@@ -63,5 +63,4 @@ func TestWrongNonce(t *testing.T) {
 		SubNonce: 10110068,
 	})
 	require.Error(t, err)
-
 }

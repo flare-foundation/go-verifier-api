@@ -86,20 +86,19 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}
 	// Fetch from tee proxy /action/result/<challengeInstructionId>
 	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionId)
-	if err != nil {
-		if errors.Is(err, utils.ErrNotFound) {
-			// check polled data
-			valid, infoErr := v.isTeeInfoValid(req.TeeId)
-			if infoErr != nil { // Not enough data has been polled
-				return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("insufficient polling data to determine status: %w", infoErr)
-			}
-			if valid {
-				return connector.ITeeAvailabilityCheckResponseBody{}, ErrIndeterminate
-			} else { // No response in the last 5 minutes => tee is down
-				return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(types.DOWN)}, nil
-			}
-		} else {
-			return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot fetch tee data %s: %w", req.TeeId, err)
+	if err != nil && !errors.Is(err, utils.ErrNotFound) {
+		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot fetch tee data %s: %w", req.TeeId, err)
+	}
+	if errors.Is(err, utils.ErrNotFound) {
+		// check polled data
+		valid, infoErr := v.isTeeInfoValid(req.TeeId)
+		if infoErr != nil { // Not enough data has been polled
+			return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("insufficient polling data to determine status: %w", infoErr)
+		}
+		if valid {
+			return connector.ITeeAvailabilityCheckResponseBody{}, ErrIndeterminate
+		} else { // No response in the last 5 minutes => tee is down
+			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(types.DOWN)}, nil
 		}
 	}
 	statusInfo, err := v.dataVerification(response)

@@ -120,7 +120,6 @@ func convertPubkeyToAddress(pubkey []byte) (string, error) {
 	}
 	compressed := secp256k1.CompressPubkey(pk.X, pk.Y)
 	return address.PubToAddress(hex.EncodeToString(compressed))
-
 }
 
 func ParsePubKey(pubkey [64]byte) (*ecdsa.PublicKey, error) {

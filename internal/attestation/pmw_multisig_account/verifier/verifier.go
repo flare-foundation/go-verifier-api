@@ -26,7 +26,7 @@ var registry = map[string]VerifierConstructor{
 func GetVerifier(cfg *config.PMWMultisigAccountConfig) (
 	verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
-	sourceIdStr := string(cfg.EncodedAndAbi.SourceIdPair.SourceId)
+	sourceIdStr := string(cfg.SourceIdPair.SourceId)
 	constructor, ok := registry[sourceIdStr]
 	if !ok {
 		return nil, fmt.Errorf("no verifier for sourceID: %s", sourceIdStr)
