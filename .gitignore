@@ -2,3 +2,6 @@
 tmp/
 coverage.out
 gencover.sh
+
+
+e2e/
