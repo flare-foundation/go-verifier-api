@@ -32,9 +32,6 @@ VERIFIER_TYPE=PMWPaymentStatus
 SOURCE_ID=XRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 DATABASE_URL=postgres://user:pass@host:port/db
-RPC_URL=https://<flare>
-TEE_WALLET_MANAGER_CONTRACT_ADDRESS=
-TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS=
 ```
 
 ## How to run setup verifier
