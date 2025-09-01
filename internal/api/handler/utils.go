@@ -1,18 +1,21 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
+	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
 func toIFTdcHubFtdcAttestationRequest(data types.FTDCRequestEncoded) (connector.IFtdcHubFtdcAttestationRequest, error) {
@@ -70,6 +73,55 @@ func handleVerifierResult[T any](verifierErr error, responseData T, config *conf
 	return responseData, responseDataBytes, nil
 }
 
+func validatePrepareResponseBody[T any](request types.FTDCRequest[T], config *config.EncodedAndAbi) error {
+	if err := validation.ValidateRequest(request); err != nil {
+		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
+	}
+	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
+		config.AttestationTypePair,
+		config.SourceIdPair,
+		request.FTDCHeader.AttestationType,
+		request.FTDCHeader.SourceId,
+	); err != nil {
+		return huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+	}
+	return nil
+}
+
+func prepareRequestBody[T any](requestData T, config *config.EncodedAndAbi) (*types.Response[types.EncodedRequestBody], error) {
+	// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
+	requestDataBytes, err := utils.AbiEncodeData[T](requestData, config.AbiPair.Request)
+	if err != nil {
+		return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
+	}
+	return types.NewResponse(types.EncodedRequestBody{
+		RequestBody: utils.BytesToHex0x(requestDataBytes),
+	}), nil
+}
+
+func prepareResponseBody[T any, R any, E any](
+	ctx context.Context,
+	request types.FTDCRequestEncoded,
+	validateAndVerify func(connector.IFtdcHubFtdcAttestationRequest, context.Context, *config.EncodedAndAbi, verifierinterface.VerifierInterface[T, R]) (R, []byte, error),
+	toExternal func(R) E,
+	config *config.EncodedAndAbi,
+	verifier verifierinterface.VerifierInterface[T, R]) (*types.Response[types.RawAndEncodedFTDCResponse[E]], error) {
+	attestationRequest, err := toIFTdcHubFtdcAttestationRequest(request)
+	if err != nil {
+		return nil, err
+	}
+	responseData, responseDataBytes, err := validateAndVerify(attestationRequest, ctx, config, verifier)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Response[types.RawAndEncodedFTDCResponse[E]]{
+		Body: types.RawAndEncodedFTDCResponse[E]{
+			ResponseData: toExternal(responseData),
+			ResponseBody: utils.BytesToHex0x(responseDataBytes),
+		},
+	}, nil
+}
+
 func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
 	logger.Debugf("Result after PMWMultisigAccount verification: Status=%d, Sequence=%d",
 		response.Status, response.Sequence)
@@ -90,4 +142,15 @@ func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBod
 		response.BlockNumber,
 		response.BlockTimestamp,
 	)
+}
+
+func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckResponseBody) {
+	logger.Debugf("Result of TEEAvailability verification: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyId:%d, LastSigningPolicyId=%d, State=%v",
+		response.Status,
+		response.TeeTimestamp,
+		response.CodeHash,
+		bytes.Trim(response.Platform[:], "\x00"),
+		response.InitialSigningPolicyId,
+		response.LastSigningPolicyId,
+		response.State)
 }

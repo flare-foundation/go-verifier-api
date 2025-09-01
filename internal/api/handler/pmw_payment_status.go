@@ -10,8 +10,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
@@ -31,24 +29,14 @@ func PMWPaymentStatusHandler(
 		func(ctx context.Context, request *struct {
 			Body types.PMWPaymentStatusRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
-			if err := validation.ValidateRequest(request); err != nil {
-				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
-			}
-			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourceIdPair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
-				return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+			if err := validatePrepareResponseBody[types.PMWPaymentStatusRequestBody](request.Body, config); err != nil {
+				return nil, err
 			}
 			requestDataInternal, err := request.Body.RequestData.ToInternal()
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 			}
-			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
-			requestDataBytes, err := utils.AbiEncodeData[connector.IPMWPaymentStatusRequestBody](requestDataInternal, config.AbiPair.Request)
-			if err != nil {
-				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
-			}
-			return types.NewResponse(types.EncodedRequestBody{
-				RequestBody: utils.BytesToHex0x(requestDataBytes),
-			}), nil
+			return prepareRequestBody[connector.IPMWPaymentStatusRequestBody](requestDataInternal, config)
 		})
 	// prepare ResponseBody
 	huma.Register(api, huma.Operation{
@@ -59,18 +47,14 @@ func PMWPaymentStatusHandler(
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.RawAndEncodedPMWPaymentStatusResponseBody], error) {
-			attestationRequest, err := toIFTdcHubFtdcAttestationRequest(request.Body)
-			if err != nil {
-				return nil, err
-			}
-			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWPaymentStatusRequest(attestationRequest, ctx, config, verifier)
-			if err != nil {
-				return nil, err
-			}
-			return types.NewResponse(types.RawAndEncodedPMWPaymentStatusResponseBody{
-				ResponseData: types.PMWPaymentToExternal(responseData),
-				ResponseBody: utils.BytesToHex0x(responseDataBytes),
-			}), nil
+			return prepareResponseBody(
+				ctx,
+				request.Body,
+				validateAndVerifyEncodedPMWPaymentStatusRequest,
+				types.PMWPaymentToExternal,
+				config,
+				verifier,
+			)
 		})
 	// verify
 	huma.Register(api, huma.Operation{
@@ -80,7 +64,6 @@ func PMWPaymentStatusHandler(
 		Tags:             getVerifierAPITag(config.AttestationTypePair.AttestationType),
 		SkipValidateBody: true, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
 	},
-
 		func(ctx context.Context, request *struct {
 			Body connector.IFtdcHubFtdcAttestationRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {

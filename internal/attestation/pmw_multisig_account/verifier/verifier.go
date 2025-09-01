@@ -2,7 +2,6 @@ package verifier
 
 import (
 	"fmt"
-
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
@@ -15,7 +14,7 @@ type VerifierConstructor func(
 var xrpConstructor = func(cfg *config.PMWMultisigAccountConfig) (
 	verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
-	client := NewXrpClient(cfg.RPCURL)
+	client := NewXrpClient(cfg.RPCURL, config.ChainRequestRetries, config.ChainRequestTimeout)
 	return &XRPVerifier{config: cfg, client: client}, nil
 }
 

@@ -20,12 +20,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func RunServer() {
-	envConfig, err := loadEnvConfig()
-	if err != nil {
-		logger.Fatal(err)
-	}
-
+func RunServer(envConfig config.EnvConfig) {
 	router := chi.NewRouter()
 	config := huma.DefaultConfig("FTDC Verifier API", "1.0")
 	config.Info.Description = "The FTDC Verifier API endpoints"
@@ -48,7 +43,7 @@ func RunServer() {
 	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
 	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
 
-	err = LoadModule(api, envConfig)
+	err := LoadModule(api, envConfig)
 	if err != nil {
 		logger.Fatalf("%v", err)
 	}
@@ -57,7 +52,7 @@ func RunServer() {
 		STSDurationInSeconds = 180 * SecondsPerDay
 	)
 	secureMiddleware := secure.New(secure.Options{
-		SSLRedirect:               true,
+		SSLRedirect:               envConfig.Env != "development",
 		STSSeconds:                STSDurationInSeconds,
 		STSIncludeSubdomains:      true,
 		STSPreload:                true,
@@ -129,7 +124,7 @@ func getAPIKeys() ([]string, error) {
 	return apiKeys, nil
 }
 
-func loadEnvConfig() (config.EnvConfig, error) {
+func LoadEnvConfig() (config.EnvConfig, error) {
 	err := godotenv.Load()
 	if err != nil {
 		logger.Warn("No .env file found, proceeding with environment variables")

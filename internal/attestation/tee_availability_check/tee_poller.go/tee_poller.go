@@ -12,6 +12,7 @@ import (
 	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 )
 
@@ -49,7 +50,7 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 }
 
 func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
-	activeTees, err := getAllActiveTeeMachines(teeVerifier)
+	activeTees, err := getAllActiveTeesWithRetry(teeVerifier)
 	if err != nil {
 		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
 		activeTees = getCachedActiveTees()
@@ -133,8 +134,10 @@ type teeList struct {
 }
 
 func getAllActiveTeeMachines(teeVerifier *verifier.TeeVerifier) (teeList, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.ChainRequestTimeout)
+	defer cancel()
 	callOpts := &bind.CallOpts{
-		Context: context.Background(),
+		Context: ctx,
 	}
 	activeTees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts)
 	if err != nil {
@@ -142,6 +145,16 @@ func getAllActiveTeeMachines(teeVerifier *verifier.TeeVerifier) (teeList, error)
 	}
 	logger.Debugf("TEE poller got active Tees: %v", activeTees)
 	return activeTees, nil
+}
+
+func getAllActiveTeesWithRetry(teeVerifier *verifier.TeeVerifier) (teeList, error) {
+	for i := 0; i < config.ChainRequestRetries; i++ {
+		activeTees, err := getAllActiveTeeMachines(teeVerifier)
+		if err == nil {
+			return activeTees, nil
+		}
+	}
+	return teeList{}, fmt.Errorf("getActiveTees: failed after %d retries", config.ChainRequestRetries)
 }
 
 func fetchTEEInfoData(ctx context.Context, baseURL string) (teenodetypes.TeeInfoResponse, error) {

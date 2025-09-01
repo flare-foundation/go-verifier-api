@@ -148,7 +148,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 
 func (v *TeeVerifier) CheckSigningPolicies(teeInfoData teenodetypes.TeeInfo) (teetypes.TeePollerSampleState, error) {
 	// check initial signing policy hash
-	initialSigningPolicyHash, state, err := v.getSigningPolicyHashFromChain(teeInfoData.InitialSigningPolicyID)
+	initialSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(teeInfoData.InitialSigningPolicyID)
 	if err != nil {
 		return state, fmt.Errorf("failed to retrieve initial signing policy hash: %w", err)
 	}
@@ -156,7 +156,7 @@ func (v *TeeVerifier) CheckSigningPolicies(teeInfoData teenodetypes.TeeInfo) (te
 		return teetypes.TeePollerSampleInvalid, errors.New("failed to validate initial signing policy hash")
 	}
 	// check last signing policy hash
-	lastSigningPolicyHash, state, err := v.getSigningPolicyHashFromChain(teeInfoData.LastSigningPolicyID)
+	lastSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(teeInfoData.LastSigningPolicyID)
 	if err != nil {
 		return state, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
 	}
@@ -201,8 +201,10 @@ func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, chall
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (common.Hash, teetypes.TeePollerSampleState, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.ChainRequestTimeout)
+	defer cancel()
 	callOpts := &bind.CallOpts{
-		Context: context.Background(),
+		Context: ctx,
 	}
 	signingPolicyIdBigInt := new(big.Int).SetUint64(uint64(signingPolicyId))
 	signingPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, signingPolicyIdBigInt)
@@ -211,6 +213,16 @@ func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (com
 		return common.Hash{}, state, classifiedErr
 	}
 	return common.Hash(signingPolicyHashBytes), teetypes.TeePollerSampleValid, nil
+}
+
+func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(signingPolicyId uint32) (common.Hash, teetypes.TeePollerSampleState, error) {
+	for i := 0; i < config.ChainRequestRetries; i++ {
+		signingPolicyHashBytes, _, err := v.getSigningPolicyHashFromChain(signingPolicyId)
+		if err == nil {
+			return signingPolicyHashBytes, teetypes.TeePollerSampleValid, nil
+		}
+	}
+	return common.Hash{}, teetypes.TeePollerSampleIndeterminate, fmt.Errorf("getSigningPolicyHashFromChainWithRetry: failed after %d retries", config.ChainRequestRetries) // TODO (urska) - check indeterminate is ok
 }
 
 func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (teetypes.TeePollerSampleState, error) {

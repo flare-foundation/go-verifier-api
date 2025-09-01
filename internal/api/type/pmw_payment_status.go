@@ -53,7 +53,4 @@ func PMWPaymentToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPayme
 	}
 }
 
-type RawAndEncodedPMWPaymentStatusResponseBody struct {
-	ResponseData PMWPaymentStatusResponseBody `json:"responseData"`
-	ResponseBody string                       `json:"responseBody" example:"0x0000abcd..."`
-}
+type RawAndEncodedPMWPaymentStatusResponseBody = RawAndEncodedFTDCResponse[PMWPaymentStatusResponseBody]

@@ -53,10 +53,8 @@ func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabi
 	}
 }
 
-type RawAndEncodedTeeAvailabilityResponseBody struct {
-	ResponseData TeeAvailabilityResponseBody `json:"responseData"`
-	ResponseBody string                      `json:"responseBody" example:"0x0000abcd..."`
-}
+type RawAndEncodedTeeAvailabilityResponseBody = RawAndEncodedFTDCResponse[TeeAvailabilityResponseBody]
+
 type TeeSamplesResponse struct {
 	Samples []teetypes.TeeSample `json:"samples"`
 }

@@ -13,18 +13,15 @@ import (
 )
 
 var envConfig = config.EnvConfig{
-	RPCURL:                                 "http://127.0.0.1:8545",
-	TeeWalletManagerContractAddress:        "0xD036a8F254ef782cb93af4F829A1568E992c3864",
-	TeeWalletProjectManagerContractAddress: "0x26d1E94963C8b382Ad66320826399E4B30347404",
-	DatabaseURL:                            "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
-	CChainDatabaseURL:                      "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
-	AttestationType:                        connector.PMWPaymentStatus,
-	SourceID:                               "XRP",
+	RPCURL:            "http://127.0.0.1:8545",
+	DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+	CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+	AttestationType:   connector.PMWPaymentStatus,
+	SourceID:          "XRP",
 }
 
 // Both tests need docker compose running
 func TestPMWPaymentStatus(t *testing.T) {
-	t.Skip()
 	service, err := NewPaymentService(envConfig)
 	require.NoError(t, err)
 
@@ -52,7 +49,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 }
 
 func TestWrongNonce(t *testing.T) {
-	t.Skip()
 	service, err := NewPaymentService(envConfig)
 	require.NoError(t, err)
 

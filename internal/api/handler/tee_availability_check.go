@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,10 +10,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
@@ -34,24 +31,14 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
-			if err := validation.ValidateRequest(request); err != nil {
-				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
-			}
-			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourceIdPair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
-				return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+			if err := validatePrepareResponseBody[types.TeeAvailabilityRequestBody](request.Body, config); err != nil {
+				return nil, err
 			}
 			requestData, err := request.Body.RequestData.ToInternal()
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
-			requestDataBytes, err := utils.AbiEncodeData[connector.ITeeAvailabilityCheckRequestBody](requestData, config.AbiPair.Request)
-			if err != nil {
-				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
-			}
-			return types.NewResponse(types.EncodedRequestBody{
-				RequestBody: utils.BytesToHex0x(requestDataBytes),
-			}), nil
+			return prepareRequestBody[connector.ITeeAvailabilityCheckRequestBody](requestData, config)
 		})
 	// prepare ResponseBody
 	huma.Register(api, huma.Operation{
@@ -62,18 +49,14 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
 		}) (*types.Response[types.RawAndEncodedTeeAvailabilityResponseBody], error) {
-			attestationRequest, err := toIFTdcHubFtdcAttestationRequest(request.Body)
-			if err != nil {
-				return nil, err
-			}
-			responseData, responseDataBytes, err := validateAndVerifyEncodedRequest(attestationRequest, ctx, config, verifier)
-			if err != nil {
-				return nil, err
-			}
-			return types.NewResponse(types.RawAndEncodedTeeAvailabilityResponseBody{
-				ResponseData: types.TeeToExternal(responseData),
-				ResponseBody: utils.BytesToHex0x(responseDataBytes),
-			}), nil
+			return prepareResponseBody(
+				ctx,
+				request.Body,
+				validateAndVerifyEncodedRequest,
+				types.TeeToExternal,
+				config,
+				verifier,
+			)
 		})
 	// verify
 	huma.Register(api, huma.Operation{
@@ -92,14 +75,7 @@ func TeeAvailabilityCheckHandler(
 				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
-			logger.Debugf("Result of TEEAvailability verification: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyId:%d, LastSigningPolicyId=%d, State=%v",
-				response.Status,
-				response.TeeTimestamp,
-				response.CodeHash,
-				bytes.Trim(response.Platform[:], "\x00"),
-				response.InitialSigningPolicyId,
-				response.LastSigningPolicyId,
-				response.State)
+			logTeeAvailabilityCheckResponse(response)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil

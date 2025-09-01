@@ -52,7 +52,4 @@ func MultiSigToExternal(data connector.IPMWMultisigAccountConfiguredResponseBody
 	}
 }
 
-type RawAndEncodedPMWMultisigAccountResponseBody struct {
-	ResponseData PMWMultisigAccountResponseBody `json:"responseData"`
-	ResponseBody string                         `json:"responseBody" example:"0x0000abcd..."`
-}
+type RawAndEncodedPMWMultisigAccountResponseBody = RawAndEncodedFTDCResponse[PMWMultisigAccountResponseBody]

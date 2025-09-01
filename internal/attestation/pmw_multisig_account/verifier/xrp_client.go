@@ -5,13 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type XrpClient struct {
-	client *http.Client
-	url    string
+	client         *http.Client
+	url            string
+	nRetries       int
+	requestTimeout time.Duration
 }
 
 type xrpRequest struct {
@@ -48,14 +52,16 @@ type SignerList struct {
 	} `json:"SignerEntries"`
 }
 
-func NewXrpClient(url string) XrpClient {
+func NewXrpClient(url string, nRetries int, requestTimeout time.Duration) XrpClient {
 	return XrpClient{
-		client: &http.Client{},
-		url:    url,
+		client:         &http.Client{},
+		url:            url,
+		nRetries:       nRetries,
+		requestTimeout: requestTimeout * 20,
 	}
 }
 
-func (c XrpClient) GetResponse(ctx context.Context, request xrpRequest) ([]byte, error) {
+func (c XrpClient) get(ctx context.Context, request xrpRequest) ([]byte, error) {
 	getReq, err := json.Marshal(request)
 	if err != nil {
 		return nil, err
@@ -71,10 +77,16 @@ func (c XrpClient) GetResponse(ctx context.Context, request xrpRequest) ([]byte,
 	req.Header.Set("content-type", "application/json")
 	req = req.WithContext(ctx)
 
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, c.requestTimeout)
+	defer cancel()
+
+	req = req.WithContext(ctxWithTimeout)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("error response status")
 	}
@@ -85,6 +97,16 @@ func (c XrpClient) GetResponse(ctx context.Context, request xrpRequest) ([]byte,
 	}
 
 	return resBody, nil
+}
+
+func (c XrpClient) getWithRetry(ctx context.Context, request xrpRequest) ([]byte, error) {
+	for i := 0; i < c.nRetries; i++ {
+		res, err := c.get(ctx, request)
+		if err == nil {
+			return res, nil
+		}
+	}
+	return nil, fmt.Errorf("failed to get response after %d retries", c.nRetries)
 }
 
 func (c XrpClient) GetAccountInfo(ctx context.Context, account string) (AccountInfoResponse, error) {
@@ -98,7 +120,7 @@ func (c XrpClient) GetAccountInfo(ctx context.Context, account string) (AccountI
 			},
 		},
 	}
-	raw, err := c.GetResponse(ctx, request)
+	raw, err := c.getWithRetry(ctx, request)
 	if err != nil {
 		return AccountInfoResponse{}, err
 	}
