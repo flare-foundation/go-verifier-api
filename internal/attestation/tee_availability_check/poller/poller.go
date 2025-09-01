@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
 const (
@@ -40,7 +41,7 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 }
 
 func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
-	activeTees, err := getActiveTees(teeVerifier)
+	activeTees, err := getActiveTeesWithRetry(teeVerifier)
 	if err != nil {
 		logger.Errorf("Failed to: %v", err)
 		return
@@ -100,8 +101,10 @@ type teeList struct {
 }
 
 func getActiveTees(teeVerifier *verifier.TeeVerifier) (teeList, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.ChainRequestTimeout)
+	defer cancel()
 	callOpts := &bind.CallOpts{
-		Context: context.Background(),
+		Context: ctx,
 	}
 	activeTees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts)
 	if err != nil {
@@ -109,4 +112,14 @@ func getActiveTees(teeVerifier *verifier.TeeVerifier) (teeList, error) {
 	}
 	logger.Debugf("Poller got active Tees: %v", activeTees)
 	return activeTees, nil
+}
+
+func getActiveTeesWithRetry(teeVerifier *verifier.TeeVerifier) (teeList, error) {
+	for i := 0; i < config.ChainRequestRetries; i++ {
+		activeTees, err := getActiveTees(teeVerifier)
+		if err == nil {
+			return activeTees, nil
+		}
+	}
+	return teeList{}, fmt.Errorf("getActiveTees: failed after %d retries", config.ChainRequestRetries)
 }

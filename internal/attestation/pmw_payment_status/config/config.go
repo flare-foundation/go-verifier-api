@@ -25,7 +25,7 @@ func GetPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentSt
 }
 
 func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentStatusConfig, error) {
-	err := config.CheckMissingFields(envConfig, []string{config.EnvRPCURL, config.EnvCChainDatabaseURL, config.EnvDatabaseURL, config.EnvTeeWalletManagerContractAddress, config.EnvTeeWalletProjectManagerContractAddress})
+	err := config.CheckMissingFields(envConfig, []string{config.EnvCChainDatabaseURL, config.EnvDatabaseURL})
 	if err != nil {
 		return nil, err
 	}

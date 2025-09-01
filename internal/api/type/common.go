@@ -29,6 +29,11 @@ type EncodedResponseBody struct {
 	Response hexutil.Bytes `json:"Response" example:"0x0000abcd..."`
 }
 
+type RawAndEncodedFTDCResponse[T any] struct {
+	ResponseData T      `json:"responseData"`
+	ResponseBody string `json:"responseBody" example:"0x0000abcd..."`
+}
+
 // Response is a generic response type for the API with just a simple body. https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma
 type Response[T any] struct {
 	Body T

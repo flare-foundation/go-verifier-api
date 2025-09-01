@@ -140,7 +140,7 @@ func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (Statu
 		return StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}
 	// check initial signing policy hash
-	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.InitialSigningPolicyID)
+	initialSigningPolicyHash, err := v.getSigningPolicyHashFromChainWithRetry(infoData.InitialSigningPolicyID)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve initial signing policy hash: %w", err)
 	}
@@ -148,7 +148,7 @@ func (v *TeeVerifier) dataVerification(response teeTypes.TeeInfoResponse) (Statu
 		return StatusInfo{}, errors.New("failed to validate initial signing policy hash")
 	}
 	// check last signing policy hash
-	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChain(infoData.LastSigningPolicyID)
+	lastSigningPolicyHash, err := v.getSigningPolicyHashFromChainWithRetry(infoData.LastSigningPolicyID)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
 	}
@@ -175,7 +175,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 }
 
 func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL string) (bool, error) {
-	infoResponse, err := v.fetchTEEInfoData(ctx, baseURL, "/info")
+	infoResponse, err := utils.FetchJSON[teeTypes.TeeInfoResponse](ctx, fmt.Sprintf("%s%s", baseURL, "/info"), fetchTimeout)
 	if err != nil {
 		return false, err
 	}
@@ -191,11 +191,6 @@ func (v *TeeVerifier) FetchTEEInfoResultAndValidate(ctx context.Context, baseURL
 		return false, err
 	}
 	return true, nil
-}
-
-func (v *TeeVerifier) fetchTEEInfoData(ctx context.Context, baseURL, path string) (teeTypes.TeeInfoResponse, error) {
-	url := fmt.Sprintf("%s%s", baseURL, path)
-	return utils.FetchJSON[teeTypes.TeeInfoResponse](ctx, url, fetchTimeout)
 }
 
 func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, challenge common.Hash) (common.Hash, error) {
@@ -217,15 +212,27 @@ func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, chall
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (common.Hash, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), config.ChainRequestTimeout)
+	defer cancel()
 	callOpts := &bind.CallOpts{
-		Context: context.Background(),
+		Context: ctx,
 	}
 	signingPolicyIdBigInt := new(big.Int).SetUint64(uint64(signingPolicyId))
 	signingPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, signingPolicyIdBigInt)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to call ToSigningPolicyHash: %w", err)
 	}
-	return common.Hash(signingPolicyHashBytes), nil
+	return signingPolicyHashBytes, nil
+}
+
+func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(signingPolicyId uint32) (common.Hash, error) {
+	for i := 0; i < config.ChainRequestRetries; i++ {
+		signingPolicyHashBytes, err := v.getSigningPolicyHashFromChain(signingPolicyId)
+		if err == nil {
+			return signingPolicyHashBytes, nil
+		}
+	}
+	return common.Hash{}, fmt.Errorf("getSigningPolicyHashFromChainWithRetry: failed after %d retries", config.ChainRequestRetries)
 }
 
 func (v *TeeVerifier) checkInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (bool, error) {

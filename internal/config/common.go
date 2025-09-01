@@ -146,6 +146,7 @@ func LoadEncodedAndAbi(envConfig EnvConfig) (EncodedAndAbi, error) {
 		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
 	}, nil
 }
+
 func CheckMissingFields(cfg EnvConfig, fields []string) error {
 	missing := []string{}
 	for _, field := range fields {
