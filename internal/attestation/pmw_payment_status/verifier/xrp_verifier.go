@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletmanager"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletprojectmanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/builder"
@@ -20,15 +19,13 @@ import (
 )
 
 type XRPVerifier struct {
-	repo                 *repo.XRPRepository
-	WalletManagerCaller  *teewalletmanager.TeeWalletManagerCaller
-	ProjectManagerCaller *teewalletprojectmanager.TeeWalletProjectManagerCaller
-	config               *pmwpaymentstatusconfig.PMWPaymentStatusConfig
+	repo   *repo.XRPRepository
+	config *pmwpaymentstatusconfig.PMWPaymentStatusConfig
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction Id
-	opType, err := pmwpaymentutils.GetWalletOpType(req.WalletId, x.WalletManagerCaller, x.ProjectManagerCaller)
+	opType, err := utils.Bytes32(fmt.Sprintf("F_%s", x.config.SourceIdPair.SourceId))
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot retrieve opType: %w", err)
 	}

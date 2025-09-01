@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
@@ -16,7 +18,7 @@ import (
 
 func PMWPaymentStatusHandler(
 	api huma.API,
-	config *config.PMWPaymentStatusConfig,
+	config *config.EncodedAndAbi,
 	verifier verifierinterface.VerifierInterface[
 		connector.IPMWPaymentStatusRequestBody,
 		connector.IPMWPaymentStatusResponseBody]) {
@@ -24,7 +26,7 @@ func PMWPaymentStatusHandler(
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
 		Method:      http.MethodPost,
-		Path:        getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
+		Path:        getVerifierAPIPath(config.SourceIdPair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
 		Tags:        getVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.PMWPaymentStatusRequest
@@ -32,10 +34,13 @@ func PMWPaymentStatusHandler(
 			if err := validation.ValidateRequest(request); err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 			}
-			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
+			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourceIdPair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 			}
-			requestDataInternal := request.Body.RequestData.ToInternal()
+			requestDataInternal, err := request.Body.RequestData.ToInternal()
+			if err != nil {
+				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
+			}
 			// TODO-later add validation (later, now just use it as a helper to generate abi encoded request)
 			requestDataBytes, err := utils.AbiEncodeData[connector.IPMWPaymentStatusRequestBody](requestDataInternal, config.AbiPair.Request)
 			if err != nil {
@@ -49,7 +54,7 @@ func PMWPaymentStatusHandler(
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareResponseBody",
 		Method:      http.MethodPost,
-		Path:        getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
+		Path:        getVerifierAPIPath(config.SourceIdPair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
 		Tags:        getVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
@@ -69,50 +74,34 @@ func PMWPaymentStatusHandler(
 		})
 	// verify
 	huma.Register(api, huma.Operation{
-		OperationID: "post-verify",
-		Method:      http.MethodPost,
-		Path:        getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
-		Tags:        getVerifierAPITag(config.AttestationTypePair.AttestationType)},
+		OperationID:      "post-verify",
+		Method:           http.MethodPost,
+		Path:             getVerifierAPIPath(config.SourceIdPair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
+		Tags:             getVerifierAPITag(config.AttestationTypePair.AttestationType),
+		SkipValidateBody: true, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
+	},
+
 		func(ctx context.Context, request *struct {
-			Body types.FTDCRequestEncoded
+			Body connector.IFtdcHubFtdcAttestationRequest
 		}) (*types.Response[types.EncodedResponseBody], error) {
-			attestationRequest, err := toIFTdcHubFtdcAttestationRequest(request.Body)
+			logger.Debug("Received request for PMWPaymentStatusRequest (verify)")
+			responseData, responseDataBytes, err := validateAndVerifyEncodedPMWPaymentStatusRequest(request.Body, ctx, config, verifier)
 			if err != nil {
+				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
-			_, responseDataBytes, err := validateAndVerifyEncodedPMWPaymentStatusRequest(attestationRequest, ctx, config, verifier)
-			if err != nil {
-				return nil, err
-			}
+			logPMWPaymentStatusResponse(responseData)
 			return types.NewResponse(types.EncodedResponseBody{
 				Response: responseDataBytes,
 			}), nil
 		})
 }
 
-func validateAndVerifyEncodedPMWPaymentStatusRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.PMWPaymentStatusConfig, verifier verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody]) (connector.IPMWPaymentStatusResponseBody, []byte, error) {
-	if err := validation.ValidateRequest(request); err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
-	}
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
-		config.AttestationTypePair,
-		config.SourcePair,
-		utils.BytesToHex0x(request.Header.AttestationType[:]),
-		utils.BytesToHex0x(request.Header.SourceId[:]),
-	); err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
-	}
-	requestData, err := utils.AbiDecodeRequestData[connector.IPMWPaymentStatusRequestBody](request.RequestBody, config.AbiPair.Request)
+func validateAndVerifyEncodedPMWPaymentStatusRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.EncodedAndAbi, verifier verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody]) (connector.IPMWPaymentStatusResponseBody, []byte, error) {
+	requestData, err := validateAndParseFTDCRequest[connector.IPMWPaymentStatusRequestBody](request, config)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
+		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, err
 	}
 	responseData, err := verifier.Verify(ctx, requestData)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
-	}
-	responseDataBytes, err := utils.AbiEncodeData[connector.IPMWPaymentStatusResponseBody](responseData, config.AbiPair.Response)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
-	}
-	return responseData, responseDataBytes, nil
+	return handleVerifierResult[connector.IPMWPaymentStatusResponseBody](err, responseData, config)
 }

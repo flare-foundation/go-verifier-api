@@ -13,12 +13,12 @@ type PMWPaymentStatusRequestBody struct {
 	SubNonce uint64 `json:"subNonce" validate:"required" example:"1"`
 }
 
-func (requestBody PMWPaymentStatusRequestBody) ToInternal() connector.IPMWPaymentStatusRequestBody {
+func (requestBody PMWPaymentStatusRequestBody) ToInternal() (connector.IPMWPaymentStatusRequestBody, error) {
 	return connector.IPMWPaymentStatusRequestBody{
 		WalletId: common.HexToHash(requestBody.WalletId),
 		Nonce:    requestBody.Nonce,
 		SubNonce: requestBody.SubNonce,
-	}
+	}, nil
 }
 
 type PMWPaymentStatusResponseBody struct {

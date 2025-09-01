@@ -20,7 +20,7 @@ import (
 
 func TeeAvailabilityCheckHandler(
 	api huma.API,
-	config config.TeeAvailabilityCheckConfig,
+	config *config.EncodedAndAbi,
 	verifier verifierinterface.VerifierInterface[
 		connector.ITeeAvailabilityCheckRequestBody,
 		connector.ITeeAvailabilityCheckResponseBody]) {
@@ -28,7 +28,7 @@ func TeeAvailabilityCheckHandler(
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareRequestBody",
 		Method:      http.MethodPost,
-		Path:        getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
+		Path:        getVerifierAPIPath(config.SourceIdPair.SourceId, config.AttestationTypePair.AttestationType, "prepareRequestBody"),
 		Tags:        getVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityRequest
@@ -36,7 +36,7 @@ func TeeAvailabilityCheckHandler(
 			if err := validation.ValidateRequest(request); err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 			}
-			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourcePair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
+			if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(config.AttestationTypePair, config.SourceIdPair, request.Body.FTDCHeader.AttestationType, request.Body.FTDCHeader.SourceId); err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 			}
 			requestData, err := request.Body.RequestData.ToInternal()
@@ -56,7 +56,7 @@ func TeeAvailabilityCheckHandler(
 	huma.Register(api, huma.Operation{
 		OperationID: "post-prepareResponseBody",
 		Method:      http.MethodPost,
-		Path:        getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
+		Path:        getVerifierAPIPath(config.SourceIdPair.SourceId, config.AttestationTypePair.AttestationType, "prepareResponseBody"),
 		Tags:        getVerifierAPITag(config.AttestationTypePair.AttestationType)},
 		func(ctx context.Context, request *struct {
 			Body types.FTDCRequestEncoded
@@ -78,7 +78,7 @@ func TeeAvailabilityCheckHandler(
 	huma.Register(api, huma.Operation{
 		OperationID:      "post-verify",
 		Method:           http.MethodPost,
-		Path:             getVerifierAPIPath(config.SourcePair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
+		Path:             getVerifierAPIPath(config.SourceIdPair.SourceId, config.AttestationTypePair.AttestationType, "verify"),
 		Tags:             getVerifierAPITag(config.AttestationTypePair.AttestationType),
 		SkipValidateBody: true, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
 	},
@@ -134,32 +134,14 @@ func TeeAvailabilityCheckHandler(
 		})
 }
 
-func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config config.TeeAvailabilityCheckConfig, verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) (connector.ITeeAvailabilityCheckResponseBody, []byte, error) {
-	if err := validation.ValidateRequest(request); err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
-	}
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
-		config.AttestationTypePair,
-		config.SourcePair,
-		utils.BytesToHex0x(request.Header.AttestationType[:]),
-		utils.BytesToHex0x(request.Header.SourceId[:]),
-	); err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
-	}
-	requestData, err := utils.AbiDecodeRequestData[connector.ITeeAvailabilityCheckRequestBody](request.RequestBody, config.AbiPair.Request)
+func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.EncodedAndAbi, verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) (connector.ITeeAvailabilityCheckResponseBody, []byte, error) {
+	requestData, err := validateAndParseFTDCRequest[connector.ITeeAvailabilityCheckRequestBody](request, config)
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
+		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, err
 	}
 	responseData, err := verifier.Verify(ctx, requestData)
-	if err != nil {
-		if errors.Is(err, teeverifier.ErrIndeterminate) {
-			return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
-		}
-		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+	if errors.Is(err, teeverifier.ErrIndeterminate) {
+		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
 	}
-	responseDataBytes, err := utils.AbiEncodeData[connector.ITeeAvailabilityCheckResponseBody](responseData, config.AbiPair.Response)
-	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
-	}
-	return responseData, responseDataBytes, nil
+	return handleVerifierResult[connector.ITeeAvailabilityCheckResponseBody](err, responseData, config)
 }

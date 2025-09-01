@@ -28,7 +28,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 		if err != nil {
 			return fmt.Errorf("failed to initialize tee verifier: %w", err)
 		}
-		handler.TeeAvailabilityCheckHandler(api, *config, verifier)
+		handler.TeeAvailabilityCheckHandler(api, &config.EncodedAndAbi, verifier)
 		// Start poller
 		teeVerifier, ok := verifier.(*teeavailabilitycheck.TeeVerifier)
 		if !ok {
@@ -42,7 +42,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 		}
 		verifier := service.GetVerifier()
 		config := service.GetConfig()
-		handler.PMWPaymentStatusHandler(api, config, verifier)
+		handler.PMWPaymentStatusHandler(api, &config.EncodedAndAbi, verifier)
 	case connector.PMWMultisigAccountConfigured:
 		service, err := multisigservice.NewMultisigService(envConfig)
 		if err != nil {
@@ -50,7 +50,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 		}
 		verifier := service.GetVerifier()
 		config := service.GetConfig()
-		handler.PMWMultisigAccountHandler(api, config, verifier)
+		handler.PMWMultisigAccountHandler(api, &config.EncodedAndAbi, verifier)
 	default:
 		return fmt.Errorf("unsupported attestation type: %s", string(envConfig.AttestationType))
 	}

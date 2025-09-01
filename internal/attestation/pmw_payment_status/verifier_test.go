@@ -1,7 +1,6 @@
 package paymentservice
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -23,7 +22,7 @@ var envConfig = config.EnvConfig{
 	SourceID:                               "XRP",
 }
 
-// TODO Refactor verify s.t. we can run this without flare node
+// Both tests need docker compose running
 func TestPMWPaymentStatus(t *testing.T) {
 	t.Skip()
 	service, err := NewPaymentService(envConfig)
@@ -38,8 +37,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, response)
 
-	fmt.Println(response.SenderAddress, response.RecipientAddress)
-
 	// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
 	require.Equal(t, crypto.Keccak256Hash([]byte("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK")), common.HexToHash(response.SenderAddress))
 	require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(response.RecipientAddress))
@@ -52,4 +49,19 @@ func TestPMWPaymentStatus(t *testing.T) {
 	require.Equal(t, "", response.RevertReason)
 	require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(response.TransactionId[:]))
 	require.Equal(t, uint64(10110073), response.BlockNumber)
+}
+
+func TestWrongNonce(t *testing.T) {
+	t.Skip()
+	service, err := NewPaymentService(envConfig)
+	require.NoError(t, err)
+
+	verifier := service.GetVerifier()
+	_, err = verifier.Verify(t.Context(), connector.IPMWPaymentStatusRequestBody{
+		WalletId: common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"),
+		Nonce:    10110068,
+		SubNonce: 10110068,
+	})
+	require.Error(t, err)
+
 }

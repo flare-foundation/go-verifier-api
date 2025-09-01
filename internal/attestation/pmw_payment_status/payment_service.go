@@ -3,10 +3,6 @@ package paymentservice
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletmanager"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teewalletprojectmanager"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	pmwstatuspaymentconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
 	pmwpaymentstatusverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/verifier"
@@ -35,20 +31,7 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to CChain DB: %w", err)
 	}
-	client, err := ethclient.Dial(cfg.RPCURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Flare node: %w", err)
-	}
-	walletManagerCaller, err := teewalletmanager.NewTeeWalletManagerCaller(common.HexToAddress(cfg.TeeWalletManagerAddress), client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create contract TeeWalletManager caller: %w", err)
-	}
-	walletProjectManagerCaller, err := teewalletprojectmanager.NewTeeWalletProjectManagerCaller(common.HexToAddress(cfg.TeeWalletProjectManagerAddress), client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create contract TeeWalletProjectManager caller: %w", err)
-	}
-
-	verifierImpl, err := pmwpaymentstatusverifier.GetVerifier(cfg, db, cchainDB, walletManagerCaller, walletProjectManagerCaller)
+	verifierImpl, err := pmwpaymentstatusverifier.GetVerifier(cfg, db, cchainDB)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize verifier: %w", err)
 	}

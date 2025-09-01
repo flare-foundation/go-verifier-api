@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -29,7 +30,7 @@ func NewXRPRepository(db, cChainDb *gorm.DB) *XRPRepository {
 func (r *XRPRepository) FetchInstructionLog(ctx context.Context, eventHash string, instructionId common.Hash) (*types.Log, error) {
 	var dbLog database.Log
 	err := r.cChainDb.WithContext(ctx).
-		Where("topic0 = ? AND topic1 = ?", eventHash[2:], instructionId.Hex()[2:]).
+		Where("topic0 = ? AND topic1 = ?", utils.RemoveHexPrefix(eventHash), utils.RemoveHexPrefix(instructionId.Hex())).
 		First(&dbLog).Error
 	if err != nil {
 		return nil, fmt.Errorf("log not found for instruction %s", instructionId)
