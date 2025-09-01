@@ -11,7 +11,7 @@ import (
 	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account"
 	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilityconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/poller"
+	teepoller "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/tee_poller.go"
 	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -26,7 +26,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 		}
 		verifier, err := teeavailabilitycheck.GetVerifier(config)
 		if err != nil {
-			return fmt.Errorf("failed to initialize tee verifier: %w", err)
+			return fmt.Errorf("failed to initialize TEE verifier: %w", err)
 		}
 		handler.TeeAvailabilityCheckHandler(api, &config.EncodedAndAbi, verifier)
 		// Start poller
@@ -34,7 +34,7 @@ func LoadModule(api huma.API, envConfig config.EnvConfig) error {
 		if !ok {
 			log.Fatalf("unexpected type for verifier instance")
 		}
-		poller.StartPoller(context.Background(), teeVerifier)
+		teepoller.StartPoller(context.Background(), teeVerifier)
 	case connector.PMWPaymentStatus:
 		service, err := paymentservice.NewPaymentService(envConfig)
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
+	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -50,7 +51,7 @@ func TestTeeInfoHash(t *testing.T) {
 func TestValidateCertainClaims(t *testing.T) {
 	tokenString := attestationTokenNotValid
 
-	claims := &verifier.GoogleTeeClaims{}
+	claims := &teetypes.GoogleTeeClaims{}
 	_, _, err := jwt.NewParser(jwt.WithoutClaimsValidation()).ParseUnverified(tokenString, claims)
 	if err != nil {
 		panic(err)

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"reflect"
 	"strings"
@@ -14,11 +15,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 )
 
 var (
-	ErrNotFound = errors.New("resource not found (404)")
+	ErrNotFound     = errors.New("resource not found (404)")
+	ErrNetwork      = errors.New("network error")
+	ErrRPC          = errors.New("rpc error")
+	ErrInvalidInput = errors.New("invalid input")
+	ErrContext      = errors.New("context error")
+	ErrUnknown      = errors.New("unknown error")
 )
 
 const (
@@ -118,4 +126,65 @@ func NewBigIntFromString(s string) (*big.Int, error) {
 		return nil, fmt.Errorf("invalid big.Int string: %s", s)
 	}
 	return i, nil
+}
+
+func ClassifyFetchError(op string, err error) (teetypes.TeePollerSampleState, error) {
+	wrapErr := func(e error) error {
+		return &FetchError{Op: op, Err: e}
+	}
+	// Context issues
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrContext)
+	}
+	// HTTP layer (non-200 responses)
+	var httpErr rpc.HTTPError
+	if errors.As(err, &httpErr) {
+		switch httpErr.StatusCode {
+		case 400, 404:
+			return teetypes.TeePollerSampleInvalid, wrapErr(ErrInvalidInput)
+		default:
+			return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrNetwork)
+
+		}
+	}
+	// JSON-RPC structured errors
+	var rpcErr rpc.Error
+	if errors.As(err, &rpcErr) {
+		switch rpcErr.ErrorCode() {
+		// Deterministic client-side issues → invalid
+		case -32600, // invalid request
+			-32601, // method not found
+			-32602, // invalid params
+			-32700: // parse error
+			return teetypes.TeePollerSampleInvalid, wrapErr(ErrInvalidInput)
+		// Infra/server-side issues → indeterminate
+		case -32000, // generic server error,
+			-32002, // timeout
+			-32003, // response too large
+			-32603: // internal error
+			return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrRPC)
+		default:
+			return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrRPC)
+		}
+	}
+	// Network issues (DNS fail, conn refused, etc.)
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrNetwork)
+	}
+
+	return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrUnknown)
+}
+
+type FetchError struct {
+	Op  string
+	Err error
+}
+
+func (e *FetchError) Error() string {
+	return fmt.Sprintf("%s: %v", e.Op, e.Err)
+}
+
+func (e *FetchError) Unwrap() error {
+	return e.Err
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -56,21 +57,6 @@ type RawAndEncodedTeeAvailabilityResponseBody struct {
 	ResponseData TeeAvailabilityResponseBody `json:"responseData"`
 	ResponseBody string                      `json:"responseBody" example:"0x0000abcd..."`
 }
-
-type AvailabilityCheckStatus uint8
-
-// Should match SC https://gitlab.com/flarenetwork/FSP/flare-smart-contracts-v2/-/blob/tee/contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol?ref_type=heads#L12
-const (
-	OK AvailabilityCheckStatus = iota
-	OBSOLETE
-	DOWN
-)
-
-type TeeSample struct {
-	TeeID  string `json:"tee_id"`
-	Values []bool `json:"values"`
-}
-
 type TeeSamplesResponse struct {
-	Samples []TeeSample `json:"samples"`
+	Samples []teetypes.TeeSample `json:"samples"`
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
+	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -121,11 +122,18 @@ func TeeAvailabilityCheckHandler(
 			teeVerifier.SamplesMu.RLock()
 			defer teeVerifier.SamplesMu.RUnlock()
 
-			samples := make([]types.TeeSample, 0, len(teeVerifier.TeeSamples))
+			samples := make([]teetypes.TeeSample, 0, len(teeVerifier.TeeSamples))
 			for teeID, values := range teeVerifier.TeeSamples {
-				samples = append(samples, types.TeeSample{
+				sampleValues := make([]teetypes.TeeSampleValue, 0, len(values))
+				for _, v := range values {
+					sampleValues = append(sampleValues, teetypes.TeeSampleValue{
+						Timestamp: v.Timestamp,
+						State:     v.State,
+					})
+				}
+				samples = append(samples, teetypes.TeeSample{
 					TeeID:  teeID.Hex(),
-					Values: values,
+					Values: sampleValues,
 				})
 			}
 			return types.NewResponse(types.TeeSamplesResponse{

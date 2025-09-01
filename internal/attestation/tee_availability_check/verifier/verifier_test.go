@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
+	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -89,12 +90,12 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 		fmt.Println("error", err)
 	}
 
-	valid, err := v.checkInfoChallengeIsValid(context.Background(), challengeHash)
+	valid, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if !valid {
+	if valid != teetypes.TeePollerSampleValid {
 		t.Errorf("Expected challenge to be valid, got false")
 	}
 }
@@ -121,7 +122,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(42)).Return(hashBytes, nil)
 
-		hash, err := v.getSigningPolicyHashFromChain(42)
+		hash, _, err := v.getSigningPolicyHashFromChain(42)
 		require.NoError(t, err)
 		require.Equal(t, expectedHash, hash)
 		mockRelay.AssertExpectations(t)
@@ -130,7 +131,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
 
-		_, err := v.getSigningPolicyHashFromChain(99)
+		_, _, err := v.getSigningPolicyHashFromChain(99)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to call ToSigningPolicyHash")
 		mockRelay.AssertExpectations(t)
