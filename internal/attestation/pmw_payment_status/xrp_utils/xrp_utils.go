@@ -99,54 +99,81 @@ func GetReceivedAmount(meta *xrptypes.TransactionMetaData) ([]xrptypes.AddressAm
 	var received []xrptypes.AddressAmount
 
 	for _, node := range meta.AffectedNodes {
-		if mod := node.ModifiedNode; mod != nil && mod.LedgerEntryType == "AccountRoot" {
-			finalFields := mod.FinalFields
-			previousFields := mod.PreviousFields
-
-			if finalFields == nil || previousFields == nil {
-				continue
-			}
-			account, ok1 := pmwpaymentutils.GetStringField(finalFields, "Account")
-			finalBalStr, ok2 := pmwpaymentutils.GetStringField(finalFields, "Balance")
-			prevBalStr, ok3 := pmwpaymentutils.GetStringField(previousFields, "Balance")
-			if !ok1 || !ok2 || !ok3 {
-				continue
-			}
-			finalBal, err := utils.NewBigIntFromString(finalBalStr)
+		if mod := node.ModifiedNode; mod != nil {
+			aa, err := extractFromModifiedNode(mod)
 			if err != nil {
-				return nil, fmt.Errorf("invalid final balance format: %s", finalBalStr)
+				return nil, err
 			}
-			prevBal, err := utils.NewBigIntFromString(prevBalStr)
+			if aa != nil {
+				received = append(received, *aa)
+			}
+			continue
+		}
+		if created := node.CreatedNode; created != nil {
+			aa, err := extractFromCreatedNode(created)
 			if err != nil {
-				return nil, fmt.Errorf("invalid previous balance format: %s", prevBalStr)
+				return nil, err
 			}
-			diff := new(big.Int).Sub(finalBal, prevBal)
-			if diff.Sign() > 0 {
-				received = append(received, xrptypes.AddressAmount{
-					Address: account,
-					Amount:  diff,
-				})
+			if aa != nil {
+				received = append(received, *aa)
 			}
-		} else if created := node.CreatedNode; created != nil && created.LedgerEntryType == "AccountRoot" {
-			newFields := created.NewFields
-			if newFields == nil {
-				continue
-			}
-			account, ok1 := pmwpaymentutils.GetStringField(newFields, "Account")
-			balanceStr, ok2 := pmwpaymentutils.GetStringField(newFields, "Balance")
-			if !ok1 || !ok2 {
-				continue
-			}
-			balance, err := utils.NewBigIntFromString(balanceStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid balance format in CreatedNode: %s", balanceStr)
-			}
-
-			received = append(received, xrptypes.AddressAmount{
-				Address: account,
-				Amount:  balance,
-			})
 		}
 	}
 	return received, nil
+}
+
+func extractFromModifiedNode(mod *xrptypes.ModifiedNode) (*xrptypes.AddressAmount, error) {
+	if mod.LedgerEntryType != "AccountRoot" {
+		return nil, nil
+	}
+	finalFields := mod.FinalFields
+	previousFields := mod.PreviousFields
+	if finalFields == nil || previousFields == nil {
+		return nil, nil
+	}
+	account, ok1 := pmwpaymentutils.GetStringField(finalFields, "Account")
+	finalBalStr, ok2 := pmwpaymentutils.GetStringField(finalFields, "Balance")
+	prevBalStr, ok3 := pmwpaymentutils.GetStringField(previousFields, "Balance")
+	if !ok1 || !ok2 || !ok3 {
+		return nil, nil
+	}
+	finalBal, err := utils.NewBigIntFromString(finalBalStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid final balance format: %s", finalBalStr)
+	}
+	prevBal, err := utils.NewBigIntFromString(prevBalStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid previous balance format: %s", prevBalStr)
+	}
+	diff := new(big.Int).Sub(finalBal, prevBal)
+	if diff.Sign() <= 0 {
+		return nil, nil
+	}
+	return &xrptypes.AddressAmount{
+		Address: account,
+		Amount:  diff,
+	}, nil
+}
+
+func extractFromCreatedNode(created *xrptypes.CreatedNode) (*xrptypes.AddressAmount, error) {
+	if created.LedgerEntryType != "AccountRoot" {
+		return nil, nil
+	}
+	newFields := created.NewFields
+	if newFields == nil {
+		return nil, nil
+	}
+	account, ok1 := pmwpaymentutils.GetStringField(newFields, "Account")
+	balanceStr, ok2 := pmwpaymentutils.GetStringField(newFields, "Balance")
+	if !ok1 || !ok2 {
+		return nil, nil
+	}
+	balance, err := utils.NewBigIntFromString(balanceStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid balance format in CreatedNode: %s", balanceStr)
+	}
+	return &xrptypes.AddressAmount{
+		Address: account,
+		Amount:  balance,
+	}, nil
 }

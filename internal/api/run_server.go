@@ -20,6 +20,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const EnvDevelopment = "development"
+
 func RunServer(envConfig config.EnvConfig) {
 	router := chi.NewRouter()
 	config := huma.DefaultConfig("FTDC Verifier API", "1.0")
@@ -52,7 +54,7 @@ func RunServer(envConfig config.EnvConfig) {
 		STSDurationInSeconds = 180 * SecondsPerDay
 	)
 	secureMiddleware := secure.New(secure.Options{
-		SSLRedirect:               envConfig.Env != "development",
+		SSLRedirect:               envConfig.Env != EnvDevelopment,
 		STSSeconds:                STSDurationInSeconds,
 		STSIncludeSubdomains:      true,
 		STSPreload:                true,
@@ -64,7 +66,7 @@ func RunServer(envConfig config.EnvConfig) {
 		CrossOriginResourcePolicy: "same-origin",
 		CrossOriginEmbedderPolicy: "require-corp",
 		XDNSPrefetchControl:       "off",
-		IsDevelopment:             envConfig.Env == "development", // TODO can this be handled in a better way?
+		IsDevelopment:             envConfig.Env == EnvDevelopment, // TODO can this be handled in a better way?
 	})
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
@@ -156,7 +158,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	env := os.Getenv(config.EnvEnv)
 	if env == "" {
 		logger.Warnf("%s is not set, defaulting to development", config.EnvEnv)
-		env = "development"
+		env = EnvDevelopment
 	}
 
 	return config.EnvConfig{

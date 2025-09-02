@@ -140,11 +140,10 @@ func ClassifyFetchError(op string, err error) (teetypes.TeePollerSampleState, er
 	var httpErr rpc.HTTPError
 	if errors.As(err, &httpErr) {
 		switch httpErr.StatusCode {
-		case 400, 404:
+		case http.StatusBadRequest, http.StatusNotFound:
 			return teetypes.TeePollerSampleInvalid, wrapErr(ErrInvalidInput)
 		default:
 			return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrNetwork)
-
 		}
 	}
 	// JSON-RPC structured errors

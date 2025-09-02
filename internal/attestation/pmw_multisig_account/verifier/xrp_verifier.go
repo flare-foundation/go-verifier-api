@@ -111,7 +111,8 @@ func (x *XRPVerifier) verifySignerList(signerList SignerList, req connector.IPMW
 }
 
 func convertPubkeyToAddress(pubkey []byte) (string, error) {
-	if len(pubkey) != 64 {
+	const pubKeyLength = 64
+	if len(pubkey) != pubKeyLength {
 		return "", errors.New("invalid public key length")
 	}
 	pk, err := ParsePubKey([64]byte(pubkey))

@@ -53,11 +53,12 @@ type SignerList struct {
 }
 
 func NewXrpClient(url string, nRetries int, requestTimeout time.Duration) XrpClient {
+	const xrpRequestTimeoutMultiplier = 20
 	return XrpClient{
 		client:         &http.Client{},
 		url:            url,
 		nRetries:       nRetries,
-		requestTimeout: requestTimeout * 20,
+		requestTimeout: requestTimeout * xrpRequestTimeoutMultiplier,
 	}
 }
 

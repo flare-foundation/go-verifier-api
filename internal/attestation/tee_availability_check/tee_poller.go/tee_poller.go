@@ -77,7 +77,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					if !ok {
 						return
 					}
-					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyUrl) // TODO (poller) - valid
+					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyUrl)
 					if err != nil {
 						logger.Errorf("Failed to query teeInfo %s and validate: %v", t.proxyUrl, err)
 					}
@@ -104,7 +104,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	teeVerifier.SamplesMu.RUnlock()
 }
 
-func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyUrl string) (teetypes.TeePollerSampleState, error) { // TODO (poller) states
+func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyUrl string) (teetypes.TeePollerSampleState, error) {
 	infoResponse, err := fetchTEEInfoData(ctx, proxyUrl)
 	if err != nil {
 		return teetypes.TeePollerSampleInvalid, err
@@ -118,7 +118,7 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	}
 	_, err = teeVerifier.DataVerification(infoResponse)
 	if err != nil {
-		return teetypes.TeePollerSampleInvalid, err // TODO (poller) ?
+		return teetypes.TeePollerSampleInvalid, err
 	}
 	infoData := infoResponse.TeeInfo
 	state, err := teeVerifier.CheckSigningPolicies(infoData)

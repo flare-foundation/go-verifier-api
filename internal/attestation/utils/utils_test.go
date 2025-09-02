@@ -45,7 +45,6 @@ func TestRemoveHexPrefix(t *testing.T) {
 }
 
 func TestHexStringToBytes32(t *testing.T) {
-
 	tests := []test_util.TestCase[string, string]{
 		{
 			Input:         "0x" + strings.Repeat("a1", 32),

@@ -102,10 +102,7 @@ func TeeAvailabilityCheckHandler(
 			for teeID, values := range teeVerifier.TeeSamples {
 				sampleValues := make([]teetypes.TeeSampleValue, 0, len(values))
 				for _, v := range values {
-					sampleValues = append(sampleValues, teetypes.TeeSampleValue{
-						Timestamp: v.Timestamp,
-						State:     v.State,
-					})
+					sampleValues = append(sampleValues, teetypes.TeeSampleValue(v))
 				}
 				samples = append(samples, teetypes.TeeSample{
 					TeeID:  teeID.Hex(),

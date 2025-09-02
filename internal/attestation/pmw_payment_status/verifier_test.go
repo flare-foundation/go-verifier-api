@@ -20,7 +20,7 @@ var envConfig = config.EnvConfig{
 	SourceID:          "XRP",
 }
 
-// Both tests need docker compose running
+// Both tests need docker compose running.
 func TestPMWPaymentStatus(t *testing.T) {
 	service, err := NewPaymentService(envConfig)
 	require.NoError(t, err)
