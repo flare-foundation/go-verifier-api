@@ -37,11 +37,11 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 		return nil, err
 	}
 	return &config.TeeAvailabilityCheckConfig{
-		EncodedAndAbi:              commonConfig,
-		RelayContractAddress:       envConfig.RelayContractAddress,
-		TeeRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
-		RPCURL:                     envConfig.RPCURL,
-		GoogleRootCertificate:      googleRootCert,
+		EncodedAndAbi:                     commonConfig,
+		RelayContractAddress:              envConfig.RelayContractAddress,
+		TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
+		RPCURL:                            envConfig.RPCURL,
+		GoogleRootCertificate:             googleRootCert,
 	}, nil
 }
 

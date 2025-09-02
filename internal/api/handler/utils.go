@@ -5,8 +5,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"strings"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +22,7 @@ import (
 func toIFTdcHubFtdcAttestationRequest(data types.FTDCRequestEncoded) (connector.IFtdcHubFtdcAttestationRequest, error) {
 	encoded, err := hex.DecodeString(utils.RemoveHexPrefix(data.RequestBody))
 	if err != nil {
-		return connector.IFtdcHubFtdcAttestationRequest{}, err
+		return connector.IFtdcHubFtdcAttestationRequest{}, fmt.Errorf("decoding request body failed: %w", err)
 	}
 	return connector.IFtdcHubFtdcAttestationRequest{
 		Header: connector.IFtdcHubFtdcRequestHeader{
@@ -54,23 +55,23 @@ func validateAndParseFTDCRequest[T any](request connector.IFtdcHubFtdcAttestatio
 	); err != nil {
 		return empty, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	requestData, err := utils.AbiDecodeRequestData[T](request.RequestBody, config.AbiPair.Request)
+	data, err := utils.AbiDecodeRequestData[T](request.RequestBody, config.AbiPair.Request)
 	if err != nil {
 		return empty, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}
-	return requestData, nil
+	return data, nil
 }
 
 func handleVerifierResult[T any](verifierErr error, responseData T, config *config.EncodedAndAbi) (T, []byte, error) {
 	var empty T
 	if verifierErr != nil {
-		return empty, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", verifierErr))
+		return empty, nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", verifierErr))
 	}
-	responseDataBytes, verifierErr := utils.AbiEncodeData[T](responseData, config.AbiPair.Response)
+	responseBytes, verifierErr := utils.AbiEncodeData[T](responseData, config.AbiPair.Response)
 	if verifierErr != nil {
-		return empty, []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", verifierErr))
+		return empty, nil, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", verifierErr))
 	}
-	return responseData, responseDataBytes, nil
+	return responseData, responseBytes, nil
 }
 
 func validatePrepareResponseBody[T any](request types.FTDCRequest[T], config *config.EncodedAndAbi) error {
@@ -110,25 +111,25 @@ func prepareResponseBody[T any, R any, E any](
 	if err != nil {
 		return nil, err
 	}
-	responseData, responseDataBytes, err := validateAndVerify(attestationRequest, ctx, config, verifier)
+	responseData, responseBytes, err := validateAndVerify(attestationRequest, ctx, config, verifier)
 	if err != nil {
 		return nil, err
 	}
 	return &types.Response[types.RawAndEncodedFTDCResponse[E]]{
 		Body: types.RawAndEncodedFTDCResponse[E]{
 			ResponseData: toExternal(responseData),
-			ResponseBody: utils.BytesToHex0x(responseDataBytes),
+			ResponseBody: utils.BytesToHex0x(responseBytes),
 		},
 	}, nil
 }
 
 func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
-	logger.Debugf("Result after PMWMultisigAccount verification: Status=%d, Sequence=%d",
+	logger.Debugf("PMWMultisigAccount result: Status=%d, Sequence=%d",
 		response.Status, response.Sequence)
 }
 
 func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBody) {
-	logger.Debugf("Result after PMWPaymentStatusRequest verification: SenderAddress=%s, RecipientAddress=%s, Amount=%v, Fee=%v, PaymentReference=%x, TransactionStatus=%d, RevertReason=%s, ReceivedAmount=%v, TransactionFee=%v, TransactionId=%x, BlockNumber=%d, BlockTimestamp=%d",
+	logger.Debugf("PMWPaymentStatus result: Sender=%s, Recipient=%s, Amount=%v, Fee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
 		response.SenderAddress,
 		response.RecipientAddress,
 		response.Amount,
@@ -145,11 +146,12 @@ func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBod
 }
 
 func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckResponseBody) {
-	logger.Debugf("Result of TEEAvailability verification: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyId:%d, LastSigningPolicyId=%d, State=%v",
+	const nullByte = "\x00"
+	logger.Debugf("TEEAvailability result: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyId:%d, LastSigningPolicyId=%d, State=%v",
 		response.Status,
 		response.TeeTimestamp,
 		response.CodeHash,
-		bytes.Trim(response.Platform[:], "\x00"),
+		bytes.Trim(response.Platform[:], nullByte),
 		response.InitialSigningPolicyId,
 		response.LastSigningPolicyId,
 		response.State)

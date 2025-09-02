@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 )
@@ -97,6 +98,32 @@ func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duratio
 	return zero, nil
 }
 
+func Retry[T any](
+	maxAttempts int,
+	delay time.Duration,
+	operation func() (T, error),
+	breakOn func(error) bool,
+) (T, error) {
+	var lastErr error
+	var lastResult T
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		result, err := operation()
+		if err == nil {
+			return result, nil
+		}
+		if breakOn != nil && breakOn(err) {
+			return result, err
+		}
+		lastErr = err
+		lastResult = result
+		logger.Warnf("Attempt %d/%d failed: %v", attempt, maxAttempts, err)
+		if attempt < maxAttempts {
+			time.Sleep(delay)
+		}
+	}
+	return lastResult, lastErr
+}
+
 func BytesToHex0x(data []byte) string {
 	return "0x" + hex.EncodeToString(data)
 }
@@ -113,7 +140,7 @@ func HexStringToBytes32(s string) (common.Hash, error) {
 		return arr, err
 	}
 	if len(b) != Bytes32Size {
-		return arr, fmt.Errorf("invalid length for bytes32: got %d bytes, expected 32", len(b))
+		return arr, fmt.Errorf("invalid length for bytes32: got %d bytes, expected %d", len(b), Bytes32Size)
 	}
 	copy(arr[:], b)
 	return arr, nil
@@ -171,7 +198,6 @@ func ClassifyFetchError(op string, err error) (teetypes.TeePollerSampleState, er
 	if errors.As(err, &netErr) {
 		return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrNetwork)
 	}
-
 	return teetypes.TeePollerSampleIndeterminate, wrapErr(ErrUnknown)
 }
 

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -32,6 +33,8 @@ import (
 const (
 	fetchTimeout            = 5 * time.Second
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
+	chainRetries            = 2
+	chainRetryDelay         = 500 * time.Millisecond
 )
 
 var (
@@ -62,7 +65,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Flare node: %w", err)
 	}
-	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeRegistryContractAddress), client)
+	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract TeeRegistry caller: %w", err)
 	}
@@ -97,7 +100,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		}
 		if isDown {
 			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(teetypes.DOWN)}, nil
-		} else { // No response in the last 5 minutes => TEE is down
+		} else {
 			return connector.ITeeAvailabilityCheckResponseBody{}, ErrIndeterminate
 		}
 	}
@@ -173,6 +176,12 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 	if err != nil {
 		return teenodetypes.TeeInfoResponse{}, err
 	}
+	if len(actionResp.Result.Data) == 0 {
+		return teenodetypes.TeeInfoResponse{}, fmt.Errorf("TEE challenge result data is empty")
+	}
+	if !json.Valid(actionResp.Result.Data) {
+		return teenodetypes.TeeInfoResponse{}, fmt.Errorf("TEE challenge result data is not valid JSON")
+	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse
 	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
@@ -201,7 +210,7 @@ func (v *TeeVerifier) generateChallengeInstructionId(teeId common.Address, chall
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (common.Hash, teetypes.TeePollerSampleState, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), config.ChainRequestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
 		Context: ctx,
@@ -216,13 +225,34 @@ func (v *TeeVerifier) getSigningPolicyHashFromChain(signingPolicyId uint32) (com
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(signingPolicyId uint32) (common.Hash, teetypes.TeePollerSampleState, error) {
-	for i := 0; i < config.ChainRequestRetries; i++ {
-		signingPolicyHashBytes, _, err := v.getSigningPolicyHashFromChain(signingPolicyId)
-		if err == nil {
-			return signingPolicyHashBytes, teetypes.TeePollerSampleValid, nil
-		}
+	var (
+		hash       common.Hash
+		finalState teetypes.TeePollerSampleState
+	)
+	_, err := utils.Retry(
+		chainRetries,
+		chainRetryDelay,
+		func() (struct{}, error) {
+			h, state, err := v.getSigningPolicyHashFromChain(signingPolicyId)
+			if err != nil {
+				finalState = state
+				return struct{}{}, err
+			}
+			hash = h
+			finalState = state
+			return struct{}{}, nil
+		},
+		func(err error) bool {
+			return finalState == teetypes.TeePollerSampleInvalid
+		},
+	)
+	if err != nil {
+		return common.Hash{}, finalState, fmt.Errorf(
+			"getSigningPolicyHashFromChainWithRetry failed after %d retries: %w",
+			chainRetries, err,
+		)
 	}
-	return common.Hash{}, teetypes.TeePollerSampleIndeterminate, fmt.Errorf("getSigningPolicyHashFromChainWithRetry: failed after %d retries", config.ChainRequestRetries) // TODO (urska) - check indeterminate is ok
+	return hash, finalState, nil
 }
 
 func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (teetypes.TeePollerSampleState, error) {
@@ -249,7 +279,8 @@ func (v *TeeVerifier) isTEEInfoDown(teeId common.Address) (bool, error) {
 	v.SamplesMu.RUnlock()
 
 	if len(samples) < v.SamplesToConsider {
-		return false, fmt.Errorf("TEE %s (%d samples: %+v)", teeId.Hex(), len(samples), samples)
+		logger.Infof("TEE %s has insufficient samples (%d/%d). Samples: %+v", teeId.Hex(), len(samples), v.SamplesToConsider, samples)
+		return false, fmt.Errorf("insufficient samples to determine TEE %s status", teeId.Hex())
 	}
 	for _, sample := range samples {
 		if sample.State == teetypes.TeePollerSampleValid || sample.State == teetypes.TeePollerSampleIndeterminate {

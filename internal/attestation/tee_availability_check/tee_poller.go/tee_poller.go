@@ -12,14 +12,15 @@ import (
 	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
-	"github.com/flare-foundation/go-verifier-api/internal/config"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 )
 
 const (
-	SampleInterval     = 1 * time.Minute
-	DefaultWorkerCount = 10
+	sampleInterval     = 1 * time.Minute
+	defaultWorkerCount = 10
 	fetchTimeout       = 5 * time.Second
+	chainRetries       = 2
+	chainRetryDelay    = 500 * time.Millisecond
 )
 
 var (
@@ -35,7 +36,12 @@ type task struct {
 func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	teeVerifier.TeeSamples = make(map[common.Address][]teetypes.TeePollerSample)
 	go func() {
-		ticker := time.NewTicker(SampleInterval)
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Errorf("TEE poller panic recovered: %v", r)
+			}
+		}()
+		ticker := time.NewTicker(sampleInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -64,11 +70,16 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 
 	taskCh := make(chan task, len(activeTees.TeeIds))
 	var wg sync.WaitGroup
-	workers := min(DefaultWorkerCount, len(activeTees.TeeIds))
+	workers := min(defaultWorkerCount, len(activeTees.TeeIds))
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Errorf("worker panic recovered: %v", r)
+				}
+			}()
 			for {
 				select {
 				case <-ctx.Done():
@@ -125,7 +136,7 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	if err != nil {
 		return state, err
 	}
-	return teetypes.TeePollerSampleValid, nil
+	return state, nil
 }
 
 type teeList struct {
@@ -134,7 +145,7 @@ type teeList struct {
 }
 
 func getAllActiveTeeMachines(teeVerifier *verifier.TeeVerifier) (teeList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), config.ChainRequestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
 		Context: ctx,
@@ -148,13 +159,9 @@ func getAllActiveTeeMachines(teeVerifier *verifier.TeeVerifier) (teeList, error)
 }
 
 func getAllActiveTeesWithRetry(teeVerifier *verifier.TeeVerifier) (teeList, error) {
-	for i := 0; i < config.ChainRequestRetries; i++ {
-		activeTees, err := getAllActiveTeeMachines(teeVerifier)
-		if err == nil {
-			return activeTees, nil
-		}
-	}
-	return teeList{}, fmt.Errorf("getActiveTees: failed after %d retries", config.ChainRequestRetries)
+	return utils.Retry(chainRetries, chainRetryDelay, func() (teeList, error) {
+		return getAllActiveTeeMachines(teeVerifier)
+	}, nil)
 }
 
 func fetchTEEInfoData(ctx context.Context, baseURL string) (teenodetypes.TeeInfoResponse, error) {

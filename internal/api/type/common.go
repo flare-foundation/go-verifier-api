@@ -4,6 +4,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+type HealthCheckResponse struct {
+	Healthy bool `json:"healthy"`
+}
+
 type FTDCHeader struct {
 	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
 	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`

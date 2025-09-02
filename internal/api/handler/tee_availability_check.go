@@ -95,20 +95,7 @@ func TeeAvailabilityCheckHandler(
 					"Internal server error: invalid verifier type",
 				)
 			}
-			teeVerifier.SamplesMu.RLock()
-			defer teeVerifier.SamplesMu.RUnlock()
-
-			samples := make([]teetypes.TeeSample, 0, len(teeVerifier.TeeSamples))
-			for teeID, values := range teeVerifier.TeeSamples {
-				sampleValues := make([]teetypes.TeeSampleValue, 0, len(values))
-				for _, v := range values {
-					sampleValues = append(sampleValues, teetypes.TeeSampleValue(v))
-				}
-				samples = append(samples, teetypes.TeeSample{
-					TeeID:  teeID.Hex(),
-					Values: sampleValues,
-				})
-			}
+			samples := formatTeeSamples(teeVerifier)
 			return types.NewResponse(types.TeeSamplesResponse{
 				Samples: samples,
 			}), nil
@@ -125,4 +112,21 @@ func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRe
 		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
 	}
 	return handleVerifierResult[connector.ITeeAvailabilityCheckResponseBody](err, responseData, config)
+}
+
+func formatTeeSamples(teeVerifier *teeverifier.TeeVerifier) []teetypes.TeeSample {
+	teeVerifier.SamplesMu.RLock()
+	defer teeVerifier.SamplesMu.RUnlock()
+	samples := make([]teetypes.TeeSample, 0, len(teeVerifier.TeeSamples))
+	for teeID, values := range teeVerifier.TeeSamples {
+		sampleValues := make([]teetypes.TeeSampleValue, 0, len(values))
+		for _, v := range values {
+			sampleValues = append(sampleValues, teetypes.TeeSampleValue(v))
+		}
+		samples = append(samples, teetypes.TeeSample{
+			TeeID:  teeID.Hex(),
+			Values: sampleValues,
+		})
+	}
+	return samples
 }

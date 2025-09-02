@@ -135,7 +135,10 @@ func ExtractCertificatesFromX5CHeader(x5cHeaders []any) (PKICertificates, error)
 
 // DecodeAndParseDERCertificate decodes the given DER certificate string and parses it into an x509 certificate.
 func DecodeAndParseDERCertificate(certificate string) (*x509.Certificate, error) {
-	bytes, _ := base64.StdEncoding.DecodeString(certificate)
+	bytes, err := base64.StdEncoding.DecodeString(certificate)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode base64 certificate: %w", err)
+	}
 	cert, err := x509.ParseCertificate(bytes)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse certificate: %w", err)

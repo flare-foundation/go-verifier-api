@@ -63,10 +63,10 @@ type AbiArgPair struct {
 
 type TeeAvailabilityCheckConfig struct {
 	EncodedAndAbi
-	RelayContractAddress       string
-	TeeRegistryContractAddress string
-	RPCURL                     string
-	GoogleRootCertificate      *x509.Certificate
+	RelayContractAddress              string
+	TeeMachineRegistryContractAddress string
+	RPCURL                            string
+	GoogleRootCertificate             *x509.Certificate
 }
 
 type PMWPaymentStatusConfig struct {
