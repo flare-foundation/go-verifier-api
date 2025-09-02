@@ -131,18 +131,9 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	if err != nil {
 		logger.Warn("No .env file found, proceeding with environment variables")
 	}
-	port := os.Getenv(config.EnvPort)
-	if port == "" {
-		return config.EnvConfig{}, fmt.Errorf("%s must be set", config.EnvPort)
-	}
-	verifierTypeStr := os.Getenv(config.EnvAttestationType)
-	if verifierTypeStr == "" {
-		return config.EnvConfig{}, fmt.Errorf("%s must be set", config.EnvAttestationType)
-	}
-	sourceIDStr := os.Getenv(config.EnvSourceID)
-	if sourceIDStr == "" {
-		return config.EnvConfig{}, fmt.Errorf("%s must be set", config.EnvSourceID)
-	}
+	port := getEnvOrFatal(config.EnvPort)
+	verifierTypeStr := getEnvOrFatal(config.EnvAttestationType)
+	sourceIDStr := getEnvOrFatal(config.EnvSourceID)
 	attestationType, err := parseAttestationType(verifierTypeStr)
 	if err != nil {
 		logger.Fatalf("Invalid %s: %v", config.EnvAttestationType, err)
@@ -175,4 +166,12 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		AttestationType:                        attestationType,
 		SourceID:                               sourceID,
 	}, nil
+}
+
+func getEnvOrFatal(key string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		logger.Fatalf("%s must be set", key)
+	}
+	return val
 }
