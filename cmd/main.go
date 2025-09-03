@@ -8,7 +8,7 @@ import (
 func main() {
 	envConfig, err := api.LoadEnvConfig()
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatalf("failed to load environment config: %v", err)
 	}
 	api.RunServer(envConfig)
 }

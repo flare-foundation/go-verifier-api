@@ -1,10 +1,14 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
 	"github.com/rs/cors"
@@ -45,10 +49,6 @@ func RunServer(envConfig config.EnvConfig) {
 	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
 	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
 
-	err := LoadModule(api, envConfig)
-	if err != nil {
-		logger.Fatalf("%v", err)
-	}
 	const (
 		SecondsPerDay        = 24 * 60 * 60
 		STSDurationInSeconds = 180 * SecondsPerDay
@@ -75,8 +75,44 @@ func RunServer(envConfig config.EnvConfig) {
 	routerWithSecurity := secureMiddleware.Handler(router)
 	routerWithCORS := corsHandler.Handler(routerWithSecurity)
 
-	logger.Infof("Starting %s verifier server with type %s on: %s ...\n", envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
-	logger.Fatal(http.ListenAndServe(":"+envConfig.Port, routerWithCORS))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// initialize modules
+	closers, err := LoadModule(ctx, api, envConfig)
+	if err != nil {
+		logger.Fatalf("%v", err)
+	}
+
+	srv := &http.Server{
+		Addr:    ":" + envConfig.Port,
+		Handler: routerWithCORS,
+	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		logger.Infof("Starting %s verifier server with type %s on: %s ...\n",
+			envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatalf("server error: %v", err)
+		}
+	}()
+
+	<-stop
+	logger.Info("Shutting down gracefully...")
+
+	for _, c := range closers {
+		if err := c.Close(); err != nil {
+			logger.Errorf("error closing service: %v", err)
+		}
+	}
+	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelShutdown()
+	if err := srv.Shutdown(ctxShutdown); err != nil {
+		logger.Errorf("server forced to shutdown: %v", err)
+	}
 }
 
 var attestationTypes = []connector.AttestationType{
@@ -85,7 +121,7 @@ var attestationTypes = []connector.AttestationType{
 	connector.PMWMultisigAccountConfigured,
 }
 
-var sourceIds = []config.SourceName{
+var sourceIDs = []config.SourceName{
 	config.SourceTEE,
 	config.SourceXRP,
 }
@@ -100,12 +136,12 @@ func parseAttestationType(value string) (connector.AttestationType, error) {
 }
 
 func parseSourceId(value string) (config.SourceName, error) {
-	for _, at := range sourceIds {
+	for _, at := range sourceIDs {
 		if string(at) == value {
 			return at, nil
 		}
 	}
-	return "", fmt.Errorf("invalid attestation type: %s", value)
+	return "", fmt.Errorf("invalid source id: %s", value)
 }
 
 func getAPIKeys() ([]string, error) {
@@ -131,20 +167,31 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	if err != nil {
 		logger.Warn("No .env file found, proceeding with environment variables")
 	}
-	port := getEnvOrFatal(config.EnvPort)
-	verifierTypeStr := getEnvOrFatal(config.EnvAttestationType)
-	sourceIDStr := getEnvOrFatal(config.EnvSourceID)
+	port, err := getEnvOrError(config.EnvPort)
+	if err != nil {
+		return config.EnvConfig{}, err
+	}
+
+	verifierTypeStr, err := getEnvOrError(config.EnvAttestationType)
+	if err != nil {
+		return config.EnvConfig{}, err
+	}
+
+	sourceIDStr, err := getEnvOrError(config.EnvSourceID)
+	if err != nil {
+		return config.EnvConfig{}, err
+	}
 	attestationType, err := parseAttestationType(verifierTypeStr)
 	if err != nil {
-		logger.Fatalf("Invalid %s: %v", config.EnvAttestationType, err)
+		return config.EnvConfig{}, err
 	}
 	sourceID, err := parseSourceId(sourceIDStr)
 	if err != nil {
-		logger.Fatalf("Invalid %s: %v", config.EnvSourceID, err)
+		return config.EnvConfig{}, err
 	}
 	apiKeys, err := getAPIKeys()
 	if err != nil {
-		logger.Fatalf("%v", err)
+		return config.EnvConfig{}, err
 	}
 	env := os.Getenv(config.EnvEnv)
 	if env == "" {
@@ -168,10 +215,10 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	}, nil
 }
 
-func getEnvOrFatal(key string) string {
+func getEnvOrError(key string) (string, error) {
 	val := os.Getenv(key)
 	if val == "" {
-		logger.Fatalf("%s must be set", key)
+		return "", fmt.Errorf("%s must be set", key)
 	}
-	return val
+	return val, nil
 }

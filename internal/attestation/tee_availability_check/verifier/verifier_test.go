@@ -122,7 +122,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(42)).Return(hashBytes, nil)
 
-		hash, _, err := v.getSigningPolicyHashFromChain(42)
+		hash, _, err := v.getSigningPolicyHashFromChain(context.Background(), 42)
 		require.NoError(t, err)
 		require.Equal(t, expectedHash, hash)
 		mockRelay.AssertExpectations(t)
@@ -131,7 +131,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 	t.Run("failure", func(t *testing.T) {
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
 
-		_, _, err := v.getSigningPolicyHashFromChain(99)
+		_, _, err := v.getSigningPolicyHashFromChain(context.Background(), 99)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to call ToSigningPolicyHash")
 		mockRelay.AssertExpectations(t)

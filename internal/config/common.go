@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/x509"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -182,7 +183,7 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("missing environment variables: %v", missing)
+		return fmt.Errorf("missing environment variables: %s", strings.Join(missing, ", "))
 	}
 	return nil
 }

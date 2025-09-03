@@ -15,6 +15,21 @@ import (
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 )
 
+type TeePollerService struct {
+	cancel context.CancelFunc
+}
+
+func StartTeePoller(parentCtx context.Context, verifier *verifier.TeeVerifier) *TeePollerService {
+	ctx, cancel := context.WithCancel(parentCtx)
+	StartPoller(ctx, verifier)
+	return &TeePollerService{cancel: cancel}
+}
+
+func (s *TeePollerService) Close() error {
+	s.cancel()
+	return nil
+}
+
 const (
 	sampleInterval     = 1 * time.Minute
 	defaultWorkerCount = 10
@@ -56,7 +71,7 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 }
 
 func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
-	activeTees, err := getAllActiveTeesWithRetry(teeVerifier)
+	activeTees, err := getAllActiveTeesWithRetry(ctx, teeVerifier)
 	if err != nil {
 		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
 		activeTees = getCachedActiveTees()
@@ -132,7 +147,7 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 		return teetypes.TeePollerSampleInvalid, err
 	}
 	infoData := infoResponse.TeeInfo
-	state, err := teeVerifier.CheckSigningPolicies(infoData)
+	state, err := teeVerifier.CheckSigningPolicies(ctx, infoData)
 	if err != nil {
 		return state, err
 	}
@@ -144,8 +159,8 @@ type teeList struct {
 	Urls   []string
 }
 
-func getAllActiveTeeMachines(teeVerifier *verifier.TeeVerifier) (teeList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
+	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
 		Context: ctx,
@@ -158,9 +173,9 @@ func getAllActiveTeeMachines(teeVerifier *verifier.TeeVerifier) (teeList, error)
 	return activeTees, nil
 }
 
-func getAllActiveTeesWithRetry(teeVerifier *verifier.TeeVerifier) (teeList, error) {
+func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
 	return utils.Retry(chainRetries, chainRetryDelay, func() (teeList, error) {
-		return getAllActiveTeeMachines(teeVerifier)
+		return getAllActiveTeeMachines(ctx, teeVerifier)
 	}, nil)
 }
 
