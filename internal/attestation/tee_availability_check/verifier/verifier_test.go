@@ -133,7 +133,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 
 		_, _, err := v.getSigningPolicyHashFromChain(context.Background(), 99)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to call ToSigningPolicyHash")
+		require.Contains(t, err.Error(), "unknown error")
 		mockRelay.AssertExpectations(t)
 	})
 }
