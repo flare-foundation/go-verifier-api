@@ -213,3 +213,7 @@ func (e *FetchError) Error() string {
 func (e *FetchError) Unwrap() error {
 	return e.Err
 }
+
+func ToJSONNumber(v any) json.Number {
+	return json.Number(fmt.Sprint(v))
+}

@@ -24,56 +24,14 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const EnvDevelopment = "development"
+const (
+	EnvDevelopment = "development"
+	shutdownAfter  = 10 * time.Second
+)
 
 func RunServer(envConfig config.EnvConfig) {
-	router := chi.NewRouter()
-	config := huma.DefaultConfig("FTDC Verifier API", "1.0")
-	config.Info.Description = "The FTDC Verifier API endpoints"
-
-	config.DocsPath = ""
-	config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
-		"ApiKeyAuth": {
-			Type: "apiKey",
-			In:   "header",
-			Name: "X-API-KEY",
-		},
-	}
-	config.Security = []map[string][]string{
-		{"ApiKeyAuth": {}},
-	}
-	api := humachi.New(router, config)
-	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, envConfig.ApiKeys))
-
-	// swagger setup
-	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
-	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
-
-	const (
-		SecondsPerDay        = 24 * 60 * 60
-		STSDurationInSeconds = 180 * SecondsPerDay
-	)
-	secureMiddleware := secure.New(secure.Options{
-		SSLRedirect:               envConfig.Env != EnvDevelopment,
-		STSSeconds:                STSDurationInSeconds,
-		STSIncludeSubdomains:      true,
-		STSPreload:                true,
-		ForceSTSHeader:            true,
-		FrameDeny:                 true,
-		ContentTypeNosniff:        true,
-		ReferrerPolicy:            "no-referrer",
-		CrossOriginOpenerPolicy:   "same-origin",
-		CrossOriginResourcePolicy: "same-origin",
-		CrossOriginEmbedderPolicy: "require-corp",
-		XDNSPrefetchControl:       "off",
-		IsDevelopment:             envConfig.Env == EnvDevelopment, // TODO can this be handled in a better way?
-	})
-	corsHandler := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	})
-	routerWithSecurity := secureMiddleware.Handler(router)
-	routerWithCORS := corsHandler.Handler(routerWithSecurity)
+	router := newRouter()
+	api := newAPI(router, envConfig)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -86,7 +44,7 @@ func RunServer(envConfig config.EnvConfig) {
 
 	srv := &http.Server{
 		Addr:    ":" + envConfig.Port,
-		Handler: routerWithCORS,
+		Handler: newSecurityHandler(envConfig, router),
 	}
 
 	stop := make(chan os.Signal, 1)
@@ -108,7 +66,8 @@ func RunServer(envConfig config.EnvConfig) {
 			logger.Errorf("error closing service: %v", err)
 		}
 	}
-	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
+
+	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), shutdownAfter)
 	defer cancelShutdown()
 	if err := srv.Shutdown(ctxShutdown); err != nil {
 		logger.Errorf("server forced to shutdown: %v", err)
@@ -165,7 +124,7 @@ func getAPIKeys() ([]string, error) {
 func LoadEnvConfig() (config.EnvConfig, error) {
 	err := godotenv.Load()
 	if err != nil {
-		logger.Warn("No .env file found, proceeding with environment variables")
+		logger.Info("No .env file found, proceeding with environment variables")
 	}
 	port, err := getEnvOrError(config.EnvPort)
 	if err != nil {
@@ -195,7 +154,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	}
 	env := os.Getenv(config.EnvEnv)
 	if env == "" {
-		logger.Warnf("%s is not set, defaulting to development", config.EnvEnv)
+		logger.Infof("%s is not set, defaulting to development", config.EnvEnv)
 		env = EnvDevelopment
 	}
 
@@ -221,4 +180,60 @@ func getEnvOrError(key string) (string, error) {
 		return "", fmt.Errorf("%s must be set", key)
 	}
 	return val, nil
+}
+
+func newRouter() chi.Router {
+	router := chi.NewRouter()
+	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
+	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
+	return router
+}
+
+func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
+	cfg := huma.DefaultConfig("FTDC Verifier API", "1.0")
+	cfg.Info.Description = "The FTDC Verifier API endpoints"
+	cfg.DocsPath = ""
+	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"ApiKeyAuth": {
+			Type: "apiKey",
+			In:   "header",
+			Name: "X-API-KEY",
+		},
+	}
+	cfg.Security = []map[string][]string{
+		{"ApiKeyAuth": {}},
+	}
+
+	api := humachi.New(router, cfg)
+	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, envConfig.ApiKeys))
+	return api
+}
+
+func newSecurityHandler(envConfig config.EnvConfig, handler http.Handler) http.Handler {
+	const (
+		SecondsPerDay        = 24 * 60 * 60
+		STSDurationInSeconds = 180 * SecondsPerDay
+	)
+	secureMiddleware := secure.New(secure.Options{
+		SSLRedirect:               envConfig.Env != EnvDevelopment,
+		STSSeconds:                STSDurationInSeconds,
+		STSIncludeSubdomains:      true,
+		STSPreload:                true,
+		ForceSTSHeader:            true,
+		FrameDeny:                 true,
+		ContentTypeNosniff:        true,
+		ReferrerPolicy:            "no-referrer",
+		CrossOriginOpenerPolicy:   "same-origin",
+		CrossOriginResourcePolicy: "same-origin",
+		CrossOriginEmbedderPolicy: "require-corp",
+		XDNSPrefetchControl:       "off",
+		IsDevelopment:             envConfig.Env == EnvDevelopment,
+	})
+
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	})
+
+	return corsHandler.Handler(secureMiddleware.Handler(handler))
 }

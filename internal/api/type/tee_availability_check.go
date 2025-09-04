@@ -2,10 +2,10 @@ package attestationtypes
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -38,12 +38,12 @@ type TeeAvailabilityResponseBody struct {
 
 func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityResponseBody {
 	return TeeAvailabilityResponseBody{
-		Status:                 json.Number(fmt.Sprintf("%d", data.Status)),
-		TeeTimestamp:           json.Number(fmt.Sprintf("%d", data.TeeTimestamp)),
+		Status:                 utils.ToJSONNumber(data.Status),
+		TeeTimestamp:           utils.ToJSONNumber(data.TeeTimestamp),
 		CodeHash:               common.BytesToHash(data.CodeHash[:]).Hex(),
 		Platform:               common.BytesToHash(data.Platform[:]).Hex(),
-		InitialSigningPolicyId: json.Number(fmt.Sprintf("%d", data.InitialSigningPolicyId)),
-		LastSigningPolicyId:    json.Number(fmt.Sprintf("%d", data.LastSigningPolicyId)),
+		InitialSigningPolicyId: utils.ToJSONNumber(data.InitialSigningPolicyId),
+		LastSigningPolicyId:    utils.ToJSONNumber(data.LastSigningPolicyId),
 		StateHash: connector.ITeeAvailabilityCheckTeeState{
 			SystemStateVersion: common.BytesToHash(data.State.SystemStateVersion[:]),
 			SystemState:        data.State.SystemState,

@@ -19,6 +19,22 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
+func RegisterOp[T any, R any](
+	api huma.API,
+	id, method, path string,
+	tags []string,
+	skipValidateBody bool, // TODO Check whether we can avoid this (here because huma changes bytes[32] to string)
+	handler func(ctx context.Context, req *T) (*types.Response[R], error),
+) {
+	huma.Register(api, huma.Operation{
+		OperationID:      id,
+		Method:           method,
+		Path:             path,
+		Tags:             tags,
+		SkipValidateBody: skipValidateBody,
+	}, handler)
+}
+
 func toIFTdcHubFtdcAttestationRequest(data types.FTDCRequestEncoded) (connector.IFtdcHubFtdcAttestationRequest, error) {
 	encoded, err := hex.DecodeString(utils.RemoveHexPrefix(data.RequestBody))
 	if err != nil {
