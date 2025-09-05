@@ -62,10 +62,10 @@ func TestPMWMultisig(t *testing.T) {
 	}, testAPIKey)
 	require.NoError(t, err)
 
-	var response types.EncodedResponseBody
+	var response types.AttestationResponse
 	require.NoError(t, json.Unmarshal(resp, &response))
 
-	result, err := test_util.DecodeFTDCTeeAvailabilityCheckResponse(response.Response)
+	result, err := test_util.DecodeFTDCTeeAvailabilityCheckResponse(response.ResponseBody)
 	require.NoError(t, err)
 
 	require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), result.Status)
@@ -108,10 +108,10 @@ func TestPMWPaymentStatus(t *testing.T) {
 	}, testAPIKey)
 	require.NoError(t, err)
 
-	var response types.EncodedResponseBody
+	var response types.AttestationResponse
 	require.NoError(t, json.Unmarshal(resp, &response))
 
-	result, err := test_util.DecodeFTDCPMVPaymentStatusResponse(response.Response)
+	result, err := test_util.DecodeFTDCPMVPaymentStatusResponse(response.ResponseBody)
 	require.NoError(t, err)
 
 	// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw

@@ -8,8 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-type TeeAvailabilityRequest = FTDCRequest[TeeAvailabilityRequestBody]
-
 type TeeAvailabilityRequestBody struct {
 	TeeId     common.Address `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
 	Url       string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
@@ -57,8 +55,6 @@ func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabi
 		},
 	}
 }
-
-type RawAndEncodedTeeAvailabilityResponseBody = RawAndEncodedFTDCResponse[TeeAvailabilityResponseBody]
 
 type TeeSamplesResponse struct {
 	Samples []teetypes.TeeSample `json:"samples"`

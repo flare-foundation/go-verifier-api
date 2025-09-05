@@ -6,8 +6,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
-type PMWPaymentStatusRequest = FTDCRequest[PMWPaymentStatusRequestBody]
-
 type PMWPaymentStatusRequestBody struct {
 	WalletId common.Hash `json:"walletId" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	Nonce    uint64      `json:"nonce" validate:"required" example:"1"`
@@ -53,5 +51,3 @@ func PMWPaymentToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPayme
 		BlockTimestamp:    data.BlockTimestamp,
 	}
 }
-
-type RawAndEncodedPMWPaymentStatusResponseBody = RawAndEncodedFTDCResponse[PMWPaymentStatusResponseBody]

@@ -7,8 +7,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
-type PMWMultisigAccountRequest = FTDCRequest[PMWMultisigAccountRequestBody]
-
 type PMWMultisigAccountRequestBody struct {
 	WalletAddress string          `json:"walletAddress" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	PublicKeys    []hexutil.Bytes `json:"publicKeys" validate:"required,min=1" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"`
@@ -49,5 +47,3 @@ func MultiSigToExternal(data connector.IPMWMultisigAccountConfiguredResponseBody
 		Sequence:                 data.Sequence,
 	}
 }
-
-type RawAndEncodedPMWMultisigAccountResponseBody = RawAndEncodedFTDCResponse[PMWMultisigAccountResponseBody]

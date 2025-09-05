@@ -100,7 +100,7 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.H
 	}
 	padded := make([]byte, utils.Bytes32Size)
 	copy(padded, bytes)
-	return common.BytesToHash(padded[:]), nil
+	return common.BytesToHash(padded), nil
 }
 
 var abiStructNames = map[connector.AttestationType]struct {

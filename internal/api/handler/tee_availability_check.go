@@ -7,12 +7,12 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
@@ -32,18 +32,24 @@ func TeeAvailabilityCheckHandler(
 		http.MethodPost,
 		getVerifierAPIPath(srcID, attType, "prepareRequestBody"),
 		tags,
-		false,
 		func(ctx context.Context, request *struct {
-			Body types.TeeAvailabilityRequest
-		}) (*types.Response[types.EncodedRequestBody], error) {
-			if err := validatePrepareResponseBody[types.TeeAvailabilityRequestBody](request.Body, config); err != nil {
-				return nil, err
-			}
+			Body types.AttestationRequestData[types.TeeAvailabilityRequestBody]
+		}) (*types.Response[types.AttestationRequestEncoded], error) {
+			// err := ValidateRequest(request.Body, config) // TODO
+			// if err != nil {
+			// 	return nil, err
+			// }
 			requestData, err := request.Body.RequestData.ToInternal()
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			return prepareRequestBody[connector.ITeeAvailabilityCheckRequestBody](requestData, config)
+			encodedRequest, err := utils.AbiEncodeData[connector.ITeeAvailabilityCheckRequestBody](requestData, config.AbiPair.Request)
+			if err != nil {
+				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
+			}
+			return types.NewResponse(types.AttestationRequestEncoded{
+				RequestBody: encodedRequest,
+			}), nil
 		})
 
 	RegisterOp(api,
@@ -51,18 +57,32 @@ func TeeAvailabilityCheckHandler(
 		http.MethodPost,
 		getVerifierAPIPath(srcID, attType, "prepareResponseBody"),
 		tags,
-		false,
 		func(ctx context.Context, request *struct {
-			Body types.FTDCRequestEncoded
-		}) (*types.Response[types.RawAndEncodedTeeAvailabilityResponseBody], error) {
-			return prepareResponseBody(
-				ctx,
-				request.Body,
-				validateAndVerifyEncodedRequest,
-				types.TeeToExternal,
-				config,
-				verifier,
-			)
+			Body types.AttestationRequest
+		}) (*types.Response[types.AttestationResponseData[types.TeeAvailabilityResponseBody]], error) {
+			err := ValidateRequest(request.Body, config)
+			if err != nil {
+				return nil, err
+			}
+			requestData, err := DecodeRequest[connector.ITeeAvailabilityCheckRequestBody](request.Body.RequestBody, config)
+			if err != nil {
+				return nil, err
+			}
+			responseData, err := verifier.Verify(ctx, requestData)
+			if errors.Is(err, teeverifier.ErrIndeterminate) {
+				return nil, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
+			}
+			if err != nil {
+				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+			}
+			response, err := EncodeResponse[connector.ITeeAvailabilityCheckResponseBody](responseData, config)
+			if err != nil {
+				return nil, err
+			}
+			return types.NewResponse(types.AttestationResponseData[types.TeeAvailabilityResponseBody]{
+				ResponseData: types.TeeToExternal(responseData),
+				ResponseBody: response,
+			}), nil
 		})
 
 	RegisterOp(api,
@@ -70,19 +90,29 @@ func TeeAvailabilityCheckHandler(
 		http.MethodPost,
 		getVerifierAPIPath(srcID, attType, "verify"),
 		tags,
-		true,
 		func(ctx context.Context, request *struct {
-			Body connector.IFtdcHubFtdcAttestationRequest
-		}) (*types.Response[types.EncodedResponseBody], error) {
+			Body types.AttestationRequest
+		}) (*types.Response[types.AttestationResponse], error) {
 			logger.Debug("Received request for TEEAvailability")
-			response, responseDataBytes, err := validateAndVerifyEncodedRequest(request.Body, ctx, config, verifier)
+			err := ValidateRequest(request.Body, config)
 			if err != nil {
-				logger.Error("Failed verifying request", err)
 				return nil, err
 			}
-			logTeeAvailabilityCheckResponse(response)
-			return types.NewResponse(types.EncodedResponseBody{
-				Response: responseDataBytes,
+			requestData, err := DecodeRequest[connector.ITeeAvailabilityCheckRequestBody](request.Body.RequestBody, config)
+			if err != nil {
+				return nil, err
+			}
+			responseData, err := verifier.Verify(ctx, requestData)
+			if errors.Is(err, teeverifier.ErrIndeterminate) {
+				return nil, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
+			} // TODO other errors
+			response, err := EncodeResponse[connector.ITeeAvailabilityCheckResponseBody](responseData, config)
+			if err != nil {
+				return nil, err
+			}
+			logTeeAvailabilityCheckResponse(responseData)
+			return types.NewResponse(types.AttestationResponse{
+				ResponseBody: response,
 			}), nil
 		})
 
@@ -91,7 +121,6 @@ func TeeAvailabilityCheckHandler(
 		http.MethodGet,
 		"/poller/tees",
 		[]string{"Poller"},
-		false,
 		func(ctx context.Context, request *struct{}) (*types.Response[types.TeeSamplesResponse], error) {
 			teeVerifier, ok := verifier.(*teeverifier.TeeVerifier)
 			if !ok {
@@ -103,18 +132,6 @@ func TeeAvailabilityCheckHandler(
 			samples := formatTeeSamples(teeVerifier)
 			return types.NewResponse(types.TeeSamplesResponse{Samples: samples}), nil
 		})
-}
-
-func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.EncodedAndAbi, verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) (connector.ITeeAvailabilityCheckResponseBody, []byte, error) {
-	requestData, err := validateAndParseFTDCRequest[connector.ITeeAvailabilityCheckRequestBody](request, config)
-	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, hexutil.Bytes{}, err
-	}
-	responseData, err := verifier.Verify(ctx, requestData)
-	if errors.Is(err, teeverifier.ErrIndeterminate) {
-		return connector.ITeeAvailabilityCheckResponseBody{}, hexutil.Bytes{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
-	}
-	return handleVerifierResult[connector.ITeeAvailabilityCheckResponseBody](err, responseData, config)
 }
 
 func formatTeeSamples(teeVerifier *teeverifier.TeeVerifier) []teetypes.TeeSample {
