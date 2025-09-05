@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
@@ -107,11 +108,11 @@ func TeeAvailabilityCheckHandler(
 func validateAndVerifyEncodedRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.EncodedAndAbi, verifier verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]) (connector.ITeeAvailabilityCheckResponseBody, []byte, error) {
 	requestData, err := validateAndParseFTDCRequest[connector.ITeeAvailabilityCheckRequestBody](request, config)
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, err
+		return connector.ITeeAvailabilityCheckResponseBody{}, hexutil.Bytes{}, err
 	}
 	responseData, err := verifier.Verify(ctx, requestData)
 	if errors.Is(err, teeverifier.ErrIndeterminate) {
-		return connector.ITeeAvailabilityCheckResponseBody{}, []byte{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
+		return connector.ITeeAvailabilityCheckResponseBody{}, hexutil.Bytes{}, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
 	}
 	return handleVerifierResult[connector.ITeeAvailabilityCheckResponseBody](err, responseData, config)
 }

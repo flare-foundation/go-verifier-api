@@ -2,7 +2,6 @@ package validation
 
 import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"regexp"
 
 	"fmt"
 
@@ -33,7 +32,7 @@ func ValidateRequest(request interface{}) error {
 }
 
 func ValidateSystemAndRequestAttestationNameAndSourceId(attestationTypePair config.AttestationTypeEncodedPair, sourceIdPair config.SourceIdEncodedPair, requestAttestationName string, requestSourceId string) error {
-	if requestAttestationName != attestationTypePair.AttestationTypeEncoded || requestSourceId != sourceIdPair.SourceIdEncoded {
+	if requestAttestationName != attestationTypePair.AttestationTypeEncoded.Hex() || requestSourceId != sourceIdPair.SourceIdEncoded.Hex() {
 		return fmt.Errorf(
 			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s)",
 			requestAttestationName, requestSourceId,
@@ -45,11 +44,17 @@ func ValidateSystemAndRequestAttestationNameAndSourceId(attestationTypePair conf
 }
 
 func IsHash32(fl validator.FieldLevel) bool {
-	hash := fl.Field().String()
-	re := regexp.MustCompile(`^0x[a-fA-F0-9]{64}$`)
-	return re.MatchString(hash)
+	v, ok := fl.Field().Interface().(common.Hash)
+	if !ok {
+		return false
+	}
+	return v != (common.Hash{})
 }
 
 func IsCommonAddress(fl validator.FieldLevel) bool {
-	return common.IsHexAddress(fl.Field().String())
+	v, ok := fl.Field().Interface().(common.Address)
+	if !ok {
+		return false
+	}
+	return v != (common.Address{})
 }

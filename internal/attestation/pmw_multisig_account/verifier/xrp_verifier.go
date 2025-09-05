@@ -49,7 +49,7 @@ func (x *XRPVerifier) verifyMultisigConfiguration(ctx context.Context, req conne
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
-		logger.Debug("Account validation failed: doesnt have signers")
+		logger.Debug("Account validation failed: doesn't have signers")
 		return 0, false, nil
 	}
 

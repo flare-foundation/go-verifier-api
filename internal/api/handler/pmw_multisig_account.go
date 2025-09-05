@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -87,7 +88,7 @@ func PMWMultisigAccountHandler(
 func validateAndVerifyEncodedPMWMultisigAccountRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.EncodedAndAbi, verifier verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody]) (connector.IPMWMultisigAccountConfiguredResponseBody, []byte, error) {
 	requestData, err := validateAndParseFTDCRequest[connector.IPMWMultisigAccountConfiguredRequestBody](request, config)
 	if err != nil {
-		return connector.IPMWMultisigAccountConfiguredResponseBody{}, []byte{}, err
+		return connector.IPMWMultisigAccountConfiguredResponseBody{}, hexutil.Bytes{}, err
 	}
 	logger.Debugf("Verify PMWMultisigAccount for %s, threshold %d", requestData.WalletAddress, requestData.Threshold)
 	responseData, err := verifier.Verify(ctx, requestData)

@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -43,7 +44,7 @@ func Bytes32(s string) ([32]byte, error) {
 	return b, nil
 }
 
-func AbiEncodeData[T any](data T, arg abi.Argument) ([]byte, error) {
+func AbiEncodeData[T any](data T, arg abi.Argument) (hexutil.Bytes, error) {
 	encoded, err := structs.Encode(arg, data)
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func AbiEncodeData[T any](data T, arg abi.Argument) ([]byte, error) {
 	return encoded, nil
 }
 
-func AbiDecodeRequestData[T any](data []byte, arg abi.Argument) (T, error) {
+func AbiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error) {
 	decode, err := structs.Decode[T](arg, data)
 	if err != nil {
 		var zero T
@@ -60,7 +61,7 @@ func AbiDecodeRequestData[T any](data []byte, arg abi.Argument) (T, error) {
 	return decode, nil
 }
 
-func AbiDecodeEventData[T any](abiObj abi.ABI, eventName string, data []byte) (*T, error) {
+func AbiDecodeEventData[T any](abiObj abi.ABI, eventName string, data hexutil.Bytes) (*T, error) {
 	var result T
 	err := abiObj.UnpackIntoInterface(&result, eventName, data)
 	if err != nil {
@@ -212,8 +213,4 @@ func (e *FetchError) Error() string {
 
 func (e *FetchError) Unwrap() error {
 	return e.Err
-}
-
-func ToJSONNumber(v any) json.Number {
-	return json.Number(fmt.Sprint(v))
 }

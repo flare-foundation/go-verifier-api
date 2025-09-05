@@ -1,29 +1,27 @@
 package attestationtypes
 
 import (
-	"encoding/hex"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
 type PMWMultisigAccountRequest = FTDCRequest[PMWMultisigAccountRequestBody]
 
 type PMWMultisigAccountRequestBody struct {
-	WalletAddress string   `json:"walletAddress" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
-	PublicKeys    []string `json:"publicKeys" validate:"required,min=1" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"`
-	Threshold     uint64   `json:"threshold" validate:"gte=1" example:"3"`
+	WalletAddress string          `json:"walletAddress" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	PublicKeys    []hexutil.Bytes `json:"publicKeys" validate:"required,min=1" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"`
+	Threshold     uint64          `json:"threshold" validate:"gte=1" example:"3"`
 }
 
 func (requestBody PMWMultisigAccountRequestBody) ToInternal() (connector.IPMWMultisigAccountConfiguredRequestBody, error) {
-	var publicKeys [][]byte
-	for _, pk := range requestBody.PublicKeys {
-		b, err := hex.DecodeString(utils.RemoveHexPrefix(pk))
-		if err != nil {
-			return connector.IPMWMultisigAccountConfiguredRequestBody{}, fmt.Errorf("invalid public key: %s, err: %w", pk, err)
+	publicKeys := make([][]byte, len(requestBody.PublicKeys))
+	for i, pk := range requestBody.PublicKeys {
+		if len(pk) == 0 {
+			return connector.IPMWMultisigAccountConfiguredRequestBody{}, fmt.Errorf("public key at index %d is empty", i)
 		}
-		publicKeys = append(publicKeys, b)
+		publicKeys[i] = pk
 	}
 
 	return connector.IPMWMultisigAccountConfiguredRequestBody{

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -87,7 +88,7 @@ func PMWPaymentStatusHandler(
 func validateAndVerifyEncodedPMWPaymentStatusRequest(request connector.IFtdcHubFtdcAttestationRequest, ctx context.Context, config *config.EncodedAndAbi, verifier verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody]) (connector.IPMWPaymentStatusResponseBody, []byte, error) {
 	requestData, err := validateAndParseFTDCRequest[connector.IPMWPaymentStatusRequestBody](request, config)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, []byte{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, hexutil.Bytes{}, err
 	}
 	responseData, err := verifier.Verify(ctx, requestData)
 	return handleVerifierResult[connector.IPMWPaymentStatusResponseBody](err, responseData, config)

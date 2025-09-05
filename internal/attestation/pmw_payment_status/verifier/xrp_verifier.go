@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"

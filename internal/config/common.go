@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
@@ -49,12 +50,12 @@ const (
 
 type SourceIdEncodedPair struct {
 	SourceId        SourceName
-	SourceIdEncoded string
+	SourceIdEncoded common.Hash
 }
 
 type AttestationTypeEncodedPair struct {
 	AttestationType        connector.AttestationType
-	AttestationTypeEncoded string
+	AttestationTypeEncoded common.Hash
 }
 
 type AbiArgPair struct {
@@ -89,17 +90,17 @@ type EncodedAndAbi struct {
 	AbiPair             AbiArgPair
 }
 
-func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (string, error) {
+func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.Hash, error) {
 	if len(attestationTypeOrSourceName) >= 2 && (attestationTypeOrSourceName[:2] == "0x" || attestationTypeOrSourceName[:2] == "0X") {
-		return "", fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: '%s'", attestationTypeOrSourceName)
+		return common.Hash{}, fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: '%s'", attestationTypeOrSourceName)
 	}
 	bytes := []byte(attestationTypeOrSourceName)
 	if len(bytes) > utils.Bytes32Size {
-		return "", fmt.Errorf("attestation type or source id name '%s' is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
+		return common.Hash{}, fmt.Errorf("attestation type or source id name '%s' is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
 	}
 	padded := make([]byte, utils.Bytes32Size)
 	copy(padded, bytes)
-	return utils.BytesToHex0x(padded), nil
+	return common.BytesToHash(padded[:]), nil
 }
 
 var abiStructNames = map[connector.AttestationType]struct {

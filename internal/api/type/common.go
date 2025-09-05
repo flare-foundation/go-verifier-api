@@ -1,6 +1,7 @@
 package attestationtypes
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
@@ -9,9 +10,9 @@ type HealthCheckResponse struct {
 }
 
 type FTDCHeader struct {
-	AttestationType string `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
-	SourceId        string `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
-	ThresholdBIPS   uint16 `json:"thresholdBIPS" example:"0"`
+	AttestationType common.Hash `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
+	SourceId        common.Hash `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
+	ThresholdBIPS   uint16      `json:"thresholdBIPS" example:"0"`
 }
 
 type FTDCRequest[T any] struct {
@@ -20,12 +21,12 @@ type FTDCRequest[T any] struct {
 }
 
 type FTDCRequestEncoded struct {
-	FTDCHeader  FTDCHeader `json:"header"`
-	RequestBody string     `json:"responseBody" example:"0x0000abcd..."`
+	FTDCHeader  FTDCHeader    `json:"header"`
+	RequestBody hexutil.Bytes `json:"requestBody" example:"0x0000abcd..."`
 }
 
 type EncodedRequestBody struct {
-	RequestBody string `json:"requestBody" example:"0x0000abcd..."`
+	RequestBody hexutil.Bytes `json:"requestBody" example:"0x0000abcd..."`
 }
 
 // TODO Common types for verifier and relay client.
@@ -34,8 +35,8 @@ type EncodedResponseBody struct {
 }
 
 type RawAndEncodedFTDCResponse[T any] struct {
-	ResponseData T      `json:"responseData"`
-	ResponseBody string `json:"responseBody" example:"0x0000abcd..."`
+	ResponseData T             `json:"responseData"`
+	ResponseBody hexutil.Bytes `json:"responseBody" example:"0x0000abcd..."`
 }
 
 // Response is a generic response type for the API with just a simple body. https://zuplo.com/blog/2025/04/20/how-to-build-an-api-with-go-and-huma

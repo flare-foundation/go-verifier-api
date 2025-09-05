@@ -3,14 +3,13 @@ package handler
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
@@ -36,17 +35,13 @@ func RegisterOp[T any, R any](
 }
 
 func toIFTdcHubFtdcAttestationRequest(data types.FTDCRequestEncoded) (connector.IFtdcHubFtdcAttestationRequest, error) {
-	encoded, err := hex.DecodeString(utils.RemoveHexPrefix(data.RequestBody))
-	if err != nil {
-		return connector.IFtdcHubFtdcAttestationRequest{}, fmt.Errorf("decoding request body failed: %w", err)
-	}
 	return connector.IFtdcHubFtdcAttestationRequest{
 		Header: connector.IFtdcHubFtdcRequestHeader{
-			AttestationType: common.HexToHash(data.FTDCHeader.AttestationType),
-			SourceId:        common.HexToHash(data.FTDCHeader.SourceId),
+			AttestationType: data.FTDCHeader.AttestationType,
+			SourceId:        data.FTDCHeader.SourceId,
 			ThresholdBIPS:   data.FTDCHeader.ThresholdBIPS,
 		},
-		RequestBody: encoded,
+		RequestBody: data.RequestBody,
 	}, nil
 }
 
@@ -78,7 +73,7 @@ func validateAndParseFTDCRequest[T any](request connector.IFtdcHubFtdcAttestatio
 	return data, nil
 }
 
-func handleVerifierResult[T any](verifierErr error, responseData T, config *config.EncodedAndAbi) (T, []byte, error) {
+func handleVerifierResult[T any](verifierErr error, responseData T, config *config.EncodedAndAbi) (T, hexutil.Bytes, error) {
 	var empty T
 	if verifierErr != nil {
 		return empty, nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", verifierErr))
@@ -97,8 +92,8 @@ func validatePrepareResponseBody[T any](request types.FTDCRequest[T], config *co
 	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
 		config.AttestationTypePair,
 		config.SourceIdPair,
-		request.FTDCHeader.AttestationType,
-		request.FTDCHeader.SourceId,
+		request.FTDCHeader.AttestationType.Hex(),
+		request.FTDCHeader.SourceId.Hex(),
 	); err != nil {
 		return huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
@@ -112,7 +107,7 @@ func prepareRequestBody[T any](requestData T, config *config.EncodedAndAbi) (*ty
 		return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 	}
 	return types.NewResponse(types.EncodedRequestBody{
-		RequestBody: utils.BytesToHex0x(requestDataBytes),
+		RequestBody: requestDataBytes,
 	}), nil
 }
 
@@ -134,7 +129,7 @@ func prepareResponseBody[T any, R any, E any](
 	return &types.Response[types.RawAndEncodedFTDCResponse[E]]{
 		Body: types.RawAndEncodedFTDCResponse[E]{
 			ResponseData: toExternal(responseData),
-			ResponseBody: utils.BytesToHex0x(responseBytes),
+			ResponseBody: responseBytes,
 		},
 	}, nil
 }
