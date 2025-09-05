@@ -33,10 +33,10 @@ func PMWPaymentStatusHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequestData[types.PMWPaymentStatusRequestBody]
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
-			// err := ValidateRequest(request.Body, config) // TODO
-			// if err != nil {
-			// 	return nil, err
-			// }
+			err := ValidateRequestData(request.Body, config)
+			if err != nil {
+				return nil, err
+			}
 			requestData, err := request.Body.RequestData.ToInternal()
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))

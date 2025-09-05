@@ -38,6 +38,21 @@ func getVerifierAPITag(attestationType connector.AttestationType) []string {
 	return []string{string(attestationType)}
 }
 
+func ValidateRequestData[T any](request types.AttestationRequestData[T], config *config.EncodedAndAbi) error {
+	if err := validation.ValidateRequest(request); err != nil {
+		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
+	}
+	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
+		config.AttestationTypePair,
+		config.SourceIdPair,
+		request.AttestationType.Hex(),
+		request.SourceId.Hex(),
+	); err != nil {
+		return huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+	}
+	return nil
+}
+
 func ValidateRequest(request types.AttestationRequest, config *config.EncodedAndAbi) error {
 	if err := validation.ValidateRequest(request); err != nil {
 		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
