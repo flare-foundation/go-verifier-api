@@ -36,7 +36,6 @@ func RunServer(envConfig config.EnvConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// initialize modules
 	closers, err := LoadModule(ctx, api, envConfig)
 	if err != nil {
 		logger.Fatalf("%v", err)
