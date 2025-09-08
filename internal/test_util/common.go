@@ -49,26 +49,55 @@ func DecodeFTDCPMVPaymentStatusResponse(data []byte) (connector.IPMWPaymentStatu
 	return request, nil
 }
 
-func Post(t *testing.T, url string, data interface{}, apiKey string) ([]byte, error) {
+func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, error) {
 	t.Helper()
+	var empty T
 	payload, err := json.Marshal(data)
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-API-KEY", apiKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return empty, fmt.Errorf("error response status: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return empty, err
+	}
+
+	var response T
+	if err := json.Unmarshal(body, &response); err != nil {
+		return empty, err
+	}
+
+	return response, nil
+}
+
+func Get(t *testing.T, url string, apiKey string) ([]byte, error) {
+	t.Helper()
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-API-KEY", apiKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("error response status: %s", resp.Status)
 	}
