@@ -73,3 +73,4 @@ See [API reference](docs/api.md) for endpoint definitions and examples.
 - [ ] `verify` route: support json friendly inputs or have direct types from other packages? - We will define api friendly types between relay-client and go-verifier-api.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
 - [ ] Add poller API endpoint in readme.
+- [ ] Check all ctx's are sensible -> retry with backoff (wait 5s).
