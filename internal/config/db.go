@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
-	"time"
-
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -14,30 +14,30 @@ const (
 	defaultDBRetryDelay  = 500 * time.Millisecond
 )
 
-func InitMainDB(dsn string) (*gorm.DB, error) {
+func initDBWithRetries(dialector gorm.Dialector, dbName string) (*gorm.DB, error) {
 	var db *gorm.DB
 	var err error
+
 	for i := 0; i < defaultDBOpenRetries; i++ {
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		db, err = gorm.Open(dialector, &gorm.Config{})
 		if err == nil {
 			return db, nil
 		}
-		time.Sleep(defaultDBRetryDelay)
+
+		if i < defaultDBOpenRetries-1 {
+			time.Sleep(defaultDBRetryDelay)
+		}
 	}
-	return nil, fmt.Errorf("failed to open main DB after %d attempts: %w", defaultDBOpenRetries, err)
+
+	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, defaultDBOpenRetries, err)
+}
+
+func InitMainDB(dsn string) (*gorm.DB, error) {
+	return initDBWithRetries(postgres.Open(dsn), "main DB")
 }
 
 func InitCChainDB(dsn string) (*gorm.DB, error) {
-	var db *gorm.DB
-	var err error
-	for i := 0; i < defaultDBOpenRetries; i++ {
-		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-		if err == nil {
-			return db, nil
-		}
-		time.Sleep(defaultDBRetryDelay)
-	}
-	return nil, fmt.Errorf("failed to open CChain DB after %d attempts: %w", defaultDBOpenRetries, err)
+	return initDBWithRetries(mysql.Open(dsn), "CChain DB")
 }
 
 func CloseGormDB(db *gorm.DB) error {

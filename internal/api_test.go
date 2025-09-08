@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
-	"github.com/flare-foundation/go-verifier-api/internal/test_util"
+	testutil "github.com/flare-foundation/go-verifier-api/internal/test_util"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -41,7 +42,7 @@ func TestPMWMultisig(t *testing.T) {
 	pubkey3, err := hexutil.Decode("0x76e4a85207c1012283a7190b1df628e29ba1a687404ec35a766e7eddba94ba42a07f356ccc847540b4ed23f15f3feb07c406c3f815a361983c321740fa998cdb")
 	require.NoError(t, err)
 
-	attestationRequest, err := test_util.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
+	attestationRequest, err := testutil.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
 		WalletAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
 		PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
 		Threshold:     1,
@@ -53,7 +54,7 @@ func TestPMWMultisig(t *testing.T) {
 	sourceId, err := utils.Bytes32(string(config.SourceXRP))
 	require.NoError(t, err)
 
-	resp, err := test_util.MakePostRequest(t, "http://localhost:3120/verifier/xrp/PMWMultisigAccountConfigured/verify", connector.IFtdcHubFtdcAttestationRequest{
+	resp, err := testutil.Post(t, "http://localhost:3120/verifier/xrp/PMWMultisigAccountConfigured/verify", connector.IFtdcHubFtdcAttestationRequest{
 		Header: connector.IFtdcHubFtdcRequestHeader{
 			AttestationType: attestationType,
 			SourceId:        sourceId,
@@ -65,7 +66,7 @@ func TestPMWMultisig(t *testing.T) {
 	var response types.EncodedResponseBody
 	require.NoError(t, json.Unmarshal(resp, &response))
 
-	result, err := test_util.DecodeFTDCTeeAvailabilityCheckResponse(response.Response)
+	result, err := testutil.DecodeFTDCTeeAvailabilityCheckResponse(response.Response)
 	require.NoError(t, err)
 
 	require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), result.Status)
@@ -87,43 +88,209 @@ func TestPMWPaymentStatus(t *testing.T) {
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
 
-	attestationRequest, err := test_util.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
-		WalletId: common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"),
-		Nonce:    10110067,
-		SubNonce: 10110067,
+	t.Run("Test valid payment", func(t *testing.T) {
+		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+			WalletId: common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"),
+			Nonce:    10110067,
+			SubNonce: 10110067,
+		})
+		require.NoError(t, err)
+
+		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+		sourceId, err := utils.Bytes32(string(config.SourceXRP))
+		require.NoError(t, err)
+
+		resp, err := testutil.Post(t, "http://localhost:3121/verifier/xrp/PMWPaymentStatus/verify", connector.IFtdcHubFtdcAttestationRequest{
+			Header: connector.IFtdcHubFtdcRequestHeader{
+				AttestationType: attestationType,
+				SourceId:        sourceId,
+			},
+			RequestBody: attestationRequest,
+		}, testAPIKey)
+		require.NoError(t, err)
+
+		var response types.EncodedResponseBody
+		require.NoError(t, json.Unmarshal(resp, &response))
+
+		result, err := testutil.DecodeFTDCPMVPaymentStatusResponse(response.Response)
+		require.NoError(t, err)
+
+		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
+		require.Equal(t, crypto.Keccak256Hash([]byte("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK")), common.HexToHash(result.SenderAddress))
+		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(result.RecipientAddress))
+		require.Equal(t, big.NewInt(10_000), result.Amount)
+		require.Equal(t, big.NewInt(10_000), result.ReceivedAmount)
+		require.Equal(t, big.NewInt(100), result.Fee)
+		require.Equal(t, big.NewInt(100), result.TransactionFee)
+		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(result.PaymentReference[:]))
+		require.Equal(t, uint8(0), result.TransactionStatus)
+		require.Equal(t, "", result.RevertReason)
+		require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(result.TransactionId[:]))
+		require.Equal(t, uint64(10110073), result.BlockNumber)
 	})
-	require.NoError(t, err)
 
-	attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
-	require.NoError(t, err)
-	sourceId, err := utils.Bytes32(string(config.SourceXRP))
-	require.NoError(t, err)
+	t.Run("Test invalid sourceId", func(t *testing.T) {
+		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
 
-	resp, err := test_util.MakePostRequest(t, "http://localhost:3121/verifier/xrp/PMWPaymentStatus/verify", connector.IFtdcHubFtdcAttestationRequest{
-		Header: connector.IFtdcHubFtdcRequestHeader{
-			AttestationType: attestationType,
-			SourceId:        sourceId,
-		},
-		RequestBody: attestationRequest,
-	}, testAPIKey)
-	require.NoError(t, err)
+		_, err = testutil.Post(t, "http://localhost:3121/verifier/xrp/PMWPaymentStatus/verify", connector.IFtdcHubFtdcAttestationRequest{
+			Header: connector.IFtdcHubFtdcRequestHeader{
+				AttestationType: attestationType,
+				SourceId:        common.HexToHash("0x123"),
+			},
+			RequestBody: []byte("0x123"),
+		}, testAPIKey)
+		require.Error(t, err)
+	})
 
-	var response types.EncodedResponseBody
-	require.NoError(t, json.Unmarshal(resp, &response))
+	t.Run("Test prepareRequestBody", func(t *testing.T) {
+		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+		sourceId, err := utils.Bytes32(string(config.SourceXRP))
+		require.NoError(t, err)
 
-	result, err := test_util.DecodeFTDCPMVPaymentStatusResponse(response.Response)
-	require.NoError(t, err)
+		ftdReq := types.PMWPaymentStatusRequest{
+			FTDCHeader: types.FTDCHeader{
+				AttestationType: common.Hash(attestationType[:]),
+				SourceId:        common.Hash(sourceId[:]),
+				ThresholdBIPS:   0,
+			},
+			RequestData: types.PMWPaymentStatusRequestBody{
+				WalletId: common.HexToHash("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Nonce:    1,
+				SubNonce: 1,
+			},
+		}
+		resp, err := testutil.Post(t, "http://localhost:3121/verifier/xrp/PMWPaymentStatus/prepareRequestBody", ftdReq, testAPIKey)
+		require.NoError(t, err)
 
-	// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
-	require.Equal(t, crypto.Keccak256Hash([]byte("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK")), common.HexToHash(result.SenderAddress))
-	require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(result.RecipientAddress))
-	require.Equal(t, big.NewInt(10_000), result.Amount)
-	require.Equal(t, big.NewInt(10_000), result.ReceivedAmount)
-	require.Equal(t, big.NewInt(100), result.Fee)
-	require.Equal(t, big.NewInt(100), result.TransactionFee)
-	require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(result.PaymentReference[:]))
-	require.Equal(t, uint8(0), result.TransactionStatus)
-	require.Equal(t, "", result.RevertReason)
-	require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(result.TransactionId[:]))
-	require.Equal(t, uint64(10110073), result.BlockNumber)
+		var response types.EncodedRequestBody
+		require.NoError(t, json.Unmarshal(resp, &response))
+
+		require.NotEmpty(t, response.RequestBody)
+
+		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+			WalletId: ftdReq.RequestData.WalletId,
+			Nonce:    ftdReq.RequestData.Nonce,
+			SubNonce: ftdReq.RequestData.SubNonce,
+		})
+		require.NoError(t, err)
+		require.Equal(t, []byte(response.RequestBody), attestationRequest)
+	})
+
+	t.Run("Test prepareRequestBody", func(t *testing.T) {
+		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+		sourceId, err := utils.Bytes32(string(config.SourceXRP))
+		require.NoError(t, err)
+
+		ftdReq := types.PMWPaymentStatusRequest{
+			FTDCHeader: types.FTDCHeader{
+				AttestationType: common.BytesToHash(attestationType[:]),
+				SourceId:        common.BytesToHash(sourceId[:]),
+				ThresholdBIPS:   0,
+			},
+			RequestData: types.PMWPaymentStatusRequestBody{
+				WalletId: common.HexToHash("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Nonce:    1,
+				SubNonce: 1,
+			},
+		}
+		resp, err := testutil.Post(t, "http://localhost:3121/verifier/xrp/PMWPaymentStatus/prepareRequestBody", ftdReq, testAPIKey)
+		require.NoError(t, err)
+
+		var response types.EncodedRequestBody
+		require.NoError(t, json.Unmarshal(resp, &response))
+
+		require.NotEmpty(t, response.RequestBody)
+
+		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+			WalletId: ftdReq.RequestData.WalletId,
+			Nonce:    ftdReq.RequestData.Nonce,
+			SubNonce: ftdReq.RequestData.SubNonce,
+		})
+		require.NoError(t, err)
+		require.Equal(t, []byte(response.RequestBody), attestationRequest)
+	})
+
+	t.Run("Test prepareRequestBody", func(t *testing.T) {
+		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+		sourceId, err := utils.Bytes32(string(config.SourceXRP))
+		require.NoError(t, err)
+
+		ftdReq := types.PMWPaymentStatusRequest{
+			FTDCHeader: types.FTDCHeader{
+				AttestationType: common.BytesToHash(attestationType[:]),
+				SourceId:        common.BytesToHash(sourceId[:]),
+				ThresholdBIPS:   0,
+			},
+			RequestData: types.PMWPaymentStatusRequestBody{
+				WalletId: common.HexToHash("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Nonce:    1,
+				SubNonce: 1,
+			},
+		}
+		resp, err := testutil.Post(t, "http://localhost:3121/verifier/xrp/PMWPaymentStatus/prepareRequestBody", ftdReq, testAPIKey)
+		require.NoError(t, err)
+
+		var response types.EncodedRequestBody
+		require.NoError(t, json.Unmarshal(resp, &response))
+
+		require.NotEmpty(t, response.RequestBody)
+
+		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+			WalletId: ftdReq.RequestData.WalletId,
+			Nonce:    ftdReq.RequestData.Nonce,
+			SubNonce: ftdReq.RequestData.SubNonce,
+		})
+		require.NoError(t, err)
+		require.Equal(t, []byte(response.RequestBody), attestationRequest)
+	})
+
+	t.Run("Test prepareRequestBody", func(t *testing.T) {
+		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+			WalletId: common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"),
+			Nonce:    10110067,
+			SubNonce: 10110067,
+		})
+		require.NoError(t, err)
+
+		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+		sourceId, err := utils.Bytes32(string(config.SourceXRP))
+		require.NoError(t, err)
+
+		ftdReq := types.FTDCRequestEncoded{
+			FTDCHeader: types.FTDCHeader{
+				AttestationType: common.BytesToHash(attestationType[:]),
+				SourceId:        common.BytesToHash(sourceId[:]),
+				ThresholdBIPS:   0,
+			},
+			RequestBody: attestationRequest,
+		}
+
+		resp, err := testutil.Post(t, "http://localhost:3121/verifier/xrp/PMWPaymentStatus/prepareResponseBody", ftdReq, testAPIKey)
+		require.NoError(t, err)
+
+		var response types.RawAndEncodedPMWPaymentStatusResponseBody
+		require.NoError(t, json.Unmarshal(resp, &response))
+
+		require.NotEmpty(t, response.ResponseBody)
+		require.NotEmpty(t, response.ResponseData)
+
+		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
+		require.Equal(t, crypto.Keccak256Hash([]byte("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK")), common.HexToHash(response.ResponseData.SenderAddress))
+		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(response.ResponseData.RecipientAddress))
+		require.Equal(t, big.NewInt(10_000), response.ResponseData.Amount.ToInt())
+		require.Equal(t, big.NewInt(10_000), response.ResponseData.ReceivedAmount.ToInt())
+		require.Equal(t, big.NewInt(100), response.ResponseData.Fee.ToInt())
+		require.Equal(t, big.NewInt(100), response.ResponseData.TransactionFee.ToInt())
+		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(response.ResponseData.PaymentReference[:]))
+		require.Equal(t, uint8(0), response.ResponseData.TransactionStatus)
+		require.Equal(t, "", response.ResponseData.RevertReason)
+		require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(response.ResponseData.TransactionId[:]))
+		require.Equal(t, uint64(10110073), response.ResponseData.BlockNumber)
+	})
 }
