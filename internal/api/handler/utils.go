@@ -85,7 +85,7 @@ func handleVerifierResult[T any](verifierErr error, responseData T, config *conf
 	return responseData, responseBytes, nil
 }
 
-func validatePrepareResponseBody[T any](request types.FTDCRequest[T], config *config.EncodedAndAbi) error {
+func validatePrepareRequest[T any](request types.FTDCRequest[T], config *config.EncodedAndAbi) error {
 	if err := validation.ValidateRequest(request); err != nil {
 		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}

@@ -36,7 +36,7 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct {
 			Body types.TeeAvailabilityRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
-			if err := validatePrepareResponseBody[types.TeeAvailabilityRequestBody](request.Body, config); err != nil {
+			if err := validatePrepareRequest[types.TeeAvailabilityRequestBody](request.Body, config); err != nil {
 				return nil, err
 			}
 			requestData, err := request.Body.RequestData.ToInternal()

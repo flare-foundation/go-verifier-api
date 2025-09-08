@@ -34,7 +34,7 @@ func PMWMultisigAccountHandler(
 		func(ctx context.Context, request *struct {
 			Body types.PMWMultisigAccountRequest
 		}) (*types.Response[types.EncodedRequestBody], error) {
-			if err := validatePrepareResponseBody[types.PMWMultisigAccountRequestBody](request.Body, config); err != nil {
+			if err := validatePrepareRequest[types.PMWMultisigAccountRequestBody](request.Body, config); err != nil {
 				return nil, err
 			}
 			requestData, err := request.Body.RequestData.ToInternal()
