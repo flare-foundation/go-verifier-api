@@ -42,11 +42,11 @@ func ValidateRequestData[T any](request types.AttestationRequestData[T], config 
 	if err := validation.ValidateRequest(request); err != nil {
 		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
+	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceID(
 		config.AttestationTypePair,
-		config.SourceIdPair,
+		config.SourceIDPair,
 		request.AttestationType.Hex(),
-		request.SourceId.Hex(),
+		request.SourceID.Hex(),
 	); err != nil {
 		return huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
@@ -57,11 +57,11 @@ func ValidateRequest(request types.AttestationRequest, config *config.EncodedAnd
 	if err := validation.ValidateRequest(request); err != nil {
 		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceId(
+	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceID(
 		config.AttestationTypePair,
-		config.SourceIdPair,
+		config.SourceIDPair,
 		request.AttestationType.Hex(),
-		request.SourceId.Hex(),
+		request.SourceID.Hex(),
 	); err != nil {
 		return huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
 	}
@@ -109,7 +109,7 @@ func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBod
 
 func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckResponseBody) {
 	const nullByte = "\x00"
-	logger.Debugf("TEEAvailability result: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyId:%d, LastSigningPolicyId=%d, State=%v",
+	logger.Debugf("TEEAvailability result: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyID:%d, LastSigningPolicyID=%d, State=%v",
 		response.Status,
 		response.TeeTimestamp,
 		response.CodeHash,

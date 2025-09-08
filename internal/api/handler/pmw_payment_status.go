@@ -21,7 +21,7 @@ func PMWPaymentStatusHandler(
 	verifier verifierinterface.VerifierInterface[
 		connector.IPMWPaymentStatusRequestBody,
 		connector.IPMWPaymentStatusResponseBody]) {
-	srcID := config.SourceIdPair.SourceId
+	srcID := config.SourceIDPair.SourceID
 	attType := config.AttestationTypePair.AttestationType
 	tags := getVerifierAPITag(attType)
 

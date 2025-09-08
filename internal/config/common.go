@@ -21,7 +21,7 @@ const (
 	EnvCChainDatabaseURL                      = "CCHAIN_DATABASE_URL"
 	EnvEnv                                    = "ENV"
 	EnvPort                                   = "PORT"
-	EnvApiKeys                                = "API_KEYS"
+	EnvAPIKeys                                = "API_KEYS"
 	EnvAttestationType                        = "VERIFIER_TYPE"
 	EnvSourceID                               = "SOURCE_ID"
 )
@@ -36,7 +36,7 @@ type EnvConfig struct {
 	CChainDatabaseURL                      string
 	Env                                    string
 	Port                                   string
-	ApiKeys                                []string
+	APIKeys                                []string
 	AttestationType                        connector.AttestationType
 	SourceID                               SourceName
 }
@@ -48,9 +48,9 @@ const (
 	SourceXRP SourceName = "XRP"
 )
 
-type SourceIdEncodedPair struct {
-	SourceId        SourceName
-	SourceIdEncoded common.Hash
+type SourceIDEncodedPair struct {
+	SourceID        SourceName
+	SourceIDEncoded common.Hash
 }
 
 type AttestationTypeEncodedPair struct {
@@ -85,7 +85,7 @@ type PMWMultisigAccountConfig struct {
 }
 
 type EncodedAndAbi struct {
-	SourceIdPair        SourceIdEncodedPair
+	SourceIDPair        SourceIDEncodedPair
 	AttestationTypePair AttestationTypeEncodedPair
 	AbiPair             AbiArgPair
 }
@@ -126,7 +126,7 @@ func LoadEncodedAndAbi(envConfig EnvConfig) (EncodedAndAbi, error) {
 	if !ok {
 		return EncodedAndAbi{}, fmt.Errorf("no ABI struct names defined for attestation type %s", envConfig.AttestationType)
 	}
-	sourceIdEnc, err := EncodeAttestationOrSourceName(string(envConfig.SourceID))
+	sourceIDEnc, err := EncodeAttestationOrSourceName(string(envConfig.SourceID))
 	if err != nil {
 		return EncodedAndAbi{}, err
 	}
@@ -143,7 +143,7 @@ func LoadEncodedAndAbi(envConfig EnvConfig) (EncodedAndAbi, error) {
 		return EncodedAndAbi{}, err
 	}
 	return EncodedAndAbi{
-		SourceIdPair:        SourceIdEncodedPair{SourceId: envConfig.SourceID, SourceIdEncoded: sourceIdEnc},
+		SourceIDPair:        SourceIDEncodedPair{SourceID: envConfig.SourceID, SourceIDEncoded: sourceIDEnc},
 		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: envConfig.AttestationType, AttestationTypeEncoded: attestationTypeEnc},
 		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
 	}, nil

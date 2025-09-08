@@ -7,14 +7,14 @@ import (
 )
 
 type PMWPaymentStatusRequestBody struct {
-	WalletId common.Hash `json:"walletId" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	WalletID common.Hash `json:"walletId" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	Nonce    uint64      `json:"nonce" validate:"required" example:"1"`
 	SubNonce uint64      `json:"subNonce" validate:"required" example:"1"`
 }
 
 func (requestBody PMWPaymentStatusRequestBody) ToInternal() (connector.IPMWPaymentStatusRequestBody, error) {
 	return connector.IPMWPaymentStatusRequestBody{
-		WalletId: requestBody.WalletId,
+		WalletId: requestBody.WalletID,
 		Nonce:    requestBody.Nonce,
 		SubNonce: requestBody.SubNonce,
 	}, nil
@@ -30,7 +30,7 @@ type PMWPaymentStatusResponseBody struct {
 	RevertReason      string      `json:"revertReason"`
 	ReceivedAmount    hexutil.Big `json:"receivedAmount"`
 	TransactionFee    hexutil.Big `json:"transactionFee"`
-	TransactionId     common.Hash `json:"transactionId"`
+	TransactionID     common.Hash `json:"transactionId"`
 	BlockNumber       uint64      `json:"blockNumber"`
 	BlockTimestamp    uint64      `json:"blockTimestamp"`
 }
@@ -46,7 +46,7 @@ func PMWPaymentToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPayme
 		RevertReason:      data.RevertReason,
 		ReceivedAmount:    hexutil.Big(*data.ReceivedAmount),
 		TransactionFee:    hexutil.Big(*data.TransactionFee),
-		TransactionId:     data.TransactionId,
+		TransactionID:     data.TransactionId,
 		BlockNumber:       data.BlockNumber,
 		BlockTimestamp:    data.BlockTimestamp,
 	}

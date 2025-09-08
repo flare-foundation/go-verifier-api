@@ -23,7 +23,7 @@ func TeeAvailabilityCheckHandler(
 	verifier verifierinterface.VerifierInterface[
 		connector.ITeeAvailabilityCheckRequestBody,
 		connector.ITeeAvailabilityCheckResponseBody]) {
-	srcID := config.SourceIdPair.SourceId
+	srcID := config.SourceIDPair.SourceID
 	attType := config.AttestationTypePair.AttestationType
 	tags := getVerifierAPITag(attType)
 

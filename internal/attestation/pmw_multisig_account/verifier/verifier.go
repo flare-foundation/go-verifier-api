@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"fmt"
+
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
@@ -25,10 +26,10 @@ var registry = map[string]VerifierConstructor{
 func GetVerifier(cfg *config.PMWMultisigAccountConfig) (
 	verifierinterface.VerifierInterface[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
-	sourceIdStr := string(cfg.SourceIdPair.SourceId)
-	constructor, ok := registry[sourceIdStr]
+	sourceIDStr := string(cfg.SourceIDPair.SourceID)
+	constructor, ok := registry[sourceIDStr]
 	if !ok {
-		return nil, fmt.Errorf("no verifier for sourceID: %s", sourceIdStr)
+		return nil, fmt.Errorf("no verifier for sourceID: %s", sourceIDStr)
 	}
 	return constructor(cfg)
 }

@@ -9,15 +9,15 @@ import (
 )
 
 type TeeAvailabilityRequestBody struct {
-	TeeId     common.Address `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
-	Url       string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
+	TeeID     common.Address `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
+	URL       string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
 	Challenge common.Hash    `json:"challenge" validate:"required,hash32" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
 }
 
 func (requestBody TeeAvailabilityRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
 	return connector.ITeeAvailabilityCheckRequestBody{
-		TeeId:     requestBody.TeeId,
-		Url:       requestBody.Url,
+		TeeId:     requestBody.TeeID,
+		Url:       requestBody.URL,
 		Challenge: requestBody.Challenge,
 	}, nil
 }
@@ -27,8 +27,8 @@ type TeeAvailabilityResponseBody struct {
 	TeeTimestamp           uint64                       `json:"teeTimestamp"`
 	CodeHash               common.Hash                  `json:"codeHash"`
 	Platform               common.Hash                  `json:"platform"`
-	InitialSigningPolicyId uint32                       `json:"initialSigningPolicyId"`
-	LastSigningPolicyId    uint32                       `json:"lastSigningPolicyId"`
+	InitialSigningPolicyID uint32                       `json:"initialSigningPolicyId"`
+	LastSigningPolicyID    uint32                       `json:"lastSigningPolicyId"`
 	StateHash              TeeAvailabilityCheckTeeState `json:"state"`
 }
 
@@ -45,8 +45,8 @@ func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabi
 		TeeTimestamp:           data.TeeTimestamp,
 		CodeHash:               data.CodeHash,
 		Platform:               data.Platform,
-		InitialSigningPolicyId: data.InitialSigningPolicyId,
-		LastSigningPolicyId:    data.LastSigningPolicyId,
+		InitialSigningPolicyID: data.InitialSigningPolicyId,
+		LastSigningPolicyID:    data.LastSigningPolicyId,
 		StateHash: TeeAvailabilityCheckTeeState{
 			SystemStateVersion: data.State.SystemStateVersion,
 			SystemState:        data.State.SystemState,

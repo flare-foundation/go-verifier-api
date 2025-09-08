@@ -27,7 +27,7 @@ type challengeWrapper struct {
 	} `json:"teeInfo"`
 }
 
-func TestGenerateChallengeInstructionId(t *testing.T) {
+func TestGenerateChallengeInstructionID(t *testing.T) {
 	var parsed challengeWrapper
 	err := json.Unmarshal([]byte(teeInfoResponseJSON), &parsed)
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func TestGenerateChallengeInstructionId(t *testing.T) {
 	buf.Write(challengeHash.Bytes())
 	expected := crypto.Keccak256Hash(buf.Bytes())
 
-	got, err := v.generateChallengeInstructionId(teeID, challengeHash)
+	got, err := v.generateChallengeInstructionID(teeID, challengeHash)
 	require.NoError(t, err)
 	require.Equal(t, expected, got)
 }

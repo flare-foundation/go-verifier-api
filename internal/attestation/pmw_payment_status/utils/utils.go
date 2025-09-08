@@ -10,7 +10,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
-func GenerateInstructionId(walletId, opType [32]byte, nonce uint64) (common.Hash, error) {
+func GenerateInstructionID(walletID, opType [32]byte, nonce uint64) (common.Hash, error) {
 	PAY, err := utils.Bytes32(string(op.Pay))
 	if err != nil {
 		return common.Hash{}, err
@@ -22,10 +22,10 @@ func GenerateInstructionId(walletId, opType [32]byte, nonce uint64) (common.Hash
 	buf := new(bytes.Buffer)
 	buf.Write(opType[:])
 	buf.Write(PAY[:])
-	buf.Write(walletId[:])
+	buf.Write(walletID[:])
 	buf.Write(nonceByte[:])
-	instructionId := crypto.Keccak256Hash(buf.Bytes())
-	return instructionId, nil
+	instructionID := crypto.Keccak256Hash(buf.Bytes())
+	return instructionID, nil
 }
 
 func GetStringField(m map[string]interface{}, key string) (string, bool) {

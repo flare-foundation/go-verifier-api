@@ -142,7 +142,7 @@ func TestLoadEncodedAndAbi(t *testing.T) {
 				require.Contains(t, err.Error(), tt.ExpectedErrMsg)
 			} else {
 				require.NoError(t, err)
-				require.NotNil(t, got.SourceIdPair.SourceIdEncoded)
+				require.NotNil(t, got.SourceIDPair.SourceIDEncoded)
 				require.NotNil(t, got.AttestationTypePair.AttestationTypeEncoded)
 				require.NotNil(t, got.AbiPair.Request)
 				require.NotNil(t, got.AbiPair.Response)

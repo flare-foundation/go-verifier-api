@@ -1,4 +1,4 @@
-# Go Verifier Api
+# Go Verifier API
 
 - [Attestation types specification](https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0)
 - [Huma framework website](https://huma.rocks)
@@ -70,7 +70,7 @@ See [API reference](docs/api.md) for endpoint definitions and examples.
 - [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (missing Platform in TeeInfoResponse).
 - [ ] Other `TODO`s inside the code.
 - [ ] Check which types and functions can be fetched from other packages (go-flare-common, tee-node).
-- [ ] `verify` route: support json friendly inputs or have direct types from other packages? - We will define api friendly types between relay-client and go-verifier-api.
+- [ ] `verify` route: support JSON friendly inputs or have direct types from other packages? - We will define api friendly types between relay-client and go-verifier-api.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
 - [ ] Add poller API endpoint in readme.
 - [ ] Check all ctx's are sensible -> retry with backoff (wait 5s).

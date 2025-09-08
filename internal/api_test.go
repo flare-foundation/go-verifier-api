@@ -27,7 +27,7 @@ func TestPMWMultisig(t *testing.T) {
 		SourceID:        config.SourceXRP,
 		AttestationType: connector.PMWMultisigAccountConfigured,
 		Port:            "3120",
-		ApiKeys:         []string{testAPIKey},
+		APIKeys:         []string{testAPIKey},
 		Env:             "development",
 	})
 
@@ -80,7 +80,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		SourceID:          config.SourceXRP,
 		AttestationType:   connector.PMWPaymentStatus,
 		Port:              "3121",
-		ApiKeys:           []string{testAPIKey},
+		APIKeys:           []string{testAPIKey},
 		Env:               "development",
 	})
 

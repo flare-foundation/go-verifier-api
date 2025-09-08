@@ -31,13 +31,13 @@ func ValidateRequest(request interface{}) error {
 	return nil
 }
 
-func ValidateSystemAndRequestAttestationNameAndSourceId(attestationTypePair config.AttestationTypeEncodedPair, sourceIdPair config.SourceIdEncodedPair, requestAttestationName string, requestSourceId string) error {
-	if requestAttestationName != attestationTypePair.AttestationTypeEncoded.Hex() || requestSourceId != sourceIdPair.SourceIdEncoded.Hex() {
+func ValidateSystemAndRequestAttestationNameAndSourceID(attestationTypePair config.AttestationTypeEncodedPair, sourceIDPair config.SourceIDEncodedPair, requestAttestationName string, requestSourceID string) error {
+	if requestAttestationName != attestationTypePair.AttestationTypeEncoded.Hex() || requestSourceID != sourceIDPair.SourceIDEncoded.Hex() {
 		return fmt.Errorf(
 			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s)",
-			requestAttestationName, requestSourceId,
+			requestAttestationName, requestSourceID,
 			string(attestationTypePair.AttestationType), attestationTypePair.AttestationTypeEncoded,
-			sourceIdPair.SourceId, sourceIdPair.SourceIdEncoded,
+			sourceIDPair.SourceID, sourceIDPair.SourceIDEncoded,
 		)
 	}
 	return nil

@@ -19,7 +19,7 @@ func PMWMultisigAccountHandler(
 	verifier verifierinterface.VerifierInterface[
 		connector.IPMWMultisigAccountConfiguredRequestBody,
 		connector.IPMWMultisigAccountConfiguredResponseBody]) {
-	srcID := config.SourceIdPair.SourceId
+	srcID := config.SourceIDPair.SourceID
 	attType := config.AttestationTypePair.AttestationType
 	tags := getVerifierAPITag(attType)
 

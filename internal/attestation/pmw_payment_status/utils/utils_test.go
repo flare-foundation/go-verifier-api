@@ -9,9 +9,9 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 )
 
-func TestGenerateInstructionId(t *testing.T) {
-	walletId := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-	walletIdBytes, err := utils.HexStringToBytes32(walletId)
+func TestGenerateInstructionID(t *testing.T) {
+	walletID := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+	walletIDBytes, err := utils.HexStringToBytes32(walletID)
 	if err != nil {
 		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
 	}
@@ -21,12 +21,12 @@ func TestGenerateInstructionId(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
 	}
-	id, err := pmwpaymentutils.GenerateInstructionId(walletIdBytes, opTypeBytes, nonce)
+	id, err := pmwpaymentutils.GenerateInstructionID(walletIDBytes, opTypeBytes, nonce)
 	if err != nil {
-		t.Fatalf("GenerateInstructionId failed for valid input: %v", err)
+		t.Fatalf("GenerateInstructionID failed for valid input: %v", err)
 	}
 	if len(id) == 0 {
-		t.Fatal("GenerateInstructionId returned empty string")
+		t.Fatal("GenerateInstructionID returned empty string")
 	}
 	t.Logf("Instruction ID: %s", id.Hex())
 }

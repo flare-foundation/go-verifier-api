@@ -25,12 +25,12 @@ type XRPVerifier struct {
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
-	// Build instruction Id
-	opType, err := utils.Bytes32(fmt.Sprintf("F_%s", x.config.SourceIdPair.SourceId))
+	// Build instruction ID
+	opType, err := utils.Bytes32(fmt.Sprintf("F_%s", x.config.SourceIDPair.SourceID))
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot retrieve opType: %w", err)
 	}
-	instructionId, err := pmwpaymentutils.GenerateInstructionId(req.WalletId, opType, req.Nonce)
+	instructionID, err := pmwpaymentutils.GenerateInstructionID(req.WalletId, opType, req.Nonce)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %w", err)
 	}
@@ -39,7 +39,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
-	chainLog, err := x.repo.FetchInstructionLog(ctx, eventHash, instructionId)
+	chainLog, err := x.repo.FetchInstructionLog(ctx, eventHash, instructionID)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}

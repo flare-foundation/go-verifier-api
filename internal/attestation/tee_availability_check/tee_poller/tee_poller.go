@@ -44,8 +44,8 @@ var (
 )
 
 type task struct {
-	teeId    common.Address
-	proxyUrl string
+	teeID    common.Address
+	proxyURL string
 }
 
 func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
@@ -75,7 +75,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	if err != nil {
 		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
 		activeTees = getCachedActiveTees()
-		if len(activeTees.TeeIds) == 0 {
+		if len(activeTees.TeeIDs) == 0 {
 			logger.Infof("No cached TEEs available, skipping this poll")
 			return
 		}
@@ -83,9 +83,9 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 		updateActiveTees(activeTees)
 	}
 
-	taskCh := make(chan task, len(activeTees.TeeIds))
+	taskCh := make(chan task, len(activeTees.TeeIDs))
 	var wg sync.WaitGroup
-	workers := min(defaultWorkerCount, len(activeTees.TeeIds))
+	workers := min(defaultWorkerCount, len(activeTees.TeeIDs))
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
@@ -103,25 +103,25 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					if !ok {
 						return
 					}
-					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyUrl)
+					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyURL)
 					if err != nil {
-						logger.Errorf("Failed to query teeInfo %s and validate: %v", t.proxyUrl, err)
+						logger.Errorf("Failed to query teeInfo %s and validate: %v", t.proxyURL, err)
 					}
 					teeVerifier.SamplesMu.Lock()
-					samples := teeVerifier.TeeSamples[t.teeId]
+					samples := teeVerifier.TeeSamples[t.teeID]
 					sample := teetypes.TeePollerSample{Timestamp: time.Now().UTC(), State: state}
 					samples = append(samples, sample)
 					if len(samples) > teeVerifier.SamplesToConsider {
 						samples = samples[1:]
 					}
-					teeVerifier.TeeSamples[t.teeId] = samples
+					teeVerifier.TeeSamples[t.teeID] = samples
 					teeVerifier.SamplesMu.Unlock()
 				}
 			}
 		}()
 	}
-	for i, teeId := range activeTees.TeeIds {
-		taskCh <- task{teeId: teeId, proxyUrl: activeTees.Urls[i]}
+	for i, teeID := range activeTees.TeeIDs {
+		taskCh <- task{teeID: teeID, proxyURL: activeTees.URLs[i]}
 	}
 	close(taskCh)
 	wg.Wait()
@@ -130,8 +130,8 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	teeVerifier.SamplesMu.RUnlock()
 }
 
-func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyUrl string) (teetypes.TeePollerSampleState, error) {
-	infoResponse, err := fetchTEEInfoData(ctx, proxyUrl)
+func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string) (teetypes.TeePollerSampleState, error) {
+	infoResponse, err := fetchTEEInfoData(ctx, proxyURL)
 	if err != nil {
 		return teetypes.TeePollerSampleInvalid, err
 	}
@@ -155,8 +155,8 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 }
 
 type teeList struct {
-	TeeIds []common.Address
-	Urls   []string
+	TeeIDs []common.Address
+	URLs   []string
 }
 
 func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
@@ -170,7 +170,10 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 		return teeList{}, fmt.Errorf("getAllActiveTeeMachines: %w", err)
 	}
 	logger.Debugf("TEE poller got active Tees: %v", activeTees)
-	return activeTees, nil
+	return teeList{
+		TeeIDs: activeTees.TeeIds,
+		URLs:   activeTees.Urls,
+	}, nil
 }
 
 func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
