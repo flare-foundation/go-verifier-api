@@ -41,7 +41,7 @@ func PMWPaymentStatusHandler(
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			encodedRequest, err := utils.ABIEncodeData[connector.IPMWPaymentStatusRequestBody](requestData, config.ABIPair.Request)
+			encodedRequest, err := utils.ABIEncodeData(requestData, config.ABIPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -70,7 +70,7 @@ func PMWPaymentStatusHandler(
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 			}
-			response, err := EncodeResponse[connector.IPMWPaymentStatusResponseBody](responseData, config)
+			response, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}
@@ -101,7 +101,7 @@ func PMWPaymentStatusHandler(
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 			}
-			response, err := EncodeResponse[connector.IPMWPaymentStatusResponseBody](responseData, config)
+			response, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}

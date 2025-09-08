@@ -38,7 +38,7 @@ func TestEncodeAttestationOrSourceName(t *testing.T) {
 			if (err != nil) != tt.ExpectError {
 				t.Fatalf("EncodeAttestationOrSourceName(%q) error = %v, wantErr %v", tt.Input, err, tt.ExpectError)
 			}
-			require.Equal(t, 32, len(got))
+			require.Len(t, got, 32)
 		})
 	}
 }

@@ -78,7 +78,7 @@ func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, 
 }
 
 func EncodeResponse[T any](responseData T, config *config.EncodedAndABI) ([]byte, error) {
-	data, err := utils.ABIEncodeData[T](responseData, config.ABIPair.Response)
+	data, err := utils.ABIEncodeData(responseData, config.ABIPair.Response)
 	if err != nil {
 		return []byte{}, huma.Error400BadRequest(fmt.Sprintf("Encoding response data failed: %v", err))
 	}

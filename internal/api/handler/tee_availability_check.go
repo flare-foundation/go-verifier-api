@@ -43,7 +43,7 @@ func TeeAvailabilityCheckHandler(
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			encodedRequest, err := utils.ABIEncodeData[connector.ITeeAvailabilityCheckRequestBody](requestData, config.ABIPair.Request)
+			encodedRequest, err := utils.ABIEncodeData(requestData, config.ABIPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -75,7 +75,7 @@ func TeeAvailabilityCheckHandler(
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 			}
-			response, err := EncodeResponse[connector.ITeeAvailabilityCheckResponseBody](responseData, config)
+			response, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}
@@ -106,7 +106,7 @@ func TeeAvailabilityCheckHandler(
 			if errors.Is(err, teeverifier.ErrIndeterminate) {
 				return nil, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
 			} // TODO other errors
-			response, err := EncodeResponse[connector.ITeeAvailabilityCheckResponseBody](responseData, config)
+			response, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}
