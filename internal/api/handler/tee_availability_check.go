@@ -19,7 +19,7 @@ import (
 
 func TeeAvailabilityCheckHandler(
 	api huma.API,
-	config *config.EncodedAndAbi,
+	config *config.EncodedAndABI,
 	verifier verifierinterface.VerifierInterface[
 		connector.ITeeAvailabilityCheckRequestBody,
 		connector.ITeeAvailabilityCheckResponseBody]) {
@@ -33,7 +33,7 @@ func TeeAvailabilityCheckHandler(
 		getVerifierAPIPath(srcID, attType, "prepareRequestBody"),
 		tags,
 		func(ctx context.Context, request *struct {
-			Body types.AttestationRequestData[types.TeeAvailabilityRequestBody]
+			Body types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
 			err := ValidateRequestData(request.Body, config)
 			if err != nil {
@@ -43,7 +43,7 @@ func TeeAvailabilityCheckHandler(
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			encodedRequest, err := utils.AbiEncodeData[connector.ITeeAvailabilityCheckRequestBody](requestData, config.AbiPair.Request)
+			encodedRequest, err := utils.ABIEncodeData[connector.ITeeAvailabilityCheckRequestBody](requestData, config.ABIPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -59,7 +59,7 @@ func TeeAvailabilityCheckHandler(
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
-		}) (*types.Response[types.AttestationResponseData[types.TeeAvailabilityResponseBody]], error) {
+		}) (*types.Response[types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]], error) {
 			err := ValidateRequest(request.Body, config)
 			if err != nil {
 				return nil, err
@@ -79,8 +79,8 @@ func TeeAvailabilityCheckHandler(
 			if err != nil {
 				return nil, err
 			}
-			return types.NewResponse(types.AttestationResponseData[types.TeeAvailabilityResponseBody]{
-				ResponseData: types.TeeToExternal(responseData),
+			return types.NewResponse(types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]{
+				ResponseData: types.TeeAvailabilityCheckToExternal(responseData),
 				ResponseBody: response,
 			}), nil
 		})

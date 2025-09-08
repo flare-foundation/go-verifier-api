@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetAbiArguments(t *testing.T) {
+func TestGetABIArguments(t *testing.T) {
 	origABI := connector.ConnectorMetaData.ABI
 	defer func() { connector.ConnectorMetaData.ABI = origABI }()
 
@@ -25,18 +25,18 @@ func TestGetAbiArguments(t *testing.T) {
 	]`
 
 	t.Run("valid struct", func(t *testing.T) {
-		arg, err := config.GetAbiArguments("TestMethod")
+		arg, err := config.GetABIArguments("TestMethod")
 		require.NoError(t, err)
 		require.Equal(t, "uint256", arg.Type.String())
 	})
 	t.Run("method not found", func(t *testing.T) {
-		_, err := config.GetAbiArguments("MissingMethod")
+		_, err := config.GetABIArguments("MissingMethod")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid method definition")
 	})
 	t.Run("invalid ABI", func(t *testing.T) {
 		connector.ConnectorMetaData.ABI = "not json"
-		_, err := config.GetAbiArguments("TestMethod")
+		_, err := config.GetABIArguments("TestMethod")
 		require.Contains(t, err.Error(), "failed to parse ABI")
 	})
 }

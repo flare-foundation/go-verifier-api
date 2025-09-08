@@ -15,7 +15,7 @@ import (
 
 func PMWMultisigAccountHandler(
 	api huma.API,
-	config *config.EncodedAndAbi,
+	config *config.EncodedAndABI,
 	verifier verifierinterface.VerifierInterface[
 		connector.IPMWMultisigAccountConfiguredRequestBody,
 		connector.IPMWMultisigAccountConfiguredResponseBody]) {
@@ -29,7 +29,7 @@ func PMWMultisigAccountHandler(
 		getVerifierAPIPath(srcID, attType, "prepareRequestBody"),
 		tags,
 		func(ctx context.Context, request *struct {
-			Body types.AttestationRequestData[types.PMWMultisigAccountRequestBody]
+			Body types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
 			err := ValidateRequestData(request.Body, config)
 			if err != nil {
@@ -39,7 +39,7 @@ func PMWMultisigAccountHandler(
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			encodedRequest, err := utils.AbiEncodeData[connector.IPMWMultisigAccountConfiguredRequestBody](requestData, config.AbiPair.Request)
+			encodedRequest, err := utils.ABIEncodeData[connector.IPMWMultisigAccountConfiguredRequestBody](requestData, config.ABIPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -55,7 +55,7 @@ func PMWMultisigAccountHandler(
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
-		}) (*types.Response[types.AttestationResponseData[types.PMWMultisigAccountResponseBody]], error) {
+		}) (*types.Response[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]], error) {
 			err := ValidateRequest(request.Body, config)
 			if err != nil {
 				return nil, err
@@ -72,8 +72,8 @@ func PMWMultisigAccountHandler(
 			if err != nil {
 				return nil, err
 			}
-			return types.NewResponse(types.AttestationResponseData[types.PMWMultisigAccountResponseBody]{
-				ResponseData: types.MultiSigToExternal(responseData),
+			return types.NewResponse(types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]{
+				ResponseData: types.PMWMultisigAccountToExternal(responseData),
 				ResponseBody: response,
 			}), nil
 		})

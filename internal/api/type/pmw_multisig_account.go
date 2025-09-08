@@ -7,13 +7,13 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
-type PMWMultisigAccountRequestBody struct {
-	WalletAddress string          `json:"walletAddress" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
-	PublicKeys    []hexutil.Bytes `json:"publicKeys" validate:"required,min=1" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"`
-	Threshold     uint64          `json:"threshold" validate:"gte=1" example:"3"`
+type PMWMultisigAccountConfiguredRequestBody struct {
+	AccountAddress string          `json:"accountAddress" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	PublicKeys     []hexutil.Bytes `json:"publicKeys" validate:"required,min=1" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890,0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456"`
+	Threshold      uint64          `json:"threshold" validate:"gte=1" example:"3"`
 }
 
-func (requestBody PMWMultisigAccountRequestBody) ToInternal() (connector.IPMWMultisigAccountConfiguredRequestBody, error) {
+func (requestBody PMWMultisigAccountConfiguredRequestBody) ToInternal() (connector.IPMWMultisigAccountConfiguredRequestBody, error) {
 	publicKeys := make([][]byte, len(requestBody.PublicKeys))
 	for i, pk := range requestBody.PublicKeys {
 		if len(pk) == 0 {
@@ -23,26 +23,26 @@ func (requestBody PMWMultisigAccountRequestBody) ToInternal() (connector.IPMWMul
 	}
 
 	return connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: requestBody.WalletAddress,
+		WalletAddress: requestBody.AccountAddress,
 		PublicKeys:    publicKeys,
 		Threshold:     requestBody.Threshold,
 	}, nil
 }
 
-type PMWMultisigAccountResponseBody struct {
+type PMWMultisigAccountConfiguredResponseBody struct {
 	PMWMultisigAccountStatus uint8  `json:"status"`
 	Sequence                 uint64 `json:"sequence"`
 }
 
-type PMWMultisigAccountStatus int
+type PMWMultisigAccountConfiguredStatus int
 
 const (
-	PMWMultisigAccountStatusOK PMWMultisigAccountStatus = iota
+	PMWMultisigAccountStatusOK PMWMultisigAccountConfiguredStatus = iota
 	PMWMultisigAccountStatusERROR
 )
 
-func MultiSigToExternal(data connector.IPMWMultisigAccountConfiguredResponseBody) PMWMultisigAccountResponseBody {
-	return PMWMultisigAccountResponseBody{
+func PMWMultisigAccountToExternal(data connector.IPMWMultisigAccountConfiguredResponseBody) PMWMultisigAccountConfiguredResponseBody {
+	return PMWMultisigAccountConfiguredResponseBody{
 		PMWMultisigAccountStatus: data.Status,
 		Sequence:                 data.Sequence,
 	}

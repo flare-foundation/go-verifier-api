@@ -58,13 +58,13 @@ type AttestationTypeEncodedPair struct {
 	AttestationTypeEncoded common.Hash
 }
 
-type AbiArgPair struct {
+type ABIArgPair struct {
 	Request  abi.Argument
 	Response abi.Argument
 }
 
 type TeeAvailabilityCheckConfig struct {
-	EncodedAndAbi
+	EncodedAndABI
 	RelayContractAddress              string
 	TeeMachineRegistryContractAddress string
 	RPCURL                            string
@@ -72,7 +72,7 @@ type TeeAvailabilityCheckConfig struct {
 }
 
 type PMWPaymentStatusConfig struct {
-	EncodedAndAbi
+	EncodedAndABI
 	DatabaseURL              string
 	CchainDatabaseURL        string
 	ParsedTeeInstructionsABI abi.ABI
@@ -80,14 +80,14 @@ type PMWPaymentStatusConfig struct {
 }
 
 type PMWMultisigAccountConfig struct {
-	EncodedAndAbi
+	EncodedAndABI
 	RPCURL string
 }
 
-type EncodedAndAbi struct {
+type EncodedAndABI struct {
 	SourceIDPair        SourceIDEncodedPair
 	AttestationTypePair AttestationTypeEncodedPair
-	AbiPair             AbiArgPair
+	ABIPair             ABIArgPair
 }
 
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.Hash, error) {
@@ -121,31 +121,31 @@ var abiStructNames = map[connector.AttestationType]struct {
 	},
 }
 
-func LoadEncodedAndAbi(envConfig EnvConfig) (EncodedAndAbi, error) {
+func LoadEncodedAndABI(envConfig EnvConfig) (EncodedAndABI, error) {
 	names, ok := abiStructNames[envConfig.AttestationType]
 	if !ok {
-		return EncodedAndAbi{}, fmt.Errorf("no ABI struct names defined for attestation type %s", envConfig.AttestationType)
+		return EncodedAndABI{}, fmt.Errorf("no ABI struct names defined for attestation type %s", envConfig.AttestationType)
 	}
 	sourceIDEnc, err := EncodeAttestationOrSourceName(string(envConfig.SourceID))
 	if err != nil {
-		return EncodedAndAbi{}, err
+		return EncodedAndABI{}, err
 	}
 	attestationTypeEnc, err := EncodeAttestationOrSourceName(string(envConfig.AttestationType))
 	if err != nil {
-		return EncodedAndAbi{}, err
+		return EncodedAndABI{}, err
 	}
-	requestAbi, err := GetAbiArguments(names.Request)
+	requestABI, err := GetABIArguments(names.Request)
 	if err != nil {
-		return EncodedAndAbi{}, err
+		return EncodedAndABI{}, err
 	}
-	responseAbi, err := GetAbiArguments(names.Response)
+	responseABI, err := GetABIArguments(names.Response)
 	if err != nil {
-		return EncodedAndAbi{}, err
+		return EncodedAndABI{}, err
 	}
-	return EncodedAndAbi{
+	return EncodedAndABI{
 		SourceIDPair:        SourceIDEncodedPair{SourceID: envConfig.SourceID, SourceIDEncoded: sourceIDEnc},
 		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: envConfig.AttestationType, AttestationTypeEncoded: attestationTypeEnc},
-		AbiPair:             AbiArgPair{Request: requestAbi, Response: responseAbi},
+		ABIPair:             ABIArgPair{Request: requestABI, Response: responseABI},
 	}, nil
 }
 

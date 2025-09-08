@@ -5,7 +5,7 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	"github.com/flare-foundation/go-verifier-api/internal/test_util"
+	testutil "github.com/flare-foundation/go-verifier-api/internal/test_util"
 	"github.com/stretchr/testify/require"
 )
 
@@ -86,7 +86,7 @@ func TestCheckMissingFields(t *testing.T) {
 	})
 }
 
-func TestLoadEncodedAndAbi(t *testing.T) {
+func TestLoadEncodedAndABI(t *testing.T) {
 	type args struct {
 		envConfig config.EnvConfig
 	}
@@ -131,7 +131,7 @@ func TestLoadEncodedAndAbi(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.TestName, func(t *testing.T) {
-			got, err := config.LoadEncodedAndAbi(tt.Input.envConfig)
+			got, err := config.LoadEncodedAndABI(tt.Input.envConfig)
 			if tt.ExpectError {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.ExpectedErrMsg)
@@ -139,8 +139,8 @@ func TestLoadEncodedAndAbi(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, got.SourceIDPair.SourceIDEncoded)
 				require.NotNil(t, got.AttestationTypePair.AttestationTypeEncoded)
-				require.NotNil(t, got.AbiPair.Request)
-				require.NotNil(t, got.AbiPair.Response)
+				require.NotNil(t, got.ABIPair.Request)
+				require.NotNil(t, got.ABIPair.Response)
 			}
 		})
 	}

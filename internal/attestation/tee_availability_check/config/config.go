@@ -32,12 +32,12 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 	if err != nil {
 		return nil, err
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
+	commonConfig, err := config.LoadEncodedAndABI(envConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &config.TeeAvailabilityCheckConfig{
-		EncodedAndAbi:                     commonConfig,
+		EncodedAndABI:                     commonConfig,
 		RelayContractAddress:              envConfig.RelayContractAddress,
 		TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
 		RPCURL:                            envConfig.RPCURL,

@@ -38,7 +38,7 @@ func getVerifierAPITag(attestationType connector.AttestationType) []string {
 	return []string{string(attestationType)}
 }
 
-func ValidateRequestData[T any](request types.AttestationRequestData[T], config *config.EncodedAndAbi) error {
+func ValidateRequestData[T any](request types.AttestationRequestData[T], config *config.EncodedAndABI) error {
 	if err := validation.ValidateRequest(request); err != nil {
 		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
@@ -53,7 +53,7 @@ func ValidateRequestData[T any](request types.AttestationRequestData[T], config 
 	return nil
 }
 
-func ValidateRequest(request types.AttestationRequest, config *config.EncodedAndAbi) error {
+func ValidateRequest(request types.AttestationRequest, config *config.EncodedAndABI) error {
 	if err := validation.ValidateRequest(request); err != nil {
 		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
@@ -68,17 +68,17 @@ func ValidateRequest(request types.AttestationRequest, config *config.EncodedAnd
 	return nil
 }
 
-func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndAbi) (T, error) {
+func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, error) {
 	var zero T
-	data, err := utils.AbiDecodeRequestData[T](requestBody, config.AbiPair.Request)
+	data, err := utils.ABIDecodeRequestData[T](requestBody, config.ABIPair.Request)
 	if err != nil {
 		return zero, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
 	}
 	return data, nil
 }
 
-func EncodeResponse[T any](responseData T, config *config.EncodedAndAbi) ([]byte, error) {
-	data, err := utils.AbiEncodeData[T](responseData, config.AbiPair.Response)
+func EncodeResponse[T any](responseData T, config *config.EncodedAndABI) ([]byte, error) {
+	data, err := utils.ABIEncodeData[T](responseData, config.ABIPair.Response)
 	if err != nil {
 		return []byte{}, huma.Error400BadRequest(fmt.Sprintf("Encoding response data failed: %v", err))
 	}

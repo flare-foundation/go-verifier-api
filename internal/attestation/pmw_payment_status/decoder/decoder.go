@@ -2,6 +2,7 @@ package decoder
 
 import (
 	"fmt"
+
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 
@@ -22,9 +23,9 @@ func GetTeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 	return event.ID.Hex(), nil
 }
 
-func DecodeTeeInstructionsSentEventData(log *types.Log, teeAbi abi.ABI) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
-	eventData, err := utils.AbiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
-		teeAbi,
+func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
+	eventData, err := utils.ABIDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
+		teeABI,
 		EventNameTeeInstructionsSent,
 		log.Data,
 	)

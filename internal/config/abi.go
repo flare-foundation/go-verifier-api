@@ -8,7 +8,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
 
-func GetAbiArguments(structNeeded string) (abi.Argument, error) {
+func GetABIArguments(structNeeded string) (abi.Argument, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(connector.ConnectorMetaData.ABI))
 	if err != nil {
 		return abi.Argument{}, fmt.Errorf("failed to parse ABI: %w", err)

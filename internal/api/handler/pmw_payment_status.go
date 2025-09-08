@@ -17,7 +17,7 @@ import (
 
 func PMWPaymentStatusHandler(
 	api huma.API,
-	config *config.EncodedAndAbi,
+	config *config.EncodedAndABI,
 	verifier verifierinterface.VerifierInterface[
 		connector.IPMWPaymentStatusRequestBody,
 		connector.IPMWPaymentStatusResponseBody]) {
@@ -41,7 +41,7 @@ func PMWPaymentStatusHandler(
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			encodedRequest, err := utils.AbiEncodeData[connector.IPMWPaymentStatusRequestBody](requestData, config.AbiPair.Request)
+			encodedRequest, err := utils.ABIEncodeData[connector.IPMWPaymentStatusRequestBody](requestData, config.ABIPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -75,7 +75,7 @@ func PMWPaymentStatusHandler(
 				return nil, err
 			}
 			return types.NewResponse(types.AttestationResponseData[types.PMWPaymentStatusResponseBody]{
-				ResponseData: types.PMWPaymentToExternal(responseData),
+				ResponseData: types.PMWPaymentStatusToExternal(responseData),
 				ResponseBody: response,
 			}), nil
 		})

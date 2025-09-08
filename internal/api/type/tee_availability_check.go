@@ -8,13 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-type TeeAvailabilityRequestBody struct {
+type TeeAvailabilityCheckRequestBody struct {
 	TeeID     common.Address `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
 	URL       string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
 	Challenge common.Hash    `json:"challenge" validate:"required,hash32" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
 }
 
-func (requestBody TeeAvailabilityRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
+func (requestBody TeeAvailabilityCheckRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
 	return connector.ITeeAvailabilityCheckRequestBody{
 		TeeId:     requestBody.TeeID,
 		Url:       requestBody.URL,
@@ -22,7 +22,7 @@ func (requestBody TeeAvailabilityRequestBody) ToInternal() (connector.ITeeAvaila
 	}, nil
 }
 
-type TeeAvailabilityResponseBody struct {
+type TeeAvailabilityCheckResponseBody struct {
 	Status                 uint8                        `json:"status"`
 	TeeTimestamp           uint64                       `json:"teeTimestamp"`
 	CodeHash               common.Hash                  `json:"codeHash"`
@@ -39,8 +39,8 @@ type TeeAvailabilityCheckTeeState struct {
 	StateVersion       common.Hash   `json:"stateVersion"`
 }
 
-func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityResponseBody {
-	return TeeAvailabilityResponseBody{
+func TeeAvailabilityCheckToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityCheckResponseBody {
+	return TeeAvailabilityCheckResponseBody{
 		Status:                 data.Status,
 		TeeTimestamp:           data.TeeTimestamp,
 		CodeHash:               data.CodeHash,

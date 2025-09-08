@@ -24,12 +24,12 @@ func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultis
 	if err != nil {
 		return nil, err
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
+	commonConfig, err := config.LoadEncodedAndABI(envConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &config.PMWMultisigAccountConfig{
-		EncodedAndAbi: commonConfig,
+		EncodedAndABI: commonConfig,
 		RPCURL:        envConfig.RPCURL,
 	}, nil
 }
