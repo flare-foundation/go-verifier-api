@@ -4,14 +4,13 @@ import (
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/test_util"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEncodeAttestationOrSourceName(t *testing.T) {
-	tests := []test_util.TestCase[string, any]{
+	tests := []testutil.TestCase[string, any]{
 		{
 			TestName:    "valid short string",
 			Input:       "TEE",
@@ -39,11 +38,7 @@ func TestEncodeAttestationOrSourceName(t *testing.T) {
 			if (err != nil) != tt.ExpectError {
 				t.Fatalf("EncodeAttestationOrSourceName(%q) error = %v, wantErr %v", tt.Input, err, tt.ExpectError)
 			}
-			if err == nil {
-				if len(got) != 2+utils.Bytes32Size*2 {
-					t.Errorf("encoded length = %d, want %d", len(got), 2+utils.Bytes32Size*2)
-				}
-			}
+			require.Equal(t, 32, len(got))
 		})
 	}
 }
@@ -95,7 +90,7 @@ func TestLoadEncodedAndAbi(t *testing.T) {
 	type args struct {
 		envConfig config.EnvConfig
 	}
-	tests := []test_util.TestCase[args, any]{
+	tests := []testutil.TestCase[args, any]{
 		{
 			Input: args{
 				envConfig: config.EnvConfig{

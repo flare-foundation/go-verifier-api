@@ -1,4 +1,4 @@
-package test_util
+package testutil
 
 import (
 	"bytes"
@@ -49,7 +49,7 @@ func DecodeFTDCPMVPaymentStatusResponse(data []byte) (connector.IPMWPaymentStatu
 	return request, nil
 }
 
-func MakePostRequest(t *testing.T, url string, data interface{}, apiKey string) ([]byte, error) {
+func Post(t *testing.T, url string, data interface{}, apiKey string) ([]byte, error) {
 	t.Helper()
 	payload, err := json.Marshal(data)
 	if err != nil {
