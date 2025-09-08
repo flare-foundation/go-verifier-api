@@ -47,7 +47,7 @@ func RunServer(envConfig config.EnvConfig) {
 	}
 
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		logger.Infof("Starting %s verifier server with type %s on: %s ...\n",
