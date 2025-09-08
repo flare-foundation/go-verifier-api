@@ -67,11 +67,9 @@ DATABASE_URL=postgres://user:pass@host:port/db
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
 ## TODO list
-- [ ] ⚠️ *poller.go*: Should we distinguish between invalid validation and other errors while `queryTeeInfoAndValidate`? Now we don't. Could this lead to false accusation that tee is down? Should we distinguish between errors due to verifier and other errors?
-- [ ] How to handle errors like: cannot retrieve block, cannot retrieve signingPolicy, cannot retrieve getActiveTees etc. Currently they are handled as external service problem.
 - [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (missing Platform in TeeInfoResponse).
 - [ ] Other `TODO`s inside the code.
 - [ ] Check which types and functions can be fetched from other packages (go-flare-common, tee-node).
-- [ ] `verify` route: support json friendly inputs or have direct types from other packages?
+- [ ] `verify` route: support json friendly inputs or have direct types from other packages? - We will define api friendly types between relay-client and go-verifier-api.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
 - [ ] Add poller API endpoint in readme.
