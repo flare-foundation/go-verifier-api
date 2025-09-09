@@ -48,20 +48,16 @@ func TestCheckMissingFields(t *testing.T) {
 		config.EnvRPCURL,
 		config.EnvRelayContractAddress,
 		config.EnvTeeMachineRegistryContractAddress,
-		config.EnvTeeWalletManagerContractAddress,
-		config.EnvTeeWalletProjectManagerContractAddress,
 		config.EnvDatabaseURL,
 		config.EnvCChainDatabaseURL,
 	}
 	t.Run("no missing fields", func(t *testing.T) {
 		cfg := config.EnvConfig{
-			RPCURL:                                 "rpc",
-			RelayContractAddress:                   "relay",
-			TeeMachineRegistryContractAddress:      "tee",
-			CChainDatabaseURL:                      "cchain",
-			TeeWalletManagerContractAddress:        "walletManager",
-			TeeWalletProjectManagerContractAddress: "walletProjectManager",
-			DatabaseURL:                            "dbUrl",
+			RPCURL:                            "rpc",
+			RelayContractAddress:              "relay",
+			TeeMachineRegistryContractAddress: "tee",
+			CChainDatabaseURL:                 "cchain",
+			DatabaseURL:                       "dbUrl",
 		}
 		err := config.CheckMissingFields(cfg, fields)
 		require.NoError(t, err)

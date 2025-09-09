@@ -158,23 +158,22 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	}
 
 	return config.EnvConfig{
-		RPCURL:                                 os.Getenv(config.EnvRPCURL),
-		RelayContractAddress:                   os.Getenv(config.EnvRelayContractAddress),
-		TeeMachineRegistryContractAddress:      os.Getenv(config.EnvTeeMachineRegistryContractAddress),
-		TeeWalletManagerContractAddress:        os.Getenv(config.EnvTeeWalletManagerContractAddress),
-		TeeWalletProjectManagerContractAddress: os.Getenv(config.EnvTeeWalletProjectManagerContractAddress),
-		DatabaseURL:                            os.Getenv(config.EnvDatabaseURL),
-		CChainDatabaseURL:                      os.Getenv(config.EnvCChainDatabaseURL),
-		Env:                                    env,
-		Port:                                   port,
-		ApiKeys:                                apiKeys,
-		AttestationType:                        attestationType,
-		SourceID:                               sourceID,
+		RPCURL:                            os.Getenv(config.EnvRPCURL),
+		RelayContractAddress:              os.Getenv(config.EnvRelayContractAddress),
+		TeeMachineRegistryContractAddress: os.Getenv(config.EnvTeeMachineRegistryContractAddress),
+		DatabaseURL:                       os.Getenv(config.EnvDatabaseURL),
+		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
+		Env:                               env,
+		Port:                              port,
+		ApiKeys:                           apiKeys,
+		AttestationType:                   attestationType,
+		SourceID:                          sourceID,
 	}, nil
 }
 
 func getEnvOrError(key string) (string, error) {
 	val := os.Getenv(key)
+	val = strings.TrimSpace(val)
 	if val == "" {
 		return "", fmt.Errorf("%s must be set", key)
 	}

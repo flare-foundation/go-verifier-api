@@ -33,3 +33,9 @@ func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultis
 		RPCURL:        envConfig.RPCURL,
 	}, nil
 }
+
+func ClearPMWMultisigAccountConfigForTest() {
+	pmwMultisigAccountConfig = nil
+	pmwMultisigAccountConfigOnce = sync.Once{}
+	errPmwMultisigAccountConfig = nil
+}

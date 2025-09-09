@@ -64,7 +64,7 @@ func validateAndParseFTDCRequest[T any](request connector.IFtdcHubFtdcAttestatio
 		utils.BytesToHex0x(request.Header.AttestationType[:]),
 		utils.BytesToHex0x(request.Header.SourceId[:]),
 	); err != nil {
-		return empty, huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+		return empty, huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
 	data, err := utils.AbiDecodeRequestData[T](request.RequestBody, config.AbiPair.Request)
 	if err != nil {

@@ -49,3 +49,9 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 		ParsedPaymentABI:         parsedPaymentABI,
 	}, nil
 }
+
+func ClearPMWPaymentStatusConfigForTest() {
+	pmyPaymentStatusConfig = nil
+	pmyPaymentStatusConfigOnce = sync.Once{}
+	errPmyPaymentStatusConfig = nil
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -18,6 +19,42 @@ var envConfig = config.EnvConfig{
 	CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 	AttestationType:   connector.PMWPaymentStatus,
 	SourceID:          "XRP",
+}
+
+func TestPaymentService(t *testing.T) {
+	t.Run("Should successfully create PaymentService", func(t *testing.T) {
+		service, err := NewPaymentService(envConfig)
+		require.NoError(t, err)
+		require.NotNil(t, service)
+		require.NotNil(t, service.GetVerifier())
+		require.NotNil(t, service.GetConfig())
+	})
+
+	t.Run("Missing fields in env config", func(t *testing.T) {
+		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
+		badEnvConfig := config.EnvConfig{
+			DatabaseURL:       "",
+			CChainDatabaseURL: "",
+		}
+		service, err := NewPaymentService(badEnvConfig)
+		require.Error(t, err)
+		require.Nil(t, service)
+	})
+
+	t.Run("Using unsupported source ID", func(t *testing.T) {
+		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
+		badEnvConfig := config.EnvConfig{
+			DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+			CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+			SourceID:          "UNSUPPORTED_SOURCE",
+			AttestationType:   connector.PMWPaymentStatus,
+		}
+		service, err := NewPaymentService(badEnvConfig)
+		require.Error(t, err)
+		require.Nil(t, service)
+	})
+
+	pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 }
 
 // Both tests need docker compose running.

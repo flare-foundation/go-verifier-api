@@ -68,3 +68,10 @@ func DecodeAndParsePEMCertificate(certificate string) (*x509.Certificate, error)
 	}
 	return cert, nil
 }
+
+// ResetTeeAvailabilityCheckConfigForTest is a test utility function that resets the tee availability check config.
+func ResetTeeAvailabilityCheckConfigForTest() {
+	teeAvailabilityCheckConfig = nil
+	errTeeAvailabilityCheckConfig = nil
+	teeAvailabilityCheckConfigOnce = sync.Once{}
+}

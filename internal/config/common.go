@@ -12,33 +12,29 @@ import (
 )
 
 const (
-	EnvRPCURL                                 = "RPC_URL"
-	EnvRelayContractAddress                   = "RELAY_CONTRACT_ADDRESS"
-	EnvTeeMachineRegistryContractAddress      = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
-	EnvTeeWalletManagerContractAddress        = "TEE_WALLET_MANAGER_CONTRACT_ADDRESS"
-	EnvTeeWalletProjectManagerContractAddress = "TEE_WALLET_PROJECT_MANAGER_CONTRACT_ADDRESS"
-	EnvDatabaseURL                            = "DATABASE_URL"
-	EnvCChainDatabaseURL                      = "CCHAIN_DATABASE_URL"
-	EnvEnv                                    = "ENV"
-	EnvPort                                   = "PORT"
-	EnvApiKeys                                = "API_KEYS"
-	EnvAttestationType                        = "VERIFIER_TYPE"
-	EnvSourceID                               = "SOURCE_ID"
+	EnvRPCURL                            = "RPC_URL"
+	EnvRelayContractAddress              = "RELAY_CONTRACT_ADDRESS"
+	EnvTeeMachineRegistryContractAddress = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
+	EnvDatabaseURL                       = "DATABASE_URL"
+	EnvCChainDatabaseURL                 = "CCHAIN_DATABASE_URL"
+	EnvEnv                               = "ENV"
+	EnvPort                              = "PORT"
+	EnvApiKeys                           = "API_KEYS"
+	EnvAttestationType                   = "VERIFIER_TYPE"
+	EnvSourceID                          = "SOURCE_ID"
 )
 
 type EnvConfig struct {
-	RPCURL                                 string
-	RelayContractAddress                   string
-	TeeMachineRegistryContractAddress      string
-	TeeWalletManagerContractAddress        string
-	TeeWalletProjectManagerContractAddress string
-	DatabaseURL                            string
-	CChainDatabaseURL                      string
-	Env                                    string
-	Port                                   string
-	ApiKeys                                []string
-	AttestationType                        connector.AttestationType
-	SourceID                               SourceName
+	RPCURL                            string
+	RelayContractAddress              string
+	TeeMachineRegistryContractAddress string
+	DatabaseURL                       string
+	CChainDatabaseURL                 string
+	Env                               string
+	Port                              string
+	ApiKeys                           []string
+	AttestationType                   connector.AttestationType
+	SourceID                          SourceName
 }
 
 type SourceName string
@@ -163,14 +159,6 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 			}
 		case EnvTeeMachineRegistryContractAddress:
 			if cfg.TeeMachineRegistryContractAddress == "" {
-				missing = append(missing, field)
-			}
-		case EnvTeeWalletManagerContractAddress:
-			if cfg.TeeWalletManagerContractAddress == "" {
-				missing = append(missing, field)
-			}
-		case EnvTeeWalletProjectManagerContractAddress:
-			if cfg.TeeWalletProjectManagerContractAddress == "" {
 				missing = append(missing, field)
 			}
 		case EnvDatabaseURL:

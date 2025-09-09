@@ -21,6 +21,14 @@ type TestCase[T any, R any] struct {
 	ExpectedErrMsg string
 }
 
+func EncodeFTDCTeeAvailabilityCheckRequest(data connector.ITeeAvailabilityCheckRequestBody) ([]byte, error) {
+	return structs.Encode(connector.AttestationTypeArguments[connector.AvailabilityCheck].Request, data)
+}
+
+func EncodeFTDCTeeAvailabilityCheckResponse(data connector.ITeeAvailabilityCheckResponseBody) ([]byte, error) {
+	return structs.Encode(connector.AttestationTypeArguments[connector.AvailabilityCheck].Response, data)
+}
+
 func EncodeFTDCPMWMultisigAccountConfiguredRequest(data connector.IPMWMultisigAccountConfiguredRequestBody) ([]byte, error) {
 	return structs.Encode(connector.AttestationTypeArguments[connector.PMWMultisigAccountConfigured].Request, data)
 }
@@ -85,6 +93,29 @@ func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, 
 	}
 
 	return response, nil
+}
+
+func PostWithoutMarshalling(t *testing.T, url string, data interface{}, apiKey string) (*http.Response, error) {
+	t.Helper()
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-KEY", apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return resp, nil
 }
 
 func Get(t *testing.T, url string, apiKey string) ([]byte, error) {
