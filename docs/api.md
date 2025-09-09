@@ -14,11 +14,8 @@ Verify the encoded request body and returns ABI-encoded response.
 ### Request:
 ```json
 {
-  "header": {
-    "attestationType": "0x546...",
-    "sourceId": "0x746...",
-    "thresholdBIPS": 0
-  },
+  "attestationType": "0x546...",
+  "sourceID": "0x746...",
   "requestBody": "0x0ab..."
 }
 ```
@@ -46,13 +43,8 @@ Returns ABI-encoded request data. This helper endpoint generates the ABI-encoded
 ### Request example for `TeeAvailabilityCheck`:
 ```json
 {
-  "header": {
-    "attestationType": "0x546565417661696c6162696c697479436865636b000000000000000000000000",
-    "cosigners": [],
-    "cosignersThreshold": 0,
-    "sourceId": "0x7465650000000000000000000000000000000000000000000000000000000000",
-    "thresholdBIPS": 0
-  },
+  "attestationType": "0x546565417661696c6162696c697479436865636b000000000000000000000000",
+  "sourceId": "0x7465650000000000000000000000000000000000000000000000000000000000",
   "requestData": {
     "challenge": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
     "teeId": "0x000000000000000000000000000000000000dEaD",
@@ -63,7 +55,7 @@ Returns ABI-encoded request data. This helper endpoint generates the ABI-encoded
 ### Response example for `TeeAvailabilityCheck`:
 ```json
 {
-  "requestBody": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"
+  "responseBody": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"
 }
 ```
 
@@ -72,13 +64,8 @@ Verify the encoded request body and returns both the decoded response data and i
 ### Request example for `TeeAvailabilityCheck`:
 ```json
 {
-  "header": {
-    "attestationType": "0x546565417661696c6162696c697479436865636b000000000000000000000000",
-    "cosigners": [],
-    "cosignersThreshold": 0,
-    "sourceId": "0x7465650000000000000000000000000000000000000000000000000000000000",
-    "thresholdBIPS": 0
-  },
+  "attestationType": "0x546565417661696c6162696c697479436865636b000000000000000000000000",
+  "sourceID": "0x7465650000000000000000000000000000000000000000000000000000000000",
   "requestBody": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000000601234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef000000000000000000000000000000000000000000000000000000000000001668747470733a2f2f73757065727465652e70726f787900000000000000000000"
 }
 ```
@@ -92,7 +79,12 @@ Verify the encoded request body and returns both the decoded response data and i
     "platform": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "initialSigningPolicyId": 1,
     "lastSigningPolicyId": 2,
-    "stateHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    "state": {
+      "systemState": "0x0000000000000000000000000000000000000000000000000001231231230000000000000",
+      "systemStateVersion": "0x0000000000000000000000000000000000000000000000000000000000000123",
+      "state": "0x000000000000000000000000000000000000000000000000000123412340000000000",
+      "stateVersion" : "0x0000000000000000000000000000000000000000000000000000001230000000",
+    }
   },
   "responseBody": "0x0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 }
@@ -103,79 +95,72 @@ Verify the encoded request body and returns both the decoded response data and i
 
 - Common request with shared metadata.
 ```go
-type IFtdcHubFtdcAttestationRequest struct {
-	Header      IFtdcHubFtdcRequestHeader
-	RequestBody []byte
-}
-type IFtdcHubFtdcRequestHeader struct {
-	AttestationType [32]byte
-	SourceId        [32]byte
-	ThresholdBIPS   uint16
+type AttestationRequest struct {
+  AttestationType [32]byte
+  SourceID        [32]byte
+  RequestBody     []byte
 }
 ```
 | Field              | Description           |
 |--------------------|-----------------------|
-| AttestationType    | 32-byte identifier of the attestation type
-| SourceId           | 32-byte source identifier
-| ThresholdBIPS      | Not relevant for verifier
+| AttestationType    | Hex-encoded 32-byte identifier of the attestation type
+| SourceID           | Hex-encoded 32-byte source identifier
+| RequestBody        | ABI encoded request data
 
 - Attestations type `TeeAvailabilityCheck`:
 ```go
-type ITeeAvailabilityCheckRequestBody struct {
-	TeeId     [20]byte
-	Url       string
+type TeeAvailabilityCheckRequestBody struct {
+	TeeID     [20]byte
+	URL       string
 	Challenge [32]byte
 }
 ```
-
 | Field    | Description          |
 |----------|----------------------|
-| TeeId    | Ethereum address of the TEE
-| Url      | TEE proxy endpoint URL
-| Challenge| 32-byte challenge
+| TeeID    | Hex-encoded 20-byte Ethereum address of the TEE
+| URL      | TEE proxy endpoint URL
+| Challenge| Hex-encoded 32-byte challenge
 
 ```go
-type ITeeAvailabilityCheckResponseBody struct {
+type TeeAvailabilityCheckResponseBody struct {
 	Status                 uint8
 	TeeTimestamp           uint64
 	CodeHash               [32]byte
 	Platform               [32]byte
-	InitialSigningPolicyId uint32
-	LastSigningPolicyId    uint32
-	State                  ITeeAvailabilityCheckTeeState
+	InitialSigningPolicyID uint32
+	LastSigningPolicyID    uint32
+	State                  TeeAvailabilityCheckTeeState
 }
 ```
 ```go
-type ITeeAvailabilityCheckTeeState struct {
+type TeeAvailabilityCheckTeeState struct {
 	SystemState        []byte
 	SystemStateVersion [32]byte
 	State              []byte
 	StateVersion       [32]byte
 }
 ```
-
 | Field                  | Description          |
 |------------------------|----------------------|
 | Status                 | Enum AvailabilityCheckStatus { OK, OBSOLETE, DOWN }
 | TeeTimestamp           | Timestamp reported by the TEE
-| CodeHash               | 32-byte SHA-256 digest of the workload container image (from JWT)
-| Platform               | 32-byte hwmodel (from JWT)
+| CodeHash               | Hex-encoded 32-byte SHA-256 digest of the workload container image (from JWT)
+| Platform               | Hex-encoded 32-byte hwmodel (from JWT)
 | InitialSigningPolicyId | ID of the initial signing policy
 | LastSigningPolicyId    | ID of the last signing policy
 | State                  | Current TEE state
 
 - Attestation type `PMWPaymentStatus`.
 ```go
-type IPMWPaymentStatusRequestBody struct {
-	WalletId [32]byte
+type PMWPaymentStatusRequestBody struct {
+	WalletID [32]byte
 	Nonce    uint64
 	SubNonce uint64
 }
 ```
-
 | Field    | Description
 |----------|----------------------|
-| WalletId | Unique wallet identifier
+| WalletID | Unique wallet identifier
 | Nonce    | Batch nonce of the payment instruction
 | SubNonce | Sequence number of the payment instruction
 
@@ -195,7 +180,6 @@ type IPMWPaymentStatusResponseBody struct {
 	BlockTimestamp    uint64
 }
 ```
-
 | Field             | Description          |
 |-------------------|----------------------|
 | SenderAddress     | Sender from the payment instruction message
@@ -216,17 +200,16 @@ type IPMWPaymentStatusResponseBody struct {
 
 ```go
 type IPMWMultisigAccountConfiguredRequestBody struct {
-	WalletAddress string
+	AccountAddress string
 	PublicKeys    [][]byte
 	Threshold     uint64
 }
 ```
-
-| Field         | Description          |
-|---------------|----------------------|
-| WalletAddress | Account wallet address
-| PublicKeys    | Public keys associated with wallet
-| Threshold     | Multisig threshold of the wallet
+| Field          | Description          |
+|----------------|----------------------|
+| AccountAddress | Address of the multisig account
+| PublicKeys     | Public keys associated with multisig account
+| Threshold      | Multisig threshold of the account
 
 ```go
 type IPMWMultisigAccountConfiguredResponseBody struct {
@@ -234,7 +217,6 @@ type IPMWMultisigAccountConfiguredResponseBody struct {
 	Sequence uint64
 }
 ```
-
 | Field    | Description          |
 |----------|----------------------|
 | Status   | Enum PMWMultisigAccountStatus { OK, ERROR }
@@ -243,7 +225,7 @@ type IPMWMultisigAccountConfiguredResponseBody struct {
 
 ## 4. Health endpoint `GET /api/health`
 
-Returns 
+Returns
 ```json
 {
   "healthy": true

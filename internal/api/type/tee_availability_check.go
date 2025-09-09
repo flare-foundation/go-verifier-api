@@ -29,7 +29,7 @@ type TeeAvailabilityCheckResponseBody struct {
 	Platform               common.Hash                  `json:"platform"`
 	InitialSigningPolicyID uint32                       `json:"initialSigningPolicyId"`
 	LastSigningPolicyID    uint32                       `json:"lastSigningPolicyId"`
-	StateHash              TeeAvailabilityCheckTeeState `json:"state"`
+	State                  TeeAvailabilityCheckTeeState `json:"state"`
 }
 
 type TeeAvailabilityCheckTeeState struct {
@@ -47,7 +47,7 @@ func TeeAvailabilityCheckToExternal(data connector.ITeeAvailabilityCheckResponse
 		Platform:               data.Platform,
 		InitialSigningPolicyID: data.InitialSigningPolicyId,
 		LastSigningPolicyID:    data.LastSigningPolicyId,
-		StateHash: TeeAvailabilityCheckTeeState{
+		State: TeeAvailabilityCheckTeeState{
 			SystemStateVersion: data.State.SystemStateVersion,
 			SystemState:        data.State.SystemState,
 			StateVersion:       data.State.StateVersion,
