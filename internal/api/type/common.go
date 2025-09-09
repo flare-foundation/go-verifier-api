@@ -12,7 +12,7 @@ type HealthCheckResponse struct {
 // Main API types.
 type AttestationRequest struct {
 	AttestationType common.Hash   `json:"attestationType" validate:"required,hash32" example:"0x504d574..."`
-	SourceID        common.Hash   `json:"sourceID" validate:"required,hash32" example:"0x7465..."`
+	SourceID        common.Hash   `json:"sourceId" validate:"required,hash32" example:"0x7465..."`
 	RequestBody     hexutil.Bytes `json:"requestBody" example:"0x0000abcd..."`
 }
 
@@ -23,7 +23,7 @@ type AttestationResponse struct {
 // Helper API types.
 type AttestationRequestData[T any] struct {
 	AttestationType common.Hash `json:"attestationType" validate:"required,hash32" example:"0x504d574..."`
-	SourceID        common.Hash `json:"sourceID" validate:"required,hash32" example:"0x7465..."`
+	SourceID        common.Hash `json:"sourceId" validate:"required,hash32" example:"0x7465..."`
 	RequestData     T           `json:"requestData"`
 }
 
