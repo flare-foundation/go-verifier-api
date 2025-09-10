@@ -6,11 +6,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTeeInfoHash(t *testing.T) {
@@ -25,6 +27,11 @@ func TestTeeInfoHash(t *testing.T) {
 		X: x,
 		Y: y,
 	}
+	systemState, err := hexutil.Decode("0x")
+	require.NoError(t, err)
+	state, err := hexutil.Decode("0x")
+	require.NoError(t, err)
+
 	mockData := tee.TeeStructsAttestation{
 		Challenge:                common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000001234"),
 		PublicKey:                mockPublicKey,
@@ -32,8 +39,14 @@ func TestTeeInfoHash(t *testing.T) {
 		InitialSigningPolicyHash: common.HexToHash("0x000000000000000000000000000000000000000000000000000000000000abcd"),
 		LastSigningPolicyId:      2,
 		LastSigningPolicyHash:    common.HexToHash("0x000000000000000000000000000000000000000000000000000000000000dead"),
-		State:                    tee.ITeeAvailabilityCheckTeeState{}, // TODO
-		TeeTimestamp:             123456789,
+		State: tee.ITeeAvailabilityCheckTeeState{
+			SystemState:        systemState,
+			SystemStateVersion: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			State:              state,
+			StateVersion:       common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		},
+
+		TeeTimestamp: 123456789,
 	}
 	hash, err := verifier.TeeInfoHash(mockData)
 	if err != nil {
