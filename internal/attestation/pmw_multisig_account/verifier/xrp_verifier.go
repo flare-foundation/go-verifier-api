@@ -13,13 +13,15 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
+
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	xrpClient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/verifier/xrp"
 	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
 type XRPVerifier struct {
 	config *pmwmultisigaccountconfig.PMWMultisigAccountConfig
-	client XrpClient
+	client *xrpClient.Client
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
@@ -82,7 +84,7 @@ func (x *XRPVerifier) verifyMultisigConfiguration(ctx context.Context, req conne
 	return accountInfo.Result.AccountData.Sequence, true, nil
 }
 
-func (x *XRPVerifier) verifySignerList(signerList SignerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
+func (x *XRPVerifier) verifySignerList(signerList xrpClient.SignerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
 	expectedAccounts := make([]string, 0, len(req.PublicKeys))
 	for _, pk := range req.PublicKeys {
 		addrStr, err := convertPubkeyToAddress(pk)

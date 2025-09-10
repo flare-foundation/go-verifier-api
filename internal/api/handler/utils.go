@@ -48,7 +48,7 @@ func ValidateRequestData[T any](request types.AttestationRequestData[T], config 
 		request.AttestationType.Hex(),
 		request.SourceID.Hex(),
 	); err != nil {
-		return huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
 	return nil
 }
@@ -63,7 +63,7 @@ func ValidateRequest(request types.AttestationRequest, config *config.EncodedAnd
 		request.AttestationType.Hex(),
 		request.SourceID.Hex(),
 	); err != nil {
-		return huma.Error500InternalServerError(fmt.Sprintf("Request validation failed: %v", err))
+		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
 	}
 	return nil
 }

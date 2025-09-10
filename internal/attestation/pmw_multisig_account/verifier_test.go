@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/config"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -14,6 +15,42 @@ var envConfig = config.EnvConfig{
 	RPCURL:          "https://s.altnet.rippletest.net:51234",
 	SourceID:        "XRP",
 	AttestationType: connector.PMWMultisigAccountConfigured,
+}
+
+func TestMultisigService(t *testing.T) {
+	t.Run("Should successfully create MultisigService", func(t *testing.T) {
+		service, err := NewMultisigService(envConfig)
+		require.NoError(t, err)
+		require.NotNil(t, service)
+		require.NotNil(t, service.GetVerifier())
+		require.NotNil(t, service.GetConfig())
+	})
+
+	t.Run("Missing fields in env config", func(t *testing.T) {
+		pmwmultisigaccountconfig.ClearPMWMultisigAccountConfigForTest()
+		badEnvConfig := config.EnvConfig{
+			RPCURL:          "",
+			SourceID:        "XRP",
+			AttestationType: connector.PMWMultisigAccountConfigured,
+		}
+		service, err := NewMultisigService(badEnvConfig)
+		require.Error(t, err)
+		require.Nil(t, service)
+	})
+
+	t.Run("Using unsupported source ID", func(t *testing.T) {
+		pmwmultisigaccountconfig.ClearPMWMultisigAccountConfigForTest()
+		badEnvConfig := config.EnvConfig{
+			RPCURL:          "https://s.altnet.rippletest.net:51234",
+			SourceID:        "UNSUPPORTED_SOURCE",
+			AttestationType: connector.PMWMultisigAccountConfigured,
+		}
+		service, err := NewMultisigService(badEnvConfig)
+		require.Error(t, err)
+		require.Nil(t, service)
+	})
+
+	pmwmultisigaccountconfig.ClearPMWMultisigAccountConfigForTest()
 }
 
 func TestMultisig(t *testing.T) {
@@ -41,21 +78,21 @@ func TestMultisig(t *testing.T) {
 
 // Wallet without disabled master key should be rejected.
 func TestMultisigWithoutDisabledMasterKey(t *testing.T) {
-	t.Skip() // TODO Fix with correct pubkey form!
 	service, err := NewMultisigService(envConfig)
 	require.NoError(t, err)
 
-	pubkey1, err := hexutil.Decode("0xEDB0977AA35E892128197DBBA01D84BECC5AD66C6E5C966A544D20895F51DD0494")
+	pubkey1, err := hexutil.Decode("0xd6dfbae2c2feae24a61bfe596125cf98d433d83126bd187f79cfb054fe6e1f0b201cb19fb9786903acb4b55f422fd40571f973e48fa95305416ec9afce905dbc")
 	require.NoError(t, err)
-
-	pubkey2, err := hexutil.Decode("0xED5CABB5E057B0341A0C9121B450CC348D5F6F516BF7B7A9963B42B962BE17F9BB")
+	pubkey2, err := hexutil.Decode("0xfe18c14c27e66cfdf4f2bd885d25e88adb493bf9469b8a415cd518505f604a6649938a258f15b476acd1f92bccd6074bff2dadd4031544a7f7057f5866c5d83b")
+	require.NoError(t, err)
+	pubkey3, err := hexutil.Decode("0x64104c4e9096d4f8d0cfff1759840a1f44dbaac001265c1194e7af24d9c52c4aec4999de13d74a54acc57b70543a3363f31212c8b0ab0fe01d3b8ddd76c8b76f")
 	require.NoError(t, err)
 
 	verifier := service.GetVerifier()
 	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: "rnk1bYEjfr24uvQHnGM9DkMU5HtwsjYW6N",
-		PublicKeys:    [][]byte{pubkey1, pubkey2},
-		Threshold:     2,
+		WalletAddress: "rGnsRVdAseq7uMW4hjRuydPiV9cZsUWiyN",
+		PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
+		Threshold:     1,
 	})
 
 	require.NoError(t, err)

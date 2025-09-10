@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-type XrpClient struct {
+type Client struct {
 	client         *http.Client
 	url            string
 	nRetries       int
 	requestTimeout time.Duration
 }
 
-type xrpRequest struct {
+type request struct {
 	Method string        `json:"method"`
 	Params []interface{} `json:"params"`
 }
@@ -52,17 +52,16 @@ type SignerList struct {
 	} `json:"SignerEntries"`
 }
 
-func NewXrpClient(url string, nRetries int, requestTimeout time.Duration) XrpClient {
-	const xrpRequestTimeoutMultiplier = 20
-	return XrpClient{
+func NewClient(url string, nRetries int, requestTimeout time.Duration) *Client {
+	return &Client{
 		client:         &http.Client{},
 		url:            url,
 		nRetries:       nRetries,
-		requestTimeout: requestTimeout * xrpRequestTimeoutMultiplier,
+		requestTimeout: requestTimeout,
 	}
 }
 
-func (c XrpClient) get(ctx context.Context, request xrpRequest) ([]byte, error) {
+func (c *Client) get(ctx context.Context, request request) ([]byte, error) {
 	getReq, err := json.Marshal(request)
 	if err != nil {
 		return nil, err
@@ -100,7 +99,7 @@ func (c XrpClient) get(ctx context.Context, request xrpRequest) ([]byte, error) 
 	return resBody, nil
 }
 
-func (c XrpClient) getWithRetry(ctx context.Context, request xrpRequest) ([]byte, error) {
+func (c *Client) getWithRetry(ctx context.Context, request request) ([]byte, error) {
 	for i := 0; i < c.nRetries; i++ {
 		res, err := c.get(ctx, request)
 		if err == nil {
@@ -110,8 +109,8 @@ func (c XrpClient) getWithRetry(ctx context.Context, request xrpRequest) ([]byte
 	return nil, fmt.Errorf("failed to get response after %d retries", c.nRetries)
 }
 
-func (c XrpClient) GetAccountInfo(ctx context.Context, account string) (AccountInfoResponse, error) {
-	request := xrpRequest{
+func (c *Client) GetAccountInfo(ctx context.Context, account string) (*AccountInfoResponse, error) {
+	request := request{
 		Method: "account_info",
 		Params: []interface{}{
 			map[string]interface{}{
@@ -123,16 +122,16 @@ func (c XrpClient) GetAccountInfo(ctx context.Context, account string) (AccountI
 	}
 	raw, err := c.getWithRetry(ctx, request)
 	if err != nil {
-		return AccountInfoResponse{}, err
+		return nil, err
 	}
 	var accountInfo AccountInfoResponse
 	if err := json.Unmarshal(raw, &accountInfo); err != nil {
-		return AccountInfoResponse{}, err
+		return nil, err
 	}
 
 	if accountInfo.Result.Status != "success" {
-		return AccountInfoResponse{}, errors.New("xrp rpc returned non-success status")
+		return nil, errors.New("xrp rpc returned non-success status")
 	}
 
-	return accountInfo, nil
+	return &accountInfo, nil
 }
