@@ -96,4 +96,5 @@ func TestWrongNonce(t *testing.T) {
 		SubNonce: 10110068,
 	})
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "log not found for instruction")
 }

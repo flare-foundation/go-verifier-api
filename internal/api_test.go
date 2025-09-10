@@ -379,7 +379,6 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		}
 		response, err := testutil.Post[types.EncodedRequestBody](t, fmt.Sprintf("%s/prepareRequestBody", url), ftdReq, testAPIKey)
 		require.NoError(t, err)
-
 		require.NotEmpty(t, response.RequestBody)
 
 		attestationRequest, err := testutil.EncodeFTDCTeeAvailabilityCheckRequest(connector.ITeeAvailabilityCheckRequestBody{

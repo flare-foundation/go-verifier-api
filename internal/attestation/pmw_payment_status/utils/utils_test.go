@@ -7,27 +7,20 @@ import (
 
 	pmwpaymentutils "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateInstructionId(t *testing.T) {
 	walletId := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	walletIdBytes, err := utils.HexStringToBytes32(walletId)
-	if err != nil {
-		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
-	}
+	require.NoError(t, err)
 	nonce := uint64(42)
 	opTypeString := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	opTypeBytes, err := utils.HexStringToBytes32(opTypeString)
-	if err != nil {
-		t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
-	}
+	require.NoError(t, err)
 	id, err := pmwpaymentutils.GenerateInstructionId(walletIdBytes, opTypeBytes, nonce)
-	if err != nil {
-		t.Fatalf("GenerateInstructionId failed for valid input: %v", err)
-	}
-	if len(id) == 0 {
-		t.Fatal("GenerateInstructionId returned empty string")
-	}
+	require.NoError(t, err)
+	require.NotEmpty(t, id)
 	t.Logf("Instruction ID: %s", id.Hex())
 }
 
@@ -35,28 +28,20 @@ func TestHexStringToBytes32(t *testing.T) {
 	t.Run("valid input", func(t *testing.T) {
 		validHex := "0x" + strings.Repeat("aa", 32)
 		arr, err := utils.HexStringToBytes32(validHex)
-		if err != nil {
-			t.Fatalf("HexStringToBytes32 failed for valid input: %v", err)
-		}
-		for i, b := range arr {
-			if b != 0xaa {
-				t.Errorf("Byte %d expected 0xaa, got 0x%x", i, b)
-			}
+		require.NoError(t, err)
+		for _, b := range arr {
+			require.Equal(t, byte(0xaa), b)
 		}
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		invalidHex := "0x1234"
 		_, err := utils.HexStringToBytes32(invalidHex)
-		if err == nil {
-			t.Fatal("HexStringToBytes32 should fail for invalid length hex")
-		}
+		require.Error(t, err)
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		badHex := "0xzzyy"
 		_, err := utils.HexStringToBytes32(badHex)
-		if err == nil {
-			t.Fatal("HexStringToBytes32 should fail for invalid length hex")
-		}
+		require.Error(t, err)
 	})
 }
 
@@ -64,54 +49,36 @@ func TestNewBigIntFromString(t *testing.T) {
 	t.Run("valid number", func(t *testing.T) {
 		input := "1234567890"
 		val, err := utils.NewBigIntFromString(input)
-		if err != nil {
-			t.Fatalf("NewBigIntFromString failed for valid input: %v", err)
-		}
+		require.NoError(t, err)
 		expected := new(big.Int)
 		expected.SetString(input, 10)
-		if val.Cmp(expected) != 0 {
-			t.Fatalf("Expected %s, got %s", expected.String(), val.String())
-		}
+		require.Equal(t, expected, val)
 	})
 	t.Run("leading zeros", func(t *testing.T) {
 		input := "00001234"
 		val, err := utils.NewBigIntFromString(input)
-		if err != nil {
-			t.Fatalf("NewBigIntFromString failed with leading zeros: %v", err)
-		}
+		require.NoError(t, err)
 		expected := new(big.Int)
 		expected.SetString(input, 10)
-		if val.Cmp(expected) != 0 {
-			t.Fatalf("Expected %s, got %s", expected.String(), val.String())
-		}
+		require.Equal(t, expected, val)
 	})
 	t.Run("leading and trailing whitespace", func(t *testing.T) {
 		input := "   1234  "
 		val, err := utils.NewBigIntFromString(strings.TrimSpace(input))
-		if err != nil {
-			t.Fatalf("NewBigIntFromString failed with whitespace: %v", err)
-		}
+		require.NoError(t, err)
 		expected := big.NewInt(1234)
-		if val.Cmp(expected) != 0 {
-			t.Fatalf("Expected %s, got %s", expected.String(), val.String())
-		}
+		require.Equal(t, expected, val)
 	})
 	t.Run("very large number", func(t *testing.T) {
 		input := strings.Repeat("9", 100)
 		val, err := utils.NewBigIntFromString(input)
-		if err != nil {
-			t.Fatalf("NewBigIntFromString failed for large number: %v", err)
-		}
-		if val.String() != input {
-			t.Fatalf("Expected %s, got %s", input, val.String())
-		}
+		require.NoError(t, err)
+		require.Equal(t, input, val.String())
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		input := "notanumber"
 		_, err := utils.NewBigIntFromString(input)
-		if err == nil {
-			t.Fatal("Expected error for invalid input, got nil")
-		}
+		require.Error(t, err)
 	})
 }
 
@@ -122,21 +89,16 @@ func TestGetStringField(t *testing.T) {
 	}
 	t.Run("valid string field", func(t *testing.T) {
 		val, ok := pmwpaymentutils.GetStringField(m, "key1")
-		if !ok || val != "val1" {
-			t.Fatal("GetStringField failed to get existing string value")
-		}
+		require.True(t, ok)
+		require.Equal(t, "val1", val)
 	})
 	t.Run("number field", func(t *testing.T) {
 		_, ok := pmwpaymentutils.GetStringField(m, "key2")
-		if ok {
-			t.Fatal("GetStringField should return false for non-string value")
-		}
+		require.False(t, ok)
 	})
 	t.Run("missing field", func(t *testing.T) {
 		_, ok := pmwpaymentutils.GetStringField(m, "missing")
-		if ok {
-			t.Fatal("GetStringField should return false for missing key")
-		}
+		require.False(t, ok)
 	})
 }
 
@@ -144,13 +106,7 @@ func TestGetStandardAddressHash(t *testing.T) {
 	address := "rL7RGDcogfqDnEjCaz2qSpivXF1B1EnsvW"
 	val := pmwpaymentutils.GetStandardAddressHash(address)
 	expectedStdAddressHash := "0x00bafe0a11e53099df6fa8bc148cb4e054594c23c8fbc4ec5c5c85cf72a1e96c"
-	if val != expectedStdAddressHash {
-		t.Fatalf("GetStandardAddressHash returned wrong value, got %s", val)
-	}
-	if len(expectedStdAddressHash) == 0 {
-		t.Fatal("GetStandardAddressHash returned empty string")
-	}
-	if expectedStdAddressHash[:2] != "0x" {
-		t.Fatal("GetStandardAddressHash returned string without 0x prefix")
-	}
+	require.Equal(t, expectedStdAddressHash, val)
+	require.NotEmpty(t, expectedStdAddressHash)
+	require.Equal(t, "0x", expectedStdAddressHash[:2])
 }
