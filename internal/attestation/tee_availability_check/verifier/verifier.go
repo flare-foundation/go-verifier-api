@@ -271,7 +271,7 @@ func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash c
 	if latestBlock.Time()-challengeBlock.Time() <= blockFreshnessInSeconds {
 		return teetypes.TeePollerSampleValid, nil
 	}
-	return teetypes.TeePollerSampleInvalid, nil
+	return teetypes.TeePollerSampleInvalid, fmt.Errorf("challenge too old %d", latestBlock.Time()-challengeBlock.Time())
 }
 
 func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {

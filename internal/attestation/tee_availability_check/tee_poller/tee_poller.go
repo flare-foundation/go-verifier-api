@@ -105,7 +105,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					}
 					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyURL)
 					if err != nil {
-						logger.Errorf("Failed to query teeInfo %s and validate: %v", t.proxyURL, err)
+						logger.Errorf("Failed to query teeInfo %s or validate: %v", t.proxyURL, err)
 					}
 					teeVerifier.SamplesMu.Lock()
 					samples := teeVerifier.TeeSamples[t.teeID]
@@ -138,9 +138,6 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	checkInfoChallenge, err := teeVerifier.CheckInfoChallengeIsValid(ctx, infoResponse.TeeInfo.Challenge)
 	if err != nil {
 		return checkInfoChallenge, err
-	}
-	if checkInfoChallenge == teetypes.TeePollerSampleInvalid {
-		return teetypes.TeePollerSampleInvalid, nil
 	}
 	_, err = teeVerifier.DataVerification(infoResponse)
 	if err != nil {
