@@ -133,6 +133,7 @@ func TestPMWMultisig(t *testing.T) {
 			PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
 			Threshold:     1,
 		})
+		require.NoError(t, err)
 
 		request := types.AttestationRequest{
 			AttestationType: attestationType,
@@ -156,16 +157,16 @@ func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.A
 	t.Helper()
 	attestationTypeBytes, err := utils.Bytes32(string(attestationType))
 	require.NoError(t, err)
-	sourceIdBytes, err := utils.Bytes32(string(sourceID))
+	sourceIDBytes, err := utils.Bytes32(string(sourceID))
 	require.NoError(t, err)
-	return common.BytesToHash(attestationTypeBytes[:]), common.BytesToHash(sourceIdBytes[:])
+	return common.BytesToHash(attestationTypeBytes[:]), common.BytesToHash(sourceIDBytes[:])
 }
 
 func TestPMWPaymentStatus(t *testing.T) {
 	go api.RunServer(config.EnvConfig{
 		RPCURL:            "https://s.altnet.rippletest.net:51234",
 		DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
-		CChainDatabaseURL: "ftso_user:ftso_pass@tcp(localhost:3306)/flare_ftso_indexer?parseTime=true",
+		CChainDatabaseURL: "username:password@tcp(127.0.0.1:3306)/db?parseTime=true",
 		SourceID:          config.SourceXRP,
 		AttestationType:   connector.PMWPaymentStatus,
 		Port:              "3121",

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
+-- \restrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
 
 -- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
 -- Dumped by pg_dump version 17.6 (Homebrew)
@@ -23,14 +23,14 @@ SET row_security = off;
 -- Name: flare_xrp_indexer; Type: DATABASE; Schema: -; Owner: username
 --
 
-CREATE DATABASE flare_xrp_indexer WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'en_US.utf8';
+-- CREATE DATABASE flare_xrp_indexer WITH TEMPLATE = template0 ENCODING = 'UTF8' LOCALE_PROVIDER = libc LOCALE = 'en_US.utf8';
 
 
 ALTER DATABASE flare_xrp_indexer OWNER TO username;
 
-\unrestrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
+-- \unrestrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
 \connect flare_xrp_indexer
-\restrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
+-- \restrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1405,5 +1405,5 @@ CREATE INDEX idx_transactions_timestamp ON public.transactions USING btree ("tim
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
+-- \unrestrict 2OcQJOJaf2dg4JybmgbNpnjjMPisuRYmompJecSygoL7BwGDVjHUGimGrpx1M8y
 
