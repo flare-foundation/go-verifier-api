@@ -32,13 +32,13 @@ func TestParseSourceId(t *testing.T) {
 		config.SourceTEE,
 		config.SourceXRP,
 	} {
-		got, err := parseSourceId(string(sid))
+		got, err := parseSourceID(string(sid))
 		require.NoError(t, err)
 		require.Equal(t, sid, got)
 	}
 
 	// Invalid source ID
-	_, err := parseSourceId("invalid-source")
+	_, err := parseSourceID("invalid-source")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid source id")
 }
@@ -48,23 +48,23 @@ func TestGetAPIKeys(t *testing.T) {
 	require.Error(t, err)
 
 	// Empty string
-	t.Setenv(config.EnvApiKeys, "   ")
+	t.Setenv(config.EnvAPIKeys, "   ")
 	_, err = getAPIKeys()
 	require.Error(t, err)
 
 	// Only empty values
-	t.Setenv(config.EnvApiKeys, " , , ")
+	t.Setenv(config.EnvAPIKeys, " , , ")
 	_, err = getAPIKeys()
 	require.Error(t, err)
 
 	// Single key
-	t.Setenv(config.EnvApiKeys, "key1")
+	t.Setenv(config.EnvAPIKeys, "key1")
 	keys, err := getAPIKeys()
 	require.NoError(t, err)
 	require.Equal(t, []string{"key1"}, keys)
 
 	// Multiple keys, with spaces
-	t.Setenv(config.EnvApiKeys, "key1, key2 ,key3")
+	t.Setenv(config.EnvAPIKeys, "key1, key2 ,key3")
 	keys, err = getAPIKeys()
 	require.NoError(t, err)
 	require.Equal(t, []string{"key1", "key2", "key3"}, keys)
@@ -97,7 +97,7 @@ func TestLoadEnvConfig(t *testing.T) {
 		loadEnvShouldFail(t)
 		t.Setenv(config.EnvSourceID, string(config.SourceTEE))
 		loadEnvShouldFail(t)
-		t.Setenv(config.EnvApiKeys, "key1,key2")
+		t.Setenv(config.EnvAPIKeys, "key1,key2")
 
 		cfg, err := LoadEnvConfig()
 		require.NoError(t, err)

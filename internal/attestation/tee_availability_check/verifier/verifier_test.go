@@ -33,7 +33,6 @@ func TestGenerateChallengeInstructionID(t *testing.T) {
 	require.NoError(t, err)
 
 	challengeHash := common.BytesToHash(parsed.TeeInfo.Challenge)
-	fmt.Println(challengeHash)
 	teeID := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	v := &TeeVerifier{}
 	REG_OP_TYPE, err := utils.Bytes32(string(op.Reg))

@@ -2,7 +2,6 @@ package verifier
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -30,7 +29,6 @@ func TestGetAccountInfo(t *testing.T) {
 		client := NewClient("https://s.altnet.rippletest.net:51234", 2, 1*time.Second)
 		ctx := context.Background()
 		resp, err := client.GetAccountInfo(ctx, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL")
-		fmt.Println(err)
 		require.NoError(t, err)
 		require.Equal(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", resp.Result.AccountData.Account)
 		require.NotZero(t, resp.Result.AccountData.Sequence)

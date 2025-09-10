@@ -55,32 +55,32 @@ func TestValidateSystemAndRequestAttestationNameAndSourceId(t *testing.T) {
 		AttestationType:        "TestType",
 		AttestationTypeEncoded: common.HexToHash("0x1234"),
 	}
-	sourceIdPair := config.SourceIdEncodedPair{
-		SourceId:        "TestSource",
-		SourceIdEncoded: common.HexToHash("0x5678"),
+	sourceIdPair := config.SourceIDEncodedPair{
+		SourceID:        "TestSource",
+		SourceIDEncoded: common.HexToHash("0x5678"),
 	}
 
 	// Matching values
-	err := ValidateSystemAndRequestAttestationNameAndSourceId(
+	err := ValidateSystemAndRequestAttestationNameAndSourceID(
 		attestationTypePair,
 		sourceIdPair,
 		attestationTypePair.AttestationTypeEncoded.Hex(),
-		sourceIdPair.SourceIdEncoded.Hex(),
+		sourceIdPair.SourceIDEncoded.Hex(),
 	)
 	require.NoError(t, err)
 
 	// Mismatched attestation type
-	err = ValidateSystemAndRequestAttestationNameAndSourceId(
+	err = ValidateSystemAndRequestAttestationNameAndSourceID(
 		attestationTypePair,
 		sourceIdPair,
 		"0xdeadbeef",
-		sourceIdPair.SourceIdEncoded.Hex(),
+		sourceIdPair.SourceIDEncoded.Hex(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "attestation type and source id combination not supported")
 
 	// Mismatched source id
-	err = ValidateSystemAndRequestAttestationNameAndSourceId(
+	err = ValidateSystemAndRequestAttestationNameAndSourceID(
 		attestationTypePair,
 		sourceIdPair,
 		attestationTypePair.AttestationTypeEncoded.Hex(),
