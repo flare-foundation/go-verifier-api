@@ -74,7 +74,7 @@ func TestHexStringToBytes32(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.TestName, func(t *testing.T) {
+		t.Run(tt.Name, func(t *testing.T) {
 			h, err := HexStringToBytes32(tt.Input)
 			if tt.ExpectError {
 				require.Error(t, err, "expected error for input %q", tt.Input)

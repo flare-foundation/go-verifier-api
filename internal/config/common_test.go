@@ -12,28 +12,28 @@ import (
 func TestEncodeAttestationOrSourceName(t *testing.T) {
 	tests := []testutil.TestCase[string, any]{
 		{
-			TestName:    "valid short string",
+			Name:        "valid short string",
 			Input:       "TEE",
 			ExpectError: false,
 		},
 		{
-			TestName:    "valid 32 byte string",
+			Name:        "valid 32 byte string",
 			Input:       "12345678901234567890123456789012",
 			ExpectError: false,
 		},
 		{
-			TestName:    "string starting with 0x",
+			Name:        "string starting with 0x",
 			Input:       "0xABC",
 			ExpectError: true,
 		},
 		{
-			TestName:    "string too long",
+			Name:        "string too long",
 			Input:       "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
 			ExpectError: true,
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.TestName, func(t *testing.T) {
+		t.Run(tt.Name, func(t *testing.T) {
 			got, err := config.EncodeAttestationOrSourceName(tt.Input)
 			if (err != nil) != tt.ExpectError {
 				t.Fatalf("EncodeAttestationOrSourceName(%q) error = %v, wantErr %v", tt.Input, err, tt.ExpectError)
@@ -126,7 +126,7 @@ func TestLoadEncodedAndAbi(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.TestName, func(t *testing.T) {
+		t.Run(tt.Name, func(t *testing.T) {
 			got, err := config.LoadEncodedAndAbi(tt.Input.envConfig)
 			if tt.ExpectError {
 				require.Error(t, err)
