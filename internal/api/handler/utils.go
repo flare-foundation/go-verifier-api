@@ -78,9 +78,9 @@ func handleVerifierResult[T any](verifierErr error, responseData T, config *conf
 	if verifierErr != nil {
 		return empty, nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", verifierErr))
 	}
-	responseBytes, verifierErr := utils.AbiEncodeData[T](responseData, config.AbiPair.Response)
-	if verifierErr != nil {
-		return empty, nil, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", verifierErr))
+	responseBytes, err := utils.AbiEncodeData[T](responseData, config.AbiPair.Response)
+	if err != nil {
+		return empty, nil, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
 	return responseData, responseBytes, nil
 }
