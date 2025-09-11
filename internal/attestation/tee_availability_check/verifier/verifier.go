@@ -24,8 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
@@ -47,7 +47,7 @@ type TeeVerifier struct {
 	ethClient                EthClient
 	TeeMachineRegistryCaller *teemachineregistry.TeeMachineRegistryCaller
 	RelayCaller              RelayCallerInterface
-	TeeSamples               map[common.Address][]teetypes.TeePollerSample
+	TeeSamples               map[common.Address][]teetype.TeePollerSample
 	SamplesToConsider        int
 	SamplesMu                sync.RWMutex
 }
@@ -100,7 +100,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 			return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("insufficient polling data to determine TEE status: %w", infoErr)
 		}
 		if isDown {
-			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(teetypes.DOWN)}, nil
+			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(teetype.DOWN)}, nil
 		} else {
 			return connector.ITeeAvailabilityCheckResponseBody{}, ErrIndeterminate
 		}
@@ -131,7 +131,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}, nil
 }
 
-func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (teetypes.StatusInfo, error) {
+func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (teetype.StatusInfo, error) {
 	// if response.Platform != "google" { //TODO (platform) - add after teeInfo.Platform is defined
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
@@ -140,24 +140,24 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 	// Certificate checks - check if we can trust the data in token
 	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
 	if err != nil {
-		return teetypes.StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %w", err)
 	}
 	// check claims
 	statusInfo, err := ValidateClaims(token, infoData)
 	if err != nil {
-		return teetypes.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}
 	return statusInfo, nil
 }
 
-func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teenodetypes.TeeInfo) (teetypes.TeePollerSampleState, error) {
+func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teenodetypes.TeeInfo) (teetype.TeePollerSampleState, error) {
 	// check initial signing policy hash
 	initialSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID)
 	if err != nil {
 		return state, fmt.Errorf("failed to retrieve initial signing policy hash: %w", err)
 	}
 	if initialSigningPolicyHash != teeInfoData.InitialSigningPolicyHash {
-		return teetypes.TeePollerSampleInvalid, errors.New("failed to validate initial signing policy hash")
+		return teetype.TeePollerSampleInvalid, errors.New("failed to validate initial signing policy hash")
 	}
 	// check last signing policy hash
 	lastSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID)
@@ -165,15 +165,15 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 		return state, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
 	}
 	if lastSigningPolicyHash != teeInfoData.LastSigningPolicyHash {
-		return teetypes.TeePollerSampleInvalid, errors.New("failed to validate last signing policy hash")
+		return teetype.TeePollerSampleInvalid, errors.New("failed to validate last signing policy hash")
 	}
-	return teetypes.TeePollerSampleValid, nil
+	return teetype.TeePollerSampleValid, nil
 }
 
 func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionID common.Hash) (teenodetypes.TeeInfoResponse, error) {
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
 	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
-	actionResp, err := utils.FetchJSON[teenodetypes.ActionResponse](ctx, url, fetchTimeout)
+	actionResp, err := utils.GetJSON[teenodetypes.ActionResponse](ctx, url, fetchTimeout)
 	if err != nil {
 		return teenodetypes.TeeInfoResponse{}, err
 	}
@@ -193,11 +193,11 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 }
 
 func (v *TeeVerifier) generateChallengeInstructionID(teeID common.Address, challenge common.Hash) (common.Hash, error) {
-	REG_OP_TYPE, err := utils.Bytes32(string(op.Reg))
+	REG_OP_TYPE, err := utils.StringToBytes32(string(op.Reg))
 	if err != nil {
 		return common.Hash{}, err
 	}
-	TEE_ATTESTATION, err := utils.Bytes32(string(op.TEEAttestation))
+	TEE_ATTESTATION, err := utils.StringToBytes32(string(op.TEEAttestation))
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -210,7 +210,7 @@ func (v *TeeVerifier) generateChallengeInstructionID(teeID common.Address, chall
 	return challengeInstructionID, nil
 }
 
-func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, teetypes.TeePollerSampleState, error) {
+func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
@@ -219,16 +219,16 @@ func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signing
 	signingPolicyIDBigInt := new(big.Int).SetUint64(uint64(signingPolicyID))
 	signingPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, signingPolicyIDBigInt)
 	if err != nil {
-		state, classifiedErr := utils.ClassifyFetchError("ToSigningPolicyHash", err)
+		state, classifiedErr := utils.MapFetchErrorToState("ToSigningPolicyHash", err)
 		return common.Hash{}, state, classifiedErr
 	}
-	return common.Hash(signingPolicyHashBytes), teetypes.TeePollerSampleValid, nil
+	return common.Hash(signingPolicyHashBytes), teetype.TeePollerSampleValid, nil
 }
 
-func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context, signingPolicyID uint32) (common.Hash, teetypes.TeePollerSampleState, error) {
+func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
 	var (
 		hash       common.Hash
-		finalState teetypes.TeePollerSampleState
+		finalState teetype.TeePollerSampleState
 	)
 	_, err := utils.Retry(
 		chainRetries,
@@ -244,7 +244,7 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context
 			return struct{}{}, nil
 		},
 		func(err error) bool {
-			return finalState == teetypes.TeePollerSampleInvalid
+			return finalState == teetype.TeePollerSampleInvalid
 		},
 	)
 	if err != nil {
@@ -256,22 +256,22 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context
 	return hash, finalState, nil
 }
 
-func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (teetypes.TeePollerSampleState, error) {
+func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (teetype.TeePollerSampleState, error) {
 	challengeBlock, err := v.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
-		return utils.ClassifyFetchError("fetch challenge block", err)
+		return utils.MapFetchErrorToState("fetch challenge block", err)
 	}
 	latestBlock, err := v.ethClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		if errors.Is(err, utils.ErrInvalidInput) {
-			return teetypes.TeePollerSampleIndeterminate, fmt.Errorf("fetch latest block: %w", err)
+			return teetype.TeePollerSampleIndeterminate, fmt.Errorf("fetch latest block: %w", err)
 		}
-		return utils.ClassifyFetchError("fetch latest block", err)
+		return utils.MapFetchErrorToState("fetch latest block", err)
 	}
 	if latestBlock.Time()-challengeBlock.Time() <= blockFreshnessInSeconds {
-		return teetypes.TeePollerSampleValid, nil
+		return teetype.TeePollerSampleValid, nil
 	}
-	return teetypes.TeePollerSampleInvalid, fmt.Errorf("challenge too old %d", latestBlock.Time()-challengeBlock.Time())
+	return teetype.TeePollerSampleInvalid, fmt.Errorf("challenge too old %d", latestBlock.Time()-challengeBlock.Time())
 }
 
 func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {
@@ -284,7 +284,7 @@ func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {
 		return false, fmt.Errorf("insufficient samples to determine TEE %s status", teeID.Hex())
 	}
 	for _, sample := range samples {
-		if sample.State == teetypes.TeePollerSampleValid || sample.State == teetypes.TeePollerSampleIndeterminate {
+		if sample.State == teetype.TeePollerSampleValid || sample.State == teetype.TeePollerSampleIndeterminate {
 			return false, nil
 		}
 	}

@@ -2,7 +2,7 @@ package attestationtypes
 
 import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -57,5 +57,5 @@ func TeeAvailabilityCheckToExternal(data connector.ITeeAvailabilityCheckResponse
 }
 
 type TeeSamplesResponse struct {
-	Samples []teetypes.TeeSample `json:"samples"`
+	Samples []teetype.TeeSample `json:"samples"`
 }

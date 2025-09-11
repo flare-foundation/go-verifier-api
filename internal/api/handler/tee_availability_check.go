@@ -10,9 +10,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
@@ -43,7 +42,7 @@ func TeeAvailabilityCheckHandler(
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 			}
-			encodedRequest, err := utils.ABIEncodeData(requestData, config.ABIPair.Request)
+			encodedRequest, err := abiEncodeData(requestData, config.ABIPair.Request)
 			if err != nil {
 				return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 			}
@@ -134,16 +133,16 @@ func TeeAvailabilityCheckHandler(
 		})
 }
 
-func formatTeeSamples(teeVerifier *teeverifier.TeeVerifier) []teetypes.TeeSample {
+func formatTeeSamples(teeVerifier *teeverifier.TeeVerifier) []teetype.TeeSample {
 	teeVerifier.SamplesMu.RLock()
 	defer teeVerifier.SamplesMu.RUnlock()
-	samples := make([]teetypes.TeeSample, 0, len(teeVerifier.TeeSamples))
+	samples := make([]teetype.TeeSample, 0, len(teeVerifier.TeeSamples))
 	for teeID, values := range teeVerifier.TeeSamples {
-		sampleValues := make([]teetypes.TeeSampleValue, 0, len(values))
+		sampleValues := make([]teetype.TeeSampleValue, 0, len(values))
 		for _, v := range values {
-			sampleValues = append(sampleValues, teetypes.TeeSampleValue(v))
+			sampleValues = append(sampleValues, teetype.TeeSampleValue(v))
 		}
-		samples = append(samples, teetypes.TeeSample{
+		samples = append(samples, teetype.TeeSample{
 			TeeID:  teeID.Hex(),
 			Values: sampleValues,
 		})

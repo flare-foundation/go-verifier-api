@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
-	testutil "github.com/flare-foundation/go-verifier-api/internal/test_util"
+	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api"
@@ -40,7 +40,7 @@ func TestPMWMultisig(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	t.Run("PMWMultisigAccountConfigured: Health check", func(t *testing.T) {
-		resp, err := testutil.Get(t, "http://localhost:3120/api/health", testAPIKey)
+		resp, err := testhelper.Get(t, "http://localhost:3120/api/health", testAPIKey)
 		require.NoError(t, err)
 
 		var response types.HealthCheckResponse
@@ -52,21 +52,21 @@ func TestPMWMultisig(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 
 		attestationType, sourceID := prepareAttestationTypeAndSourceID(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-		attestationRequest, err := testutil.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
 			WalletAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
 			PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
 			Threshold:     1,
 		})
 		require.NoError(t, err)
 
-		response, err := testutil.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
 			AttestationType: attestationType,
 			SourceID:        sourceID,
 			RequestBody:     attestationRequest,
 		}, testAPIKey)
 		require.NoError(t, err)
 
-		result, err := testutil.DecodeFTDCTeeAvailabilityCheckResponse(response.ResponseBody)
+		result, err := testhelper.DecodeFTDCTeeAvailabilityCheckResponse(response.ResponseBody)
 		require.NoError(t, err)
 
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), result.Status)
@@ -74,7 +74,7 @@ func TestPMWMultisig(t *testing.T) {
 	})
 
 	t.Run("PMWMultisigAccountConfigured: Test invalid sourceId", func(t *testing.T) {
-		attestationRequest, err := testutil.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
 			WalletAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
 			PublicKeys:    [][]byte{},
 			Threshold:     1,
@@ -82,7 +82,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.NoError(t, err)
 
 		attestationType, _ := prepareAttestationTypeAndSourceID(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
 			AttestationType: attestationType,
 			SourceID:        common.HexToHash("0x123123"),
 			RequestBody:     attestationRequest,
@@ -105,12 +105,12 @@ func TestPMWMultisig(t *testing.T) {
 			},
 		}
 
-		response, err := testutil.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
+		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response.RequestBody)
 
-		attestationRequest, err := testutil.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
 			WalletAddress: request.RequestData.AccountAddress,
 			PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
 			Threshold:     request.RequestData.Threshold,
@@ -120,7 +120,7 @@ func TestPMWMultisig(t *testing.T) {
 	})
 
 	t.Run("PMWMultisigAccountConfigured: Test prepareRequestBody - bad request", func(t *testing.T) {
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{}, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{}, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
@@ -137,7 +137,7 @@ func TestPMWMultisig(t *testing.T) {
 			},
 		}
 
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 
@@ -146,7 +146,7 @@ func TestPMWMultisig(t *testing.T) {
 	t.Run("PMWMultisigAccountConfigured: Test prepareResponseBody", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 		attestationType, sourceID := prepareAttestationTypeAndSourceID(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-		attestationRequest, err := testutil.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCPMWMultisigAccountConfiguredRequest(connector.IPMWMultisigAccountConfiguredRequestBody{
 			WalletAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
 			PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
 			Threshold:     1,
@@ -159,7 +159,7 @@ func TestPMWMultisig(t *testing.T) {
 			RequestBody:     attestationRequest,
 		}
 
-		response, err := testutil.Post[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", url), request, testAPIKey)
+		response, err := testhelper.Post[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", url), request, testAPIKey)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response.ResponseBody)
@@ -188,7 +188,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	t.Run("PMWPaymentStatus: Test valid payment", func(t *testing.T) {
-		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
 			WalletId: common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"),
 			Nonce:    10110067,
 			SubNonce: 10110067,
@@ -196,14 +196,14 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		attestationType, sourceID := prepareAttestationTypeAndSourceID(t, connector.PMWPaymentStatus, config.SourceXRP)
-		response, err := testutil.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
 			AttestationType: attestationType,
 			SourceID:        sourceID,
 			RequestBody:     attestationRequest,
 		}, testAPIKey)
 		require.NoError(t, err)
 
-		result, err := testutil.DecodeFTDCPMVPaymentStatusResponse(response.ResponseBody)
+		result, err := testhelper.DecodeFTDCPMVPaymentStatusResponse(response.ResponseBody)
 		require.NoError(t, err)
 
 		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
@@ -221,10 +221,10 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	t.Run("PMWPaymentStatus: Test missing api-key", func(t *testing.T) {
-		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		attestationType, err := utils.StringToBytes32(string(connector.PMWPaymentStatus))
 		require.NoError(t, err)
 
-		_, err = testutil.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+		_, err = testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
 			AttestationType: attestationType,
 			SourceID:        common.HexToHash("0x123"),
 			RequestBody:     []byte("0x123"),
@@ -233,10 +233,10 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	t.Run("PMWPaymentStatus: Test wrong api-key", func(t *testing.T) {
-		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		attestationType, err := utils.StringToBytes32(string(connector.PMWPaymentStatus))
 		require.NoError(t, err)
 
-		_, err = testutil.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+		_, err = testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
 			AttestationType: attestationType,
 			SourceID:        common.HexToHash("0x123"),
 			RequestBody:     []byte("0x123"),
@@ -245,10 +245,10 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	t.Run("PMWPaymenStatus: Test invalid sourceID", func(t *testing.T) {
-		attestationType, err := utils.Bytes32(string(connector.PMWPaymentStatus))
+		attestationType, err := utils.StringToBytes32(string(connector.PMWPaymentStatus))
 		require.NoError(t, err)
 
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
 			AttestationType: attestationType,
 			SourceID:        common.HexToHash("0x123"),
 			RequestBody:     []byte("0x123"),
@@ -269,12 +269,12 @@ func TestPMWPaymentStatus(t *testing.T) {
 				SubNonce: 1,
 			},
 		}
-		response, err := testutil.Post[types.AttestationRequest](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
+		response, err := testhelper.Post[types.AttestationRequest](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response.RequestBody)
 
-		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
 			WalletId: request.RequestData.WalletID,
 			Nonce:    request.RequestData.Nonce,
 			SubNonce: request.RequestData.SubNonce,
@@ -284,13 +284,13 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	t.Run("PMWPaymentStatus: Test prepareRequestBody - bad request", func(t *testing.T) {
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWPaymentStatusRequestBody]{}, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWPaymentStatusRequestBody]{}, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("PMWPaymentStatus: Test prepareResponseBody", func(t *testing.T) {
-		attestationRequest, err := testutil.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCPMVPaymentStatusRequest(connector.IPMWPaymentStatusRequestBody{
 			WalletId: common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"),
 			Nonce:    10110067,
 			SubNonce: 10110067,
@@ -304,7 +304,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 			RequestBody:     attestationRequest,
 		}
 
-		response, err := testutil.Post[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", url), request, testAPIKey)
+		response, err := testhelper.Post[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", url), request, testAPIKey)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response.ResponseBody)
@@ -352,12 +352,12 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 				Challenge: common.HexToHash("0x123"),
 			},
 		}
-		response, err := testutil.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), ftdReq, testAPIKey)
+		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), ftdReq, testAPIKey)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response.RequestBody)
 
-		attestationRequest, err := testutil.EncodeFTDCTeeAvailabilityCheckRequest(connector.ITeeAvailabilityCheckRequestBody{
+		attestationRequest, err := testhelper.EncodeFTDCTeeAvailabilityCheckRequest(connector.ITeeAvailabilityCheckRequestBody{
 			TeeId:     ftdReq.RequestData.TeeID,
 			Url:       ftdReq.RequestData.URL,
 			Challenge: ftdReq.RequestData.Challenge,
@@ -367,13 +367,13 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	})
 
 	t.Run("TEEAvailabilityCheck: Test prepareRequestBody - bad request", func(t *testing.T) {
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]{}, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]{}, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("TEEAvailabilityCheck: getPolledTees", func(t *testing.T) {
-		resp, err := testutil.Get(t, "http://localhost:3122/poller/tees", testAPIKey)
+		resp, err := testhelper.Get(t, "http://localhost:3122/poller/tees", testAPIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp)
 
@@ -397,9 +397,9 @@ func pubKeysForMultisig(t *testing.T) ([]byte, []byte, []byte) {
 
 func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) (common.Hash, common.Hash) {
 	t.Helper()
-	attestationTypeBytes, err := utils.Bytes32(string(attestationType))
+	attestationTypeBytes, err := utils.StringToBytes32(string(attestationType))
 	require.NoError(t, err)
-	sourceIDBytes, err := utils.Bytes32(string(sourceID))
+	sourceIDBytes, err := utils.StringToBytes32(string(sourceID))
 	require.NoError(t, err)
 	return common.BytesToHash(attestationTypeBytes[:]), common.BytesToHash(sourceIDBytes[:])
 }

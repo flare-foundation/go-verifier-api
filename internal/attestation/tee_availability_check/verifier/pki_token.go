@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
+	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -67,7 +67,7 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 	keyFunc := func(token *jwt.Token) (any, error) {
 		return certificates.LeafCert.PublicKey, nil
 	}
-	verifiedJWT, err := jwt.ParseWithClaims(attestationToken, &teetypes.GoogleTeeClaims{}, keyFunc)
+	verifiedJWT, err := jwt.ParseWithClaims(attestationToken, &teetype.GoogleTeeClaims{}, keyFunc)
 	if err != nil {
 		return jwt.Token{}, err
 	}
@@ -195,38 +195,38 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 	return nil
 }
 
-func ValidateClaims(token jwt.Token, teeInfoData teenodetypes.TeeInfo) (teetypes.StatusInfo, error) {
-	var statusInfo teetypes.StatusInfo
+func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo) (teetype.StatusInfo, error) {
+	var statusInfo teetype.StatusInfo
 	if !token.Valid {
-		return teetypes.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
+		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
-	claims, ok := token.Claims.(*teetypes.GoogleTeeClaims)
+	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
 	if !ok {
-		return teetypes.StatusInfo{}, errors.New("cannot parse claims")
+		return teetype.StatusInfo{}, errors.New("cannot parse claims")
 	}
 	if len(claims.EATNonce) != 1 {
-		return teetypes.StatusInfo{}, fmt.Errorf("expected one eat_nonce")
+		return teetype.StatusInfo{}, fmt.Errorf("expected one eat_nonce")
 	}
 	// generate teeInfo hash
 	teeInfoBytes, err := teeInfoData.Hash()
 	if err != nil {
-		return teetypes.StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %w", err)
 	}
 	// match with eat_nonce
 	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) {
-		return teetypes.StatusInfo{}, errors.New("eat_nonce does not match")
+		return teetype.StatusInfo{}, errors.New("eat_nonce does not match")
 	}
 	// Check if running in production
 	if claims.DebugStatus != "disabled-since-boot" {
-		return teetypes.StatusInfo{}, errors.New("not running in production mode")
+		return teetype.StatusInfo{}, errors.New("not running in production mode")
 	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
-		return teetypes.StatusInfo{}, errors.New("not running in CONFIDENTIAL_SPACE")
+		return teetype.StatusInfo{}, errors.New("not running in CONFIDENTIAL_SPACE")
 	}
 	// Check Confidential Space image version
 	if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
-		return teetypes.StatusInfo{}, errors.New("no supported attributes found")
+		return teetype.StatusInfo{}, errors.New("no supported attributes found")
 	}
 	foundIsStable := false
 	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
@@ -236,17 +236,17 @@ func ValidateClaims(token jwt.Token, teeInfoData teenodetypes.TeeInfo) (teetypes
 		}
 	}
 	if !foundIsStable {
-		statusInfo.Status = teetypes.OBSOLETE
+		statusInfo.Status = teetype.OBSOLETE
 	} else {
-		statusInfo.Status = teetypes.OK
+		statusInfo.Status = teetype.OK
 	}
 	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
 	if err != nil {
-		return teetypes.StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %w", err)
 	}
-	statusInfo.Platform, err = utils.Bytes32(claims.HWModel)
+	statusInfo.Platform, err = utils.StringToBytes32(claims.HWModel)
 	if err != nil {
-		return teetypes.StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %w", err)
 	}
 	return statusInfo, nil
 }

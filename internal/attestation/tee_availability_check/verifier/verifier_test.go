@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
+	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -35,9 +35,9 @@ func TestGenerateChallengeInstructionID(t *testing.T) {
 	challengeHash := common.BytesToHash(parsed.TeeInfo.Challenge)
 	teeID := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 	v := &TeeVerifier{}
-	REG_OP_TYPE, err := utils.Bytes32(string(op.Reg))
+	REG_OP_TYPE, err := utils.StringToBytes32(string(op.Reg))
 	require.NoError(t, err)
-	TEE_ATTESTATION, err := utils.Bytes32(string(op.TEEAttestation))
+	TEE_ATTESTATION, err := utils.StringToBytes32(string(op.TEEAttestation))
 	require.NoError(t, err)
 	buf := new(bytes.Buffer)
 	buf.Write(REG_OP_TYPE[:])
@@ -94,7 +94,7 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if valid != teetypes.TeePollerSampleValid {
+	if valid != teetype.TeePollerSampleValid {
 		t.Errorf("Expected challenge to be valid, got false")
 	}
 }

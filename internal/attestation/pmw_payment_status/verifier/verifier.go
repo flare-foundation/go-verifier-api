@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/repo"
+	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/repo"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 	"gorm.io/gorm"
@@ -19,9 +20,9 @@ var xrpConstructor = func(cfg *config.PMWPaymentStatusConfig,
 	db, cChainDB *gorm.DB) (
 	verifierinterface.VerifierInterface[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
 ) {
-	return &XRPVerifier{
-		repo:   repo.NewXRPRepository(db, cChainDB),
-		config: cfg,
+	return &xrpverifier.XRPVerifier{
+		Repo:   repo.NewXRPRepository(db, cChainDB),
+		Config: cfg,
 	}, nil
 }
 

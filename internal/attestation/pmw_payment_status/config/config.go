@@ -1,4 +1,4 @@
-package pmwpaymentstatusconfig
+package config
 
 import (
 	"fmt"
