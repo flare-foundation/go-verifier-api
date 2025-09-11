@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"io"
 	"net/http"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,6 +40,30 @@ func CreateAttestationRequestData[T any](t *testing.T, attestationType common.Ha
 		AttestationType: attestationType,
 		SourceID:        sourceID,
 		RequestData:     requestData,
+	}
+}
+
+func TeeAvailabilityCheckRequestBody(teeId common.Address, url string, challenge common.Hash) attestationtypes.TeeAvailabilityCheckRequestBody {
+	return attestationtypes.TeeAvailabilityCheckRequestBody{
+		TeeID:     teeId,
+		URL:       url,
+		Challenge: challenge,
+	}
+}
+
+func PMWMultisigAccountConfiguredRequestBody(walletAddress string, publicKeys []hexutil.Bytes, threshold uint64) attestationtypes.PMWMultisigAccountConfiguredRequestBody {
+	return attestationtypes.PMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: walletAddress,
+		PublicKeys:     publicKeys,
+		Threshold:      threshold,
+	}
+}
+
+func PMWPaymentStatusRequestBody(walletId common.Hash, nonce uint64, subNonce uint64) attestationtypes.PMWPaymentStatusRequestBody {
+	return attestationtypes.PMWPaymentStatusRequestBody{
+		WalletID: walletId,
+		Nonce:    nonce,
+		SubNonce: subNonce,
 	}
 }
 

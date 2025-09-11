@@ -28,7 +28,16 @@ type XRPVerifier struct {
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
-	sequence, err := x.validateMultisigConfiguration(ctx, req)
+	accountInfo, err := x.Client.GetAccountInfo(ctx, req.WalletAddress)
+	if err != nil {
+		logger.Debugf("Failed to get account info: %v", err)
+		return connector.IPMWMultisigAccountConfiguredResponseBody{
+			Status:   uint8(attestationtypes.PMWMultisigAccountStatusERROR),
+			Sequence: 0,
+		}, nil
+	}
+
+	sequence, err := x.validateMultisigConfiguration(accountInfo, req)
 	if err != nil {
 		if errors.Is(err, ErrValidationFailed) {
 			return connector.IPMWMultisigAccountConfiguredResponseBody{
@@ -45,12 +54,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 
 }
 
-func (x *XRPVerifier) validateMultisigConfiguration(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
-	accountInfo, err := x.Client.GetAccountInfo(ctx, req.WalletAddress)
-	if err != nil {
-		logger.Debugf("Failed to get account info: %v", err)
-		return 0, err
-	}
+func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
