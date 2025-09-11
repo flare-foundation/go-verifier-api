@@ -87,6 +87,24 @@ func EncodeResponse[T any](responseData T, config *config.EncodedAndABI) ([]byte
 	return data, nil
 }
 
+func ValidateAndPrepareRequestBody[T types.InternalConvertible[I], I any](
+	body types.AttestationRequestData[T],
+	config *config.EncodedAndABI,
+) (hexutil.Bytes, error) {
+	if err := ValidateRequestData(body, config); err != nil {
+		return nil, err
+	}
+	requestData, err := body.RequestData.ToInternal()
+	if err != nil {
+		return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
+	}
+	encodedRequest, err := abiEncodeData(requestData, config.ABIPair.Request)
+	if err != nil {
+		return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
+	}
+	return encodedRequest, nil
+}
+
 func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
 	logger.Debugf("PMWMultisigAccount result: Status=%d, Sequence=%d",
 		response.Status, response.Sequence)

@@ -45,3 +45,7 @@ type Response[T any] struct {
 func NewResponse[T any](body T) *Response[T] {
 	return &Response[T]{Body: body}
 }
+
+type InternalConvertible[T any] interface {
+	ToInternal() (T, error)
+}

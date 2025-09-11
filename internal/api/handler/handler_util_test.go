@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
@@ -21,7 +23,7 @@ var (
 	testThreshold     = uint64(2)
 )
 
-func TestValidateAndParseRequest(t *testing.T) {
+func TestValidateRequest(t *testing.T) {
 	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 
 	t.Run("Valid encodedReq", func(t *testing.T) {
@@ -31,29 +33,57 @@ func TestValidateAndParseRequest(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	// t.Run("Invalid encodedReq - validation fails", func(t *testing.T) {
-	// 	invalidReq := testhelper.CreateAttestationRequest(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, []byte{})
-	// 	err := ValidateRequest(invalidReq, encodedAndAbi)
-	// 	fmt.Println(err)
-	// 	assertHumaError(t, err, http.StatusBadRequest)
-	// }) TODO
-
 	t.Run("Invalid attestation type/source id", func(t *testing.T) {
 		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testWalletAddress, testPublicKeys, testThreshold)
 		invalidReq := testhelper.CreateAttestationRequest(t, [32]byte{0xFF}, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
 		err := ValidateRequest(invalidReq, encodedAndAbi)
 		assertHumaError(t, err, http.StatusBadRequest)
 	})
-
-	// t.Run("Invalid ABI decode", func(t *testing.T) {
-	// 	invalidReq := testhelper.CreateAttestationRequest(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, []byte{0xFF, 0xFF})
-	// 	err := ValidateRequest(invalidReq, encodedAndAbi)
-	// 	fmt.Println(err)
-	// 	assertHumaError(t, err, http.StatusBadRequest)
-	// }) TODO
 }
 
-func TestValidatePrepareRequest(t *testing.T) {
+func TestValidateAndPrepareRequestBody(t *testing.T) {
+	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	hexKeys := make([]hexutil.Bytes, len(testPublicKeys))
+	for i, k := range testPublicKeys {
+		hexKeys[i] = hexutil.Bytes(k)
+	}
+	attBody := attestationtypes.PMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: testWalletAddress,
+		PublicKeys:     hexKeys,
+		Threshold:      testThreshold,
+	}
+	t.Run("Valid encodedReq", func(t *testing.T) {
+		req := testhelper.CreateAttestationRequestData(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
+		_, err := ValidateAndPrepareRequestBody(req, encodedAndAbi)
+		require.NoError(t, err)
+	})
+
+	t.Run("Invalid encodedReq - validation fails", func(t *testing.T) {
+		attBodyCopy := attBody
+		attBodyCopy.PublicKeys = append(attBodyCopy.PublicKeys, hexutil.Bytes{})
+		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBodyCopy)
+		_, err := ValidateAndPrepareRequestBody(invalidReq, encodedAndAbi)
+		fmt.Println(err)
+		assertHumaError(t, err, http.StatusBadRequest)
+	})
+
+	t.Run("Invalid attestation type/source id", func(t *testing.T) {
+		invalidReq := testhelper.CreateAttestationRequestData(t, [32]byte{0xFF}, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
+		_, err := ValidateAndPrepareRequestBody(invalidReq, encodedAndAbi)
+		assertHumaError(t, err, http.StatusBadRequest)
+	})
+
+	t.Run("Invalid ABI encode", func(t *testing.T) {
+		req := testhelper.CreateAttestationRequestData(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
+		encodedAndAbiCopy := encodedAndAbi
+		encodedAndAbiCopy.ABIPair.Request = abi.Argument{}
+		_, err := ValidateAndPrepareRequestBody(req, encodedAndAbi)
+		fmt.Println(err)
+		assertHumaError(t, err, http.StatusBadRequest)
+	})
+}
+
+func TestValidateRequestData(t *testing.T) {
 	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 
 	t.Run("Valid", func(t *testing.T) {
