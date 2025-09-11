@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestRetry_SuccessFirstAttempt(t *testing.T) {
@@ -12,12 +14,9 @@ func TestRetry_SuccessFirstAttempt(t *testing.T) {
 		return want, nil
 	}
 	got, err := Retry(3, time.Millisecond, op, nil)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if got != want {
-		t.Fatalf("expected %d, got %d", want, got)
-	}
+	require.NoError(t, err, "expected no error")
+	require.Equal(t, want, got, "expected %d, got %d", want, got)
+
 }
 
 func TestRetry_SuccessAfterRetries(t *testing.T) {
@@ -30,15 +29,10 @@ func TestRetry_SuccessAfterRetries(t *testing.T) {
 		return "ok", nil
 	}
 	got, err := Retry(5, time.Millisecond, op, nil)
-	if err != nil {
-		t.Fatalf("expected success, got error %v", err)
-	}
-	if got != "ok" {
-		t.Fatalf("expected ok, got %s", got)
-	}
-	if attempts != 3 {
-		t.Fatalf("expected 3 attempts, got %d", attempts)
-	}
+	require.NoError(t, err, "expected success")
+	require.Equal(t, "ok", got, "expected ok, got %s", got)
+	require.Equal(t, 3, attempts, "expected 3 attempts, got %d", attempts)
+
 }
 
 func TestRetry_ExhaustRetries(t *testing.T) {
@@ -46,9 +40,7 @@ func TestRetry_ExhaustRetries(t *testing.T) {
 		return 0, errors.New("always fails")
 	}
 	_, err := Retry(3, time.Millisecond, op, nil)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
+	require.Error(t, err, "expected error, got nil")
 }
 
 func TestRetry_BreakOn(t *testing.T) {
@@ -64,15 +56,10 @@ func TestRetry_BreakOn(t *testing.T) {
 	got, err := Retry(5, time.Millisecond, op, func(e error) bool {
 		return errors.Is(e, specialErr)
 	})
-	if err != specialErr {
-		t.Fatalf("expected specialErr, got %v", err)
-	}
-	if got != "bad" {
-		t.Fatalf("expected bad, got %s", got)
-	}
-	if attempts != 2 {
-		t.Fatalf("expected 2 attempts, got %d", attempts)
-	}
+	require.ErrorIs(t, err, specialErr, "expected specialErr, got %v", err)
+	require.Equal(t, "bad", got, "expected bad, got %s", got)
+	require.Equal(t, 2, attempts, "expected 2 attempts, got %d", attempts)
+
 }
 
 func TestRetry_ReturnsLastResult(t *testing.T) {
@@ -80,10 +67,7 @@ func TestRetry_ReturnsLastResult(t *testing.T) {
 		return 99, errors.New("fail but keep result")
 	}
 	got, err := Retry(2, time.Millisecond, op, nil)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if got != 99 {
-		t.Fatalf("expected last result 99, got %d", got)
-	}
+	require.Error(t, err)
+	require.Equal(t, 99, got)
+
 }

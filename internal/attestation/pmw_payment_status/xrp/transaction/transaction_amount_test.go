@@ -1,6 +1,10 @@
 package transaction
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestGetStringField(t *testing.T) {
 	m := map[string]interface{}{
@@ -9,20 +13,16 @@ func TestGetStringField(t *testing.T) {
 	}
 	t.Run("valid string field", func(t *testing.T) {
 		val, ok := getStringField(m, "key1")
-		if !ok || val != "val1" {
-			t.Fatal("GetStringField failed to get existing string value")
-		}
+		require.True(t, ok)
+		require.Equal(t, "val1", val)
+
 	})
 	t.Run("number field", func(t *testing.T) {
 		_, ok := getStringField(m, "key2")
-		if ok {
-			t.Fatal("GetStringField should return false for non-string value")
-		}
+		require.False(t, ok)
 	})
 	t.Run("missing field", func(t *testing.T) {
 		_, ok := getStringField(m, "missing")
-		if ok {
-			t.Fatal("GetStringField should return false for missing key")
-		}
+		require.False(t, ok)
 	})
 }

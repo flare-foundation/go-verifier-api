@@ -11,17 +11,15 @@ func TestGetAccountInfo(t *testing.T) {
 	t.Run("Invalid rpc url", func(t *testing.T) {
 		client := NewClient("https://invalid-rpccom")
 		ctx := context.Background()
-		resp, err := client.GetAccountInfo(ctx, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL")
+		_, err := client.GetAccountInfo(ctx, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL")
 		require.Error(t, err)
-		_ = resp
 	})
 
 	t.Run("Invalid address", func(t *testing.T) {
 		client := NewClient("https://s.altnet.rippletest.net:51234")
 		ctx := context.Background()
-		resp, err := client.GetAccountInfo(ctx, "0x")
+		_, err := client.GetAccountInfo(ctx, "0x")
 		require.Error(t, err)
-		_ = resp
 	})
 
 	t.Run("Valid address", func(t *testing.T) {

@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
@@ -240,7 +240,7 @@ func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo) (teetype.S
 	} else {
 		statusInfo.Status = teetype.OK
 	}
-	statusInfo.CodeHash, err = hexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
+	statusInfo.CodeHash, err = coreutil.HexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %w", err)
 	}
@@ -249,19 +249,6 @@ func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo) (teetype.S
 		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %w", err)
 	}
 	return statusInfo, nil
-}
-
-func hexStringToBytes32(hexStr string) (common.Hash, error) {
-	var b32 common.Hash
-	b, err := hex.DecodeString(hexStr)
-	if err != nil {
-		return b32, fmt.Errorf("invalid hex string: %w", err)
-	}
-	if len(b) != utils.Bytes32Size {
-		return b32, fmt.Errorf("expected %d bytes but got %d bytes", utils.Bytes32Size, len(b))
-	}
-	copy(b32[:], b)
-	return b32, nil
 }
 
 // Taken from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/main/pkg/types/tee.go?ref_type=heads#L28

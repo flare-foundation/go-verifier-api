@@ -8,49 +8,89 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/pkg/errors"
+	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	"github.com/stretchr/testify/require"
 )
 
 type TestCase[T any, R any] struct {
-	TestName       string
+	Name           string
 	Input          T
 	ExpectedValue  R
 	ExpectError    bool
 	ExpectedErrMsg string
 }
 
-func EncodeFTDCTeeAvailabilityCheckRequest(data connector.ITeeAvailabilityCheckRequestBody) ([]byte, error) {
-	return structs.Encode(connector.AttestationTypeArguments[connector.AvailabilityCheck].Request, data)
-}
-
-func EncodeFTDCPMWMultisigAccountConfiguredRequest(data connector.IPMWMultisigAccountConfiguredRequestBody) ([]byte, error) {
-	return structs.Encode(connector.AttestationTypeArguments[connector.PMWMultisigAccountConfigured].Request, data)
-}
-
-func DecodeFTDCTeeAvailabilityCheckResponse(data []byte) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
-	var request connector.IPMWMultisigAccountConfiguredResponseBody
-	err := structs.DecodeTo(connector.AttestationTypeArguments[connector.PMWMultisigAccountConfigured].Response, data, &request)
-	if err != nil {
-		return connector.IPMWMultisigAccountConfiguredResponseBody{}, errors.Errorf("%s", err)
+func CreateAttestationRequest(t *testing.T, attestationType, sourceID common.Hash, reqBody []byte) attestationtypes.AttestationRequest {
+	t.Helper()
+	return attestationtypes.AttestationRequest{
+		AttestationType: attestationType,
+		SourceID:        sourceID,
+		RequestBody:     reqBody,
 	}
-
-	return request, nil
 }
 
-func EncodeFTDCPMVPaymentStatusRequest(data connector.IPMWPaymentStatusRequestBody) ([]byte, error) {
-	return structs.Encode(connector.AttestationTypeArguments[connector.PMWPaymentStatus].Request, data)
+func CreateAttestationRequestData[T any](t *testing.T, attestationType common.Hash, sourceID common.Hash, requestData T) attestationtypes.AttestationRequestData[T] {
+	t.Helper()
+	return attestationtypes.AttestationRequestData[T]{
+		AttestationType: attestationType,
+		SourceID:        sourceID,
+		RequestData:     requestData,
+	}
 }
 
-func DecodeFTDCPMVPaymentStatusResponse(data []byte) (connector.IPMWPaymentStatusResponseBody, error) {
+func EncodedIPMWMultisigAccountConfiguredRequestBody(t *testing.T, walletAddress string, publicKeys [][]byte, threshold uint64) []byte {
+	t.Helper()
+	reqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+		WalletAddress: walletAddress,
+		PublicKeys:    publicKeys,
+		Threshold:     threshold,
+	}
+	result, err := structs.Encode(connector.AttestationTypeArguments[connector.PMWMultisigAccountConfigured].Request, reqBody)
+	require.NoError(t, err)
+	return result
+}
+
+func EncodedIPMWPaymentStatusRequestBody(t *testing.T, walletId common.Hash, nonce uint64, subNonce uint64) []byte {
+	t.Helper()
+	reqBody := connector.IPMWPaymentStatusRequestBody{
+		WalletId: walletId,
+		Nonce:    nonce,
+		SubNonce: subNonce,
+	}
+	result, err := structs.Encode(connector.AttestationTypeArguments[connector.PMWPaymentStatus].Request, reqBody)
+	require.NoError(t, err)
+	return result
+}
+
+func EncodedITeeAvailabilityCheckRequestBody(t *testing.T, teeId common.Address, url string, challenge common.Hash) []byte {
+	t.Helper()
+	reqBody := connector.ITeeAvailabilityCheckRequestBody{
+		TeeId:     teeId,
+		Url:       url,
+		Challenge: challenge,
+	}
+	result, err := structs.Encode(connector.AttestationTypeArguments[connector.AvailabilityCheck].Request, reqBody)
+	require.NoError(t, err)
+	return result
+}
+
+func DecodeFTDCPMVPaymentStatusResponse(t *testing.T, data []byte) connector.IPMWPaymentStatusResponseBody {
+	t.Helper()
 	var request connector.IPMWPaymentStatusResponseBody
 	err := structs.DecodeTo(connector.AttestationTypeArguments[connector.PMWPaymentStatus].Response, data, &request)
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, errors.Errorf("%s", err)
-	}
+	require.NoError(t, err)
+	return request
+}
 
-	return request, nil
+func DecodeFTDCPMWMultisigAccountConfiguredResponse(t *testing.T, data []byte) connector.IPMWMultisigAccountConfiguredResponseBody {
+	t.Helper()
+	var request connector.IPMWMultisigAccountConfiguredResponseBody
+	err := structs.DecodeTo(connector.AttestationTypeArguments[connector.PMWMultisigAccountConfigured].Response, data, &request)
+	require.NoError(t, err)
+	return request
 }
 
 func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, error) {
