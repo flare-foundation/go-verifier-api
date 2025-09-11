@@ -9,32 +9,29 @@ type HealthCheckResponse struct {
 	Healthy bool `json:"healthy"`
 }
 
-type FTDCHeader struct {
-	AttestationType common.Hash `json:"attestationType" validate:"required,hash32" example:"0x504d574d756c74697369674163636f756e74436f6e6669677572656400000000"`
-	SourceId        common.Hash `json:"sourceId" validate:"required,hash32" example:"0x7465737478727000000000000000000000000000000000000000000000000000"`
-	ThresholdBIPS   uint16      `json:"thresholdBIPS" example:"0"`
+// Main API types.
+type AttestationRequest struct {
+	AttestationType common.Hash   `json:"attestationType" validate:"required,hash32" example:"0x504d574..."`
+	SourceID        common.Hash   `json:"sourceId" validate:"required,hash32" example:"0x7465..."`
+	RequestBody     hexutil.Bytes `json:"requestBody" example:"0x0000abcd..."`
 }
 
-type FTDCRequest[T any] struct {
-	FTDCHeader  FTDCHeader `json:"header"`
-	RequestData T          `json:"requestData"`
+type AttestationResponse struct {
+	ResponseBody hexutil.Bytes `json:"responseBody" example:"0x0000abcd..."`
 }
 
-type FTDCRequestEncoded struct {
-	FTDCHeader  FTDCHeader    `json:"header"`
+// Helper API types.
+type AttestationRequestData[T any] struct {
+	AttestationType common.Hash `json:"attestationType" validate:"required,hash32" example:"0x504d574..."`
+	SourceID        common.Hash `json:"sourceId" validate:"required,hash32" example:"0x7465..."`
+	RequestData     T           `json:"requestData"`
+}
+
+type AttestationRequestEncoded struct {
 	RequestBody hexutil.Bytes `json:"requestBody" example:"0x0000abcd..."`
 }
 
-type EncodedRequestBody struct {
-	RequestBody hexutil.Bytes `json:"requestBody" example:"0x0000abcd..."`
-}
-
-// TODO Common types for verifier and relay client.
-type EncodedResponseBody struct {
-	Response hexutil.Bytes `json:"Response" example:"0x0000abcd..."`
-}
-
-type RawAndEncodedFTDCResponse[T any] struct {
+type AttestationResponseData[T any] struct {
 	ResponseData T             `json:"responseData"`
 	ResponseBody hexutil.Bytes `json:"responseBody" example:"0x0000abcd..."`
 }

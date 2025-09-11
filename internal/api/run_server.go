@@ -47,7 +47,7 @@ func RunServer(envConfig config.EnvConfig) {
 	}
 
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		logger.Infof("Starting %s verifier server with type %s on: %s ...\n",
@@ -93,7 +93,7 @@ func parseAttestationType(value string) (connector.AttestationType, error) {
 	return "", fmt.Errorf("invalid attestation type: %s", value)
 }
 
-func parseSourceId(value string) (config.SourceName, error) {
+func parseSourceID(value string) (config.SourceName, error) {
 	for _, at := range sourceIDs {
 		if string(at) == value {
 			return at, nil
@@ -103,9 +103,9 @@ func parseSourceId(value string) (config.SourceName, error) {
 }
 
 func getAPIKeys() ([]string, error) {
-	raw := os.Getenv(config.EnvApiKeys)
+	raw := os.Getenv(config.EnvAPIKeys)
 	if strings.TrimSpace(raw) == "" {
-		return nil, fmt.Errorf("%s must be set", config.EnvApiKeys)
+		return nil, fmt.Errorf("%s must be set", config.EnvAPIKeys)
 	}
 	var apiKeys []string
 	for _, key := range strings.Split(raw, ",") {
@@ -115,7 +115,7 @@ func getAPIKeys() ([]string, error) {
 		}
 	}
 	if len(apiKeys) == 0 {
-		return nil, fmt.Errorf("%s contains only empty values", config.EnvApiKeys)
+		return nil, fmt.Errorf("%s contains only empty values", config.EnvAPIKeys)
 	}
 	return apiKeys, nil
 }
@@ -143,7 +143,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	if err != nil {
 		return config.EnvConfig{}, err
 	}
-	sourceID, err := parseSourceId(sourceIDStr)
+	sourceID, err := parseSourceID(sourceIDStr)
 	if err != nil {
 		return config.EnvConfig{}, err
 	}
@@ -165,7 +165,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
 		Env:                               env,
 		Port:                              port,
-		ApiKeys:                           apiKeys,
+		APIKeys:                           apiKeys,
 		AttestationType:                   attestationType,
 		SourceID:                          sourceID,
 	}, nil
@@ -203,7 +203,7 @@ func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
 	}
 
 	api := humachi.New(router, cfg)
-	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, envConfig.ApiKeys))
+	api.UseMiddleware(middleware.APIKeyAuthMiddleware(api, envConfig.APIKeys))
 	return api
 }
 

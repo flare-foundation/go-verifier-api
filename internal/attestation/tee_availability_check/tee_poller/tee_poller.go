@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
+	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/utils"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
+	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
 )
 
 type TeePollerService struct {
@@ -44,12 +44,12 @@ var (
 )
 
 type task struct {
-	teeId    common.Address
-	proxyUrl string
+	teeID    common.Address
+	proxyURL string
 }
 
 func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
-	teeVerifier.TeeSamples = make(map[common.Address][]teetypes.TeePollerSample)
+	teeVerifier.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -75,7 +75,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	if err != nil {
 		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
 		activeTees = getCachedActiveTees()
-		if len(activeTees.TeeIds) == 0 {
+		if len(activeTees.TeeIDs) == 0 {
 			logger.Infof("No cached TEEs available, skipping this poll")
 			return
 		}
@@ -83,9 +83,9 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 		updateActiveTees(activeTees)
 	}
 
-	taskCh := make(chan task, len(activeTees.TeeIds))
+	taskCh := make(chan task, len(activeTees.TeeIDs))
 	var wg sync.WaitGroup
-	workers := min(defaultWorkerCount, len(activeTees.TeeIds))
+	workers := min(defaultWorkerCount, len(activeTees.TeeIDs))
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
@@ -103,25 +103,25 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					if !ok {
 						return
 					}
-					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyUrl)
+					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyURL)
 					if err != nil {
-						logger.Errorf("Failed to query teeInfo %s and validate: %v", t.proxyUrl, err)
+						logger.Errorf("Failed to query teeInfo %s or validate: %v", t.proxyURL, err)
 					}
 					teeVerifier.SamplesMu.Lock()
-					samples := teeVerifier.TeeSamples[t.teeId]
-					sample := teetypes.TeePollerSample{Timestamp: time.Now().UTC(), State: state}
+					samples := teeVerifier.TeeSamples[t.teeID]
+					sample := teetype.TeePollerSample{Timestamp: time.Now().UTC(), State: state}
 					samples = append(samples, sample)
 					if len(samples) > teeVerifier.SamplesToConsider {
 						samples = samples[1:]
 					}
-					teeVerifier.TeeSamples[t.teeId] = samples
+					teeVerifier.TeeSamples[t.teeID] = samples
 					teeVerifier.SamplesMu.Unlock()
 				}
 			}
 		}()
 	}
-	for i, teeId := range activeTees.TeeIds {
-		taskCh <- task{teeId: teeId, proxyUrl: activeTees.Urls[i]}
+	for i, teeID := range activeTees.TeeIDs {
+		taskCh <- task{teeID: teeID, proxyURL: activeTees.URLs[i]}
 	}
 	close(taskCh)
 	wg.Wait()
@@ -130,21 +130,18 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	teeVerifier.SamplesMu.RUnlock()
 }
 
-func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyUrl string) (teetypes.TeePollerSampleState, error) {
-	infoResponse, err := fetchTEEInfoData(ctx, proxyUrl)
+func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+	infoResponse, err := fetchTEEInfoData(ctx, proxyURL)
 	if err != nil {
-		return teetypes.TeePollerSampleInvalid, err
+		return teetype.TeePollerSampleInvalid, err
 	}
 	checkInfoChallenge, err := teeVerifier.CheckInfoChallengeIsValid(ctx, infoResponse.TeeInfo.Challenge)
 	if err != nil {
 		return checkInfoChallenge, err
 	}
-	if checkInfoChallenge == teetypes.TeePollerSampleInvalid {
-		return teetypes.TeePollerSampleInvalid, nil
-	}
 	_, err = teeVerifier.DataVerification(infoResponse)
 	if err != nil {
-		return teetypes.TeePollerSampleInvalid, err
+		return teetype.TeePollerSampleInvalid, err
 	}
 	infoData := infoResponse.TeeInfo
 	state, err := teeVerifier.CheckSigningPolicies(ctx, infoData)
@@ -155,8 +152,8 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 }
 
 type teeList struct {
-	TeeIds []common.Address
-	Urls   []string
+	TeeIDs []common.Address
+	URLs   []string
 }
 
 func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
@@ -170,7 +167,10 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 		return teeList{}, fmt.Errorf("getAllActiveTeeMachines: %w", err)
 	}
 	logger.Debugf("TEE poller got active Tees: %v", activeTees)
-	return activeTees, nil
+	return teeList{
+		TeeIDs: activeTees.TeeIds,
+		URLs:   activeTees.Urls,
+	}, nil
 }
 
 func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
@@ -179,9 +179,9 @@ func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVer
 	}, nil)
 }
 
-func fetchTEEInfoData(ctx context.Context, baseURL string) (teenodetypes.TeeInfoResponse, error) {
+func fetchTEEInfoData(ctx context.Context, baseURL string) (teenodetype.TeeInfoResponse, error) {
 	url := fmt.Sprintf("%s/info", baseURL)
-	return utils.FetchJSON[teenodetypes.TeeInfoResponse](ctx, url, fetchTimeout)
+	return utils.GetJSON[teenodetype.TeeInfoResponse](ctx, url, fetchTimeout)
 }
 
 func updateActiveTees(teelist teeList) {

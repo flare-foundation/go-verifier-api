@@ -2,36 +2,34 @@ package attestationtypes
 
 import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
-type TeeAvailabilityRequest = FTDCRequest[TeeAvailabilityRequestBody]
-
-type TeeAvailabilityRequestBody struct {
-	TeeId     common.Address `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
-	Url       string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
+type TeeAvailabilityCheckRequestBody struct {
+	TeeID     common.Address `json:"teeId" validate:"required,eth_addr" example:"0x000000000000000000000000000000000000dEaD"`
+	URL       string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
 	Challenge common.Hash    `json:"challenge" validate:"required,hash32" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
 }
 
-func (requestBody TeeAvailabilityRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
+func (requestBody TeeAvailabilityCheckRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
 	return connector.ITeeAvailabilityCheckRequestBody{
-		TeeId:     requestBody.TeeId,
-		Url:       requestBody.Url,
+		TeeId:     requestBody.TeeID,
+		Url:       requestBody.URL,
 		Challenge: requestBody.Challenge,
 	}, nil
 }
 
-type TeeAvailabilityResponseBody struct {
+type TeeAvailabilityCheckResponseBody struct {
 	Status                 uint8                        `json:"status"`
 	TeeTimestamp           uint64                       `json:"teeTimestamp"`
 	CodeHash               common.Hash                  `json:"codeHash"`
 	Platform               common.Hash                  `json:"platform"`
-	InitialSigningPolicyId uint32                       `json:"initialSigningPolicyId"`
-	LastSigningPolicyId    uint32                       `json:"lastSigningPolicyId"`
-	StateHash              TeeAvailabilityCheckTeeState `json:"state"`
+	InitialSigningPolicyID uint32                       `json:"initialSigningPolicyId"`
+	LastSigningPolicyID    uint32                       `json:"lastSigningPolicyId"`
+	State                  TeeAvailabilityCheckTeeState `json:"state"`
 }
 
 type TeeAvailabilityCheckTeeState struct {
@@ -41,15 +39,15 @@ type TeeAvailabilityCheckTeeState struct {
 	StateVersion       common.Hash   `json:"stateVersion"`
 }
 
-func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityResponseBody {
-	return TeeAvailabilityResponseBody{
+func TeeAvailabilityCheckToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityCheckResponseBody {
+	return TeeAvailabilityCheckResponseBody{
 		Status:                 data.Status,
 		TeeTimestamp:           data.TeeTimestamp,
 		CodeHash:               data.CodeHash,
 		Platform:               data.Platform,
-		InitialSigningPolicyId: data.InitialSigningPolicyId,
-		LastSigningPolicyId:    data.LastSigningPolicyId,
-		StateHash: TeeAvailabilityCheckTeeState{
+		InitialSigningPolicyID: data.InitialSigningPolicyId,
+		LastSigningPolicyID:    data.LastSigningPolicyId,
+		State: TeeAvailabilityCheckTeeState{
 			SystemStateVersion: data.State.SystemStateVersion,
 			SystemState:        data.State.SystemState,
 			StateVersion:       data.State.StateVersion,
@@ -58,8 +56,6 @@ func TeeToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabi
 	}
 }
 
-type RawAndEncodedTeeAvailabilityResponseBody = RawAndEncodedFTDCResponse[TeeAvailabilityResponseBody]
-
 type TeeSamplesResponse struct {
-	Samples []teetypes.TeeSample `json:"samples"`
+	Samples []teetype.TeeSample `json:"samples"`
 }

@@ -1,0 +1,32 @@
+services:
+  c-chain-db:
+    image: "mysql:9"
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_USER: "username"
+      MYSQL_PASSWORD: "password"
+      MYSQL_DATABASE: "db"
+    volumes:
+      - ./c-chain-idx.sql:/docker-entrypoint-initdb.d/db_init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "--silent", "--host", "localhost", "-proot" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    ports:
+      - "127.0.0.1:3306:3306"
+  xrp-indexer-db:
+    image: "postgres:17"
+    environment:
+      POSTGRES_USER: "username"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "flare_xrp_indexer"
+    volumes:
+      - ./xrpl-idx.sql:/docker-entrypoint-initdb.d/db_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U username -d flare_xrp_indexer"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:5432:5432"

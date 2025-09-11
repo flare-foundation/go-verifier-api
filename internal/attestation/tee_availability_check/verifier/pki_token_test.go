@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	teeavailabilitycheckconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/types"
+	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/require"
@@ -31,7 +31,6 @@ func TestTeeInfoHash(t *testing.T) {
 	require.NoError(t, err)
 	state, err := hexutil.Decode("0x")
 	require.NoError(t, err)
-
 	mockData := tee.TeeStructsAttestation{
 		Challenge:                common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000001234"),
 		PublicKey:                mockPublicKey,
@@ -45,7 +44,6 @@ func TestTeeInfoHash(t *testing.T) {
 			State:              state,
 			StateVersion:       common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		},
-
 		TeeTimestamp: 123456789,
 	}
 	hash, err := verifier.TeeInfoHash(mockData)
@@ -64,7 +62,7 @@ func TestTeeInfoHash(t *testing.T) {
 func TestValidateCertainClaims(t *testing.T) {
 	tokenString := attestationTokenNotValid
 
-	claims := &teetypes.GoogleTeeClaims{}
+	claims := &teetype.GoogleTeeClaims{}
 	_, _, err := jwt.NewParser(jwt.WithoutClaimsValidation()).ParseUnverified(tokenString, claims)
 	if err != nil {
 		panic(err)

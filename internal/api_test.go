@@ -14,7 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	testutil "github.com/flare-foundation/go-verifier-api/internal/test_util"
+	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api"
@@ -31,16 +32,15 @@ func TestPMWMultisig(t *testing.T) {
 		SourceID:        config.SourceXRP,
 		AttestationType: connector.PMWMultisigAccountConfigured,
 		Port:            "3120",
-		ApiKeys:         []string{testAPIKey},
+		APIKeys:         []string{testAPIKey},
 		Env:             "development",
 	})
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
-	attestationType, sourceId := prepareAttestationTypeAndSourceId(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-
+	attestationType, sourceID := prepareAttestationTypeAndSourceID(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	t.Run("Health check", func(t *testing.T) {
-		resp, err := testutil.Get(t, "http://localhost:3120/api/health", testAPIKey)
+		resp, err := testhelper.Get(t, "http://localhost:3120/api/health", testAPIKey)
 		require.NoError(t, err)
 
 		var response types.HealthCheckResponse
@@ -50,56 +50,64 @@ func TestPMWMultisig(t *testing.T) {
 
 	t.Run("verify - correctly created multisig wallet", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-		attBody := testutil.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
-		response, err := testutil.Post[types.EncodedResponseBody](t, fmt.Sprintf("%s/verify", url), testutil.CreateIFtdcHubFtdcAttestationRequest(t, attestationType, sourceId, attBody), testAPIKey)
+		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
+		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, attBody)
+		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), request, testAPIKey)
 		require.NoError(t, err)
 
-		result := testutil.DecodeFTDCPMWMultisigAccountConfiguredResponse(t, response.Response)
+		result := testhelper.DecodeFTDCPMWMultisigAccountConfiguredResponse(t, response.ResponseBody)
+		require.NoError(t, err)
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), result.Status)
 		require.Equal(t, uint64(10136106), result.Sequence)
 	})
 
 	t.Run("verify - invalid sourceId", func(t *testing.T) {
-		attBody := testutil.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), testutil.CreateIFtdcHubFtdcAttestationRequest(t, attestationType, common.HexToHash("0x123123"), attBody), testAPIKey)
+		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
+		request := testhelper.CreateAttestationRequest(t, attestationType, common.HexToHash("0x123123"), attBody)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), request, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("prepareRequestBody", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-		ftdcReq := testutil.InternalFTDCRequest(t, attestationType, sourceId,
-			types.PMWMultisigAccountRequestBody{
-				WalletAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
-				PublicKeys:    []hexutil.Bytes{pubkey1, pubkey2, pubkey3},
-				Threshold:     1,
+		request := types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{
+			AttestationType: attestationType,
+			SourceID:        sourceID,
+			RequestData: types.PMWMultisigAccountConfiguredRequestBody{
+				AccountAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
+				PublicKeys:     []hexutil.Bytes{pubkey1, pubkey2, pubkey3},
+				Threshold:      1,
 			},
-		)
+		}
 
-		response, err := testutil.Post[types.EncodedRequestBody](t, fmt.Sprintf("%s/prepareRequestBody", url), ftdcReq, testAPIKey)
+		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 
-		attBody := testutil.EncodedIPMWMultisigAccountConfiguredRequestBody(t, ftdcReq.RequestData.WalletAddress, [][]byte{pubkey1, pubkey2, pubkey3}, ftdcReq.RequestData.Threshold)
+		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, request.RequestData.AccountAddress, [][]byte{pubkey1, pubkey2, pubkey3}, request.RequestData.Threshold)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
 
 	t.Run("prepareRequestBody - bad request", func(t *testing.T) {
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.PMWMultisigAccountRequest{}, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{}, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("prepareRequestBody - empty public key", func(t *testing.T) {
-		ftdcReq := testutil.InternalFTDCRequest(t, attestationType, sourceId,
-			types.PMWMultisigAccountRequestBody{
-				WalletAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
-				PublicKeys:    []hexutil.Bytes{{}},
-				Threshold:     1,
-			})
+		request := types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{
+			AttestationType: attestationType,
+			SourceID:        sourceID,
+			RequestData: types.PMWMultisigAccountConfiguredRequestBody{
+				AccountAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
+				PublicKeys:     []hexutil.Bytes{hexutil.Bytes{}},
+				Threshold:      1,
+			},
+		}
 
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), ftdcReq, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 
@@ -107,18 +115,22 @@ func TestPMWMultisig(t *testing.T) {
 
 	t.Run("prepareResponseBody", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-		attBody := testutil.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
-		ftdcReq := testutil.FTDCRequestEncoded(t, attestationType, sourceId, attBody)
+		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
 
-		response, err := testutil.Post[types.RawAndEncodedPMWMultisigAccountResponseBody](t, fmt.Sprintf("%s/prepareResponseBody", url), ftdcReq, testAPIKey)
+		request := types.AttestationRequest{
+			AttestationType: attestationType,
+			SourceID:        sourceID,
+			RequestBody:     attBody,
+		}
+
+		response, err := testhelper.Post[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", url), request, testAPIKey)
 		require.NoError(t, err)
-
 		require.NotEmpty(t, response.ResponseBody)
 		require.NotEmpty(t, response.ResponseData)
-
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), response.ResponseData.PMWMultisigAccountStatus)
 		require.Equal(t, uint64(10136106), response.ResponseData.Sequence)
 	})
+
 }
 
 func TestPMWPaymentStatus(t *testing.T) {
@@ -126,26 +138,26 @@ func TestPMWPaymentStatus(t *testing.T) {
 	go api.RunServer(config.EnvConfig{
 		RPCURL:            "https://s.altnet.rippletest.net:51234",
 		DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
-		CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+		CChainDatabaseURL: "username:password@tcp(127.0.0.1:3306)/db?parseTime=true",
 		SourceID:          config.SourceXRP,
 		AttestationType:   connector.PMWPaymentStatus,
 		Port:              "3121",
-		ApiKeys:           []string{testAPIKey},
+		APIKeys:           []string{testAPIKey},
 		Env:               "development",
 	})
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
-
-	attestationType, sourceId := prepareAttestationTypeAndSourceId(t, connector.PMWPaymentStatus, config.SourceXRP)
+	attestationType, sourceID := prepareAttestationTypeAndSourceID(t, connector.PMWPaymentStatus, config.SourceXRP)
 
 	t.Run("verify - valid payment", func(t *testing.T) {
-		attBody := testutil.EncodedIPMWPaymentStatusRequestBody(t, common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"), 10110067, 10110067)
-		response, err := testutil.Post[types.EncodedResponseBody](t, fmt.Sprintf("%s/verify", url), testutil.CreateIFtdcHubFtdcAttestationRequest(t, attestationType, sourceId, attBody), testAPIKey)
+		attBody := testhelper.EncodedIPMWPaymentStatusRequestBody(t, common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"), 10110067, 10110067)
+		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, attBody)
+		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), request, testAPIKey)
 		require.NoError(t, err)
 
+		result := testhelper.DecodeFTDCPMVPaymentStatusResponse(t, response.ResponseBody)
 		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
-		result := testutil.DecodeFTDCPMVPaymentStatusResponse(t, response.Response)
 		require.Equal(t, crypto.Keccak256Hash([]byte("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK")), common.HexToHash(result.SenderAddress))
 		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(result.RecipientAddress))
 		require.Equal(t, big.NewInt(10_000), result.Amount)
@@ -160,52 +172,79 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	t.Run("verify - missing api-key", func(t *testing.T) {
-		_, err := testutil.Post[types.EncodedResponseBody](t, fmt.Sprintf("%s/verify", url), testutil.CreateIFtdcHubFtdcAttestationRequest(t, attestationType, common.HexToHash("0x123"), []byte("0x123")), testAPIKey)
+		attestationType, err := utils.StringToBytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+
+		_, err = testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+			AttestationType: attestationType,
+			SourceID:        common.HexToHash("0x123"),
+			RequestBody:     []byte("0x123"),
+		}, "")
 		require.Error(t, err)
 	})
 
 	t.Run("verify - wrong api-key", func(t *testing.T) {
-		_, err := testutil.Post[types.EncodedResponseBody](t, fmt.Sprintf("%s/verify", url), testutil.CreateIFtdcHubFtdcAttestationRequest(t, attestationType, common.HexToHash("0x123"), []byte("0x123")), "wrong api key")
+		attestationType, err := utils.StringToBytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+
+		_, err = testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+			AttestationType: attestationType,
+			SourceID:        common.HexToHash("0x123"),
+			RequestBody:     []byte("0x123"),
+		}, "wrong api key")
 		require.Error(t, err)
 	})
 
-	t.Run("verify - invalid sourceId", func(t *testing.T) {
-		attestationRequest := testutil.CreateIFtdcHubFtdcAttestationRequest(t, attestationType, common.HexToHash("0x123"), []byte("0x123"))
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), attestationRequest, testAPIKey)
+	t.Run("verify - invalid sourceID", func(t *testing.T) {
+		attestationType, err := utils.StringToBytes32(string(connector.PMWPaymentStatus))
+		require.NoError(t, err)
+
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), types.AttestationRequest{
+			AttestationType: attestationType,
+			SourceID:        common.HexToHash("0x123"),
+			RequestBody:     []byte("0x123"),
+		}, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("prepareRequestBody", func(t *testing.T) {
-		ftdcReq := testutil.InternalFTDCRequest(t, attestationType, sourceId, types.PMWPaymentStatusRequestBody{
-			WalletId: common.HexToHash("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
-			Nonce:    1,
-			SubNonce: 1,
-		})
-		response, err := testutil.Post[types.EncodedRequestBody](t, fmt.Sprintf("%s/prepareRequestBody", url), ftdcReq, testAPIKey)
-		attBody := testutil.EncodedIPMWPaymentStatusRequestBody(t, ftdcReq.RequestData.WalletId, ftdcReq.RequestData.Nonce, ftdcReq.RequestData.SubNonce)
+		request := types.AttestationRequestData[types.PMWPaymentStatusRequestBody]{
+			AttestationType: attestationType,
+			SourceID:        sourceID,
+			RequestData: types.PMWPaymentStatusRequestBody{
+				WalletID: common.HexToHash("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Nonce:    1,
+				SubNonce: 1,
+			},
+		}
+		response, err := testhelper.Post[types.AttestationRequest](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
+		attBody := testhelper.EncodedIPMWPaymentStatusRequestBody(t, request.RequestData.WalletID, request.RequestData.Nonce, request.RequestData.SubNonce)
 
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 		require.Equal(t, []byte(response.RequestBody), attBody)
+
 	})
 
 	t.Run("prepareRequestBody - bad request", func(t *testing.T) {
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.PMWPaymentStatusRequest{}, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWPaymentStatusRequestBody]{}, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
-	t.Run("prepareResponseBody  - valid payment", func(t *testing.T) {
-		attBody := testutil.EncodedIPMWPaymentStatusRequestBody(t, common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"), 10110067, 10110067)
-		ftdcReq := testutil.FTDCRequestEncoded(t, attestationType, sourceId, attBody)
+	t.Run("prepareResponseBody - valid payment", func(t *testing.T) {
+		attBody := testhelper.EncodedIPMWPaymentStatusRequestBody(t, common.HexToHash("0x4e6f4d9d6229527708f88445218fb57579c925723b13541a78ecbe31df5d2fab"), 10110067, 10110067)
+		request := types.AttestationRequest{
+			AttestationType: attestationType,
+			SourceID:        sourceID,
+			RequestBody:     attBody,
+		}
 
-		response, err := testutil.Post[types.RawAndEncodedPMWPaymentStatusResponseBody](t, fmt.Sprintf("%s/prepareResponseBody", url), ftdcReq, testAPIKey)
+		response, err := testhelper.Post[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", url), request, testAPIKey)
 		require.NoError(t, err)
-
 		require.NotEmpty(t, response.ResponseBody)
 		require.NotEmpty(t, response.ResponseData)
-
 		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
 		require.Equal(t, crypto.Keccak256Hash([]byte("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK")), common.HexToHash(response.ResponseData.SenderAddress))
 		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(response.ResponseData.RecipientAddress))
@@ -216,7 +255,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(response.ResponseData.PaymentReference[:]))
 		require.Equal(t, uint8(0), response.ResponseData.TransactionStatus)
 		require.Equal(t, "", response.ResponseData.RevertReason)
-		require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(response.ResponseData.TransactionId[:]))
+		require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(response.ResponseData.TransactionID[:]))
 		require.Equal(t, uint64(10110073), response.ResponseData.BlockNumber)
 	})
 }
@@ -228,7 +267,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		SourceID:                          config.SourceTEE,
 		AttestationType:                   connector.AvailabilityCheck,
 		Port:                              "3122",
-		ApiKeys:                           []string{testAPIKey},
+		APIKeys:                           []string{testAPIKey},
 		Env:                               "development",
 		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
@@ -236,31 +275,35 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
-	attestationType, sourceId := prepareAttestationTypeAndSourceId(t, connector.AvailabilityCheck, config.SourceTEE)
+	attestationType, sourceID := prepareAttestationTypeAndSourceID(t, connector.AvailabilityCheck, config.SourceTEE)
 
 	t.Run("prepareRequestBody", func(t *testing.T) {
-		ftdcReq := testutil.InternalFTDCRequest(t, attestationType, sourceId, types.TeeAvailabilityRequestBody{
-			TeeId:     common.HexToAddress("0x12345"),
-			Url:       "https://example.com",
-			Challenge: common.HexToHash("0x123"),
-		})
-		response, err := testutil.Post[types.EncodedRequestBody](t, fmt.Sprintf("%s/prepareRequestBody", url), ftdcReq, testAPIKey)
+		request := types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]{
+			AttestationType: attestationType,
+			SourceID:        sourceID,
+			RequestData: types.TeeAvailabilityCheckRequestBody{
+				TeeID:     common.HexToAddress("0x12345"),
+				URL:       "https://example.com",
+				Challenge: common.HexToHash("0x123"),
+			},
+		}
+		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 
-		attBody := testutil.EncodedITeeAvailabilityCheckRequestBody(t, ftdcReq.RequestData.TeeId, ftdcReq.RequestData.Url, ftdcReq.RequestData.Challenge)
+		attBody := testhelper.EncodedITeeAvailabilityCheckRequestBody(t, request.RequestData.TeeID, request.RequestData.URL, request.RequestData.Challenge)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
 
 	t.Run("prepareRequestBody - bad request", func(t *testing.T) {
-		response, err := testutil.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.TeeAvailabilityRequest{}, testAPIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]{}, testAPIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("getPolledTees", func(t *testing.T) {
-		resp, err := testutil.Get(t, "http://localhost:3122/poller/tees", testAPIKey)
+		resp, err := testhelper.Get(t, "http://localhost:3122/poller/tees", testAPIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp)
 
@@ -282,10 +325,10 @@ func pubKeysForMultisig(t *testing.T) ([]byte, []byte, []byte) {
 	return pubkey1, pubkey2, pubkey3
 }
 
-func prepareAttestationTypeAndSourceId(t *testing.T, attestationType connector.AttestationType, sourceId config.SourceName) (common.Hash, common.Hash) {
+func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) (common.Hash, common.Hash) {
 	t.Helper()
-	var attestationTypeBytes, sourceIdBytes [32]byte
+	var attestationTypeBytes, sourceIDBytes [32]byte
 	copy(attestationTypeBytes[:], attestationType)
-	copy(sourceIdBytes[:], sourceId)
-	return common.BytesToHash(attestationTypeBytes[:]), common.BytesToHash(sourceIdBytes[:])
+	copy(sourceIDBytes[:], sourceID)
+	return common.BytesToHash(attestationTypeBytes[:]), common.BytesToHash(sourceIDBytes[:])
 }

@@ -1,0 +1,50 @@
+package teeinstruction
+
+import (
+	"fmt"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+)
+
+const EventNameTeeInstructionsSent = "TeeInstructionsSent"
+
+func GetTeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
+	event, exists := abiDef.Events[EventNameTeeInstructionsSent]
+	if !exists {
+		return "", fmt.Errorf("event %s not found", EventNameTeeInstructionsSent)
+	}
+	return event.ID.Hex(), nil
+}
+
+func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
+	eventData, err := abiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
+		teeABI,
+		EventNameTeeInstructionsSent,
+		log.Data,
+	)
+	if err != nil {
+		return nil, err
+	}
+	var message payment.ITeePaymentsPaymentInstructionMessage
+	err = structs.DecodeTo(payment.MessageArguments[op.Pay], eventData.Message, &message)
+	if err != nil {
+		return nil, err
+	}
+	return &message, nil
+}
+
+func abiDecodeEventData[T any](abiObj abi.ABI, eventName string, data hexutil.Bytes) (*T, error) {
+	var result T
+	err := abiObj.UnpackIntoInterface(&result, eventName, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode event %s: %w", eventName, err)
+	}
+	return &result, nil
+}

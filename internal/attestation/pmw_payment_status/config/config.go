@@ -1,4 +1,4 @@
-package pmwpaymentstatusconfig
+package config
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 	if err != nil {
 		return nil, err
 	}
-	commonConfig, err := config.LoadEncodedAndAbi(envConfig)
+	commonConfig, err := config.LoadEncodedAndABI(envConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 		return nil, fmt.Errorf("failed to parse Payment ABI: %w", err)
 	}
 	return &config.PMWPaymentStatusConfig{
-		EncodedAndAbi:            commonConfig,
+		EncodedAndABI:            commonConfig,
 		DatabaseURL:              envConfig.DatabaseURL,
 		CchainDatabaseURL:        envConfig.CChainDatabaseURL,
 		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,
