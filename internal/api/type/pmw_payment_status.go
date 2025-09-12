@@ -7,22 +7,24 @@ import (
 )
 
 type PMWPaymentStatusRequestBody struct {
-	WalletID common.Hash `json:"walletId" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
-	Nonce    uint64      `json:"nonce" validate:"required" example:"1"`
-	SubNonce uint64      `json:"subNonce" validate:"required" example:"1"`
+	OpType        common.Hash `json:"opType" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	SenderAddress string      `json:"senderAddress" validate:"required" example:"abcdef"`
+	Nonce         uint64      `json:"nonce" validate:"required" example:"1"`
+	SubNonce      uint64      `json:"subNonce" validate:"required" example:"1"`
 }
 
 func (requestBody PMWPaymentStatusRequestBody) ToInternal() (connector.IPMWPaymentStatusRequestBody, error) {
 	return connector.IPMWPaymentStatusRequestBody{
-		WalletId: requestBody.WalletID,
-		Nonce:    requestBody.Nonce,
-		SubNonce: requestBody.SubNonce,
+		OpType:        requestBody.OpType,
+		SenderAddress: requestBody.SenderAddress,
+		Nonce:         requestBody.Nonce,
+		SubNonce:      requestBody.SubNonce,
 	}, nil
 }
 
 type PMWPaymentStatusResponseBody struct {
-	SenderAddress     string      `json:"senderAddress"`
 	RecipientAddress  string      `json:"recipientAddress"`
+	TokenId           common.Hash `json:"tokenId"`
 	Amount            hexutil.Big `json:"amount"`
 	Fee               hexutil.Big `json:"fee"`
 	PaymentReference  common.Hash `json:"paymentReference"`
@@ -37,8 +39,8 @@ type PMWPaymentStatusResponseBody struct {
 
 func PMWPaymentStatusToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPaymentStatusResponseBody {
 	return PMWPaymentStatusResponseBody{
-		SenderAddress:     data.SenderAddress,
 		RecipientAddress:  data.RecipientAddress,
+		TokenId:           data.TokenId,
 		Amount:            hexutil.Big(*data.Amount),
 		Fee:               hexutil.Big(*data.Fee),
 		PaymentReference:  data.PaymentReference,

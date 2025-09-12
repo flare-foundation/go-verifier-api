@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -51,40 +52,42 @@ func TeeAvailabilityCheckRequestBody(teeId common.Address, url string, challenge
 	}
 }
 
-func PMWMultisigAccountConfiguredRequestBody(walletAddress string, publicKeys []hexutil.Bytes, threshold uint64) attestationtypes.PMWMultisigAccountConfiguredRequestBody {
+func PMWMultisigAccountConfiguredRequestBody(accountAddress string, publicKeys []hexutil.Bytes, threshold uint64) attestationtypes.PMWMultisigAccountConfiguredRequestBody {
 	return attestationtypes.PMWMultisigAccountConfiguredRequestBody{
-		AccountAddress: walletAddress,
+		AccountAddress: accountAddress,
 		PublicKeys:     publicKeys,
 		Threshold:      threshold,
 	}
 }
 
-func PMWPaymentStatusRequestBody(walletId common.Hash, nonce uint64, subNonce uint64) attestationtypes.PMWPaymentStatusRequestBody {
+func PMWPaymentStatusRequestBody(opType common.Hash, senderAddress string, nonce uint64, subNonce uint64) attestationtypes.PMWPaymentStatusRequestBody {
 	return attestationtypes.PMWPaymentStatusRequestBody{
-		WalletID: walletId,
-		Nonce:    nonce,
-		SubNonce: subNonce,
+		OpType:        opType,
+		SenderAddress: senderAddress,
+		Nonce:         nonce,
+		SubNonce:      subNonce,
 	}
 }
 
-func EncodedIPMWMultisigAccountConfiguredRequestBody(t *testing.T, walletAddress string, publicKeys [][]byte, threshold uint64) []byte {
+func EncodedIPMWMultisigAccountConfiguredRequestBody(t *testing.T, accountAddress string, publicKeys [][]byte, threshold uint64) []byte {
 	t.Helper()
 	reqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: walletAddress,
-		PublicKeys:    publicKeys,
-		Threshold:     threshold,
+		AccountAddress: accountAddress,
+		PublicKeys:     publicKeys,
+		Threshold:      threshold,
 	}
 	result, err := structs.Encode(connector.AttestationTypeArguments[connector.PMWMultisigAccountConfigured].Request, reqBody)
 	require.NoError(t, err)
 	return result
 }
 
-func EncodedIPMWPaymentStatusRequestBody(t *testing.T, walletId common.Hash, nonce uint64, subNonce uint64) []byte {
+func EncodedIPMWPaymentStatusRequestBody(t *testing.T, opType common.Hash, senderAddress string, nonce uint64, subNonce uint64) []byte {
 	t.Helper()
 	reqBody := connector.IPMWPaymentStatusRequestBody{
-		WalletId: walletId,
-		Nonce:    nonce,
-		SubNonce: subNonce,
+		OpType:        opType,
+		SenderAddress: senderAddress,
+		Nonce:         nonce,
+		SubNonce:      subNonce,
 	}
 	result, err := structs.Encode(connector.AttestationTypeArguments[connector.PMWPaymentStatus].Request, reqBody)
 	require.NoError(t, err)

@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/ethereum/go-ethereum v1.16.2
-	github.com/flare-foundation/go-flare-common v1.2.1-0.20250826082212-1617e28e2ee6
+	github.com/flare-foundation/go-flare-common v1.2.1-0.20250912071838-b0a8d6d54687
 	github.com/flare-foundation/tee-node v0.0.0-00010101000000-000000000000
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0
@@ -54,7 +54,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect

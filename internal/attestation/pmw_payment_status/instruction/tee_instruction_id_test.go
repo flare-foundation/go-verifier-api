@@ -9,14 +9,13 @@ import (
 )
 
 func TestGenerateInstructionId(t *testing.T) {
-	walletId := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-	walletIdBytes, err := coreutil.HexStringToBytes32(walletId)
-	require.NoError(t, err)
+	senderAddress := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	nonce := uint64(42)
 	opTypeString := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	opTypeBytes, err := coreutil.HexStringToBytes32(opTypeString)
 	require.NoError(t, err)
-	id, err := teeinstruction.GenerateInstructionID(walletIdBytes, opTypeBytes, nonce)
+	sourceIDBytes := opTypeBytes
+	id, err := teeinstruction.GenerateInstructionID(opTypeBytes, sourceIDBytes, senderAddress, nonce)
 	require.NoError(t, err)
 	require.NotEmpty(t, id)
 	t.Logf("Instruction ID: %s", id.Hex())

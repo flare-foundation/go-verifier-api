@@ -66,9 +66,9 @@ func TestMultisig(t *testing.T) {
 
 	verifier := service.GetVerifier()
 	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
-		PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
-		Threshold:     1,
+		AccountAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
+		PublicKeys:     [][]byte{pubkey1, pubkey2, pubkey3},
+		Threshold:      1,
 	})
 
 	require.NoError(t, err)
@@ -90,9 +90,9 @@ func TestMultisigWithoutDisabledMasterKey(t *testing.T) {
 
 	verifier := service.GetVerifier()
 	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: "rGnsRVdAseq7uMW4hjRuydPiV9cZsUWiyN",
-		PublicKeys:    [][]byte{pubkey1, pubkey2, pubkey3},
-		Threshold:     1,
+		AccountAddress: "rGnsRVdAseq7uMW4hjRuydPiV9cZsUWiyN",
+		PublicKeys:     [][]byte{pubkey1, pubkey2, pubkey3},
+		Threshold:      1,
 	})
 
 	require.NoError(t, err)
@@ -112,9 +112,9 @@ func TestSingleSig(t *testing.T) {
 
 	verifier := service.GetVerifier()
 	verify, err := verifier.Verify(t.Context(), connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: "rnVdREAw4HkdS7TJzwx1XpqfAz1v8iGHxr",
-		PublicKeys:    [][]byte{pubkey1, pubkey2},
-		Threshold:     2,
+		AccountAddress: "rnVdREAw4HkdS7TJzwx1XpqfAz1v8iGHxr",
+		PublicKeys:     [][]byte{pubkey1, pubkey2},
+		Threshold:      2,
 	})
 
 	require.NoError(t, err)

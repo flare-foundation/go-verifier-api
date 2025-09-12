@@ -3,8 +3,9 @@ package xrpverifier
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"testing"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp/type"
@@ -276,11 +277,11 @@ func makeAccountInfo(signerLists []types.SignerList, flags types.AccountFlags, r
 	}
 }
 
-func makeIPMWMultisigAccountConfiguredRequestBody(walletAddress string, publicKeys [][]byte, threshold uint64) connector.IPMWMultisigAccountConfiguredRequestBody {
+func makeIPMWMultisigAccountConfiguredRequestBody(accountAddress string, publicKeys [][]byte, threshold uint64) connector.IPMWMultisigAccountConfiguredRequestBody {
 	return connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: walletAddress,
-		PublicKeys:    publicKeys,
-		Threshold:     threshold,
+		AccountAddress: accountAddress,
+		PublicKeys:     publicKeys,
+		Threshold:      threshold,
 	}
 }
 

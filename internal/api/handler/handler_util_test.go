@@ -18,23 +18,23 @@ import (
 )
 
 var (
-	testWalletAddress = "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
-	testPublicKeys    = [][]byte{{0x01, 0x02}}
-	testThreshold     = uint64(2)
+	testAccountAddress = "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
+	testPublicKeys     = [][]byte{{0x01, 0x02}}
+	testThreshold      = uint64(2)
 )
 
 func TestValidateRequest(t *testing.T) {
 	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 
 	t.Run("Valid encodedReq", func(t *testing.T) {
-		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testWalletAddress, testPublicKeys, testThreshold)
+		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
 		req := testhelper.CreateAttestationRequest(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
 		err := ValidateRequest(req, encodedAndAbi)
 		require.NoError(t, err)
 	})
 
 	t.Run("Invalid attestation type/source id", func(t *testing.T) {
-		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testWalletAddress, testPublicKeys, testThreshold)
+		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
 		invalidReq := testhelper.CreateAttestationRequest(t, [32]byte{0xFF}, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
 		err := ValidateRequest(invalidReq, encodedAndAbi)
 		assertHumaError(t, err, http.StatusBadRequest)
@@ -48,7 +48,7 @@ func TestValidateAndPrepareRequestBody(t *testing.T) {
 		hexKeys[i] = hexutil.Bytes(k)
 	}
 	attBody := attestationtypes.PMWMultisigAccountConfiguredRequestBody{
-		AccountAddress: testWalletAddress,
+		AccountAddress: testAccountAddress,
 		PublicKeys:     hexKeys,
 		Threshold:      testThreshold,
 	}
@@ -91,7 +91,7 @@ func TestValidateRequestData(t *testing.T) {
 			encodedAndAbi.AttestationTypePair.AttestationTypeEncoded,
 			encodedAndAbi.SourceIDPair.SourceIDEncoded,
 			attestationtypes.PMWMultisigAccountConfiguredRequestBody{
-				AccountAddress: testWalletAddress,
+				AccountAddress: testAccountAddress,
 				PublicKeys:     []hexutil.Bytes{testPublicKeys[0]},
 				Threshold:      testThreshold,
 			},
@@ -115,7 +115,7 @@ func TestValidateRequestData(t *testing.T) {
 			[32]byte{0xFF},
 			encodedAndAbi.SourceIDPair.SourceIDEncoded,
 			attestationtypes.PMWMultisigAccountConfiguredRequestBody{
-				AccountAddress: testWalletAddress,
+				AccountAddress: testAccountAddress,
 				PublicKeys:     []hexutil.Bytes{testPublicKeys[0]},
 				Threshold:      testThreshold,
 			},

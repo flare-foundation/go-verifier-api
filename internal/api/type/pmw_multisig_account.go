@@ -23,9 +23,9 @@ func (requestBody PMWMultisigAccountConfiguredRequestBody) ToInternal() (connect
 	}
 
 	return connector.IPMWMultisigAccountConfiguredRequestBody{
-		WalletAddress: requestBody.AccountAddress,
-		PublicKeys:    publicKeys,
-		Threshold:     requestBody.Threshold,
+		AccountAddress: requestBody.AccountAddress,
+		PublicKeys:     publicKeys,
+		Threshold:      requestBody.Threshold,
 	}, nil
 }
 

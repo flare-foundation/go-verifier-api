@@ -36,8 +36,8 @@ func BuildPaymentStatusResponse(
 		revertReason = raw.MetaData.TransactionResult
 	}
 	return connector.IPMWPaymentStatusResponseBody{
-		SenderAddress:     helper.GetStandardAddressHash(paymentMsg.SenderAddress),
 		RecipientAddress:  helper.GetStandardAddressHash(paymentMsg.RecipientAddress),
+		TokenId:           paymentMsg.TokenId,
 		Amount:            paymentMsg.Amount,
 		Fee:               paymentMsg.Fee,
 		PaymentReference:  paymentMsg.PaymentReference,

@@ -28,7 +28,7 @@ type XRPVerifier struct {
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
-	accountInfo, err := x.Client.GetAccountInfo(ctx, req.WalletAddress)
+	accountInfo, err := x.Client.GetAccountInfo(ctx, req.AccountAddress)
 	if err != nil {
 		logger.Debugf("Failed to get account info: %v", err)
 		return connector.IPMWMultisigAccountConfiguredResponseBody{

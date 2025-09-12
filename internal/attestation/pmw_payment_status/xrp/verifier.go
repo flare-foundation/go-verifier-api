@@ -8,7 +8,6 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/builder"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/repo"
@@ -24,11 +23,7 @@ type XRPVerifier struct {
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction ID
-	opType, err := utils.StringToBytes32(fmt.Sprintf("F_%s", x.Config.SourceIDPair.SourceID))
-	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot retrieve opType: %w", err)
-	}
-	instructionID, err := teeinstruction.GenerateInstructionID(req.WalletId, opType, req.Nonce)
+	instructionID, err := teeinstruction.GenerateInstructionID(req.OpType, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.Nonce)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %w", err)
 	}
