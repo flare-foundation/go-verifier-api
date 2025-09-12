@@ -59,7 +59,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		requireMultisigConfigFailed(t, seq, err)
 	})
 
-	t.Run("Bad public key", func(t *testing.T) {
+	t.Run("Missing public key", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
 			[][]byte{{}, testAccounts[1].PubKey},

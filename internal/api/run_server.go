@@ -96,8 +96,6 @@ func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
 		shutdownServer(srv, closers)
 	}
 
-	// Wait a little so server starts before tests run
-	time.Sleep(50 * time.Millisecond)
 	return stop
 }
 

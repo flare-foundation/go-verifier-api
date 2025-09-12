@@ -34,24 +34,18 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 		return connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(attestationtypes.PMWMultisigAccountStatusERROR),
 			Sequence: 0,
-		}, nil
+		}, err
 	}
 
 	sequence, err := x.validateMultisigConfiguration(accountInfo, req)
+	status := uint8(attestationtypes.PMWMultisigAccountStatusOK)
 	if err != nil {
-		if errors.Is(err, ErrValidationFailed) {
-			return connector.IPMWMultisigAccountConfiguredResponseBody{
-				Status:   uint8(attestationtypes.PMWMultisigAccountStatusERROR),
-				Sequence: 0,
-			}, nil
-		}
-		return connector.IPMWMultisigAccountConfiguredResponseBody{}, err
+		status = uint8(attestationtypes.PMWMultisigAccountStatusERROR)
 	}
 	return connector.IPMWMultisigAccountConfiguredResponseBody{
-		Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
+		Status:   status,
 		Sequence: sequence,
 	}, nil
-
 }
 
 func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {

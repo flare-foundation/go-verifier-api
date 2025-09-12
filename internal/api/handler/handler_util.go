@@ -56,9 +56,6 @@ func ValidateRequestData[T any](request types.AttestationRequestData[T], config 
 }
 
 func ValidateRequest(request types.AttestationRequest, config *config.EncodedAndABI) error {
-	if err := validation.ValidateRequest(request); err != nil {
-		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
-	}
 	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceID(
 		config.AttestationTypePair,
 		config.SourceIDPair,
@@ -82,7 +79,7 @@ func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, 
 func EncodeResponse[T any](responseData T, config *config.EncodedAndABI) ([]byte, error) {
 	data, err := abiEncodeData(responseData, config.ABIPair.Response)
 	if err != nil {
-		return []byte{}, huma.Error400BadRequest(fmt.Sprintf("Encoding response data failed: %v", err))
+		return []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
 	}
 	return data, nil
 }

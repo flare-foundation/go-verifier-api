@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -45,7 +47,7 @@ func TestValidateAndPrepareRequestBody(t *testing.T) {
 	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	hexKeys := make([]hexutil.Bytes, len(testPublicKeys))
 	for i, k := range testPublicKeys {
-		hexKeys[i] = hexutil.Bytes(k)
+		hexKeys[i] = k
 	}
 	attBody := attestationtypes.PMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
@@ -78,7 +80,6 @@ func TestValidateAndPrepareRequestBody(t *testing.T) {
 		encodedAndAbiCopy := encodedAndAbi
 		encodedAndAbiCopy.ABIPair.Request = abi.Argument{}
 		_, err := ValidateAndPrepareRequestBody(req, encodedAndAbi)
-		fmt.Println(err)
 		assertHumaError(t, err, http.StatusBadRequest)
 	})
 }
@@ -125,6 +126,52 @@ func TestValidateRequestData(t *testing.T) {
 	})
 }
 
+func TestDecodeRequest(t *testing.T) {
+	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+
+	t.Run("Valid", func(t *testing.T) {
+		encoded := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
+		decoded, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](encoded, encodedAndAbi)
+		require.NoError(t, err)
+		require.Equal(t, testAccountAddress, decoded.AccountAddress)
+		require.Equal(t, testPublicKeys[0], []byte(decoded.PublicKeys[0]))
+		require.Equal(t, testThreshold, decoded.Threshold)
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		encoded := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
+		invalidBody := append(encoded, 'a', 'a')
+		_, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndAbi)
+		assertHumaError(t, err, http.StatusBadRequest)
+	})
+}
+
+func TestEncodeResponse(t *testing.T) {
+	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+
+	t.Run("Valid", func(t *testing.T) {
+		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
+			Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
+			Sequence: 10136106,
+		}
+		encoded, err := EncodeResponse(resp, encodedAndAbi)
+		require.NoError(t, err)
+
+		decoded, err := structs.Decode[connector.IPMWMultisigAccountConfiguredResponseBody](encodedAndAbi.ABIPair.Response, encoded)
+		require.NoError(t, err)
+		require.Equal(t, resp, decoded)
+	})
+
+	t.Run("Unserializable type", func(t *testing.T) {
+		type Temp struct {
+			t int
+		}
+		resp := Temp{t: 1}
+		_, err := EncodeResponse(resp, encodedAndAbi)
+		assertHumaError(t, err, http.StatusInternalServerError)
+	})
+}
+
 func loadEncodedAndABI(t *testing.T, attestationType connector.AttestationType, sourceId config.SourceName) *config.EncodedAndABI {
 	t.Helper()
 	encodedAndAbi, err := config.LoadEncodedAndABI(config.EnvConfig{
@@ -132,6 +179,7 @@ func loadEncodedAndABI(t *testing.T, attestationType connector.AttestationType, 
 		AttestationType: attestationType,
 		SourceID:        sourceId,
 	})
+
 	require.NoError(t, err)
 	return &encodedAndAbi
 }
