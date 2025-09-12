@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -77,6 +78,7 @@ func PMWMultisigAccountHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponse], error) {
+			logger.Debug("Received request for PMWMultisigAccountConfigured")
 			err := ValidateRequest(request.Body, config)
 			if err != nil {
 				return nil, err

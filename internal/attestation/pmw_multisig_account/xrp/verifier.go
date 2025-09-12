@@ -30,7 +30,7 @@ type XRPVerifier struct {
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
 	accountInfo, err := x.Client.GetAccountInfo(ctx, req.AccountAddress)
 	if err != nil {
-		logger.Debugf("Failed to get account info: %v", err)
+		logger.Infof("Failed to get account info: %v", err)
 		return connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(attestationtypes.PMWMultisigAccountStatusERROR),
 			Sequence: 0,
@@ -58,7 +58,7 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
-		logger.Debug("Account has no signer list")
+		logger.Info("Account has no signer list")
 		return 0, ErrValidationFailed
 	}
 	signersValid := x.validateSignerList(accountInfo.Result.AccountData.SignerLists[0], req)
@@ -67,11 +67,11 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	}
 	flags := accountInfo.Result.AccountFlags
 	if err := checkAccountFlags(flags); err != nil {
-		logger.Debugf("Invalid account flags: %v", err)
+		logger.Infof("Invalid account flags: %v", err)
 		return 0, ErrValidationFailed
 	}
 	if accountInfo.Result.AccountData.RegularKey != "" {
-		logger.Debug("Account has regular key set")
+		logger.Infof("Account has regular key set")
 		return 0, ErrValidationFailed
 	}
 	return accountInfo.Result.AccountData.Sequence, nil
@@ -82,7 +82,7 @@ func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req connec
 	for i, pk := range req.PublicKeys {
 		addrStr, err := XRPAddressFromPubKey(pk)
 		if err != nil {
-			logger.Debugf("Failed to convert public key to address: %v", err)
+			logger.Infof("Failed to convert public key to address: %v", err)
 			return false
 		}
 		expectedAccounts[i] = addrStr

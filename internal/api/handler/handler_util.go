@@ -106,7 +106,7 @@ func ValidateAndPrepareRequestBody[T types.InternalConvertible[I], I any](
 }
 
 func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
-	logger.Debugf("PMWMultisigAccount result: Status=%d, Sequence=%d",
+	logger.Debugf("PMWMultisigAccountConfigured result: Status=%d, Sequence=%d",
 		response.Status, response.Sequence)
 }
 
@@ -129,7 +129,7 @@ func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBod
 
 func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckResponseBody) {
 	const nullByte = "\x00"
-	logger.Debugf("TEEAvailability result: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyID:%d, LastSigningPolicyID=%d, State=%v",
+	logger.Debugf("TEEAvailabilityCheck result: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyID:%d, LastSigningPolicyID=%d, State=%v",
 		response.Status,
 		response.TeeTimestamp,
 		response.CodeHash,
