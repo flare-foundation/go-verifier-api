@@ -84,7 +84,7 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponse], error) {
-			logger.Debug("Received request for TEEAvailability")
+			logger.Debug("Received request for TEEAvailabilityCheck")
 			err := ValidateRequest(request.Body, config)
 			if err != nil {
 				return nil, err
@@ -96,7 +96,10 @@ func TeeAvailabilityCheckHandler(
 			responseData, err := verifier.Verify(ctx, requestData)
 			if errors.Is(err, teeverifier.ErrIndeterminate) {
 				return nil, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
-			} // TODO other errors
+			}
+			if err != nil {
+				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+			}
 			response, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
