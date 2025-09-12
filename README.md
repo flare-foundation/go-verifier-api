@@ -67,7 +67,6 @@ DATABASE_URL=postgres://user:pass@host:port/db
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
 ## TODO list
-- [ ] *verifier.go*: Needs to be properly defined if response.Platform != "google" (missing Platform in TeeInfoResponse).
 - [ ] Other `TODO`s inside the code.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
 - [ ] Add poller API endpoint in readme.
