@@ -3,11 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"testing"
 	"time"
 
 	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
@@ -30,11 +32,21 @@ const (
 )
 
 func RunServer(envConfig config.EnvConfig) {
-	router := newRouter()
-	api := newAPI(router, envConfig)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	srv, closers := startServer(ctx, envConfig)
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+
+	shutdownServer(srv, closers)
+}
+
+func startServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server, []io.Closer) {
+	router := newRouter()
+	api := newAPI(router, envConfig)
 
 	closers, err := LoadModule(ctx, api, envConfig)
 	if err != nil {
@@ -46,9 +58,6 @@ func RunServer(envConfig config.EnvConfig) {
 		Handler: newSecurityHandler(envConfig, router),
 	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
 	go func() {
 		logger.Infof("Starting %s verifier server with type %s on: %s ...\n",
 			envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
@@ -57,7 +66,10 @@ func RunServer(envConfig config.EnvConfig) {
 		}
 	}()
 
-	<-stop
+	return srv, closers
+}
+
+func shutdownServer(srv *http.Server, closers []io.Closer) {
 	logger.Info("Shutting down gracefully...")
 
 	for _, c := range closers {
@@ -66,11 +78,27 @@ func RunServer(envConfig config.EnvConfig) {
 		}
 	}
 
-	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), shutdownAfter)
-	defer cancelShutdown()
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), shutdownAfter)
+	defer cancel()
 	if err := srv.Shutdown(ctxShutdown); err != nil {
 		logger.Errorf("server forced to shutdown: %v", err)
 	}
+}
+
+func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	srv, closers := startServer(ctx, envConfig)
+
+	stop = func() {
+		cancel()
+		shutdownServer(srv, closers)
+	}
+
+	// Wait a little so server starts before tests run
+	time.Sleep(50 * time.Millisecond)
+	return stop
 }
 
 var attestationTypes = []connector.AttestationType{

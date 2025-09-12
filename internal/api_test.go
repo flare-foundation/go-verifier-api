@@ -24,23 +24,26 @@ import (
 )
 
 const testAPIKey = "test"
+const testPort = "3121"
+const testEnv = "development"
 
 func TestPMWMultisig(t *testing.T) {
-	const url = "http://localhost:3120/verifier/xrp/PMWMultisigAccountConfigured"
-	go api.RunServer(config.EnvConfig{
+	url := fmt.Sprintf("http://localhost:%s/verifier/xrp/PMWMultisigAccountConfigured", testPort)
+	stop := api.RunServerForTest(t, config.EnvConfig{
 		RPCURL:          "https://s.altnet.rippletest.net:51234",
 		SourceID:        config.SourceXRP,
 		AttestationType: connector.PMWMultisigAccountConfigured,
-		Port:            "3120",
+		Port:            testPort,
 		APIKeys:         []string{testAPIKey},
-		Env:             "development",
+		Env:             testEnv,
 	})
+	defer stop()
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
 	attestationType, sourceID := prepareAttestationTypeAndSourceID(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	t.Run("Health check", func(t *testing.T) {
-		resp, err := testhelper.Get(t, "http://localhost:3120/api/health", testAPIKey)
+		resp, err := testhelper.Get(t, fmt.Sprintf("http://localhost:%s/api/health", testPort), testAPIKey)
 		require.NoError(t, err)
 
 		var response types.HealthCheckResponse
@@ -73,7 +76,7 @@ func TestPMWMultisig(t *testing.T) {
 	t.Run("prepareRequestBody", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody("rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", []hexutil.Bytes{pubkey1, pubkey2, pubkey3}, 1)
-		request := testhelper.CreateAttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody](t, attestationType, sourceID, reqData)
+		request := testhelper.CreateAttestationRequestData(t, attestationType, sourceID, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), request, testAPIKey)
 		require.NoError(t, err)
@@ -116,17 +119,18 @@ func TestPMWMultisig(t *testing.T) {
 }
 
 func TestPMWPaymentStatus(t *testing.T) {
-	const url = "http://localhost:3121/verifier/xrp/PMWPaymentStatus"
-	go api.RunServer(config.EnvConfig{
+	url := fmt.Sprintf("http://localhost:%s/verifier/xrp/PMWPaymentStatus", testPort)
+	stop := api.RunServerForTest(t, config.EnvConfig{
 		RPCURL:            "https://s.altnet.rippletest.net:51234",
 		DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 		CChainDatabaseURL: "username:password@tcp(127.0.0.1:3306)/db?parseTime=true",
 		SourceID:          config.SourceXRP,
 		AttestationType:   connector.PMWPaymentStatus,
-		Port:              "3121",
+		Port:              testPort,
 		APIKeys:           []string{testAPIKey},
-		Env:               "development",
+		Env:               testEnv,
 	})
+	defer stop()
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
@@ -219,17 +223,18 @@ func TestPMWPaymentStatus(t *testing.T) {
 }
 
 func TestTEEAvailabilityCheck(t *testing.T) {
-	const url = "http://localhost:3122/verifier/tee/TeeAvailabilityCheck"
-	go api.RunServer(config.EnvConfig{
+	url := fmt.Sprintf("http://localhost:%s/verifier/tee/TeeAvailabilityCheck", testPort)
+	stop := api.RunServerForTest(t, config.EnvConfig{
 		RPCURL:                            "https://example.io",
 		SourceID:                          config.SourceTEE,
 		AttestationType:                   connector.AvailabilityCheck,
-		Port:                              "3122",
+		Port:                              testPort,
 		APIKeys:                           []string{testAPIKey},
-		Env:                               "development",
 		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		Env:                               testEnv,
 	})
+	defer stop()
 
 	// Wait for server to start
 	time.Sleep(50 * time.Millisecond)
@@ -255,7 +260,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	})
 
 	t.Run("getPolledTees", func(t *testing.T) {
-		resp, err := testhelper.Get(t, "http://localhost:3122/poller/tees", testAPIKey)
+		resp, err := testhelper.Get(t, fmt.Sprintf("http://localhost:%s/poller/tees", testPort), testAPIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp)
 
