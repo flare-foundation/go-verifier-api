@@ -61,7 +61,7 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 		for {
 			select {
 			case <-ticker.C:
-				sampleAllTees(ctx, teeVerifier)
+				sampleAllTees(ctx, teeVerifier, getAllActiveTeesWithRetry, queryTeeInfoAndValidate)
 			case <-ctx.Done():
 				logger.Infof("TEE poller stopped: %v", ctx.Err())
 				return
@@ -70,8 +70,12 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 	}()
 }
 
-func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
-	activeTees, err := getAllActiveTeesWithRetry(ctx, teeVerifier)
+func sampleAllTees(
+	ctx context.Context,
+	teeVerifier *verifier.TeeVerifier,
+	getTees func(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error),
+	queryInfoAndValidate func(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error)) {
+	activeTees, err := getTees(ctx, teeVerifier)
 	if err != nil {
 		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
 		activeTees = getCachedActiveTees()
@@ -103,7 +107,7 @@ func sampleAllTees(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 					if !ok {
 						return
 					}
-					state, err := queryTeeInfoAndValidate(ctx, teeVerifier, t.proxyURL)
+					state, err := queryInfoAndValidate(ctx, teeVerifier, t.proxyURL)
 					if err != nil {
 						logger.Errorf("Failed to query teeInfo %s or validate: %v", t.proxyURL, err)
 					}
