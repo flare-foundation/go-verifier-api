@@ -8,16 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetStandardAddressHash(t *testing.T) {
-	address := "rL7RGDcogfqDnEjCaz2qSpivXF1B1EnsvW"
-	val := GetStandardAddressHash(address)
-	expectedStdAddressHash := "0x00bafe0a11e53099df6fa8bc148cb4e054594c23c8fbc4ec5c5c85cf72a1e96c"
-	require.Equal(t, expectedStdAddressHash, val)
-	require.NotEmpty(t, expectedStdAddressHash)
-	require.Equal(t, "0x", expectedStdAddressHash[:2])
-
-}
-
 func TestBytesToHex0x(t *testing.T) {
 	data := []byte{0x01, 0x02, 0x03}
 	got := bytesToHex0x(data)

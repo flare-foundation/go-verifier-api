@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func ParseBigInt(s string) (*big.Int, error) {
@@ -15,11 +13,6 @@ func ParseBigInt(s string) (*big.Int, error) {
 		return nil, fmt.Errorf("invalid big.Int string: %s", s)
 	}
 	return i, nil
-}
-
-func GetStandardAddressHash(address string) string {
-	hash := crypto.Keccak256([]byte(address))
-	return bytesToHex0x(hash)
 }
 
 func bytesToHex0x(data []byte) string {
