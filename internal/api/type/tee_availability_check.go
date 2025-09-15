@@ -9,16 +9,18 @@ import (
 )
 
 type TeeAvailabilityCheckRequestBody struct {
-	TeeID     common.Address `json:"teeId" validate:"required" example:"0x000000000000000000000000000000000000dEaD"`
-	URL       string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
-	Challenge common.Hash    `json:"challenge" validate:"required" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
+	TeeID      common.Address `json:"teeId" validate:"required" example:"0x000000000000000000000000000000000000dEaD"`
+	TeeProxyID common.Address `json:"teeProxyId" validate:"required" example:"0x000000000000000000000000000000000000dEaD"`
+	URL        string         `json:"url" validate:"required,url" example:"https://supertee.proxy"`
+	Challenge  common.Hash    `json:"challenge" validate:"required" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
 }
 
 func (requestBody TeeAvailabilityCheckRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
 	return connector.ITeeAvailabilityCheckRequestBody{
-		TeeId:     requestBody.TeeID,
-		Url:       requestBody.URL,
-		Challenge: requestBody.Challenge,
+		TeeId:      requestBody.TeeID,
+		TeeProxyId: requestBody.TeeProxyID,
+		Url:        requestBody.URL,
+		Challenge:  requestBody.Challenge,
 	}, nil
 }
 
