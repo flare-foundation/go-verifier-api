@@ -67,7 +67,7 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 		require.Equal(t, uint64(10136106), response.ResponseData.Sequence)
 	})
 
-	t.Run("prepareResponseBody: Invalid sourceId", func(t *testing.T) {
+	t.Run("prepareResponseBody: Invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 
@@ -113,7 +113,7 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 		require.Equal(t, uint64(0), result.Sequence)
 	})
 
-	t.Run("verify: Invalid sourceId", func(t *testing.T) {
+	t.Run("verify: Invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 

@@ -24,7 +24,7 @@ func (requestBody PMWPaymentStatusRequestBody) ToInternal() (connector.IPMWPayme
 
 type PMWPaymentStatusResponseBody struct {
 	RecipientAddress  string      `json:"recipientAddress"`
-	TokenId           common.Hash `json:"tokenId"`
+	TokenID           common.Hash `json:"tokenId"`
 	Amount            hexutil.Big `json:"amount"`
 	Fee               hexutil.Big `json:"fee"`
 	PaymentReference  common.Hash `json:"paymentReference"`
@@ -40,7 +40,7 @@ type PMWPaymentStatusResponseBody struct {
 func PMWPaymentStatusToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPaymentStatusResponseBody {
 	return PMWPaymentStatusResponseBody{
 		RecipientAddress:  data.RecipientAddress,
-		TokenId:           data.TokenId,
+		TokenID:           data.TokenId,
 		Amount:            hexutil.Big(*data.Amount),
 		Fee:               hexutil.Big(*data.Fee),
 		PaymentReference:  data.PaymentReference,

@@ -44,11 +44,12 @@ func CreateAttestationRequestData[T any](t *testing.T, attestationType common.Ha
 	}
 }
 
-func TeeAvailabilityCheckRequestBody(teeId common.Address, url string, challenge common.Hash) attestationtypes.TeeAvailabilityCheckRequestBody {
+func TeeAvailabilityCheckRequestBody(teeID, teeProxyID common.Address, url string, challenge common.Hash) attestationtypes.TeeAvailabilityCheckRequestBody {
 	return attestationtypes.TeeAvailabilityCheckRequestBody{
-		TeeID:     teeId,
-		URL:       url,
-		Challenge: challenge,
+		TeeID:      teeID,
+		TeeProxyID: teeProxyID,
+		URL:        url,
+		Challenge:  challenge,
 	}
 }
 
@@ -94,12 +95,13 @@ func EncodedIPMWPaymentStatusRequestBody(t *testing.T, opType common.Hash, sende
 	return result
 }
 
-func EncodedITeeAvailabilityCheckRequestBody(t *testing.T, teeId common.Address, url string, challenge common.Hash) []byte {
+func EncodedITeeAvailabilityCheckRequestBody(t *testing.T, teeID, teeProxyID common.Address, url string, challenge common.Hash) []byte {
 	t.Helper()
 	reqBody := connector.ITeeAvailabilityCheckRequestBody{
-		TeeId:     teeId,
-		Url:       url,
-		Challenge: challenge,
+		TeeId:      teeID,
+		TeeProxyId: teeProxyID,
+		Url:        url,
+		Challenge:  challenge,
 	}
 	result, err := structs.Encode(connector.AttestationTypeArguments[connector.AvailabilityCheck].Request, reqBody)
 	require.NoError(t, err)

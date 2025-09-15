@@ -41,9 +41,9 @@ func SetupServer(t *testing.T, attestationType connector.AttestationType, source
 	waitForServer(t, fmt.Sprintf("http://localhost:%s/api/health", config.Port))
 
 	url := fmt.Sprintf("http://localhost:%s/verifier/%s/%s", config.Port, strings.ToLower(string(sourceID)), attestationType)
-	attTypeEncoded, sourceIdEncoded := prepareAttestationTypeAndSourceID(t, attestationType, sourceID)
+	attTypeEncoded, sourceIDEncoded := prepareAttestationTypeAndSourceID(t, attestationType, sourceID)
 
-	return TestSetupServer{URL: url, AttestationTypeEncoded: attTypeEncoded, SourceIDEncoded: sourceIdEncoded, Stop: stop, Port: port, APIKey: apiKey}
+	return TestSetupServer{URL: url, AttestationTypeEncoded: attTypeEncoded, SourceIDEncoded: sourceIDEncoded, Stop: stop, Port: port, APIKey: apiKey}
 }
 
 func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) (common.Hash, common.Hash) {

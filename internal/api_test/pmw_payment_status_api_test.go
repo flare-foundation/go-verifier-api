@@ -60,7 +60,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.NotEmpty(t, response.ResponseData)
 		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
 		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(response.ResponseData.RecipientAddress))
-		require.Equal(t, [32]byte{}, response.ResponseData.TokenId)
+		require.Equal(t, [32]byte{}, response.ResponseData.TokenID)
 		require.Equal(t, big.NewInt(10_000), response.ResponseData.Amount.ToInt())
 		require.Equal(t, big.NewInt(10_000), response.ResponseData.ReceivedAmount.ToInt())
 		require.Equal(t, big.NewInt(100), response.ResponseData.Fee.ToInt())

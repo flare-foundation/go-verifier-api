@@ -56,7 +56,7 @@ func TestCheckMissingFields(t *testing.T) {
 			RelayContractAddress:              "relay",
 			TeeMachineRegistryContractAddress: "tee",
 			CChainDatabaseURL:                 "cchain",
-			DatabaseURL:                       "dbUrl",
+			DatabaseURL:                       "dbURL",
 		}
 		err := CheckMissingFields(cfg, fields)
 		require.NoError(t, err)

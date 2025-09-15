@@ -26,7 +26,7 @@ func TestParseAttestationType(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid attestation type")
 }
 
-func TestParseSourceId(t *testing.T) {
+func TestParseSourceID(t *testing.T) {
 	// Valid source IDs
 	for _, sid := range []config.SourceName{
 		config.SourceTEE,

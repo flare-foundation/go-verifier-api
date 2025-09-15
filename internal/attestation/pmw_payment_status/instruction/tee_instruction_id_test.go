@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateInstructionId(t *testing.T) {
+func TestGenerateInstructionID(t *testing.T) {
 	senderAddress := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	nonce := uint64(42)
 	opTypeString := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"

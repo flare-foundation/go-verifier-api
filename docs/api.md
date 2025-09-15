@@ -106,16 +106,18 @@ type AttestationRequest struct {
 - Attestations type `TeeAvailabilityCheck`:
 ```go
 type TeeAvailabilityCheckRequestBody struct {
-	TeeID     [20]byte
-	URL       string
-	Challenge [32]byte
+	TeeID      [20]byte
+	ProxyTeeID [20]byte
+	URL        string
+	Challenge  [32]byte
 }
 ```
-| Field    | Description          |
-|----------|----------------------|
-| TeeID    | Hex-encoded 20-byte Ethereum address of the TEE
-| URL      | TEE proxy endpoint URL
-| Challenge| Hex-encoded 32-byte challenge
+| Field      | Description          |
+|------------|----------------------|
+| TeeID      | Hex-encoded 20-byte Ethereum address of the TEE
+| ProxyTeeID | Hex-encoded 20-byte Ethereum address of the TEE Proxy ID
+| URL        | TEE proxy endpoint URL
+| Challenge  | Hex-encoded 32-byte challenge
 
 ```go
 type TeeAvailabilityCheckResponseBody struct {
@@ -142,8 +144,8 @@ type TeeAvailabilityCheckTeeState struct {
 | TeeTimestamp           | Timestamp reported by the TEE
 | CodeHash               | Hex-encoded 32-byte SHA-256 digest of the workload container image (from JWT)
 | Platform               | Hex-encoded 32-byte hwmodel (from JWT)
-| InitialSigningPolicyId | ID of the initial signing policy
-| LastSigningPolicyId    | ID of the last signing policy
+| InitialSigningPolicyID | ID of the initial signing policy
+| LastSigningPolicyID    | ID of the last signing policy
 | State                  | Current TEE state
 
 - Attestation type `PMWPaymentStatus`.
@@ -171,7 +173,7 @@ type IPMWPaymentStatusResponseBody struct {
 	RevertReason      string
 	ReceivedAmount    *big.Int
 	TransactionFee    *big.Int
-	TransactionId     [32]byte
+	TransactionID     [32]byte
 	BlockNumber       uint64
 	BlockTimestamp    uint64
 }
@@ -187,7 +189,7 @@ type IPMWPaymentStatusResponseBody struct {
 | RevertReason      | Reason for transaction failure (blockchain-specific)
 | ReceivedAmount    | Actual amount received by the recipient
 | TransactionFee    | Total transaction fee spent
-| TransactionId     | Transaction hash
+| TransactionID     | Transaction hash
 | BlockNumber       | Block number in which the transaction was included
 | BlockTimestamp    | Timestamp of the block containing the transaction
 

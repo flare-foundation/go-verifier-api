@@ -88,7 +88,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	if err != nil {
 		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
-	// Fetch from TEE proxy /action/result/<challengeInstructionId>
+	// Fetch from TEE proxy /action/result/<challengeInstructionID>
 	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
 	if err != nil && !errors.Is(err, utils.ErrNotFound) {
 		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
