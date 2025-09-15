@@ -10,6 +10,16 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	mainDBRetries    = 5
+	mainDBRetryDelay = 1 * time.Second
+	mainDBMaxDelay   = 5 * time.Second
+
+	cChainDBRetries    = 10
+	cChainDBRetryDelay = 2 * time.Second
+	cChainDBMaxDelay   = 10 * time.Second
+)
+
 type DBOptions struct {
 	Retries    int
 	RetryDelay time.Duration
@@ -45,18 +55,18 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 
 func InitMainDB(dsn string) (*gorm.DB, error) {
 	opts := &DBOptions{
-		Retries:    5,
-		RetryDelay: 1 * time.Second,
-		MaxDelay:   5 * time.Second,
+		Retries:    mainDBRetries,
+		RetryDelay: mainDBRetryDelay,
+		MaxDelay:   mainDBMaxDelay,
 	}
 	return initDBWithRetries(postgres.Open(dsn), "main DB", opts)
 }
 
 func InitCChainDB(dsn string) (*gorm.DB, error) {
 	opts := &DBOptions{
-		Retries:    10,
-		RetryDelay: 2 * time.Second,
-		MaxDelay:   10 * time.Second,
+		Retries:    cChainDBRetries,
+		RetryDelay: cChainDBRetryDelay,
+		MaxDelay:   cChainDBMaxDelay,
 	}
 	return initDBWithRetries(mysql.Open(dsn), "CChain DB", opts)
 }

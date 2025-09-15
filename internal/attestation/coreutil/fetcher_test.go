@@ -16,7 +16,6 @@ func TestRetry_SuccessFirstAttempt(t *testing.T) {
 	got, err := Retry(3, time.Millisecond, op, nil)
 	require.NoError(t, err, "expected no error")
 	require.Equal(t, want, got, "expected %d, got %d", want, got)
-
 }
 
 func TestRetry_SuccessAfterRetries(t *testing.T) {
@@ -32,7 +31,6 @@ func TestRetry_SuccessAfterRetries(t *testing.T) {
 	require.NoError(t, err, "expected success")
 	require.Equal(t, "ok", got, "expected ok, got %s", got)
 	require.Equal(t, 3, attempts, "expected 3 attempts, got %d", attempts)
-
 }
 
 func TestRetry_ExhaustRetries(t *testing.T) {
@@ -59,7 +57,6 @@ func TestRetry_BreakOn(t *testing.T) {
 	require.ErrorIs(t, err, specialErr, "expected specialErr, got %v", err)
 	require.Equal(t, "bad", got, "expected bad, got %s", got)
 	require.Equal(t, 2, attempts, "expected 2 attempts, got %d", attempts)
-
 }
 
 func TestRetry_ReturnsLastResult(t *testing.T) {
@@ -69,5 +66,4 @@ func TestRetry_ReturnsLastResult(t *testing.T) {
 	got, err := Retry(2, time.Millisecond, op, nil)
 	require.Error(t, err)
 	require.Equal(t, 99, got)
-
 }

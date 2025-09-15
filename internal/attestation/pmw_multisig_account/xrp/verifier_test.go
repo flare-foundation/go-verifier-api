@@ -169,13 +169,13 @@ func TestParsePubKey(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		assert.NoError(t, err)
 
-		pubkey := append(privKey.PublicKey.X.Bytes(), privKey.PublicKey.Y.Bytes()...)
+		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 
 		parsed, err := parsePubKey([64]byte(pubkey))
 		assert.NoError(t, err)
-		assert.Equal(t, privKey.PublicKey.X, parsed.X)
-		assert.Equal(t, privKey.PublicKey.Y, parsed.Y)
-		assert.Equal(t, privKey.PublicKey.Curve, parsed.Curve)
+		assert.Equal(t, privKey.X, parsed.X)
+		assert.Equal(t, privKey.Y, parsed.Y)
+		assert.Equal(t, privKey.Curve, parsed.Curve)
 	})
 
 	t.Run("InvalidPubKey", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestParsePubKey(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Corrupt the public key
-		pubkey := append(privKey.PublicKey.X.Bytes(), privKey.PublicKey.Y.Bytes()...)
+		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 		pubkey[10] ^= 0xFF
 
 		parsed, err := parsePubKey([64]byte(pubkey))
@@ -197,7 +197,7 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		assert.NoError(t, err)
 
-		pubkey := append(privKey.PublicKey.X.Bytes(), privKey.PublicKey.Y.Bytes()...)
+		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 		addr, err := XRPAddressFromPubKey(pubkey)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, addr)
@@ -208,7 +208,7 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Corrupt the public key
-		pubkey := append(privKey.PublicKey.X.Bytes(), privKey.PublicKey.Y.Bytes()...)
+		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 		pubkey[5] ^= 0xFF
 
 		addr, err := XRPAddressFromPubKey(pubkey)
@@ -295,7 +295,7 @@ func createTestAccounts(n int, t *testing.T) []testAccount {
 	for i := 0; i < n; i++ {
 		priv, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		assert.NoError(t, err)
-		pubkey := append(priv.PublicKey.X.Bytes(), priv.PublicKey.Y.Bytes()...)
+		pubkey := append(priv.X.Bytes(), priv.Y.Bytes()...)
 		address, err := XRPAddressFromPubKey(pubkey)
 		require.NoError(t, err)
 		accounts[i] = testAccount{

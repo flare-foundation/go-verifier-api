@@ -116,7 +116,8 @@ func TestDecodeRequest(t *testing.T) {
 
 	t.Run("Invalid", func(t *testing.T) {
 		encoded := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
-		invalidBody := append(encoded, 'a', 'a')
+		invalidBody := append([]byte(nil), encoded...)
+		invalidBody = append(invalidBody, 'a', 'a')
 		_, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndAbi)
 		assertHumaError(t, err, http.StatusBadRequest)
 	})

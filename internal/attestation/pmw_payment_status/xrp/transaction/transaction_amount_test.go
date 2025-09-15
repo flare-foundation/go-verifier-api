@@ -15,7 +15,6 @@ func TestGetStringField(t *testing.T) {
 		val, ok := getStringField(m, "key1")
 		require.True(t, ok)
 		require.Equal(t, "val1", val)
-
 	})
 	t.Run("number field", func(t *testing.T) {
 		_, ok := getStringField(m, "key2")

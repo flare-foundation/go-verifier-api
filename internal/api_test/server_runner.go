@@ -13,7 +13,23 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-func SetupServer(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName, config config.EnvConfig) (string, common.Hash, common.Hash, func()) {
+const (
+	port            = "3121"
+	apiKey          = "test-api-key"
+	serverTimeout   = 2 * time.Second
+	serverTickDelay = 10 * time.Millisecond
+)
+
+type TestSetupServer struct {
+	URL                    string
+	AttestationTypeEncoded common.Hash
+	SourceIDEncoded        common.Hash
+	Stop                   func()
+	Port                   string
+	APIKey                 string
+}
+
+func SetupServer(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName, config config.EnvConfig) TestSetupServer {
 	t.Helper()
 	config.AttestationType = attestationType
 	config.SourceID = sourceID
@@ -25,7 +41,7 @@ func SetupServer(t *testing.T, attestationType connector.AttestationType, source
 	url := fmt.Sprintf("http://localhost:%s/verifier/%s/%s", config.Port, strings.ToLower(string(sourceID)), attestationType)
 	attTypeEncoded, sourceIdEncoded := prepareAttestationTypeAndSourceID(t, attestationType, sourceID)
 
-	return url, attTypeEncoded, sourceIdEncoded, stop
+	return TestSetupServer{URL: url, AttestationTypeEncoded: attTypeEncoded, SourceIDEncoded: sourceIdEncoded, Stop: stop, Port: port, APIKey: apiKey}
 }
 
 func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) (common.Hash, common.Hash) {
@@ -38,15 +54,14 @@ func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.A
 
 func waitForServer(t *testing.T, url string) {
 	t.Helper()
-	timeout := 2 * time.Second
-	deadline := time.After(timeout)
-	ticker := time.NewTicker(10 * time.Millisecond)
+	deadline := time.After(serverTimeout)
+	ticker := time.NewTicker(serverTickDelay)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-deadline:
-			t.Fatalf("Server did not become healthy within %s", timeout)
+			t.Fatalf("Server did not become healthy within %s", serverTimeout)
 		case <-ticker.C:
 			resp, err := http.Get(url)
 			if err == nil && resp.StatusCode == http.StatusOK {

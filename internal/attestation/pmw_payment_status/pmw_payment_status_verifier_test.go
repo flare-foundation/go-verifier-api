@@ -58,7 +58,7 @@ func TestPaymentService(t *testing.T) {
 }
 
 // Both tests need docker compose running.
-func TestPMWPaymentStatus(t *testing.T) { // TODO
+func TestPMWPaymentStatus(t *testing.T) {
 	service, err := NewPaymentService(envConfig)
 	require.NoError(t, err)
 

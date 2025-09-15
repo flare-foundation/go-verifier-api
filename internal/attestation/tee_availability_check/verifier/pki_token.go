@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
-	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -244,7 +243,7 @@ func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo) (teetype.S
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %w", err)
 	}
-	statusInfo.Platform, err = utils.StringToBytes32(claims.HWModel)
+	statusInfo.Platform, err = coreutil.StringToBytes32(claims.HWModel)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %w", err)
 	}

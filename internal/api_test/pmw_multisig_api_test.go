@@ -16,24 +16,19 @@ import (
 )
 
 func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
-	const apiKey = "test-api-key"
-	const port = "3121"
-
-	url, attestationType, sourceID, stop := api.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceXRP, config.EnvConfig{
-		RPCURL:  "https://s.altnet.rippletest.net:51234",
-		Port:    port,
-		APIKeys: []string{apiKey},
+	setup := api.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceXRP, config.EnvConfig{
+		RPCURL: "https://s.altnet.rippletest.net:51234",
 	})
-	defer stop()
+	defer setup.Stop()
 
 	// /prepareRequestBody
 
 	t.Run("prepareRequestBody: Valid request", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody("rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", []hexutil.Bytes{pubkey1, pubkey2, pubkey3}, 1)
-		request := testhelper.CreateAttestationRequestData(t, attestationType, sourceID, reqData)
+		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
-		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), request, apiKey)
+		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 
@@ -43,16 +38,16 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 
 	t.Run("prepareRequestBody: Bad request", func(t *testing.T) {
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{}, apiKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{}, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 
 	t.Run("prepareRequestBody: Empty public key", func(t *testing.T) {
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody("rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", []hexutil.Bytes{{}}, 1)
-		request := testhelper.CreateAttestationRequestData(t, attestationType, sourceID, reqData)
+		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), request, apiKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
@@ -62,9 +57,9 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	t.Run("prepareResponseBody: Correctly created multisig wallet", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
-		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, reqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		response, err := testhelper.Post[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", url), request, apiKey)
+		response, err := testhelper.Post[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.ResponseBody)
 		require.NotEmpty(t, response.ResponseData)
@@ -74,18 +69,18 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 
 	t.Run("prepareResponseBody: Invalid sourceId", func(t *testing.T) {
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
-		request := testhelper.CreateAttestationRequest(t, attestationType, common.HexToHash("0x123123"), reqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", url), request, apiKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("prepareResponseBody: Invalid request body", func(t *testing.T) {
-		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, []byte{})
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{})
 		request.RequestBody = []byte{}
 
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", url), request, apiKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
@@ -95,9 +90,9 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	t.Run("verify: Correctly created multisig wallet", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
-		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, reqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), request, apiKey)
+		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		result := testhelper.DecodeFTDCPMWMultisigAccountConfiguredResponse(t, response.ResponseBody)
 		require.NoError(t, err)
@@ -108,9 +103,9 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	t.Run("verify: Missing pubkey in request", func(t *testing.T) {
 		pubkey1, pubkey2, _ := pubKeysForMultisig(t)
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2}, 1)
-		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, reqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), request, apiKey)
+		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		result := testhelper.DecodeFTDCPMWMultisigAccountConfiguredResponse(t, response.ResponseBody)
 		require.NoError(t, err)
@@ -120,27 +115,27 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 
 	t.Run("verify: Invalid sourceId", func(t *testing.T) {
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
-		request := testhelper.CreateAttestationRequest(t, attestationType, common.HexToHash("0x123123"), reqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), request, apiKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("verify: Invalid attestation type", func(t *testing.T) {
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
-		request := testhelper.CreateAttestationRequest(t, [32]byte{0xFF}, sourceID, reqBody)
+		request := testhelper.CreateAttestationRequest(t, [32]byte{0xFF}, setup.SourceIDEncoded, reqBody)
 
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), request, apiKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("verify: Invalid request body", func(t *testing.T) {
-		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, []byte{})
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{})
 		request.RequestBody = []byte{}
 
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), request, apiKey)
+		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
@@ -148,9 +143,9 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	t.Run("verify: Invalid address - failed to get account info", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77a", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
-		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, reqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		_, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), request, apiKey)
+		_, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.Error(t, err)
 	})
 }
