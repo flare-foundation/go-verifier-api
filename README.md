@@ -72,3 +72,4 @@ See [API reference](docs/api.md) for endpoint definitions and examples.
 - [ ] Add poller API endpoint in readme.
 - [ ] Check all ctx's are sensible -> retry with backoff (wait 5s). Relay-client has 10 s timeout.
 - [ ] Improve healthy endpoint (all needed services are running).
+- [ ] Jakob: Place DisableAttestationCheckE2E properly in order to use TEEAvailabilityCheck verifier directly in e2e test.

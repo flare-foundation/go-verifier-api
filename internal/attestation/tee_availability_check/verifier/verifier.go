@@ -143,7 +143,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %w", err)
 	}
 	// check claims
-	statusInfo, err := ValidateClaims(token, infoData)
+	statusInfo, err := ValidateClaims(token, infoData, v.cfg.AllowTeeDebug)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}

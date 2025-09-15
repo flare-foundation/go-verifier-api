@@ -22,6 +22,8 @@ const (
 	EnvAPIKeys                           = "API_KEYS"
 	EnvAttestationType                   = "VERIFIER_TYPE"
 	EnvSourceID                          = "SOURCE_ID"
+	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"
+	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E"
 )
 
 type EnvConfig struct {
@@ -30,6 +32,8 @@ type EnvConfig struct {
 	TeeMachineRegistryContractAddress string
 	DatabaseURL                       string
 	CChainDatabaseURL                 string
+	AllowTeeDebug                     bool
+	DisableAttestationCheckE2E        bool
 	Env                               string
 	Port                              string
 	APIKeys                           []string
@@ -63,6 +67,8 @@ type TeeAvailabilityCheckConfig struct {
 	EncodedAndABI
 	RelayContractAddress              string
 	TeeMachineRegistryContractAddress string
+	AllowTeeDebug                     bool
+	DisableAttestationCheckE2E        bool
 	RPCURL                            string
 	GoogleRootCertificate             *x509.Certificate
 }

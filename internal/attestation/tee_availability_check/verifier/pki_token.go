@@ -194,7 +194,7 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 	return nil
 }
 
-func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo) (teetype.StatusInfo, error) {
+func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo, allowDebugMode bool) (teetype.StatusInfo, error) {
 	var statusInfo teetype.StatusInfo
 	if !token.Valid {
 		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
@@ -215,9 +215,15 @@ func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo) (teetype.S
 	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) {
 		return teetype.StatusInfo{}, errors.New("eat_nonce does not match")
 	}
-	// Check if running in production
-	if claims.DebugStatus != "disabled-since-boot" {
-		return teetype.StatusInfo{}, errors.New("not running in production mode")
+	// Check if running in production. Allow debug mode only if ALLOW_TEE_DEBUG is enabled.
+	if allowDebugMode {
+		if claims.DebugStatus == "disabled-since-boot" {
+			return teetype.StatusInfo{}, errors.New("production TEE not allowed when ALLOW_TEE_DEBUG=true")
+		}
+	} else {
+		if claims.DebugStatus != "disabled-since-boot" {
+			return teetype.StatusInfo{}, errors.New("not running in production mode")
+		}
 	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {

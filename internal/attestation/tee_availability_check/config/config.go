@@ -24,7 +24,7 @@ func GetTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvail
 }
 
 func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvailabilityCheckConfig, error) {
-	err := config.CheckMissingFields(envConfig, []string{config.EnvRelayContractAddress, config.EnvTeeMachineRegistryContractAddress, config.EnvRPCURL})
+	err := config.CheckMissingFields(envConfig, []string{config.EnvRelayContractAddress, config.EnvTeeMachineRegistryContractAddress, config.EnvRPCURL, config.EnvAllowTeeDebug, config.EnvDisableAttestationCheckE2E})
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +40,8 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 		EncodedAndABI:                     commonConfig,
 		RelayContractAddress:              envConfig.RelayContractAddress,
 		TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
+		AllowTeeDebug:                     envConfig.AllowTeeDebug,
+		DisableAttestationCheckE2E:        envConfig.DisableAttestationCheckE2E,
 		RPCURL:                            envConfig.RPCURL,
 		GoogleRootCertificate:             googleRootCert,
 	}, nil
