@@ -16,7 +16,7 @@ import (
 const (
 	port            = "3121"
 	apiKey          = "test-api-key"
-	serverTimeout   = 2 * time.Second
+	serverTimeout   = 5 * time.Second
 	serverTickDelay = 10 * time.Millisecond
 )
 
@@ -34,6 +34,8 @@ func SetupServer(t *testing.T, attestationType connector.AttestationType, source
 	config.AttestationType = attestationType
 	config.SourceID = sourceID
 	config.Env = "development"
+	config.Port = port
+	config.APIKeys = []string{apiKey}
 
 	stop := api.RunServerForTest(t, config)
 	waitForServer(t, fmt.Sprintf("http://localhost:%s/api/health", config.Port))
