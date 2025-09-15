@@ -17,18 +17,14 @@ import (
 )
 
 func TestTEEAvailabilityCheck(t *testing.T) {
-	const port = 3122
 	const apiKey = "test-api-key"
-
+	const port = "3121"
 	url, attestationType, sourceID, stop := api.SetupServer(t, connector.AvailabilityCheck, config.SourceTEE, config.EnvConfig{
-		RPCURL:                            "https://s.altnet.rippletest.net:51234",
-		Port:                              fmt.Sprintf("%d", port),
 		APIKeys:                           []string{apiKey},
-		Env:                               "development",
+		Port:                              port,
+		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
 		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
-		DatabaseURL:                       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
-		CChainDatabaseURL:                 "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 	})
 	defer stop()
 
@@ -48,11 +44,11 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	t.Run("prepareRequestBody - bad request", func(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]{}, apiKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 
 	t.Run("getPolledTees", func(t *testing.T) {
-		resp, err := testhelper.Get(t, "http://localhost:3122/poller/tees", apiKey)
+		resp, err := testhelper.Get(t, fmt.Sprintf("http://localhost:%s/poller/tees", port), apiKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp)
 

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -9,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
@@ -25,25 +25,7 @@ var (
 	testThreshold      = uint64(2)
 )
 
-func TestValidateRequest(t *testing.T) {
-	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-
-	t.Run("Valid encodedReq", func(t *testing.T) {
-		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
-		req := testhelper.CreateAttestationRequest(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
-		err := ValidateRequest(req, encodedAndAbi)
-		require.NoError(t, err)
-	})
-
-	t.Run("Invalid attestation type/source id", func(t *testing.T) {
-		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
-		invalidReq := testhelper.CreateAttestationRequest(t, [32]byte{0xFF}, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
-		err := ValidateRequest(invalidReq, encodedAndAbi)
-		assertHumaError(t, err, http.StatusBadRequest)
-	})
-}
-
-func TestValidateAndPrepareRequestBody(t *testing.T) {
+func TestPrepareRequestBody(t *testing.T) {
 	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	hexKeys := make([]hexutil.Bytes, len(testPublicKeys))
 	for i, k := range testPublicKeys {
@@ -56,7 +38,7 @@ func TestValidateAndPrepareRequestBody(t *testing.T) {
 	}
 	t.Run("Valid encodedReq", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
-		_, err := ValidateAndPrepareRequestBody(req, encodedAndAbi)
+		_, err := PrepareRequestBody(req, encodedAndAbi)
 		require.NoError(t, err)
 	})
 
@@ -64,14 +46,7 @@ func TestValidateAndPrepareRequestBody(t *testing.T) {
 		attBodyCopy := attBody
 		attBodyCopy.PublicKeys = append(attBodyCopy.PublicKeys, hexutil.Bytes{})
 		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBodyCopy)
-		_, err := ValidateAndPrepareRequestBody(invalidReq, encodedAndAbi)
-		fmt.Println(err)
-		assertHumaError(t, err, http.StatusBadRequest)
-	})
-
-	t.Run("Invalid attestation type/source id", func(t *testing.T) {
-		invalidReq := testhelper.CreateAttestationRequestData(t, [32]byte{0xFF}, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
-		_, err := ValidateAndPrepareRequestBody(invalidReq, encodedAndAbi)
+		_, err := PrepareRequestBody(invalidReq, encodedAndAbi)
 		assertHumaError(t, err, http.StatusBadRequest)
 	})
 
@@ -79,51 +54,52 @@ func TestValidateAndPrepareRequestBody(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndAbi.AttestationTypePair.AttestationTypeEncoded, encodedAndAbi.SourceIDPair.SourceIDEncoded, attBody)
 		encodedAndAbiCopy := encodedAndAbi
 		encodedAndAbiCopy.ABIPair.Request = abi.Argument{}
-		_, err := ValidateAndPrepareRequestBody(req, encodedAndAbi)
+		_, err := PrepareRequestBody(req, encodedAndAbi)
 		assertHumaError(t, err, http.StatusBadRequest)
 	})
 }
 
-func TestValidateRequestData(t *testing.T) {
-	encodedAndAbi := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+func TestValidateSystemAndRequestAttestationNameAndSourceId(t *testing.T) {
+	attestationTypePair := config.AttestationTypeEncodedPair{
+		AttestationType:        "TestType",
+		AttestationTypeEncoded: common.HexToHash("0x1234"),
+	}
+	sourceIDPair := config.SourceIDEncodedPair{
+		SourceID:        "TestSource",
+		SourceIDEncoded: common.HexToHash("0x5678"),
+	}
 
-	t.Run("Valid", func(t *testing.T) {
-		validReq := testhelper.CreateAttestationRequestData(t,
-			encodedAndAbi.AttestationTypePair.AttestationTypeEncoded,
-			encodedAndAbi.SourceIDPair.SourceIDEncoded,
-			attestationtypes.PMWMultisigAccountConfiguredRequestBody{
-				AccountAddress: testAccountAddress,
-				PublicKeys:     []hexutil.Bytes{testPublicKeys[0]},
-				Threshold:      testThreshold,
-			},
-		)
-		err := ValidateRequestData(validReq, encodedAndAbi)
-		require.NoError(t, err)
-	})
+	cfg := &config.EncodedAndABI{
+		SourceIDPair:        sourceIDPair,
+		AttestationTypePair: attestationTypePair,
+		ABIPair:             config.ABIArgPair{},
+	}
 
-	t.Run("Validation error", func(t *testing.T) {
-		invalidReq := testhelper.CreateAttestationRequestData(t,
-			encodedAndAbi.AttestationTypePair.AttestationTypeEncoded,
-			encodedAndAbi.SourceIDPair.SourceIDEncoded,
-			attestationtypes.PMWMultisigAccountConfiguredRequestBody{},
-		)
-		err := ValidateRequestData(invalidReq, encodedAndAbi)
-		assertHumaError(t, err, http.StatusBadRequest)
-	})
+	// Matching values
+	err := ValidateSystemAndRequestAttestationNameAndSourceID(
+		cfg,
+		attestationTypePair.AttestationTypeEncoded.Hex(),
+		sourceIDPair.SourceIDEncoded.Hex(),
+	)
+	require.NoError(t, err)
 
-	t.Run("Attestation/source mismatch", func(t *testing.T) {
-		mismatchReq := testhelper.CreateAttestationRequestData(t,
-			[32]byte{0xFF},
-			encodedAndAbi.SourceIDPair.SourceIDEncoded,
-			attestationtypes.PMWMultisigAccountConfiguredRequestBody{
-				AccountAddress: testAccountAddress,
-				PublicKeys:     []hexutil.Bytes{testPublicKeys[0]},
-				Threshold:      testThreshold,
-			},
-		)
-		err := ValidateRequestData(mismatchReq, encodedAndAbi)
-		assertHumaError(t, err, http.StatusBadRequest)
-	})
+	// Mismatched attestation type
+	err = ValidateSystemAndRequestAttestationNameAndSourceID(
+		cfg,
+		"0xdeadbeef",
+		sourceIDPair.SourceIDEncoded.Hex(),
+	)
+	assertHumaError(t, err, http.StatusBadRequest)
+	require.Contains(t, err.Error(), "attestation type and source id combination not supported")
+
+	// Mismatched source id
+	err = ValidateSystemAndRequestAttestationNameAndSourceID(
+		cfg,
+		attestationTypePair.AttestationTypeEncoded.Hex(),
+		"0xdeadbeef",
+	)
+	assertHumaError(t, err, http.StatusBadRequest)
+	require.Contains(t, err.Error(), "attestation type and source id combination not supported")
 }
 
 func TestDecodeRequest(t *testing.T) {

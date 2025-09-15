@@ -14,7 +14,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/flare-foundation/go-verifier-api/internal/api/validation"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -40,29 +39,15 @@ func getVerifierAPITag(attestationType connector.AttestationType) []string {
 	return []string{string(attestationType)}
 }
 
-func ValidateRequestData[T any](request types.AttestationRequestData[T], config *config.EncodedAndABI) error {
-	if err := validation.ValidateRequest(request); err != nil {
-		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
-	}
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceID(
-		config.AttestationTypePair,
-		config.SourceIDPair,
-		request.AttestationType.Hex(),
-		request.SourceID.Hex(),
-	); err != nil {
-		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
-	}
-	return nil
-}
-
-func ValidateRequest(request types.AttestationRequest, config *config.EncodedAndABI) error {
-	if err := validation.ValidateSystemAndRequestAttestationNameAndSourceID(
-		config.AttestationTypePair,
-		config.SourceIDPair,
-		request.AttestationType.Hex(),
-		request.SourceID.Hex(),
-	); err != nil {
-		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", err))
+func ValidateSystemAndRequestAttestationNameAndSourceID(config *config.EncodedAndABI, requestAttestationName string, requestSourceID string) error {
+	if requestAttestationName != config.AttestationTypePair.AttestationTypeEncoded.Hex() || requestSourceID != config.SourceIDPair.SourceIDEncoded.Hex() {
+		var errorMessage = fmt.Errorf(
+			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s)",
+			requestAttestationName, requestSourceID,
+			string(config.AttestationTypePair.AttestationType), config.AttestationTypePair.AttestationTypeEncoded,
+			config.SourceIDPair.SourceID, config.SourceIDPair.SourceIDEncoded,
+		)
+		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", errorMessage))
 	}
 	return nil
 }
@@ -84,13 +69,10 @@ func EncodeResponse[T any](responseData T, config *config.EncodedAndABI) ([]byte
 	return data, nil
 }
 
-func ValidateAndPrepareRequestBody[T types.InternalConvertible[I], I any](
+func PrepareRequestBody[T types.InternalConvertible[I], I any](
 	body types.AttestationRequestData[T],
 	config *config.EncodedAndABI,
 ) (hexutil.Bytes, error) {
-	if err := ValidateRequestData(body, config); err != nil {
-		return nil, err
-	}
 	requestData, err := body.RequestData.ToInternal()
 	if err != nil {
 		return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))

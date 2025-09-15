@@ -18,18 +18,14 @@ import (
 )
 
 func TestPMWPaymentStatus(t *testing.T) {
-	const port = 3121
+	const port = "3121"
 	const apiKey = "test-api-key"
 
 	url, attestationType, sourceID, stop := api.SetupServer(t, connector.PMWPaymentStatus, config.SourceXRP, config.EnvConfig{
-		RPCURL:                            "https://s.altnet.rippletest.net:51234",
-		Port:                              fmt.Sprintf("%d", port),
-		APIKeys:                           []string{apiKey},
-		Env:                               "development",
-		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
-		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
-		DatabaseURL:                       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
-		CChainDatabaseURL:                 "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+		APIKeys:           []string{apiKey},
+		Port:              port,
+		DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+		CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 	})
 	defer stop()
 
@@ -40,7 +36,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 
 	t.Run("prepareRequestBody: Valid request", func(t *testing.T) {
 		reqData := testhelper.PMWPaymentStatusRequestBody(opType, "address", 1, 1)
-		request := testhelper.CreateAttestationRequestData[types.PMWPaymentStatusRequestBody](t, attestationType, sourceID, reqData)
+		request := testhelper.CreateAttestationRequestData(t, attestationType, sourceID, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequest](t, fmt.Sprintf("%s/prepareRequestBody", url), request, apiKey)
 		attBody := testhelper.EncodedIPMWPaymentStatusRequestBody(t, opType, reqData.SenderAddress, request.RequestData.Nonce, request.RequestData.SubNonce)
@@ -53,7 +49,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("prepareRequestBody: Bad request", func(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWPaymentStatusRequestBody]{}, apiKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 
 	// /prepareResponseBody
@@ -84,7 +80,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("prepareResponseBody: Bad request", func(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", url), types.AttestationRequest{}, apiKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 
 	t.Run("prepareResponseBody: Invalid body", func(t *testing.T) {

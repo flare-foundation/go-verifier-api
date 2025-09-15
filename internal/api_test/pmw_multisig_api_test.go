@@ -16,12 +16,12 @@ import (
 )
 
 func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
-	const port = 3120
 	const apiKey = "test-api-key"
+	const port = "3121"
 
 	url, attestationType, sourceID, stop := api.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceXRP, config.EnvConfig{
 		RPCURL:  "https://s.altnet.rippletest.net:51234",
-		Port:    fmt.Sprintf("%d", port),
+		Port:    port,
 		APIKeys: []string{apiKey},
 	})
 	defer stop()
@@ -31,7 +31,7 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	t.Run("prepareRequestBody: Valid request", func(t *testing.T) {
 		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody("rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", []hexutil.Bytes{pubkey1, pubkey2, pubkey3}, 1)
-		request := testhelper.CreateAttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody](t, attestationType, sourceID, reqData)
+		request := testhelper.CreateAttestationRequestData(t, attestationType, sourceID, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", url), request, apiKey)
 		require.NoError(t, err)
@@ -45,7 +45,7 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	t.Run("prepareRequestBody: Bad request", func(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", url), types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{}, apiKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 
 	t.Run("prepareRequestBody: Empty public key", func(t *testing.T) {
@@ -87,7 +87,7 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", url), request, apiKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 	})
 
 	// /verify
@@ -142,7 +142,16 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", url), request, apiKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+	})
+
+	t.Run("verify: Invalid address - failed to get account info", func(t *testing.T) {
+		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
+		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77a", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
+		request := testhelper.CreateAttestationRequest(t, attestationType, sourceID, reqBody)
+
+		_, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", url), request, apiKey)
+		require.Error(t, err)
 	})
 }
 

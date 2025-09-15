@@ -31,7 +31,11 @@ func PMWMultisigAccountHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
-			encodedRequest, err := ValidateAndPrepareRequestBody(request.Body, config)
+			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
+			if err != nil {
+				return nil, err
+			}
+			encodedRequest, err := PrepareRequestBody(request.Body, config)
 			if err != nil {
 				return nil, err
 			}
@@ -48,7 +52,7 @@ func PMWMultisigAccountHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]], error) {
-			err := ValidateRequest(request.Body, config)
+			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
 				return nil, err
 			}
@@ -79,7 +83,7 @@ func PMWMultisigAccountHandler(
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponse], error) {
 			logger.Debug("Received request for PMWMultisigAccountConfigured")
-			err := ValidateRequest(request.Body, config)
+			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
 				return nil, err
 			}

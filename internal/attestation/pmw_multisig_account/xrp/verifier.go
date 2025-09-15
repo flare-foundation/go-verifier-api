@@ -31,19 +31,17 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 	accountInfo, err := x.Client.GetAccountInfo(ctx, req.AccountAddress)
 	if err != nil {
 		logger.Infof("Failed to get account info: %v", err)
+		return connector.IPMWMultisigAccountConfiguredResponseBody{}, err
+	}
+	sequence, err := x.validateMultisigConfiguration(accountInfo, req)
+	if err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(attestationtypes.PMWMultisigAccountStatusERROR),
 			Sequence: 0,
-		}, err
-	}
-
-	sequence, err := x.validateMultisigConfiguration(accountInfo, req)
-	status := uint8(attestationtypes.PMWMultisigAccountStatusOK)
-	if err != nil {
-		status = uint8(attestationtypes.PMWMultisigAccountStatusERROR)
+		}, nil
 	}
 	return connector.IPMWMultisigAccountConfiguredResponseBody{
-		Status:   status,
+		Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
 		Sequence: sequence,
 	}, nil
 }

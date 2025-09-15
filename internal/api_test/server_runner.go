@@ -15,7 +15,6 @@ import (
 
 func SetupServer(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName, config config.EnvConfig) (string, common.Hash, common.Hash, func()) {
 	t.Helper()
-
 	config.AttestationType = attestationType
 	config.SourceID = sourceID
 	config.Env = "development"
@@ -39,15 +38,15 @@ func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.A
 
 func waitForServer(t *testing.T, url string) {
 	t.Helper()
-	timeoutSeconds := 2 * time.Second
-	timeout := time.After(timeoutSeconds)
+	timeout := 2 * time.Second
+	deadline := time.After(timeout)
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-timeout:
-			t.Fatalf("Server did not become healthy within %s", timeoutSeconds)
+		case <-deadline:
+			t.Fatalf("Server did not become healthy within %s", timeout)
 		case <-ticker.C:
 			resp, err := http.Get(url)
 			if err == nil && resp.StatusCode == http.StatusOK {

@@ -11,7 +11,7 @@ import (
 )
 
 func GenerateInstructionID(opType, sourceID [32]byte, senderAddress string, nonce uint64) (common.Hash, error) {
-	PAY, err := coreutil.StringToBytes32(string(op.Pay)) // TODO Do we really need this error? Since op.Pay is fixed ...
+	PAY, err := coreutil.StringToBytes32(string(op.Pay))
 	if err != nil {
 		return common.Hash{}, err
 	}

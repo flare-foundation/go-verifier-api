@@ -7,7 +7,7 @@ import (
 )
 
 type PMWPaymentStatusRequestBody struct {
-	OpType        common.Hash `json:"opType" validate:"required,hash32" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
+	OpType        common.Hash `json:"opType" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	SenderAddress string      `json:"senderAddress" validate:"required" example:"abcdef"`
 	Nonce         uint64      `json:"nonce" validate:"required" example:"1"`
 	SubNonce      uint64      `json:"subNonce" validate:"required" example:"1"`

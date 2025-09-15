@@ -1,8 +1,12 @@
 package attestationtypes
 
 import (
+	"fmt"
+
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/go-playground/validator/v10"
 )
 
 type HealthCheckResponse struct {
@@ -11,9 +15,16 @@ type HealthCheckResponse struct {
 
 // Main API types.
 type AttestationRequest struct {
-	AttestationType common.Hash   `json:"attestationType" validate:"required,hash32" example:"0x504d574..."`
-	SourceID        common.Hash   `json:"sourceId" validate:"required,hash32" example:"0x7465..."`
-	RequestBody     hexutil.Bytes `json:"requestBody" example:"0x0000abcd..."`
+	AttestationType common.Hash   `json:"attestationType" validate:"required" example:"0x504d574..."`
+	SourceID        common.Hash   `json:"sourceId" validate:"required" example:"0x7465..."`
+	RequestBody     hexutil.Bytes `json:"requestBody" validate:"required" example:"0x0000abcd..."`
+}
+
+func (req AttestationRequest) Resolve(ctx huma.Context) []error {
+	if len(req.RequestBody) == 0 {
+		return []error{fmt.Errorf("requestBody cannot be empty")}
+	}
+	return nil
 }
 
 type AttestationResponse struct {
@@ -22,9 +33,17 @@ type AttestationResponse struct {
 
 // Helper API types.
 type AttestationRequestData[T any] struct {
-	AttestationType common.Hash `json:"attestationType" validate:"required,hash32" example:"0x504d574..."`
-	SourceID        common.Hash `json:"sourceId" validate:"required,hash32" example:"0x7465..."`
-	RequestData     T           `json:"requestData"`
+	AttestationType common.Hash `json:"attestationType" validate:"required" example:"0x504d574..."`
+	SourceID        common.Hash `json:"sourceId" validate:"required" example:"0x7465..."`
+	RequestData     T           `json:"requestData" validate:"required"`
+}
+
+func (req AttestationRequestData[T]) Resolve(ctx huma.Context) []error {
+	var errs []error
+	if valErr := validator.New().Struct(req.RequestData); valErr != nil {
+		errs = append(errs, valErr)
+	}
+	return errs
 }
 
 type AttestationRequestEncoded struct {

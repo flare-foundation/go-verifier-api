@@ -34,7 +34,11 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
-			encodedRequest, err := ValidateAndPrepareRequestBody(request.Body, config)
+			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
+			if err != nil {
+				return nil, err
+			}
+			encodedRequest, err := PrepareRequestBody(request.Body, config)
 			if err != nil {
 				return nil, err
 			}
@@ -51,7 +55,7 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]], error) {
-			err := ValidateRequest(request.Body, config)
+			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
 				return nil, err
 			}
@@ -85,7 +89,7 @@ func TeeAvailabilityCheckHandler(
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponse], error) {
 			logger.Debug("Received request for TEEAvailabilityCheck")
-			err := ValidateRequest(request.Body, config)
+			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
 				return nil, err
 			}
