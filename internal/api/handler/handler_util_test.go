@@ -26,7 +26,7 @@ var (
 )
 
 func TestPrepareRequestBody(t *testing.T) {
-	encodedAndABI := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	hexKeys := make([]hexutil.Bytes, len(testPublicKeys))
 	for i, k := range testPublicKeys {
 		hexKeys[i] = k
@@ -41,7 +41,6 @@ func TestPrepareRequestBody(t *testing.T) {
 		_, err := PrepareRequestBody(req, encodedAndABI)
 		require.NoError(t, err)
 	})
-
 	t.Run("Invalid encodedReq - validation fails", func(t *testing.T) {
 		attBodyCopy := attBody
 		attBodyCopy.PublicKeys = append(attBodyCopy.PublicKeys, hexutil.Bytes{})
@@ -49,7 +48,6 @@ func TestPrepareRequestBody(t *testing.T) {
 		_, err := PrepareRequestBody(invalidReq, encodedAndABI)
 		assertHumaError(t, err, http.StatusBadRequest)
 	})
-
 	t.Run("Invalid ABI encode", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, attBody)
 		encodedAndABICopy := encodedAndABI
@@ -68,13 +66,11 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 		SourceID:        "TestSource",
 		SourceIDEncoded: common.HexToHash("0x5678"),
 	}
-
 	cfg := &config.EncodedAndABI{
 		SourceIDPair:        sourceIDPair,
 		AttestationTypePair: attestationTypePair,
 		ABIPair:             config.ABIArgPair{},
 	}
-
 	// Matching values
 	err := ValidateSystemAndRequestAttestationNameAndSourceID(
 		cfg,
@@ -82,7 +78,6 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 		sourceIDPair.SourceIDEncoded.Hex(),
 	)
 	require.NoError(t, err)
-
 	// Mismatched attestation type
 	err = ValidateSystemAndRequestAttestationNameAndSourceID(
 		cfg,
@@ -91,7 +86,6 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 	)
 	assertHumaError(t, err, http.StatusBadRequest)
 	require.Contains(t, err.Error(), "attestation type and source id combination not supported")
-
 	// Mismatched source id
 	err = ValidateSystemAndRequestAttestationNameAndSourceID(
 		cfg,
@@ -103,8 +97,7 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 }
 
 func TestDecodeRequest(t *testing.T) {
-	encodedAndABI := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-
+	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	t.Run("Valid", func(t *testing.T) {
 		encoded := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
 		decoded, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](encoded, encodedAndABI)
@@ -113,7 +106,6 @@ func TestDecodeRequest(t *testing.T) {
 		require.Equal(t, testPublicKeys[0], []byte(decoded.PublicKeys[0]))
 		require.Equal(t, testThreshold, decoded.Threshold)
 	})
-
 	t.Run("Invalid", func(t *testing.T) {
 		encoded := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
 		invalidBody := append([]byte(nil), encoded...)
@@ -124,8 +116,7 @@ func TestDecodeRequest(t *testing.T) {
 }
 
 func TestEncodeResponse(t *testing.T) {
-	encodedAndABI := loadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-
+	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	t.Run("Valid", func(t *testing.T) {
 		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
@@ -133,12 +124,10 @@ func TestEncodeResponse(t *testing.T) {
 		}
 		encoded, err := EncodeResponse(resp, encodedAndABI)
 		require.NoError(t, err)
-
 		decoded, err := structs.Decode[connector.IPMWMultisigAccountConfiguredResponseBody](encodedAndABI.ABIPair.Response, encoded)
 		require.NoError(t, err)
 		require.Equal(t, resp, decoded)
 	})
-
 	t.Run("Unserializable type", func(t *testing.T) {
 		type Temp struct {
 			t int
@@ -149,16 +138,29 @@ func TestEncodeResponse(t *testing.T) {
 	})
 }
 
-func loadEncodedAndABI(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) *config.EncodedAndABI {
-	t.Helper()
-	encodedAndABI, err := config.LoadEncodedAndABI(config.EnvConfig{
-		APIKeys:         nil,
-		AttestationType: attestationType,
-		SourceID:        sourceID,
+func TestEncodeRequest(t *testing.T) {
+	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	t.Run("Valid", func(t *testing.T) {
+		req := connector.IPMWMultisigAccountConfiguredRequestBody{
+			AccountAddress: testAccountAddress,
+			PublicKeys:     testPublicKeys,
+			Threshold:      testThreshold,
+		}
+		encoded, err := EncodeRequest(req, encodedAndABI)
+		require.NoError(t, err)
+		decoded, err := structs.Decode[connector.IPMWMultisigAccountConfiguredRequestBody](encodedAndABI.ABIPair.Request, encoded)
+		require.NoError(t, err)
+		require.Equal(t, req, decoded)
 	})
 
-	require.NoError(t, err)
-	return &encodedAndABI
+	t.Run("Unserializable type", func(t *testing.T) {
+		type Temp struct {
+			t int
+		}
+		req := Temp{t: 1}
+		_, err := EncodeRequest(req, encodedAndABI)
+		assertHumaError(t, err, http.StatusInternalServerError)
+	})
 }
 
 func assertHumaError(t *testing.T, err error, expectedStatus int) {

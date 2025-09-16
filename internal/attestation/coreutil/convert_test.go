@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,38 +34,49 @@ func TestRemoveHexPrefix(t *testing.T) {
 }
 
 func TestHexStringToBytes32(t *testing.T) {
-	tests := []testhelper.TestCase[string, string]{
+	tests := []struct {
+		name           string
+		input          string
+		expectedValue  string
+		expectError    bool
+		expectedErrMsg string
+	}{
 		{
-			Input:         "0x" + strings.Repeat("a1", 32),
-			ExpectError:   false,
-			ExpectedValue: "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+			name:          "valid 32 bytes hex string",
+			input:         "0x" + strings.Repeat("a1", 32),
+			expectError:   false,
+			expectedValue: "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
 		},
 		{
-			Input:          "0x1234",
-			ExpectError:    true,
-			ExpectedErrMsg: "invalid length for bytes32: got 2 bytes, expected 32",
+			name:           "too short hex string",
+			input:          "0x1234",
+			expectError:    true,
+			expectedErrMsg: "invalid length for bytes32: got 2 bytes, expected 32",
 		},
 		{
-			Input:          "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-			ExpectError:    true,
-			ExpectedErrMsg: "encoding/hex: invalid byte: U+007A 'z'",
+			name:           "invalid hex characters",
+			input:          "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+			expectError:    true,
+			expectedErrMsg: "encoding/hex: invalid byte: U+007A 'z'",
 		},
 		{
-			Input:          "0x" + strings.Repeat("ff", 33), // 66 hex chars = 33 bytes, too long
-			ExpectError:    true,
-			ExpectedErrMsg: "invalid length for bytes32: got 33 bytes, expected 32",
+			name:           "too long hex string",
+			input:          "0x" + strings.Repeat("ff", 33), // 66 hex chars = 33 bytes
+			expectError:    true,
+			expectedErrMsg: "invalid length for bytes32: got 33 bytes, expected 32",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			h, err := HexStringToBytes32(tt.Input)
-			if tt.ExpectError {
-				require.Error(t, err, "expected error for input %q", tt.Input)
-				require.Equal(t, tt.ExpectedErrMsg, err.Error())
+		t.Run(tt.name, func(t *testing.T) {
+			h, err := HexStringToBytes32(tt.input)
+
+			if tt.expectError {
+				require.Error(t, err, "expected error for input %q", tt.input)
+				require.Equal(t, tt.expectedErrMsg, err.Error())
 			} else {
 				require.NoError(t, err, "unexpected error: %v", err)
-				require.Equal(t, tt.ExpectedValue, hex.EncodeToString(h[:]))
+				require.Equal(t, tt.expectedValue, hex.EncodeToString(h[:]))
 			}
 		})
 	}

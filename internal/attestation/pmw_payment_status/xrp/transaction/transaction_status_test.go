@@ -4,27 +4,33 @@ import (
 	"testing"
 
 	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetTransactionStatus(t *testing.T) {
-	tests := []testhelper.TestCase[string, types.TransactionStatus]{
-		{Name: "success status", Input: "tesSUCCESS", ExpectedValue: types.Success, ExpectError: false},
-		{Name: "receiver fault", Input: "tecDST_TAG_NEEDED", ExpectedValue: types.ReceiverFault, ExpectError: false},
-		{Name: "sender fault", Input: "tecUNFUNDED", ExpectedValue: types.SenderFault, ExpectError: false},
-		{Name: "invalid input", Input: "invalid", ExpectedValue: 0, ExpectError: true},
+	tests := []struct {
+		name          string
+		input         string
+		expectedValue types.TransactionStatus
+		expectError   bool
+	}{
+		{name: "success status", input: "tesSUCCESS", expectedValue: types.Success, expectError: false},
+		{name: "receiver fault", input: "tecDST_TAG_NEEDED", expectedValue: types.ReceiverFault, expectError: false},
+		{name: "sender fault", input: "tecUNFUNDED", expectedValue: types.SenderFault, expectError: false},
+		{name: "invalid input", input: "invalid", expectedValue: 0, expectError: true},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.Name, func(t *testing.T) {
-			val, err := GetTransactionStatus(tc.Input)
-			if tc.ExpectError {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, err := GetTransactionStatus(tt.input)
+
+			if tt.expectError {
 				require.Error(t, err)
 				return
 			}
+
 			require.NoError(t, err)
-			require.Equal(t, tc.ExpectedValue, val)
+			require.Equal(t, tt.expectedValue, val)
 		})
 	}
 }

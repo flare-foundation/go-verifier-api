@@ -4,44 +4,51 @@ import (
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEncodeAttestationOrSourceName(t *testing.T) {
-	tests := []testhelper.TestCase[string, any]{
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+	}{
 		{
-			Name:        "valid short string",
-			Input:       "TEE",
-			ExpectError: false,
+			name:        "valid short string",
+			input:       "TEE",
+			expectError: false,
 		},
 		{
-			Name:        "valid 32 byte string",
-			Input:       "12345678901234567890123456789012",
-			ExpectError: false,
+			name:        "valid 32 byte string",
+			input:       "12345678901234567890123456789012",
+			expectError: false,
 		},
 		{
-			Name:        "string starting with 0x",
-			Input:       "0xABC",
-			ExpectError: true,
+			name:        "string starting with 0x",
+			input:       "0xABC",
+			expectError: true,
 		},
 		{
-			Name:        "string too long",
-			Input:       "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
-			ExpectError: true,
+			name:        "string too long",
+			input:       "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+			expectError: true,
 		},
 	}
+
 	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			got, err := EncodeAttestationOrSourceName(tt.Input)
-			if (err != nil) != tt.ExpectError {
-				t.Fatalf("EncodeAttestationOrSourceName(%q) error = %v, wantErr %v", tt.Input, err, tt.ExpectError)
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := EncodeAttestationOrSourceName(tt.input)
+
+			if (err != nil) != tt.expectError {
+				t.Fatalf("EncodeAttestationOrSourceName(%q) error = %v, wantErr %v", tt.input, err, tt.expectError)
 			}
-			require.Len(t, got, 32)
+
+			if !tt.expectError {
+				require.Len(t, got, 32)
+			}
 		})
 	}
 }
-
 func TestCheckMissingFields(t *testing.T) {
 	fields := []string{
 		EnvRPCURL,
@@ -85,51 +92,63 @@ func TestLoadEncodedAndABI(t *testing.T) {
 	type args struct {
 		envConfig EnvConfig
 	}
-	tests := []testhelper.TestCase[args, any]{
+
+	tests := []struct {
+		name           string
+		input          args
+		expectError    bool
+		expectedErrMsg string
+	}{
 		{
-			Input: args{
+			name: "valid availability check",
+			input: args{
 				envConfig: EnvConfig{
 					SourceID:        SourceTEE,
 					AttestationType: connector.AvailabilityCheck,
 				},
 			},
-			ExpectError: false,
+			expectError: false,
 		},
 		{
-			Input: args{
+			name: "valid pmw payment status",
+			input: args{
 				envConfig: EnvConfig{
 					SourceID:        SourceTEE,
 					AttestationType: connector.PMWPaymentStatus,
 				},
 			},
-			ExpectError: false,
+			expectError: false,
 		},
 		{
-			Input: args{
+			name: "valid pmw multisig account configured",
+			input: args{
 				envConfig: EnvConfig{
 					SourceID:        SourceTEE,
 					AttestationType: connector.PMWMultisigAccountConfigured,
 				},
 			},
-			ExpectError: false,
+			expectError: false,
 		},
 		{
-			Input: args{
+			name: "invalid attestation type",
+			input: args{
 				envConfig: EnvConfig{
 					SourceID:        SourceTEE,
 					AttestationType: "UnknownType",
 				},
 			},
-			ExpectError:    true,
-			ExpectedErrMsg: "no ABI struct names defined for attestation type",
+			expectError:    true,
+			expectedErrMsg: "no ABI struct names defined for attestation type",
 		},
 	}
+
 	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			got, err := LoadEncodedAndABI(tt.Input.envConfig)
-			if tt.ExpectError {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := LoadEncodedAndABI(tt.input.envConfig)
+
+			if tt.expectError {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.ExpectedErrMsg)
+				require.Contains(t, err.Error(), tt.expectedErrMsg)
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, got.SourceIDPair.SourceIDEncoded)

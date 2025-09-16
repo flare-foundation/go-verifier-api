@@ -61,12 +61,20 @@ func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, 
 	return data, nil
 }
 
-func EncodeResponse[T any](responseData T, config *config.EncodedAndABI) ([]byte, error) {
-	data, err := abiEncodeData(responseData, config.ABIPair.Response)
+func EncodeRequest[T any](data T, config *config.EncodedAndABI) ([]byte, error) {
+	return encodeWithABI(data, config.ABIPair.Request, "request")
+}
+
+func EncodeResponse[T any](data T, config *config.EncodedAndABI) ([]byte, error) {
+	return encodeWithABI(data, config.ABIPair.Response, "response")
+}
+
+func encodeWithABI[T any](data T, arg abi.Argument, kind string) ([]byte, error) {
+	encoded, err := abiEncodeData(data, arg)
 	if err != nil {
-		return []byte{}, huma.Error500InternalServerError(fmt.Sprintf("Encoding response data failed: %v", err))
+		return nil, huma.Error500InternalServerError(fmt.Sprintf("Encoding %s data failed: %v", kind, err))
 	}
-	return data, nil
+	return encoded, nil
 }
 
 func PrepareRequestBody[T types.InternalConvertible[I], I any](
@@ -77,7 +85,7 @@ func PrepareRequestBody[T types.InternalConvertible[I], I any](
 	if err != nil {
 		return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
 	}
-	encodedRequest, err := abiEncodeData(requestData, config.ABIPair.Request)
+	encodedRequest, err := EncodeRequest(requestData, config)
 	if err != nil {
 		return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
 	}

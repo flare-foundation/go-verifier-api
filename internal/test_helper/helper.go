@@ -14,17 +14,10 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 
 	"github.com/stretchr/testify/require"
 )
-
-type TestCase[T any, R any] struct {
-	Name           string
-	Input          T
-	ExpectedValue  R
-	ExpectError    bool
-	ExpectedErrMsg string
-}
 
 func CreateAttestationRequest(t *testing.T, attestationType, sourceID common.Hash, reqBody []byte) attestationtypes.AttestationRequest {
 	t.Helper()
@@ -168,7 +161,6 @@ func PostWithoutMarshalling(t *testing.T, url string, data interface{}, apiKey s
 	if err != nil {
 		return nil, err
 	}
-
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	if err != nil {
 		return nil, err
@@ -181,7 +173,6 @@ func PostWithoutMarshalling(t *testing.T, url string, data interface{}, apiKey s
 		return nil, err
 	}
 	defer resp.Body.Close()
-
 	return resp, nil
 }
 
@@ -199,10 +190,20 @@ func Get(t *testing.T, url string, apiKey string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("error response status: %s", resp.Status)
 	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	return body, nil
+}
+
+func LoadEncodedAndABI(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) *config.EncodedAndABI {
+	t.Helper()
+	encodedAndABI, err := config.LoadEncodedAndABI(config.EnvConfig{
+		APIKeys:         nil,
+		AttestationType: attestationType,
+		SourceID:        sourceID,
+	})
+	require.NoError(t, err)
+	return &encodedAndABI
 }
