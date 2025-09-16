@@ -217,30 +217,32 @@ func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo, allowDebug
 		if claims.DebugStatus == "disabled-since-boot" {
 			return teetype.StatusInfo{}, errors.New("production TEE not allowed when ALLOW_TEE_DEBUG=true")
 		}
+		// No check for supported attributes in debug mode
+		statusInfo.Status = teetype.OK
 	} else {
 		if claims.DebugStatus != "disabled-since-boot" {
 			return teetype.StatusInfo{}, errors.New("not running in production mode")
+		}
+		// Check Confidential Space image version
+		if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
+			return teetype.StatusInfo{}, errors.New("no supported attributes found")
+		}
+		foundIsStable := false
+		for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
+			if att == "STABLE" {
+				foundIsStable = true
+				break
+			}
+		}
+		if !foundIsStable {
+			statusInfo.Status = teetype.OBSOLETE
+		} else {
+			statusInfo.Status = teetype.OK
 		}
 	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
 		return teetype.StatusInfo{}, errors.New("not running in CONFIDENTIAL_SPACE")
-	}
-	// Check Confidential Space image version
-	if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
-		return teetype.StatusInfo{}, errors.New("no supported attributes found")
-	}
-	foundIsStable := false
-	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
-		if att == "STABLE" {
-			foundIsStable = true
-			break
-		}
-	}
-	if !foundIsStable {
-		statusInfo.Status = teetype.OBSOLETE
-	} else {
-		statusInfo.Status = teetype.OK
 	}
 	statusInfo.CodeHash, err = coreutil.HexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
 	if err != nil {
