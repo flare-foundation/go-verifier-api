@@ -69,7 +69,7 @@ func PMWMultisigAccountHandler(
 				return nil, err
 			}
 			return types.NewResponse(types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]{
-				ResponseData: types.PMWMultisigAccountToExternal(responseData),
+				ResponseData: types.PMWMultisigAccountResponseToExternal(responseData),
 				ResponseBody: response,
 			}), nil
 		})

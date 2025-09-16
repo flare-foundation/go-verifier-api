@@ -26,7 +26,7 @@ var (
 )
 
 func TestPrepareRequestBody(t *testing.T) {
-	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	hexKeys := make([]hexutil.Bytes, len(testPublicKeys))
 	for i, k := range testPublicKeys {
 		hexKeys[i] = k
@@ -97,9 +97,14 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 }
 
 func TestDecodeRequest(t *testing.T) {
-	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	baseReqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: testAccountAddress,
+		PublicKeys:     testPublicKeys,
+		Threshold:      testThreshold,
+	}
 	t.Run("Valid", func(t *testing.T) {
-		encoded := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
+		encoded := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		decoded, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](encoded, encodedAndABI)
 		require.NoError(t, err)
 		require.Equal(t, testAccountAddress, decoded.AccountAddress)
@@ -107,7 +112,7 @@ func TestDecodeRequest(t *testing.T) {
 		require.Equal(t, testThreshold, decoded.Threshold)
 	})
 	t.Run("Invalid", func(t *testing.T) {
-		encoded := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, testAccountAddress, testPublicKeys, testThreshold)
+		encoded := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		invalidBody := append([]byte(nil), encoded...)
 		invalidBody = append(invalidBody, 'a', 'a')
 		_, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndABI)
@@ -116,7 +121,7 @@ func TestDecodeRequest(t *testing.T) {
 }
 
 func TestEncodeResponse(t *testing.T) {
-	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	t.Run("Valid", func(t *testing.T) {
 		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
@@ -139,7 +144,7 @@ func TestEncodeResponse(t *testing.T) {
 }
 
 func TestEncodeRequest(t *testing.T) {
-	encodedAndABI := testhelper.LoadEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
 	t.Run("Valid", func(t *testing.T) {
 		req := connector.IPMWMultisigAccountConfiguredRequestBody{
 			AccountAddress: testAccountAddress,
@@ -169,4 +174,15 @@ func assertHumaError(t *testing.T, err error, expectedStatus int) {
 	require.Error(t, err)
 	require.ErrorAs(t, err, &herr)
 	require.Equal(t, expectedStatus, herr.Status)
+}
+
+func loadTestEncodedAndABI(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) *config.EncodedAndABI {
+	t.Helper()
+	encodedAndABI, err := config.LoadEncodedAndABI(config.EnvConfig{
+		APIKeys:         nil,
+		AttestationType: attestationType,
+		SourceID:        sourceID,
+	})
+	require.NoError(t, err)
+	return &encodedAndABI
 }

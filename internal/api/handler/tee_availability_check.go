@@ -75,7 +75,7 @@ func TeeAvailabilityCheckHandler(
 				return nil, err
 			}
 			return types.NewResponse(types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]{
-				ResponseData: types.TeeAvailabilityCheckToExternal(responseData),
+				ResponseData: types.TeeAvailabilityCheckResponseToExternal(responseData),
 				ResponseBody: response,
 			}), nil
 		})

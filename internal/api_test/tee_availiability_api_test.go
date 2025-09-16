@@ -24,14 +24,18 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	defer setup.Stop()
 
 	t.Run("prepareRequestBody", func(t *testing.T) {
-		reqData := testhelper.TeeAvailabilityCheckRequestBody(common.HexToAddress("0x12345"), common.HexToAddress("0x12345"), "https://example.com", common.HexToHash("0x123"))
+		reqBody := connector.ITeeAvailabilityCheckRequestBody{TeeId: common.HexToAddress("0x12345"), TeeProxyId: common.HexToAddress("0x23456"), Url: "https://example.com", Challenge: common.HexToHash("0x123")}
+		reqData := testhelper.TeeAvailabilityCheckRequestBody(reqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 
-		attBody := testhelper.EncodedITeeAvailabilityCheckRequestBody(t, request.RequestData.TeeID, request.RequestData.TeeProxyID, request.RequestData.URL, request.RequestData.Challenge)
+		internalData, err := request.RequestData.ToInternal()
+		require.NoError(t, err)
+
+		attBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, internalData)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})

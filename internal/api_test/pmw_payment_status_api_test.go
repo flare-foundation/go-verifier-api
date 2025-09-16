@@ -27,17 +27,29 @@ func TestPMWPaymentStatus(t *testing.T) {
 	opType, err := coreutil.StringToBytes32(string(config.SourceXRP))
 	require.NoError(t, err)
 
-	// /prepareRequestBody
+	testAddress := "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
+	nonce := uint64(10110067)
+	baseReqBody := connector.IPMWPaymentStatusRequestBody{
+		OpType:        opType,
+		SenderAddress: testAddress,
+		Nonce:         nonce,
+		SubNonce:      nonce,
+	}
 
+	// /prepareRequestBody
 	t.Run("prepareRequestBody: Valid request", func(t *testing.T) {
-		reqData := testhelper.PMWPaymentStatusRequestBody(opType, "address", 1, 1)
+		reqData := testhelper.PMWPaymentStatusRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequest](t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
-		attBody := testhelper.EncodedIPMWPaymentStatusRequestBody(t, opType, reqData.SenderAddress, request.RequestData.Nonce, request.RequestData.SubNonce)
-
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
+
+		internalData, err := reqData.ToInternal()
+		require.NoError(t, err)
+
+		attBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, internalData)
+		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
 
@@ -48,10 +60,9 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	// /prepareResponseBody
-
 	t.Run("prepareResponseBody: Valid payment", func(t *testing.T) {
 		t.Skip() // TODO need to update c-chain due to SC changes
-		reqBody := testhelper.EncodedIPMWPaymentStatusRequestBody(t, opType, "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK", 10110067, 10110067)
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := testhelper.Post[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
@@ -86,15 +97,14 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	// /verify
-
 	t.Run("verify: Valid payment", func(t *testing.T) {
 		t.Skip() // TODO need to update c-chain due to SC changes
-		reqBody := testhelper.EncodedIPMWPaymentStatusRequestBody(t, opType, "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK", 10110067, 10110067)
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 
-		result := testhelper.DecodeFTDCPMVPaymentStatusResponse(t, response.ResponseBody)
+		result := testhelper.DecodeResponseBody[connector.IPMWPaymentStatusResponseBody](t, connector.PMWPaymentStatus, response.ResponseBody)
 		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
 		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(result.RecipientAddress))
 		require.Equal(t, [32]byte{}, result.TokenId)
@@ -124,14 +134,16 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 
 	t.Run("verify: Invalid sourceID", func(t *testing.T) {
-		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), []byte("0x123"))
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
 	t.Run("verify: Invalid attestationType", func(t *testing.T) {
-		request := testhelper.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, []byte("0x123"))
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)

@@ -41,7 +41,7 @@ type TeeAvailabilityCheckTeeState struct {
 	StateVersion       common.Hash   `json:"stateVersion"`
 }
 
-func TeeAvailabilityCheckToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityCheckResponseBody {
+func TeeAvailabilityCheckResponseToExternal(data connector.ITeeAvailabilityCheckResponseBody) TeeAvailabilityCheckResponseBody {
 	return TeeAvailabilityCheckResponseBody{
 		Status:                 data.Status,
 		TeeTimestamp:           data.TeeTimestamp,

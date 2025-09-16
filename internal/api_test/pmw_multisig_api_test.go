@@ -21,18 +21,29 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 	defer setup.Stop()
 
-	// /prepareRequestBody
+	pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
+	testAddress := "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL"
+	pubKeys := [][]byte{pubkey1, pubkey2, pubkey3}
+	mSigThr := uint64(1)
+	baseReqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: testAddress,
+		PublicKeys:     pubKeys,
+		Threshold:      mSigThr,
+	}
 
+	// /prepareRequestBody
 	t.Run("prepareRequestBody: Valid request", func(t *testing.T) {
-		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody("rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", []hexutil.Bytes{pubkey1, pubkey2, pubkey3}, 1)
+		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 
-		attBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, request.RequestData.AccountAddress, [][]byte{pubkey1, pubkey2, pubkey3}, request.RequestData.Threshold)
+		internalData, err := request.RequestData.ToInternal()
+		require.NoError(t, err)
+
+		attBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, internalData)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
@@ -44,7 +55,9 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 
 	t.Run("prepareRequestBody: Empty public key", func(t *testing.T) {
-		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody("rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", []hexutil.Bytes{{}}, 1)
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.PublicKeys = [][]byte{{}}
+		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(modifiedReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
@@ -53,10 +66,8 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 
 	// /prepareResponseBody
-
 	t.Run("prepareResponseBody: Correctly created multisig wallet", func(t *testing.T) {
-		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := testhelper.Post[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
@@ -68,7 +79,7 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 
 	t.Run("prepareResponseBody: Invalid sourceID", func(t *testing.T) {
-		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
@@ -86,35 +97,34 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 
 	// /verify
-
 	t.Run("verify: Correctly created multisig wallet", func(t *testing.T) {
-		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
-		result := testhelper.DecodeFTDCPMWMultisigAccountConfiguredResponse(t, response.ResponseBody)
+		result := testhelper.DecodeResponseBody[connector.IPMWMultisigAccountConfiguredResponseBody](t, connector.PMWMultisigAccountConfigured, response.ResponseBody)
 		require.NoError(t, err)
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), result.Status)
 		require.Equal(t, uint64(10136106), result.Sequence)
 	})
 
 	t.Run("verify: Missing pubkey in request", func(t *testing.T) {
-		pubkey1, pubkey2, _ := pubKeysForMultisig(t)
-		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{pubkey1, pubkey2}, 1)
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.PublicKeys = modifiedReqBody.PublicKeys[:2] // Remove last public key.
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
-		result := testhelper.DecodeFTDCPMWMultisigAccountConfiguredResponse(t, response.ResponseBody)
+		result := testhelper.DecodeResponseBody[connector.IPMWMultisigAccountConfiguredResponseBody](t, connector.PMWMultisigAccountConfigured, response.ResponseBody)
 		require.NoError(t, err)
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusERROR), result.Status)
 		require.Equal(t, uint64(0), result.Sequence)
 	})
 
 	t.Run("verify: Invalid sourceID", func(t *testing.T) {
-		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
@@ -123,7 +133,7 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 
 	t.Run("verify: Invalid attestation type", func(t *testing.T) {
-		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL", [][]byte{}, 1)
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, [32]byte{0xFF}, setup.SourceIDEncoded, reqBody)
 
 		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
@@ -141,8 +151,9 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 	})
 
 	t.Run("verify: Invalid address - failed to get account info", func(t *testing.T) {
-		pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-		reqBody := testhelper.EncodedIPMWMultisigAccountConfiguredRequestBody(t, "rMDCrSYbeGm77a", [][]byte{pubkey1, pubkey2, pubkey3}, 1)
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove 4 for chars.
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		_, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)

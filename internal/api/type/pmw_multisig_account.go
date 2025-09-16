@@ -41,7 +41,7 @@ const (
 	PMWMultisigAccountStatusERROR
 )
 
-func PMWMultisigAccountToExternal(data connector.IPMWMultisigAccountConfiguredResponseBody) PMWMultisigAccountConfiguredResponseBody {
+func PMWMultisigAccountResponseToExternal(data connector.IPMWMultisigAccountConfiguredResponseBody) PMWMultisigAccountConfiguredResponseBody {
 	return PMWMultisigAccountConfiguredResponseBody{
 		PMWMultisigAccountStatus: data.Status,
 		Sequence:                 data.Sequence,

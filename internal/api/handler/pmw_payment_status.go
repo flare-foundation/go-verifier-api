@@ -70,7 +70,7 @@ func PMWPaymentStatusHandler(
 				return nil, err
 			}
 			return types.NewResponse(types.AttestationResponseData[types.PMWPaymentStatusResponseBody]{
-				ResponseData: types.PMWPaymentStatusToExternal(responseData),
+				ResponseData: types.PMWPaymentStatusResponseToExternal(responseData),
 				ResponseBody: response,
 			}), nil
 		})

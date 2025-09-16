@@ -37,7 +37,7 @@ type PMWPaymentStatusResponseBody struct {
 	BlockTimestamp    uint64      `json:"blockTimestamp"`
 }
 
-func PMWPaymentStatusToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPaymentStatusResponseBody {
+func PMWPaymentStatusResponseToExternal(data connector.IPMWPaymentStatusResponseBody) PMWPaymentStatusResponseBody {
 	return PMWPaymentStatusResponseBody{
 		RecipientAddress:  data.RecipientAddress,
 		TokenID:           data.TokenId,
