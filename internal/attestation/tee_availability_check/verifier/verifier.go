@@ -142,6 +142,9 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %w", err)
 	}
+	if !token.Valid {
+		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
+	}
 	// check claims
 	statusInfo, err := ValidateClaims(token, infoData, v.cfg.AllowTeeDebug)
 	if err != nil {

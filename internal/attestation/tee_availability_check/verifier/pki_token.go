@@ -196,9 +196,6 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 
 func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo, allowDebugMode bool) (teetype.StatusInfo, error) {
 	var statusInfo teetype.StatusInfo
-	if !token.Valid {
-		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
-	}
 	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
 	if !ok {
 		return teetype.StatusInfo{}, errors.New("cannot parse claims")
