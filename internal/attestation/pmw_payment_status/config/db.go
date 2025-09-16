@@ -53,20 +53,26 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, retries, err)
 }
 
-func InitMainDB(dsn string) (*gorm.DB, error) {
+func InitMainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	opts := &DBOptions{
 		Retries:    mainDBRetries,
 		RetryDelay: mainDBRetryDelay,
 		MaxDelay:   mainDBMaxDelay,
 	}
+	if overrideOpts != nil {
+		opts = overrideOpts
+	}
 	return initDBWithRetries(postgres.Open(dsn), "main DB", opts)
 }
 
-func InitCChainDB(dsn string) (*gorm.DB, error) {
+func InitCChainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	opts := &DBOptions{
 		Retries:    cChainDBRetries,
 		RetryDelay: cChainDBRetryDelay,
 		MaxDelay:   cChainDBMaxDelay,
+	}
+	if overrideOpts != nil {
+		opts = overrideOpts
 	}
 	return initDBWithRetries(mysql.Open(dsn), "CChain DB", opts)
 }

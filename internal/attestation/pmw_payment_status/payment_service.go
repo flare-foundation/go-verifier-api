@@ -27,11 +27,11 @@ func NewPaymentService(envConfig mainconfig.EnvConfig) (*PaymentService, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to load PMWPaymentStatus config: %w", err)
 	}
-	db, err := config.InitMainDB(cfg.DatabaseURL)
+	db, err := config.InitMainDB(cfg.DatabaseURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to DB: %w", err)
 	}
-	cchainDB, err := config.InitCChainDB(cfg.CchainDatabaseURL)
+	cchainDB, err := config.InitCChainDB(cfg.CchainDatabaseURL, nil)
 	if err != nil {
 		_ = config.CloseDB(db)
 		return nil, fmt.Errorf("failed to connect to CChain DB: %w", err)
