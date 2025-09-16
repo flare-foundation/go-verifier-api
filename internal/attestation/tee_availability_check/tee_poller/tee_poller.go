@@ -3,6 +3,7 @@ package teepoller
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -36,6 +37,7 @@ const (
 	fetchTimeout       = 5 * time.Second
 	chainRetries       = 2
 	chainRetryDelay    = 500 * time.Millisecond
+	teeMachineChunk    = 100
 )
 
 var (
@@ -166,15 +168,30 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 	callOpts := &bind.CallOpts{
 		Context: ctx,
 	}
-	activeTees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts)
-	if err != nil {
-		return teeList{}, fmt.Errorf("getAllActiveTeeMachines: %w", err)
+	var allTeeIDs []common.Address
+	var allURLs []string
+	start := big.NewInt(0)
+	chunk := big.NewInt(teeMachineChunk)
+	for {
+		tees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
+		if err != nil {
+			return teeList{}, fmt.Errorf("getAllActiveTeeMachines: %w", err)
+		}
+		allTeeIDs = append(allTeeIDs, tees.TeeIds...)
+		allURLs = append(allURLs, tees.Urls...)
+
+		retrieved := int64(len(tees.TeeIds))
+		if retrieved < chunk.Int64() {
+			break
+		}
+		start = new(big.Int).Add(start, big.NewInt(retrieved))
+	}
+	activeTees := teeList{
+		TeeIDs: allTeeIDs,
+		URLs:   allURLs,
 	}
 	logger.Debugf("TEE poller got active Tees: %v", activeTees)
-	return teeList{
-		TeeIDs: activeTees.TeeIds,
-		URLs:   activeTees.Urls,
-	}, nil
+	return activeTees, nil
 }
 
 func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
