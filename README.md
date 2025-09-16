@@ -12,6 +12,8 @@ SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
 TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
+ALLOW_TEE_DEBUG=false
+DISABLE_ATTESTATION_CHECK_E2E=false
 ```
 
 ## How to run `PMWMultisigAccountConfigured` verifier
@@ -23,7 +25,6 @@ RPC_URL=https://<xrpl>
 ```
 
 ## How to run `PMWPaymentStatus` verifier
-
 You will need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
 
 Environment variables:
@@ -33,6 +34,8 @@ SOURCE_ID=XRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 DATABASE_URL=postgres://user:pass@host:port/db
 ```
+
+Check all enviroment variables in [.env.example](./.env.example)
 
 ## How to run setup verifier
 1. Fill in the `.env` file or use environment variables according to the attestation type.

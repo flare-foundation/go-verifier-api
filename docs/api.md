@@ -151,21 +151,23 @@ type TeeAvailabilityCheckTeeState struct {
 - Attestation type `PMWPaymentStatus`.
 ```go
 type PMWPaymentStatusRequestBody struct {
-	WalletID [32]byte
-	Nonce    uint64
-	SubNonce uint64
+	OpType 		  [32]byte
+	SenderAddress string
+	Nonce    	  uint64
+	SubNonce 	  uint64
 }
 ```
-| Field    | Description
-|----------|----------------------|
-| WalletID | Unique wallet identifier
-| Nonce    | Batch nonce of the payment instruction
-| SubNonce | Sequence number of the payment instruction
+| Field    		| Description
+|---------------|----------------------|
+| OpType   		| Hex-encoded 32-byte operational type
+| SenderAddress | Sender address
+| Nonce    		| Batch nonce of the payment instruction
+| SubNonce 		| Sequence number of the payment instruction
 
 ```go
 type IPMWPaymentStatusResponseBody struct {
-	SenderAddress     string
 	RecipientAddress  string
+	TokenId 		  [32]byte
 	Amount            *big.Int
 	Fee               *big.Int
 	PaymentReference  [32]byte
@@ -173,15 +175,15 @@ type IPMWPaymentStatusResponseBody struct {
 	RevertReason      string
 	ReceivedAmount    *big.Int
 	TransactionFee    *big.Int
-	TransactionID     [32]byte
+	TransactionId     [32]byte
 	BlockNumber       uint64
 	BlockTimestamp    uint64
 }
 ```
 | Field             | Description          |
 |-------------------|----------------------|
-| SenderAddress     | Sender from the payment instruction message
 | RecipientAddress  | Recipient from the payment instruction message
+| TokenId			| Token ID (e.g. address) for the payment, bytes32(0) represents native token
 | Amount            | Amount from the payment instruction message
 | Fee               | Fee from the payment instruction message
 | PaymentReference  | Payment reference from the payment instruction message
@@ -189,7 +191,7 @@ type IPMWPaymentStatusResponseBody struct {
 | RevertReason      | Reason for transaction failure (blockchain-specific)
 | ReceivedAmount    | Actual amount received by the recipient
 | TransactionFee    | Total transaction fee spent
-| TransactionID     | Transaction hash
+| TransactionId     | Transaction hash
 | BlockNumber       | Block number in which the transaction was included
 | BlockTimestamp    | Timestamp of the block containing the transaction
 
