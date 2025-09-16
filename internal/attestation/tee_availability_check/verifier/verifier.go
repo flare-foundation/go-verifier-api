@@ -17,8 +17,10 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -83,36 +85,42 @@ func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 }
 
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
+	var zero connector.ITeeAvailabilityCheckResponseBody
 	// Build challenge instruction id
 	challengeInstructionID, err := v.generateChallengeInstructionID(req.TeeId, req.Challenge)
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot generate challenge instruction id: %w", err)
+		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
 	if err != nil && !errors.Is(err, utils.ErrNotFound) {
-		return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
+		return zero, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
 	}
 	if errors.Is(err, utils.ErrNotFound) {
 		// check polled data
 		isDown, infoErr := v.isTEEInfoDown(req.TeeId)
 		if infoErr != nil { // Not enough data has been polled
-			return connector.ITeeAvailabilityCheckResponseBody{}, fmt.Errorf("insufficient polling data to determine TEE status: %w", infoErr)
+			return zero, fmt.Errorf("insufficient polling data to determine TEE status: %w", infoErr)
 		}
 		if isDown {
 			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(teetype.DOWN)}, nil
 		} else {
-			return connector.ITeeAvailabilityCheckResponseBody{}, ErrIndeterminate
+			return zero, ErrIndeterminate
 		}
 	}
+	// Check proxy signature.
+	if dataSigner != req.TeeProxyId {
+		return zero, fmt.Errorf("proxy signer does not match: expected %s, got: %s", req.TeeProxyId.Hex(), dataSigner.Hex())
+	}
+	// Verify info data.
 	statusInfo, err := v.DataVerification(response)
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, err
+		return zero, err
 	}
 	infoData := response.TeeInfo
 	_, err = v.CheckSigningPolicies(ctx, infoData)
 	if err != nil {
-		return connector.ITeeAvailabilityCheckResponseBody{}, err
+		return zero, err
 	}
 
 	return connector.ITeeAvailabilityCheckResponseBody{
@@ -173,26 +181,33 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 	return teetype.TeePollerSampleValid, nil
 }
 
-func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionID common.Hash) (teenodetypes.TeeInfoResponse, error) {
+func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionID common.Hash) (teenodetypes.TeeInfoResponse, common.Address, error) {
+	var zero teenodetypes.TeeInfoResponse
+	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
 	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
 	actionResp, err := utils.GetJSON[teenodetypes.ActionResponse](ctx, url, fetchTimeout)
 	if err != nil {
-		return teenodetypes.TeeInfoResponse{}, err
+		return zero, zeroAdd, err
 	}
 	if len(actionResp.Result.Data) == 0 {
-		return teenodetypes.TeeInfoResponse{}, fmt.Errorf("TEE challenge result data is empty")
+		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is empty")
 	}
 	if !json.Valid(actionResp.Result.Data) {
-		return teenodetypes.TeeInfoResponse{}, fmt.Errorf("TEE challenge result data is not valid JSON")
+		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON")
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse
 	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
 	if err != nil {
-		return teenodetypes.TeeInfoResponse{}, fmt.Errorf("unmarshal TEE result: %w", err)
+		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
-	return teeInfo, nil
+	// recover signer
+	signer, err := recoverSigner(actionResp.Result.Data, actionResp.Signature)
+	if err != nil {
+		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
+	}
+	return teeInfo, signer, nil
 }
 
 func (v *TeeVerifier) generateChallengeInstructionID(teeID common.Address, challenge common.Hash) (common.Hash, error) {
@@ -299,4 +314,14 @@ func (v *TeeVerifier) Close() error {
 		return closer.Close()
 	}
 	return nil
+}
+
+func recoverSigner(data hexutil.Bytes, signature hexutil.Bytes) (common.Address, error) {
+	hash := crypto.Keccak256(data)
+	ethHash := accounts.TextHash(hash)
+	pub, err := crypto.SigToPub(ethHash, signature)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to recover pubkey: %w", err)
+	}
+	return crypto.PubkeyToAddress(*pub), nil
 }
