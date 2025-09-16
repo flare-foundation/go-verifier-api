@@ -47,16 +47,10 @@ func TestTeeInfoHash(t *testing.T) {
 		TeeTimestamp: 123456789,
 	}
 	hash, err := verifier.TeeInfoHash(mockData)
-	if err != nil {
-		t.Fatalf("TeeInfoHash returned error: %v", err)
-	}
-	if hash == "" {
-		t.Fatal("Expected non-empty hash string")
-	}
-	if _, err := hex.DecodeString(hash); err != nil {
-		t.Fatalf("Hash is not valid hex: %v", err)
-	}
-	t.Logf("Generated TeeInfoHash: %s", hash)
+	require.NoError(t, err)
+	require.NotEmpty(t, hash)
+	_, err = hex.DecodeString(hash)
+	require.NoError(t, err)
 }
 
 func TestValidateCertainClaims(t *testing.T) {
@@ -64,9 +58,7 @@ func TestValidateCertainClaims(t *testing.T) {
 
 	claims := &teetype.GoogleTeeClaims{}
 	_, _, err := jwt.NewParser(jwt.WithoutClaimsValidation()).ParseUnverified(tokenString, claims)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	expectedDebugStatus := "enabled"
 	if claims.DebugStatus != expectedDebugStatus {
