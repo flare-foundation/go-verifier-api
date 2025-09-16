@@ -19,7 +19,6 @@ func TestParseAttestationType(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, at, got)
 	}
-
 	// Invalid type
 	_, err := parseAttestationType("invalid-type")
 	require.Error(t, err)
@@ -36,7 +35,6 @@ func TestParseSourceID(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, sid, got)
 	}
-
 	// Invalid source ID
 	_, err := parseSourceID("invalid-source")
 	require.Error(t, err)
@@ -46,23 +44,19 @@ func TestParseSourceID(t *testing.T) {
 func TestGetAPIKeys(t *testing.T) {
 	_, err := getAPIKeys()
 	require.Error(t, err)
-
 	// Empty string
 	t.Setenv(config.EnvAPIKeys, "   ")
 	_, err = getAPIKeys()
 	require.Error(t, err)
-
 	// Only empty values
 	t.Setenv(config.EnvAPIKeys, " , , ")
 	_, err = getAPIKeys()
 	require.Error(t, err)
-
 	// Single key
 	t.Setenv(config.EnvAPIKeys, "key1")
 	keys, err := getAPIKeys()
 	require.NoError(t, err)
 	require.Equal(t, []string{"key1"}, keys)
-
 	// Multiple keys, with spaces
 	t.Setenv(config.EnvAPIKeys, "key1, key2 ,key3")
 	keys, err = getAPIKeys()

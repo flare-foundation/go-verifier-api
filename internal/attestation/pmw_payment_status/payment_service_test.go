@@ -57,6 +57,7 @@ func TestPaymentService(t *testing.T) {
 	pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 }
 
+// Should this be moved?
 // Both tests need docker compose running.
 func TestPMWPaymentStatus(t *testing.T) {
 	service, err := NewPaymentService(envConfig)
@@ -66,7 +67,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	opType, err := coreutil.StringToBytes32("XRP")
 	require.NoError(t, err)
 	t.Run("Should successfully verify PMWPaymentStatus", func(t *testing.T) {
-		t.Skip() // TODO - need to get new c-chain db, due to contract chagnes
+		t.Skip() // TODO  need to get new cchain db, due to contract changes
 		response, err := verifier.Verify(t.Context(), connector.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
 			SenderAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",

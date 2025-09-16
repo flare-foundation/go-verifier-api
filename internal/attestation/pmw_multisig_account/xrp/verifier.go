@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
@@ -51,20 +52,20 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
 		logger.Info("Account has no signer list")
-		return 0, ErrValidationFailed
+		return 0, fmt.Errorf("no signer list for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
 	signersValid := x.validateSignerList(accountInfo.Result.AccountData.SignerLists[0], req)
 	if !signersValid {
-		return 0, ErrValidationFailed
+		return 0, fmt.Errorf("signer list invalid for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
 	flags := accountInfo.Result.AccountFlags
 	if err := checkAccountFlags(flags); err != nil {
 		logger.Infof("Invalid account flags: %v", err)
-		return 0, ErrValidationFailed
+		return 0, fmt.Errorf("invalid flag for account%s: %v: %w", accountInfo.Result.AccountData.Account, err, ErrValidationFailed)
 	}
 	if accountInfo.Result.AccountData.RegularKey != "" {
 		logger.Infof("Account has regular key set")
-		return 0, ErrValidationFailed
+		return 0, fmt.Errorf("account %s has regular key set: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
 	return accountInfo.Result.AccountData.Sequence, nil
 }

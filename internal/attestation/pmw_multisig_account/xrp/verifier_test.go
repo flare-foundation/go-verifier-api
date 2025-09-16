@@ -30,7 +30,8 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigSuccess(t, seq, err)
+		assert.NoError(t, err)
+		assert.Equal(t, seq, sequence)
 	})
 
 	t.Run("Wrong signer weights", func(t *testing.T) {
@@ -43,7 +44,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
 
 	t.Run("Wrong threshold", func(t *testing.T) {
@@ -56,7 +57,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
 
 	t.Run("Missing public key", func(t *testing.T) {
@@ -69,7 +70,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
 
 	t.Run("SignerList mismatch", func(t *testing.T) {
@@ -82,7 +83,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
 
 	t.Run("SignerList missing signer", func(t *testing.T) {
@@ -91,11 +92,11 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
 			1,
 		)
-		signerList := makeSignerList([]string{testAccounts[0].Address}, []uint16{1}, 1)
+		signerList := makeSignerList([]string{}, []uint16{}, 1)
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "o signer list for account")
 	})
 
 	t.Run("MasterKey enabled", func(t *testing.T) {
@@ -108,7 +109,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(false, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "master key is not disabled")
 	})
 
 	t.Run("DepositAuth enabled", func(t *testing.T) {
@@ -121,7 +122,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, true, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "deposit authorization is enabled")
 	})
 
 	t.Run("RequireDestinationTagEnabled", func(t *testing.T) {
@@ -134,7 +135,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, true, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "destination tag is required")
 	})
 
 	t.Run("DisallowIncomingXRPEnabled", func(t *testing.T) {
@@ -147,7 +148,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, true)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "incoming XRP is disallowed")
 	})
 
 	t.Run("RegularKeySet", func(t *testing.T) {
@@ -160,7 +161,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "somekey", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		requireMultisigConfigFailed(t, seq, err)
+		requireMultisigConfigFailed(t, seq, err, "has regular key set")
 	})
 }
 
@@ -224,14 +225,10 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 	})
 }
 
-func requireMultisigConfigFailed(t *testing.T, seq uint64, err error) {
+func requireMultisigConfigFailed(t *testing.T, seq uint64, err error, errorMessage string) {
 	assert.Error(t, err)
+	assert.ErrorContains(t, err, errorMessage)
 	assert.Equal(t, uint64(0), seq)
-}
-
-func requireMultisigConfigSuccess(t *testing.T, seq uint64, err error) {
-	assert.NoError(t, err)
-	assert.Equal(t, seq, sequence)
 }
 
 func accountFlags(disableMasterKey bool, depositAuth bool, requireDestinationTag bool, disallowIncomingXRP bool) types.AccountFlags {
@@ -252,6 +249,9 @@ func makeSignerList(accounts []string, weights []uint16, quorum uint64) []types.
 				SignerWeight: weights[i],
 			},
 		}
+	}
+	if len(accounts) == 0 {
+		return []types.SignerList{}
 	}
 	return []types.SignerList{
 		{

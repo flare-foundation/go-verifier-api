@@ -155,7 +155,6 @@ func TestEncodeRequest(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, req, decoded)
 	})
-
 	t.Run("Unserializable type", func(t *testing.T) {
 		type Temp struct {
 			t int
