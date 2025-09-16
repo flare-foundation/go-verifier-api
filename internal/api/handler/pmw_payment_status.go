@@ -65,13 +65,13 @@ func PMWPaymentStatusHandler(
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 			}
-			response, err := EncodeResponse(responseData, config)
+			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}
 			return types.NewResponse(types.AttestationResponseData[types.PMWPaymentStatusResponseBody]{
 				ResponseData: types.PMWPaymentStatusResponseToExternal(responseData),
-				ResponseBody: response,
+				ResponseBody: encodedResponse,
 			}), nil
 		})
 
@@ -96,13 +96,13 @@ func PMWPaymentStatusHandler(
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 			}
-			response, err := EncodeResponse(responseData, config)
+			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}
 			logPMWPaymentStatusResponse(responseData)
 			return types.NewResponse(types.AttestationResponse{
-				ResponseBody: response,
+				ResponseBody: encodedResponse,
 			}), nil
 		})
 }

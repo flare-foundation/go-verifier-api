@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -64,19 +63,16 @@ func TeeAvailabilityCheckHandler(
 				return nil, err
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
-			if errors.Is(err, teeverifier.ErrIndeterminate) {
-				return nil, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
-			}
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 			}
-			response, err := EncodeResponse(responseData, config)
+			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}
 			return types.NewResponse(types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]{
 				ResponseData: types.TeeAvailabilityCheckResponseToExternal(responseData),
-				ResponseBody: response,
+				ResponseBody: encodedResponse,
 			}), nil
 		})
 
@@ -98,19 +94,16 @@ func TeeAvailabilityCheckHandler(
 				return nil, err
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
-			if errors.Is(err, teeverifier.ErrIndeterminate) {
-				return nil, huma.Error503ServiceUnavailable(fmt.Sprintf("Verification failed: %v", err))
-			}
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
 			}
-			response, err := EncodeResponse(responseData, config)
+			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
 				return nil, err
 			}
 			logTeeAvailabilityCheckResponse(responseData)
 			return types.NewResponse(types.AttestationResponse{
-				ResponseBody: response,
+				ResponseBody: encodedResponse,
 			}), nil
 		})
 

@@ -47,17 +47,9 @@ func TeeAvailabilityCheckRequestBody(data connector.ITeeAvailabilityCheckRequest
 func PMWMultisigAccountConfiguredRequestBody(data connector.IPMWMultisigAccountConfiguredRequestBody) attestationtypes.PMWMultisigAccountConfiguredRequestBody {
 	return attestationtypes.PMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: data.AccountAddress,
-		PublicKeys:     toHexutilBytesSlice(data.PublicKeys),
+		PublicKeys:     ToHexutilBytesSlice(data.PublicKeys),
 		Threshold:      data.Threshold,
 	}
-}
-
-func toHexutilBytesSlice(src [][]byte) []hexutil.Bytes {
-	res := make([]hexutil.Bytes, len(src))
-	for i, b := range src {
-		res[i] = hexutil.Bytes(b)
-	}
-	return res
 }
 
 func PMWPaymentStatusRequestBody(data connector.IPMWPaymentStatusRequestBody) attestationtypes.PMWPaymentStatusRequestBody {
@@ -145,4 +137,12 @@ func Get(t *testing.T, url, apiKey string) ([]byte, error) {
 	}
 
 	return io.ReadAll(resp.Body)
+}
+
+func ToHexutilBytesSlice(src [][]byte) []hexutil.Bytes {
+	res := make([]hexutil.Bytes, len(src))
+	for i, b := range src {
+		res[i] = hexutil.Bytes(b)
+	}
+	return res
 }

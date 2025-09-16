@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	EnvDevelopment = "development"
-	shutdownAfter  = 10 * time.Second
+	EnvDevelopment    = "development"
+	shutdownAfter     = 10 * time.Second
+	readHeaderTimeout = 5 * time.Second
 )
 
 func RunServer(envConfig config.EnvConfig) {
@@ -55,8 +56,9 @@ func startServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 	}
 
 	srv := &http.Server{
-		Addr:    ":" + envConfig.Port,
-		Handler: newSecurityHandler(envConfig, router),
+		Addr:              ":" + envConfig.Port,
+		Handler:           newSecurityHandler(envConfig, router),
+		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
 	go func() {

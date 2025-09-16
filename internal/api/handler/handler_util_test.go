@@ -27,29 +27,27 @@ var (
 
 func TestPrepareRequestBody(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
-	hexKeys := make([]hexutil.Bytes, len(testPublicKeys))
-	for i, k := range testPublicKeys {
-		hexKeys[i] = k
-	}
-	attBody := attestationtypes.PMWMultisigAccountConfiguredRequestBody{
+	attBody := connector.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
-		PublicKeys:     hexKeys,
+		PublicKeys:     testPublicKeys,
 		Threshold:      testThreshold,
 	}
+	reqBody := testhelper.PMWMultisigAccountConfiguredRequestBody(attBody)
+
 	t.Run("Valid encodedReq", func(t *testing.T) {
-		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, attBody)
+		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		_, err := PrepareRequestBody(req, encodedAndABI)
 		require.NoError(t, err)
 	})
 	t.Run("Invalid encodedReq - validation fails", func(t *testing.T) {
-		attBodyCopy := attBody
-		attBodyCopy.PublicKeys = append(attBodyCopy.PublicKeys, hexutil.Bytes{})
-		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, attBodyCopy)
+		reqBodyMod := reqBody
+		reqBodyMod.PublicKeys = append(reqBodyMod.PublicKeys, hexutil.Bytes{})
+		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBodyMod)
 		_, err := PrepareRequestBody(invalidReq, encodedAndABI)
 		assertHumaError(t, err, http.StatusBadRequest)
 	})
 	t.Run("Invalid ABI encode", func(t *testing.T) {
-		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, attBody)
+		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
 		_, err := PrepareRequestBody(req, encodedAndABI)
