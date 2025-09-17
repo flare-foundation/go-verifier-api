@@ -38,6 +38,7 @@ const (
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
 	chainRetries            = 2
 	chainRetryDelay         = 500 * time.Millisecond
+	samplesToConsider       = 5
 )
 
 var (
@@ -76,7 +77,6 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract Relay caller: %w", err)
 	}
-	samplesToConsider := 5
 	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
@@ -194,7 +194,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is empty")
 	}
 	if !json.Valid(actionResp.Result.Data) {
-		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON")
+		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON: %q", actionResp.Result.Data)
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse
