@@ -61,7 +61,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 
 	// /prepareResponseBody
 	t.Run("prepareResponseBody: Valid payment", func(t *testing.T) {
-		//t.Skip() // TODO need to update c-chain due to SC changes
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
@@ -98,7 +97,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 
 	// /verify
 	t.Run("verify: Valid payment", func(t *testing.T) {
-		//t.Skip() // TODO need to update c-chain due to SC changes
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)

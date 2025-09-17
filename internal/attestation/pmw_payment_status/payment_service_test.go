@@ -67,7 +67,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	opType, err := coreutil.StringToBytes32(string(op.XRP))
 	require.NoError(t, err)
 	t.Run("Should successfully verify PMWPaymentStatus", func(t *testing.T) {
-		//t.Skip() // TODO  need to get new cchain db, due to contract changes
 		response, err := verifier.Verify(t.Context(), connector.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
 			SenderAddress: "r9CWG1aj4tUsZn5agTLahfyiqnNhMhPjDt",
