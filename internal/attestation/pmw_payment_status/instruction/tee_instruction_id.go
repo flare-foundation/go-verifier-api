@@ -1,9 +1,7 @@
 package teeinstruction
 
 import (
-	"bytes"
-	"math/big"
-
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -15,15 +13,26 @@ func GenerateInstructionID(opType, sourceID [32]byte, senderAddress string, nonc
 	if err != nil {
 		return common.Hash{}, err
 	}
-	senderAddressByte := coreutil.StringToABIBytes(senderAddress)
-	nonceByte := common.LeftPadBytes((big.NewInt(int64(nonce))).Bytes(), coreutil.Bytes32Size)
 
-	buf := new(bytes.Buffer)
-	buf.Write(opType[:])
-	buf.Write(PAY[:])
-	buf.Write(sourceID[:])
-	buf.Write(senderAddressByte)
-	buf.Write(nonceByte)
-	instructionID := crypto.Keccak256Hash(buf.Bytes())
-	return instructionID, nil
+	args := abi.Arguments{
+		{Type: abiType("bytes32")}, // opType
+		{Type: abiType("bytes32")}, // PAY
+		{Type: abiType("bytes32")}, // sourceId
+		{Type: abiType("string")},  // senderAddress
+		{Type: abiType("uint64")},  // nonce
+	}
+
+	packed, err := args.Pack(opType, PAY, sourceID, senderAddress, nonce)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return crypto.Keccak256Hash(packed), nil
+}
+
+func abiType(t string) abi.Type {
+	ty, err := abi.NewType(t, "", nil)
+	if err != nil {
+		panic(err)
+	}
+	return ty
 }

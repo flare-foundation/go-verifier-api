@@ -91,6 +91,7 @@ func PMWMultisigAccountHandler(
 			if err != nil {
 				return nil, err
 			}
+			logger.Debugf("PMWMultisigAccountConfigured verify for %s", requestData.AccountAddress)
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
 				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	api "github.com/flare-foundation/go-verifier-api/internal/api_test"
@@ -24,11 +24,11 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	defer setup.Stop()
 
-	opType, err := coreutil.StringToBytes32(string(config.SourceXRP))
+	opType, err := coreutil.StringToBytes32(string(op.XRP))
 	require.NoError(t, err)
 
-	testAddress := "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
-	nonce := uint64(10110067)
+	testAddress := "r9CWG1aj4tUsZn5agTLahfyiqnNhMhPjDt"
+	nonce := uint64(10702286)
 	baseReqBody := connector.IPMWPaymentStatusRequestBody{
 		OpType:        opType,
 		SenderAddress: testAddress,
@@ -61,7 +61,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 
 	// /prepareResponseBody
 	t.Run("prepareResponseBody: Valid payment", func(t *testing.T) {
-		t.Skip() // TODO need to update c-chain due to SC changes
+		//t.Skip() // TODO need to update c-chain due to SC changes
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
@@ -69,9 +69,9 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response.ResponseBody)
 		require.NotEmpty(t, response.ResponseData)
-		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
-		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(response.ResponseData.RecipientAddress))
-		require.Equal(t, [32]byte{}, response.ResponseData.TokenID)
+		// https://testnet.xrpl.org/transactions/24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA
+		require.Equal(t, "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G", response.ResponseData.RecipientAddress)
+		require.Equal(t, common.Hash{}, response.ResponseData.TokenID)
 		require.Equal(t, big.NewInt(10_000), response.ResponseData.Amount.ToInt())
 		require.Equal(t, big.NewInt(10_000), response.ResponseData.ReceivedAmount.ToInt())
 		require.Equal(t, big.NewInt(100), response.ResponseData.Fee.ToInt())
@@ -79,8 +79,8 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(response.ResponseData.PaymentReference[:]))
 		require.Equal(t, uint8(0), response.ResponseData.TransactionStatus)
 		require.Equal(t, "", response.ResponseData.RevertReason)
-		require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(response.ResponseData.TransactionID[:]))
-		require.Equal(t, uint64(10110073), response.ResponseData.BlockNumber)
+		require.Equal(t, common.HexToHash("0x24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA"), common.BytesToHash(response.ResponseData.TransactionID[:]))
+		require.Equal(t, uint64(10702291), response.ResponseData.BlockNumber)
 	})
 
 	t.Run("prepareResponseBody: Bad request", func(t *testing.T) {
@@ -98,15 +98,15 @@ func TestPMWPaymentStatus(t *testing.T) {
 
 	// /verify
 	t.Run("verify: Valid payment", func(t *testing.T) {
-		t.Skip() // TODO need to update c-chain due to SC changes
+		//t.Skip() // TODO need to update c-chain due to SC changes
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
 		require.NoError(t, err)
 
 		result := testhelper.DecodeResponseBody[connector.IPMWPaymentStatusResponseBody](t, connector.PMWPaymentStatus, response.ResponseBody)
-		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
-		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(result.RecipientAddress))
+		// https://testnet.xrpl.org/transactions/24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA
+		require.Equal(t, "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G", result.RecipientAddress)
 		require.Equal(t, [32]byte{}, result.TokenId)
 		require.Equal(t, big.NewInt(10_000), result.Amount)
 		require.Equal(t, big.NewInt(10_000), result.ReceivedAmount)
@@ -115,8 +115,8 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(result.PaymentReference[:]))
 		require.Equal(t, uint8(0), result.TransactionStatus)
 		require.Equal(t, "", result.RevertReason)
-		require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(result.TransactionId[:]))
-		require.Equal(t, uint64(10110073), result.BlockNumber)
+		require.Equal(t, common.HexToHash("0x24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA"), common.BytesToHash(result.TransactionId[:]))
+		require.Equal(t, uint64(10702291), result.BlockNumber)
 	})
 
 	t.Run("verify: Missing api-key", func(t *testing.T) {

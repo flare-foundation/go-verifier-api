@@ -1,11 +1,11 @@
 package paymentservice
 
 import (
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	pmwpaymentstatusconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/config"
@@ -64,22 +64,22 @@ func TestPMWPaymentStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	verifier := service.GetVerifier()
-	opType, err := coreutil.StringToBytes32("XRP")
+	opType, err := coreutil.StringToBytes32(string(op.XRP))
 	require.NoError(t, err)
 	t.Run("Should successfully verify PMWPaymentStatus", func(t *testing.T) {
-		t.Skip() // TODO  need to get new cchain db, due to contract changes
+		//t.Skip() // TODO  need to get new cchain db, due to contract changes
 		response, err := verifier.Verify(t.Context(), connector.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
-			SenderAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
-			Nonce:         10110067,
-			SubNonce:      10110067,
+			SenderAddress: "r9CWG1aj4tUsZn5agTLahfyiqnNhMhPjDt",
+			Nonce:         10702286,
+			SubNonce:      10702286,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, response)
 
 		var zeroBytes32 [32]byte
-		// https://testnet.xrpl.org/transactions/6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8/raw
-		require.Equal(t, crypto.Keccak256Hash([]byte("rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G")), common.HexToHash(response.RecipientAddress))
+		// https://testnet.xrpl.org/transactions/24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA
+		require.Equal(t, "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G", response.RecipientAddress)
 		require.Equal(t, zeroBytes32, response.TokenId)
 		require.Equal(t, big.NewInt(10_000), response.Amount)
 		require.Equal(t, big.NewInt(10_000), response.ReceivedAmount)
@@ -88,8 +88,8 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(response.PaymentReference[:]))
 		require.Equal(t, uint8(0), response.TransactionStatus)
 		require.Equal(t, "", response.RevertReason)
-		require.Equal(t, common.HexToHash("0x6A9F06287D5CC81A6EB35B5198898701A9BE3CCF658177A0BC6A9609D06F73C8"), common.BytesToHash(response.TransactionId[:]))
-		require.Equal(t, uint64(10110073), response.BlockNumber)
+		require.Equal(t, common.HexToHash("0x24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA"), common.BytesToHash(response.TransactionId[:]))
+		require.Equal(t, uint64(10702291), response.BlockNumber)
 	})
 
 	t.Run("Should return error if transaction not found", func(t *testing.T) {

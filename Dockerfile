@@ -3,7 +3,7 @@
 # - somedir/
 #   - tee-node
 #   - go-verifier-api/Dockerfile -> run `docker build -t tag -f Dockerfile ..`
-FROM golang:1.24.4 AS builder
+FROM golang:1.25.1 AS builder
 
 WORKDIR /app
 COPY tee-node ./tee-node
