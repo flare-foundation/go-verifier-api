@@ -1,4 +1,4 @@
-package teeinstruction
+package instruction
 
 import (
 	"fmt"

@@ -1,7 +1,6 @@
 package verifier
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -15,8 +14,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,7 +23,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
-	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/instruction"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
@@ -87,16 +85,16 @@ func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	var zero connector.ITeeAvailabilityCheckResponseBody
 	// Build challenge instruction id
-	challengeInstructionID, err := v.generateChallengeInstructionID(req.TeeId, req.Challenge)
+	challengeInstructionID, err := instruction.GenerateChallengeInstructionID(req.TeeId, req.Challenge)
 	if err != nil {
 		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
 	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
-	if err != nil && !errors.Is(err, utils.ErrNotFound) {
+	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
 		return zero, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
 	}
-	if errors.Is(err, utils.ErrNotFound) {
+	if errors.Is(err, coreutil.ErrNotFound) {
 		// check polled data
 		isDown, infoErr := v.isTEEInfoDown(req.TeeId)
 		if infoErr != nil { // Not enough data has been polled
@@ -185,8 +183,8 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
-	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getutils/tee.go?ref_type=heads#L12
-	actionResp, err := utils.GetJSON[teenodetypes.ActionResponse](ctx, url, fetchTimeout)
+	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
+	actionResp, err := coreutil.GetJSON[teenodetypes.ActionResponse](ctx, url, fetchTimeout)
 	if err != nil {
 		return zero, zeroAdd, err
 	}
@@ -210,24 +208,6 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 	return teeInfo, signer, nil
 }
 
-func (v *TeeVerifier) generateChallengeInstructionID(teeID common.Address, challenge common.Hash) (common.Hash, error) {
-	REG_OP_TYPE, err := utils.StringToBytes32(string(op.Reg))
-	if err != nil {
-		return common.Hash{}, err
-	}
-	TEE_ATTESTATION, err := utils.StringToBytes32(string(op.TEEAttestation))
-	if err != nil {
-		return common.Hash{}, err
-	}
-	buf := new(bytes.Buffer)
-	buf.Write(REG_OP_TYPE[:])
-	buf.Write(TEE_ATTESTATION[:])
-	buf.Write(common.LeftPadBytes(teeID.Bytes(), utils.Bytes32Size))
-	buf.Write(challenge.Bytes())
-	challengeInstructionID := crypto.Keccak256Hash(buf.Bytes())
-	return challengeInstructionID, nil
-}
-
 func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
@@ -237,7 +217,7 @@ func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signing
 	signingPolicyIDBigInt := new(big.Int).SetUint64(uint64(signingPolicyID))
 	signingPolicyHashBytes, err := v.RelayCaller.ToSigningPolicyHash(callOpts, signingPolicyIDBigInt)
 	if err != nil {
-		state, classifiedErr := utils.MapFetchErrorToState("ToSigningPolicyHash", err)
+		state, classifiedErr := coreutil.MapFetchErrorToState("ToSigningPolicyHash", err)
 		return common.Hash{}, state, classifiedErr
 	}
 	return common.Hash(signingPolicyHashBytes), teetype.TeePollerSampleValid, nil
@@ -248,7 +228,7 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context
 		hash       common.Hash
 		finalState teetype.TeePollerSampleState
 	)
-	_, err := utils.Retry(
+	_, err := coreutil.Retry(
 		chainRetries,
 		chainRetryDelay,
 		func() (struct{}, error) {
@@ -277,14 +257,14 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context
 func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (teetype.TeePollerSampleState, error) {
 	challengeBlock, err := v.ethClient.BlockByHash(ctx, blockHash)
 	if err != nil {
-		return utils.MapFetchErrorToState("fetch challenge block", err)
+		return coreutil.MapFetchErrorToState("fetch challenge block", err)
 	}
 	latestBlock, err := v.ethClient.BlockByNumber(ctx, nil)
 	if err != nil {
-		if errors.Is(err, utils.ErrInvalidInput) {
+		if errors.Is(err, coreutil.ErrInvalidInput) {
 			return teetype.TeePollerSampleIndeterminate, fmt.Errorf("fetch latest block: %w", err)
 		}
-		return utils.MapFetchErrorToState("fetch latest block", err)
+		return coreutil.MapFetchErrorToState("fetch latest block", err)
 	}
 	if latestBlock.Time()-challengeBlock.Time() <= blockFreshnessInSeconds {
 		return teetype.TeePollerSampleValid, nil
