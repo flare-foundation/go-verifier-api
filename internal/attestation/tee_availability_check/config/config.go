@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"encoding/pem"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"sync"
 
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -28,6 +30,9 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 	if err != nil {
 		return nil, err
 	}
+	if envConfig.DisableAttestationCheckE2E && config.CheckMissingFields(envConfig, []string{config.EnvE2ECodeHash, config.EnvE2EPlatform}) != nil {
+		return nil, err
+	}
 	googleRootCert, err := LoadGoogleRootCert()
 	if err != nil {
 		return nil, err
@@ -36,6 +41,15 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 	if err != nil {
 		return nil, err
 	}
+
+	var e2eCodeHash, e2ePlatform common.Hash
+	if envConfig.DisableAttestationCheckE2E {
+		e2eCodeHash = common.HexToHash(envConfig.E2ECodeHash)
+		e2ePlatform = common.HexToHash(envConfig.E2EPlatform)
+
+		logger.Info(e2ePlatform, e2eCodeHash)
+	}
+
 	return &config.TeeAvailabilityCheckConfig{
 		EncodedAndABI:                     commonConfig,
 		RelayContractAddress:              envConfig.RelayContractAddress,
@@ -44,6 +58,8 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 		DisableAttestationCheckE2E:        envConfig.DisableAttestationCheckE2E,
 		RPCURL:                            envConfig.RPCURL,
 		GoogleRootCertificate:             googleRootCert,
+		E2ECodeHash:                       e2eCodeHash,
+		E2EPlatform:                       e2ePlatform,
 	}, nil
 }
 

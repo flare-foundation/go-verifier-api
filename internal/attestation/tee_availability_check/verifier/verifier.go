@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -90,7 +91,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), challengeInstructionID)
 	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
 		return zero, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
 	}
@@ -107,7 +108,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		}
 	}
 	// Check proxy signature.
-	if dataSigner != req.TeeProxyId {
+	if !v.cfg.DisableAttestationCheckE2E && dataSigner != req.TeeProxyId { // TODO Remove this when signing is implemented in tee-proxy
 		return zero, fmt.Errorf("proxy signer does not match: expected %s, got: %s", req.TeeProxyId.Hex(), dataSigner.Hex())
 	}
 	// Verify info data.
@@ -138,6 +139,15 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 }
 
 func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (teetype.StatusInfo, error) {
+	if v.cfg.DisableAttestationCheckE2E {
+		logger.Warnf("Attestation check disabled for E2E. Do not use in production. Status %d, Codehash %s, Platform %s", teetype.OK, v.cfg.E2ECodeHash, v.cfg.E2EPlatform)
+		return teetype.StatusInfo{
+			Status:   teetype.OK,
+			CodeHash: v.cfg.E2ECodeHash,
+			Platform: v.cfg.E2EPlatform,
+		}, nil
+	}
+
 	// if response.Platform != "google" { //TODO (platform) - add after teeInfo.Platform is defined
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
@@ -294,6 +304,13 @@ func (v *TeeVerifier) Close() error {
 		return closer.Close()
 	}
 	return nil
+}
+
+func (v *TeeVerifier) FormatProxyURL(url string) string {
+	if v.cfg.DisableAttestationCheckE2E {
+		url = strings.Replace(url, "localhost", "host.docker.internal", -1)
+	}
+	return url
 }
 
 func recoverSigner(data hexutil.Bytes, signature hexutil.Bytes) (common.Address, error) {

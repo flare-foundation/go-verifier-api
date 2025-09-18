@@ -194,6 +194,15 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	if allowTeeDebug {
 		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", config.EnvAllowTeeDebug))
 	}
+	e2eCodeHash, err := getEnvOrError(config.EnvE2ECodeHash)
+	if disableAttestationCheckE2E && (e2eCodeHash == "" || err != nil) {
+		return config.EnvConfig{}, fmt.Errorf("%s must be set when %s is enabled", config.EnvE2ECodeHash, config.EnvDisableAttestationCheckE2E)
+	}
+
+	e2ePlatform, err := getEnvOrError(config.EnvE2EPlatform)
+	if disableAttestationCheckE2E && (e2ePlatform == "" || err != nil) {
+		return config.EnvConfig{}, fmt.Errorf("%s must be set when %s is enabled", config.EnvE2EPlatform, config.EnvDisableAttestationCheckE2E)
+	}
 
 	if disableAttestationCheckE2E {
 		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for E2E tests only and should NOT be used in production.", config.EnvDisableAttestationCheckE2E))
@@ -211,6 +220,8 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		APIKeys:                           apiKeys,
 		AttestationType:                   attestationType,
 		SourceID:                          sourceID,
+		E2ECodeHash:                       e2eCodeHash,
+		E2EPlatform:                       e2ePlatform,
 	}, nil
 }
 
