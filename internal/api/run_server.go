@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -183,29 +182,14 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		logger.Infof("%s is not set, defaulting to development", config.EnvEnv)
 		env = EnvDevelopment
 	}
-	allowTeeDebug, err := getEnvBoolOrError(config.EnvAllowTeeDebug)
-	if err != nil {
-		return config.EnvConfig{}, err
-	}
-	disableAttestationCheckE2E, err := getEnvBoolOrError(config.EnvDisableAttestationCheckE2E)
-	if err != nil {
-		return config.EnvConfig{}, err
-	}
-	if allowTeeDebug {
-		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", config.EnvAllowTeeDebug))
-	}
-
-	if disableAttestationCheckE2E {
-		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for E2E tests only and should NOT be used in production.", config.EnvDisableAttestationCheckE2E))
-	}
 	return config.EnvConfig{
 		RPCURL:                            os.Getenv(config.EnvRPCURL),
 		RelayContractAddress:              os.Getenv(config.EnvRelayContractAddress),
 		TeeMachineRegistryContractAddress: os.Getenv(config.EnvTeeMachineRegistryContractAddress),
 		DatabaseURL:                       os.Getenv(config.EnvDatabaseURL),
 		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
-		AllowTeeDebug:                     allowTeeDebug,
-		DisableAttestationCheckE2E:        disableAttestationCheckE2E,
+		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),
+		DisableAttestationCheckE2E:        os.Getenv(config.EnvDisableAttestationCheckE2E),
 		Env:                               env,
 		Port:                              port,
 		APIKeys:                           apiKeys,
@@ -221,18 +205,6 @@ func getEnvOrError(key string) (string, error) {
 		return "", fmt.Errorf("%s must be set", key)
 	}
 	return val, nil
-}
-
-func getEnvBoolOrError(key string) (bool, error) {
-	val, err := getEnvOrError(key)
-	if err != nil {
-		return false, err
-	}
-	b, err := strconv.ParseBool(val)
-	if err != nil {
-		return false, fmt.Errorf("%s must be a boolean, got %q", key, val)
-	}
-	return b, nil
 }
 
 func newRouter() chi.Router {
