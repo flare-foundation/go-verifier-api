@@ -98,7 +98,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		// check polled data
 		isDown, infoErr := v.isTEEInfoDown(req.TeeId)
 		if infoErr != nil { // Not enough data has been polled
-			return zero, fmt.Errorf("insufficient polling data to determine TEE status: %w", infoErr)
+			return zero, infoErr
 		}
 		if isDown {
 			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(teetype.DOWN)}, nil
