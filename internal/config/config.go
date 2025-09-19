@@ -32,8 +32,8 @@ type EnvConfig struct {
 	TeeMachineRegistryContractAddress string
 	DatabaseURL                       string
 	CChainDatabaseURL                 string
-	AllowTeeDebug                     bool
-	DisableAttestationCheckE2E        bool
+	AllowTeeDebug                     string
+	DisableAttestationCheckE2E        string
 	Env                               string
 	Port                              string
 	APIKeys                           []string

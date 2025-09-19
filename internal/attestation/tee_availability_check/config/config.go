@@ -5,8 +5,10 @@ import (
 	_ "embed"
 	"encoding/pem"
 	"fmt"
+	"strconv"
 	"sync"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -36,15 +38,37 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 	if err != nil {
 		return nil, err
 	}
+	allowTeeDebug, err := getBoolOrError(config.EnvAllowTeeDebug, envConfig.AllowTeeDebug)
+	if err != nil {
+		return nil, err
+	}
+	disableAttestationCheckE2E, err := getBoolOrError(config.EnvDisableAttestationCheckE2E, envConfig.DisableAttestationCheckE2E)
+	if err != nil {
+		return nil, err
+	}
+	if allowTeeDebug {
+		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", config.EnvAllowTeeDebug))
+	}
+	if disableAttestationCheckE2E {
+		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for E2E tests only and should NOT be used in production.", config.EnvDisableAttestationCheckE2E))
+	}
 	return &config.TeeAvailabilityCheckConfig{
 		EncodedAndABI:                     commonConfig,
 		RelayContractAddress:              envConfig.RelayContractAddress,
 		TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
-		AllowTeeDebug:                     envConfig.AllowTeeDebug,
-		DisableAttestationCheckE2E:        envConfig.DisableAttestationCheckE2E,
+		AllowTeeDebug:                     allowTeeDebug,
+		DisableAttestationCheckE2E:        disableAttestationCheckE2E,
 		RPCURL:                            envConfig.RPCURL,
 		GoogleRootCertificate:             googleRootCert,
 	}, nil
+}
+
+func getBoolOrError(key, val string) (bool, error) {
+	b, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean, got %q", key, val)
+	}
+	return b, nil
 }
 
 //go:embed assets/google_confidential_space_root.crt
