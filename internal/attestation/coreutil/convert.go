@@ -1,10 +1,8 @@
 package coreutil
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,18 +37,4 @@ func HexStringToBytes32(s string) (common.Hash, error) {
 	}
 	copy(arr[:], b)
 	return arr, nil
-}
-
-func StringToABIBytes(s string) []byte {
-	strBytes := []byte(s)
-	length := len(strBytes)
-	buf := new(bytes.Buffer)
-	lenBytes := common.LeftPadBytes(big.NewInt(int64(length)).Bytes(), Bytes32Size)
-	buf.Write(lenBytes)
-	buf.Write(strBytes)
-	padding := Bytes32Size - (length % Bytes32Size)
-	if padding < Bytes32Size {
-		buf.Write(make([]byte, padding))
-	}
-	return buf.Bytes()
 }
