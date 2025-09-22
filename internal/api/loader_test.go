@@ -2,9 +2,10 @@ package api
 
 import (
 	"context"
-	teeavailabilityconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 	"net/http"
 	"testing"
+
+	teeavailabilityconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -39,6 +40,8 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 		RPCURL:                            "http",
 		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		AllowTeeDebug:                     "false",
+		DisableAttestationCheckE2E:        "false",
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
 	require.Error(t, err)

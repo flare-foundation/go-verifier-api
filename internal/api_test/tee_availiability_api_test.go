@@ -20,6 +20,8 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
 		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		AllowTeeDebug:                     "false",
+		DisableAttestationCheckE2E:        "false",
 	})
 	defer setup.Stop()
 
