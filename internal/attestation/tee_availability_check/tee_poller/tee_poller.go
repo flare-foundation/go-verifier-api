@@ -109,9 +109,10 @@ func sampleAllTees(
 					if !ok {
 						return
 					}
-					state, err := queryInfoAndValidate(ctx, teeVerifier, t.proxyURL)
+					proxyURL := teeVerifier.FormatProxyURL(t.proxyURL)
+					state, err := queryInfoAndValidate(ctx, teeVerifier, proxyURL)
 					if err != nil {
-						logger.Errorf("Failed to query teeInfo %s or validate: %v", t.proxyURL, err)
+						logger.Errorf("Failed to query teeInfo %s or validate: %v", proxyURL, err)
 					}
 					teeVerifier.SamplesMu.Lock()
 					samples := teeVerifier.TeeSamples[t.teeID]

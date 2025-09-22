@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,7 +45,7 @@ var (
 )
 
 type TeeVerifier struct {
-	cfg                      *config.TeeAvailabilityCheckConfig
+	Cfg                      *config.TeeAvailabilityCheckConfig
 	ethClient                EthClient
 	TeeMachineRegistryCaller *teemachineregistry.TeeMachineRegistryCaller
 	RelayCaller              RelayCallerInterface
@@ -75,7 +76,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("failed to create contract Relay caller: %w", err)
 	}
-	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
+	return &TeeVerifier{Cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
 func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
@@ -90,7 +91,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), challengeInstructionID)
 	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
 		return zero, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
 	}
@@ -141,10 +142,21 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 	// if response.Platform != "google" { //TODO (platform) - add after teeInfo.Platform is defined
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
+	if v.Cfg.DisableAttestationCheckE2E {
+		platform := common.HexToHash("4743505f494e54454c5f54445800000000000000000000000000000000000000")
+		codeHash := common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
+		logger.Warnf("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Status %d, Codehash %s, Platform %s", teetype.OK, codeHash, platform)
+		return teetype.StatusInfo{
+			Status:   teetype.OK,
+			CodeHash: codeHash,
+			Platform: platform,
+		}, nil
+
+	}
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
-	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
+	token, err := ValidatePKIToken(v.Cfg.GoogleRootCertificate, string(attestationToken))
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %w", err)
 	}
@@ -152,7 +164,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
 	// check claims
-	statusInfo, err := ValidateClaims(token, infoData, v.cfg.AllowTeeDebug)
+	statusInfo, err := ValidateClaims(token, infoData, v.Cfg.AllowTeeDebug)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}
@@ -294,6 +306,14 @@ func (v *TeeVerifier) Close() error {
 		return closer.Close()
 	}
 	return nil
+}
+
+func (v *TeeVerifier) FormatProxyURL(url string) string {
+	if v.Cfg.DisableAttestationCheckE2E {
+		logger.Warn("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Rewriting proxy URL.")
+		url = strings.Replace(url, "localhost", "host.docker.internal", -1)
+	}
+	return url
 }
 
 func recoverSigner(data hexutil.Bytes, signature hexutil.Bytes) (common.Address, error) {

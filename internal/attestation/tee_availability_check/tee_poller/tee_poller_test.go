@@ -9,15 +9,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSampleAllTees(t *testing.T) {
 	setup := func() (*verifier.TeeVerifier, context.Context, context.CancelFunc) {
-		v := &verifier.TeeVerifier{
-			TeeSamples:        make(map[common.Address][]teetype.TeePollerSample),
-			SamplesToConsider: 3,
-		}
+		t.Helper()
+		tmpV, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
+			RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
+			RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
+			TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+			AllowTeeDebug:                     false,
+			DisableAttestationCheckE2E:        false,
+		})
+		require.NoError(t, err)
+
+		v := tmpV.(*verifier.TeeVerifier)
+		v.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
+		v.SamplesToConsider = 3
+
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		return v, ctx, cancel
 	}
