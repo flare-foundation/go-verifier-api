@@ -3,7 +3,6 @@ package teepoller
 import (
 	"context"
 	"errors"
-	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"testing"
 	"time"
 
@@ -14,19 +13,11 @@ import (
 )
 
 func TestSampleAllTees(t *testing.T) {
-
 	setup := func() (*verifier.TeeVerifier, context.Context, context.CancelFunc) {
-		t.Helper()
-
-		tmpV, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
-			RPCURL: "http://localhost:3120",
-		})
-		require.NoError(t, err)
-
-		v := tmpV.(*verifier.TeeVerifier)
-		v.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
-		v.SamplesToConsider = 3
-
+		v := &verifier.TeeVerifier{
+			TeeSamples:        make(map[common.Address][]teetype.TeePollerSample),
+			SamplesToConsider: 3,
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		return v, ctx, cancel
 	}
