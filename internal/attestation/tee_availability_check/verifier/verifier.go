@@ -152,7 +152,11 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
 	// check claims
-	statusInfo, err := ValidateClaims(token, infoData, v.cfg.AllowTeeDebug)
+	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
+	if !ok {
+		return teetype.StatusInfo{}, errors.New("cannot parse claims")
+	}
+	statusInfo, err := ValidateClaims(claims, infoData, v.cfg.AllowTeeDebug)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}

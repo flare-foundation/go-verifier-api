@@ -1,11 +1,20 @@
 package coreutil
 
-import "github.com/ethereum/go-ethereum/accounts/abi"
+import (
+	"github.com/ethereum/go-ethereum/accounts/abi"
+)
 
-func AbiType(t string) abi.Type {
+func mustAbiType(t string) abi.Type {
 	ty, err := abi.NewType(t, "", nil)
 	if err != nil {
-		panic(err)
+		panic("invalid ABI type: " + err.Error())
 	}
 	return ty
 }
+
+var (
+	Bytes32Type = mustAbiType("bytes32")
+	AddressType = mustAbiType("address")
+	Uint64Type  = mustAbiType("uint64")
+	StringType  = mustAbiType("string")
+)
