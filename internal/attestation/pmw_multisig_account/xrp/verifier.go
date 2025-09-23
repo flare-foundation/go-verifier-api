@@ -61,7 +61,7 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	flags := accountInfo.Result.AccountFlags
 	if err := checkAccountFlags(flags); err != nil {
 		logger.Infof("Invalid account flags: %v", err)
-		return 0, fmt.Errorf("invalid flag for account%s: %v: %w", accountInfo.Result.AccountData.Account, err, ErrValidationFailed)
+		return 0, fmt.Errorf("invalid flag for account%s: %w: %w", accountInfo.Result.AccountData.Account, err, ErrValidationFailed)
 	}
 	if accountInfo.Result.AccountData.RegularKey != "" {
 		logger.Infof("Account has regular key set")
