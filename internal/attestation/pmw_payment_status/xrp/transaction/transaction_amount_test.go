@@ -28,6 +28,8 @@ func TestGetStringField(t *testing.T) {
 	})
 }
 
+const balanceStr = "balance"
+
 func TestGetReceivedAmount(t *testing.T) {
 	t.Run("Amount received 1", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000000)
@@ -54,7 +56,7 @@ func TestGetReceivedAmount(t *testing.T) {
 	})
 	t.Run("Expect error 2", func(t *testing.T) {
 		modNode := copyModifiedNode(basicModifiedNode_tr0)
-		modNode.FinalFields["Balance"] = "balance"
+		modNode.FinalFields["Balance"] = balanceStr
 		modTx := transaction0
 		modTx.AffectedNodes = make([]types.AffectedNode, len(transaction0.AffectedNodes))
 		copy(modTx.AffectedNodes, transaction0.AffectedNodes)
@@ -65,7 +67,7 @@ func TestGetReceivedAmount(t *testing.T) {
 	})
 	t.Run("Expect error 3", func(t *testing.T) {
 		crNode := copyCreatedNode(basicCreatedNode_tr0)
-		crNode.NewFields["Balance"] = "balance"
+		crNode.NewFields["Balance"] = balanceStr
 		modTx := transaction0
 		modTx.AffectedNodes = make([]types.AffectedNode, len(transaction0.AffectedNodes))
 		copy(modTx.AffectedNodes, transaction0.AffectedNodes)
@@ -121,14 +123,14 @@ func TestExtractModifiedNode(t *testing.T) {
 	})
 	t.Run("finalBalStr is not string number", func(t *testing.T) {
 		modNode := copyModifiedNode(basicModifiedNode_tr0)
-		modNode.FinalFields["Balance"] = "balance"
+		modNode.FinalFields["Balance"] = balanceStr
 		val, err := extractFromModifiedNode(modNode)
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "invalid final balance format")
 	})
 	t.Run("prevBalStr is not string number", func(t *testing.T) {
 		modNode := copyModifiedNode(basicModifiedNode_tr0)
-		modNode.PreviousFields["Balance"] = "balance"
+		modNode.PreviousFields["Balance"] = balanceStr
 		val, err := extractFromModifiedNode(modNode)
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "invalid previous balance format")
@@ -166,7 +168,7 @@ func TestExtractCreatedNode(t *testing.T) {
 	})
 	t.Run("balanceStr is not string number", func(t *testing.T) {
 		modNode := copyCreatedNode(basicCreatedNode_tr0)
-		modNode.NewFields["Balance"] = "balance"
+		modNode.NewFields["Balance"] = balanceStr
 		val, err := extractFromCreatedNode(modNode)
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode")
