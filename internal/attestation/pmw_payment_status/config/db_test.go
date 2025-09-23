@@ -17,7 +17,7 @@ func TestInitDBWithRetries(t *testing.T) {
 		db, err := initDBWithRetries(sqlite.Open(":memory:"), "test DB", opts)
 		require.NoError(t, err)
 		require.NotNil(t, db)
-		defer CloseDB(db)
+		defer func() { _ = CloseDB(db) }()
 	})
 	t.Run("FailureExhaustRetries", func(t *testing.T) {
 		db, err := initDBWithRetries(postgres.Open("invalid_dsn"), DBOptionsName, opts)

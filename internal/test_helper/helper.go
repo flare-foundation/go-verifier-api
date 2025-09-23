@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
@@ -105,7 +106,11 @@ func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, 
 	if err != nil {
 		return empty, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return empty, fmt.Errorf("error response status: %s", resp.Status)
@@ -130,7 +135,11 @@ func Get(t *testing.T, url, apiKey string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("error response status: %s", resp.Status)
