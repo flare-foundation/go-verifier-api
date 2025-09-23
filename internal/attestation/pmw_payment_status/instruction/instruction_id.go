@@ -14,11 +14,11 @@ func GenerateInstructionID(opType, sourceID [32]byte, senderAddress string, nonc
 		return common.Hash{}, err
 	}
 	args := abi.Arguments{
-		{Type: coreutil.AbiType("bytes32")}, // opType
-		{Type: coreutil.AbiType("bytes32")}, // PAY
-		{Type: coreutil.AbiType("bytes32")}, // sourceId
-		{Type: coreutil.AbiType("string")},  // senderAddress
-		{Type: coreutil.AbiType("uint64")},  // nonce
+		{Type: coreutil.Bytes32Type}, // opType
+		{Type: coreutil.Bytes32Type}, // PAY
+		{Type: coreutil.Bytes32Type}, // sourceId
+		{Type: coreutil.StringType},  // senderAddress
+		{Type: coreutil.Uint64Type},  // nonce
 	}
 	packed, err := args.Pack(opType, PAY, sourceID, senderAddress, nonce)
 	if err != nil {
