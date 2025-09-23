@@ -1,7 +1,6 @@
 package instruction_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +16,6 @@ func TestGenerateChallengeInstructionID(t *testing.T) {
 	teeID := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
 
 	got, err := instruction.GenerateChallengeInstructionID(teeID, challengeHash)
-	fmt.Println(got)
 	require.NoError(t, err)
 	require.Equal(t, expected, got)
 }

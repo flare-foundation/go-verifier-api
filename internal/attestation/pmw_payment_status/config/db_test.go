@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -23,7 +22,6 @@ func TestInitDBWithRetries(t *testing.T) {
 	t.Run("FailureExhaustRetries", func(t *testing.T) {
 		db, err := initDBWithRetries(postgres.Open("invalid_dsn"), DBOptionsName, opts)
 		require.Error(t, err)
-		fmt.Print(err)
 		require.Contains(t, err.Error(), DBOptionsName)
 		require.Nil(t, db)
 	})

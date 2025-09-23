@@ -18,10 +18,10 @@ func GenerateChallengeInstructionID(teeID common.Address, challenge common.Hash)
 		return common.Hash{}, err
 	}
 	args := abi.Arguments{
-		{Type: coreutil.AbiType("bytes32")}, // REG_OP_TYPE
-		{Type: coreutil.AbiType("bytes32")}, // TEE_ATTESTATION
-		{Type: coreutil.AbiType("address")}, // teeID
-		{Type: coreutil.AbiType("bytes32")}, // challenge
+		{Type: coreutil.Bytes32Type}, // REG_OP_TYPE
+		{Type: coreutil.Bytes32Type}, // TEE_ATTESTATION
+		{Type: coreutil.AddressType}, // teeID
+		{Type: coreutil.Bytes32Type}, // challenge
 	}
 	packed, err := args.Pack(REG_OP_TYPE, TEE_ATTESTATION, teeID, challenge)
 	if err != nil {

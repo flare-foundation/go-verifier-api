@@ -194,12 +194,8 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 	return nil
 }
 
-func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo, allowDebugMode bool) (teetype.StatusInfo, error) {
+func ValidateClaims(claims *teetype.GoogleTeeClaims, teeInfoData teenodetype.TeeInfo, allowDebugMode bool) (teetype.StatusInfo, error) {
 	var statusInfo teetype.StatusInfo
-	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
-	if !ok {
-		return teetype.StatusInfo{}, errors.New("cannot parse claims")
-	}
 	if len(claims.EATNonce) != 1 {
 		return teetype.StatusInfo{}, fmt.Errorf("expected one eat_nonce")
 	}
@@ -219,26 +215,27 @@ func ValidateClaims(token jwt.Token, teeInfoData teenodetype.TeeInfo, allowDebug
 		}
 		// No check for supported attributes in debug mode
 		statusInfo.Status = teetype.OK
-	}
-	// Non-debug mode
-	if claims.DebugStatus != "disabled-since-boot" {
-		return teetype.StatusInfo{}, errors.New("not running in production mode")
-	}
-	// Check Confidential Space image version
-	if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
-		return teetype.StatusInfo{}, errors.New("no supported attributes found")
-	}
-	foundIsStable := false
-	for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
-		if att == "STABLE" {
-			foundIsStable = true
-			break
-		}
-	}
-	if !foundIsStable {
-		statusInfo.Status = teetype.OBSOLETE
 	} else {
-		statusInfo.Status = teetype.OK
+		// Non-debug mode
+		if claims.DebugStatus != "disabled-since-boot" {
+			return teetype.StatusInfo{}, errors.New("not running in production mode")
+		}
+		// Check Confidential Space image version
+		if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
+			return teetype.StatusInfo{}, errors.New("no supported attributes found")
+		}
+		foundIsStable := false
+		for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
+			if att == "STABLE" {
+				foundIsStable = true
+				break
+			}
+		}
+		if !foundIsStable {
+			statusInfo.Status = teetype.OBSOLETE
+		} else {
+			statusInfo.Status = teetype.OK
+		}
 	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
