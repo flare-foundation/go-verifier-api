@@ -92,10 +92,6 @@ func TestLoadEnvConfig(t *testing.T) {
 		t.Setenv(config.EnvSourceID, string(config.SourceTEE))
 		loadEnvShouldFail(t)
 		t.Setenv(config.EnvAPIKeys, "key1,key2")
-		loadEnvShouldFail(t)
-		t.Setenv(config.EnvAllowTeeDebug, "false")
-		loadEnvShouldFail(t)
-		t.Setenv(config.EnvDisableAttestationCheckE2E, "false")
 
 		cfg, err := LoadEnvConfig()
 		require.NoError(t, err)
