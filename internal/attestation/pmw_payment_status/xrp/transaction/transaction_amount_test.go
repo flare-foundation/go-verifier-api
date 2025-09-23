@@ -52,6 +52,28 @@ func TestGetReceivedAmount(t *testing.T) {
 		require.ErrorContains(t, err, "transaction meta is not available, thus received amounts cannot be calculated")
 		require.Nil(t, val)
 	})
+	t.Run("Expect error 2", func(t *testing.T) {
+		modNode := copyModifiedNode(basicModifiedNode_tr0)
+		modNode.FinalFields["Balance"] = "balance"
+		modTx := transaction0
+		modTx.AffectedNodes = make([]types.AffectedNode, len(transaction0.AffectedNodes))
+		copy(modTx.AffectedNodes, transaction0.AffectedNodes)
+		modTx.AffectedNodes[0].ModifiedNode = modNode
+		val, err := GetReceivedAmount(&modTx)
+		require.ErrorContains(t, err, "invalid final balance format")
+		require.Nil(t, val)
+	})
+	t.Run("Expect error 3", func(t *testing.T) {
+		crNode := copyCreatedNode(basicCreatedNode_tr0)
+		crNode.NewFields["Balance"] = "balance"
+		modTx := transaction0
+		modTx.AffectedNodes = make([]types.AffectedNode, len(transaction0.AffectedNodes))
+		copy(modTx.AffectedNodes, transaction0.AffectedNodes)
+		modTx.AffectedNodes[0].CreatedNode = crNode
+		val, err := GetReceivedAmount(&modTx)
+		require.ErrorContains(t, err, "invalid balance format in CreatedNode")
+		require.Nil(t, val)
+	})
 }
 
 func TestExtractModifiedNode(t *testing.T) {
@@ -76,6 +98,41 @@ func TestExtractModifiedNode(t *testing.T) {
 		require.Nil(t, val)
 		require.Nil(t, err)
 	})
+	t.Run("prevBalStr is not string", func(t *testing.T) {
+		modNode := copyModifiedNode(basicModifiedNode_tr0)
+		modNode.PreviousFields["Balance"] = nil
+		val, err := extractFromModifiedNode(modNode)
+		require.Nil(t, val)
+		require.Nil(t, err)
+	})
+	t.Run("account is not string", func(t *testing.T) {
+		modNode := copyModifiedNode(basicModifiedNode_tr0)
+		modNode.FinalFields["Account"] = nil
+		val, err := extractFromModifiedNode(modNode)
+		require.Nil(t, val)
+		require.Nil(t, err)
+	})
+	t.Run("finalBalStr is not string", func(t *testing.T) {
+		modNode := copyModifiedNode(basicModifiedNode_tr0)
+		modNode.FinalFields["Balance"] = nil
+		val, err := extractFromModifiedNode(modNode)
+		require.Nil(t, val)
+		require.Nil(t, err)
+	})
+	t.Run("finalBalStr is not string number", func(t *testing.T) {
+		modNode := copyModifiedNode(basicModifiedNode_tr0)
+		modNode.FinalFields["Balance"] = "balance"
+		val, err := extractFromModifiedNode(modNode)
+		require.Nil(t, val)
+		require.ErrorContains(t, err, "invalid final balance format")
+	})
+	t.Run("prevBalStr is not string number", func(t *testing.T) {
+		modNode := copyModifiedNode(basicModifiedNode_tr0)
+		modNode.PreviousFields["Balance"] = "balance"
+		val, err := extractFromModifiedNode(modNode)
+		require.Nil(t, val)
+		require.ErrorContains(t, err, "invalid previous balance format")
+	})
 }
 
 func TestExtractCreatedNode(t *testing.T) {
@@ -92,6 +149,27 @@ func TestExtractCreatedNode(t *testing.T) {
 		val, err := extractFromCreatedNode(modNode)
 		require.Nil(t, val)
 		require.Nil(t, err)
+	})
+	t.Run("balanceStr is not string", func(t *testing.T) {
+		modNode := copyCreatedNode(basicCreatedNode_tr0)
+		modNode.NewFields["Balance"] = nil
+		val, err := extractFromCreatedNode(modNode)
+		require.Nil(t, val)
+		require.Nil(t, err)
+	})
+	t.Run("account is not string", func(t *testing.T) {
+		modNode := copyCreatedNode(basicCreatedNode_tr0)
+		modNode.NewFields["Account"] = nil
+		val, err := extractFromCreatedNode(modNode)
+		require.Nil(t, val)
+		require.Nil(t, err)
+	})
+	t.Run("balanceStr is not string number", func(t *testing.T) {
+		modNode := copyCreatedNode(basicCreatedNode_tr0)
+		modNode.NewFields["Balance"] = "balance"
+		val, err := extractFromCreatedNode(modNode)
+		require.Nil(t, val)
+		require.ErrorContains(t, err, "invalid balance format in CreatedNode")
 	})
 }
 
