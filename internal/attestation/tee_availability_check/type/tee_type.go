@@ -77,7 +77,6 @@ func (e *EatNonce) UnmarshalJSON(data []byte) error {
 type GoogleTeeClaims struct {
 	HWModel     string     `json:"hwmodel"`
 	SWName      string     `json:"swname"`
-	SecBoot     bool       `json:"secboot"`
 	EATNonce    EatNonce   `json:"eat_nonce"`
 	SubMods     SubModules `json:"submods"`
 	DebugStatus string     `json:"dbgstat"`
@@ -95,7 +94,6 @@ type ConfidentialSpaceInfo struct {
 
 type Container struct {
 	ImageDigest string `json:"image_digest"`
-	ImageId     string `json:"image_id"`
 }
 
 type StatusInfo struct {

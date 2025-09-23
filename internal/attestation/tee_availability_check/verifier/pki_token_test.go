@@ -61,7 +61,6 @@ func TestValidateClaims(t *testing.T) {
 	baseClaims := &teetype.GoogleTeeClaims{
 		HWModel:     "GCP_INTEL_TDX",
 		SWName:      "CONFIDENTIAL_SPACE",
-		SecBoot:     false,
 		EATNonce:    []string{hex.EncodeToString(teeInfoHash)},
 		DebugStatus: "disabled-since-boot",
 		SubMods: teetype.SubModules{
