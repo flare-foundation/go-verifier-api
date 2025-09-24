@@ -26,7 +26,7 @@ var (
 )
 
 func TestPrepareRequestBody(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
 	attBody := connector.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     testPublicKeys,
@@ -95,7 +95,7 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 }
 
 func TestDecodeRequest(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
 	baseReqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     testPublicKeys,
@@ -119,7 +119,7 @@ func TestDecodeRequest(t *testing.T) {
 }
 
 func TestEncodeResponse(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
 	t.Run("Valid", func(t *testing.T) {
 		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
@@ -142,7 +142,7 @@ func TestEncodeResponse(t *testing.T) {
 }
 
 func TestEncodeRequest(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceXRP)
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
 	t.Run("Valid", func(t *testing.T) {
 		req := connector.IPMWMultisigAccountConfiguredRequestBody{
 			AccountAddress: testAccountAddress,
