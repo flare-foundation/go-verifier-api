@@ -65,6 +65,7 @@ func waitForServer(t *testing.T, url string) {
 		case <-deadline:
 			t.Fatalf("Server did not become healthy within %s", serverTimeout)
 		case <-ticker.C:
+			// #nosec G107: URL is controlled in test setup
 			resp, err := http.Get(url)
 			if err == nil && resp.StatusCode == http.StatusOK {
 				_ = resp.Body.Close()

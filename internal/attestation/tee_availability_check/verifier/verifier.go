@@ -46,7 +46,7 @@ var (
 type TeeVerifier struct {
 	cfg                      *config.TeeAvailabilityCheckConfig
 	ethClient                EthClient
-	TeeMachineRegistryCaller *teemachineregistry.TeeMachineRegistryCaller
+	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
 	TeeSamples               map[common.Address][]teetype.TeePollerSample
 	SamplesToConsider        int
@@ -60,6 +60,14 @@ type EthClient interface {
 
 type RelayCallerInterface interface {
 	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
+}
+
+type TeeMachineRegistryCallerInterface interface {
+	GetAllActiveTeeMachines(opts *bind.CallOpts, start *big.Int, end *big.Int) (struct {
+		TeeIds      []common.Address
+		Urls        []string
+		TotalLength *big.Int
+	}, error)
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {

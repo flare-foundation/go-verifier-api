@@ -3,6 +3,7 @@ package verifier
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ func (m *MockEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*ty
 }
 
 func TestCheckInfoChallengeIsValid(t *testing.T) {
+	// #nosec G115: only used in test, integer overflow not a concern
 	now := uint64(time.Now().Unix())
 	info := testhelper.GetInfoResponse(t)
 	challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 100})
@@ -58,7 +60,11 @@ type MockRelayCaller struct {
 
 func (m *MockRelayCaller) ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error) {
 	args := m.Called(opts, id)
-	return args.Get(0).([32]byte), args.Error(1)
+	val, ok := args.Get(0).([32]byte)
+	if !ok {
+		return [32]byte{}, fmt.Errorf("expected [32]byte, got %T", args.Get(0))
+	}
+	return val, args.Error(1)
 }
 
 func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {

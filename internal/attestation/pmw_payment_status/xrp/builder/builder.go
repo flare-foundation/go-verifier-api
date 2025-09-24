@@ -15,21 +15,22 @@ func BuildPaymentStatusResponse(
 	paymentMsg *payment.ITeePaymentsPaymentInstructionMessage,
 	tx model.DBTransaction,
 ) (connector.IPMWPaymentStatusResponseBody, error) {
+	var zero connector.IPMWPaymentStatusResponseBody
 	transactionResult, err := transaction.GetTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return zero, err
 	}
 	transactionFee, err := helper.ParseBigInt(raw.Fee)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return zero, err
 	}
 	hashBytes, err := utils.HexStringToBytes32(tx.Hash)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return zero, err
 	}
 	receivedAmount, err := transaction.FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return zero, err
 	}
 	revertReason := ""
 	if transactionResult != types.Success {

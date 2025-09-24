@@ -24,7 +24,11 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	if err != nil {
 		return zero, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warnf("failed to close response body: %v", err)
+		}
+	}()
 	switch resp.StatusCode {
 	case http.StatusNotFound:
 		return zero, ErrNotFound
