@@ -67,6 +67,32 @@ func TestSampleAllTees(t *testing.T) {
 		defer v.SamplesMu.RUnlock()
 		require.Contains(t, v.TeeSamples, common.HexToAddress("0x2"))
 	})
+
+	t.Run("Truncate old samples", func(t *testing.T) {
+		ver := &verifier.TeeVerifier{
+			TeeSamples:        make(map[common.Address][]teetype.TeePollerSample),
+			SamplesToConsider: 2,
+		}
+
+		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
+			return teeList{TeeIDs: []common.Address{common.HexToAddress("0x1")}, URLs: []string{"url"}}, nil
+		}
+
+		callCount := 0
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+			callCount++
+			return teetype.TeePollerSampleValid, nil
+		}
+
+		// Call multiple times to exceed SamplesToConsider
+		for i := 0; i < 3; i++ {
+			sampleAllTees(context.Background(), ver, getTees, query)
+		}
+
+		ver.SamplesMu.RLock()
+		defer ver.SamplesMu.RUnlock()
+		require.Len(t, ver.TeeSamples[common.HexToAddress("0x1")], 2) // only last 2 samples kept
+	})
 }
 
 func (m *mockTeeMachineRegistryCaller) GetAllActiveTeeMachines(
@@ -154,4 +180,16 @@ func TestCachedActiveTees(t *testing.T) {
 
 	got := getCachedActiveTees()
 	require.Equal(t, expected, got)
+}
+
+func TestStartTeePoller_Close(t *testing.T) {
+	ver := &verifier.TeeVerifier{
+		TeeSamples: make(map[common.Address][]teetype.TeePollerSample),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	service := StartTeePoller(ctx, ver)
+	require.NotNil(t, service)
+	err := service.Close()
+	require.NoError(t, err)
 }
