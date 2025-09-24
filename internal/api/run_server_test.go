@@ -27,10 +27,7 @@ func TestParseAttestationType(t *testing.T) {
 
 func TestParseSourceID(t *testing.T) {
 	// Valid source IDs
-	for _, sid := range []config.SourceName{
-		config.SourceTEE,
-		config.SourceXRP,
-	} {
+	for _, sid := range SourceIDs {
 		got, err := parseSourceID(string(sid))
 		require.NoError(t, err)
 		require.Equal(t, sid, got)

@@ -16,7 +16,7 @@ import (
 )
 
 func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
-	setup := api.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceXRP, config.EnvConfig{
+	setup := api.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
 		RPCURL: "https://s.altnet.rippletest.net:51234",
 	})
 	defer setup.Stop()
