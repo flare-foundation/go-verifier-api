@@ -32,7 +32,7 @@ func TestMultisigService(t *testing.T) {
 			AttestationType: connector.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: RPC_URL")
 		require.Nil(t, service)
 	})
 
@@ -44,7 +44,7 @@ func TestMultisigService(t *testing.T) {
 			AttestationType: connector.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to initialize verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
 		require.Nil(t, service)
 	})
 

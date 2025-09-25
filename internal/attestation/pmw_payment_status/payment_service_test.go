@@ -1,9 +1,10 @@
 package paymentservice
 
 import (
-	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"math/big"
 	"testing"
+
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -37,7 +38,7 @@ func TestPaymentService(t *testing.T) {
 			CChainDatabaseURL: "",
 		}
 		service, err := NewPaymentService(badEnvConfig)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, DATABASE_URL")
 		require.Nil(t, service)
 	})
 
@@ -50,7 +51,7 @@ func TestPaymentService(t *testing.T) {
 			AttestationType:   connector.PMWPaymentStatus,
 		}
 		service, err := NewPaymentService(badEnvConfig)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to initialize verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
 		require.Nil(t, service)
 	})
 
@@ -95,13 +96,14 @@ func TestPMWPaymentStatus(t *testing.T) {
 		service, err := NewPaymentService(envConfig)
 		require.NoError(t, err)
 		verifier := service.GetVerifier()
-		_, err = verifier.Verify(t.Context(), connector.IPMWPaymentStatusRequestBody{
+		val, err := verifier.Verify(t.Context(), connector.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
 			SenderAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 			Nonce:         10110068,
 			SubNonce:      10110068,
 		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "log not found for instruction")
+		expected := connector.IPMWPaymentStatusResponseBody{}
+		require.ErrorContains(t, err, "log not found for instruction")
+		require.Equal(t, expected, val)
 	})
 }

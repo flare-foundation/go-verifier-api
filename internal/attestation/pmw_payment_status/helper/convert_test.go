@@ -53,7 +53,8 @@ func TestParseBigInt(t *testing.T) {
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		input := "notanumber"
-		_, err := ParseBigInt(input)
-		require.Error(t, err)
+		val, err := ParseBigInt(input)
+		require.ErrorContains(t, err, "invalid big.Int string: notanumber")
+		require.Nil(t, val)
 	})
 }

@@ -135,7 +135,6 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 	v := &TeeVerifier{
 		RelayCaller: mockRelay,
 	}
-
 	t.Run("success", func(t *testing.T) {
 		expectedHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 		var hashBytes [32]byte
@@ -146,7 +145,6 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 		require.Equal(t, expectedHash, hash)
 		mockRelay.AssertExpectations(t)
 	})
-
 	t.Run("failure", func(t *testing.T) {
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
 		_, _, err := v.getSigningPolicyHashFromChain(context.Background(), 99)
@@ -172,7 +170,6 @@ func TestTeeVerifier_getSigningPolicyHashFromChainWithRetry(t *testing.T) {
 		require.Equal(t, expectedHash, hash)
 		mockRelay.AssertExpectations(t)
 	})
-
 	t.Run("succeeds after retry", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
@@ -194,7 +191,6 @@ func TestTeeVerifier_getSigningPolicyHashFromChainWithRetry(t *testing.T) {
 		require.GreaterOrEqual(t, callCount, 2, "should retry at least once")
 		mockRelay.AssertExpectations(t)
 	})
-
 	t.Run("fails after all retries", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
@@ -270,7 +266,6 @@ func TestRecoverSigner(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedAddr, addr)
 	})
-
 	t.Run("invalid signature", func(t *testing.T) {
 		data := []byte("hello")
 		invalidSig := []byte("notavalidsignature")
@@ -279,7 +274,6 @@ func TestRecoverSigner(t *testing.T) {
 		require.ErrorContains(t, err, "failed to recover pubkey: invalid signature length")
 		require.Equal(t, common.Address{}, addr)
 	})
-
 	t.Run("empty data", func(t *testing.T) {
 		signature, err := crypto.Sign(accounts.TextHash(crypto.Keccak256([]byte{})), privKey)
 		require.NoError(t, err)
@@ -288,7 +282,6 @@ func TestRecoverSigner(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, crypto.PubkeyToAddress(privKey.PublicKey), addr)
 	})
-
 	t.Run("truncated signature", func(t *testing.T) {
 		data := []byte("hello world")
 		hash := crypto.Keccak256(data)
@@ -299,7 +292,7 @@ func TestRecoverSigner(t *testing.T) {
 		truncatedSig := signature[:len(signature)-1]
 
 		addr, err := recoverSigner(data, truncatedSig)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to recover pubkey: invalid signature length")
 		require.Equal(t, common.Address{}, addr)
 	})
 }

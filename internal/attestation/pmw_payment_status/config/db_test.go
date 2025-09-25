@@ -21,8 +21,7 @@ func TestInitDBWithRetries(t *testing.T) {
 	})
 	t.Run("FailureExhaustRetries", func(t *testing.T) {
 		db, err := initDBWithRetries(postgres.Open("invalid_dsn"), DBOptionsName, opts)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), DBOptionsName)
+		require.ErrorContains(t, err, "failed to open fakeDB after 3 attempts: cannot parse `invalid_dsn`")
 		require.Nil(t, db)
 	})
 	t.Run("BackoffStopsAtMaxDelay", func(t *testing.T) {
@@ -54,17 +53,14 @@ func TestInitMainAndCChainDB(t *testing.T) {
 		RetryDelay: 1 * time.Millisecond,
 		MaxDelay:   2 * time.Millisecond,
 	}
-
 	t.Run("InitMainDB_InvalidDSN", func(t *testing.T) {
 		db, err := InitMainDB("invalid_dsn", testOpts)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to open main DB after 2 attempts: cannot parse `invalid_dsn`: failed to parse")
 		require.Nil(t, db)
-		require.Contains(t, err.Error(), "main DB")
 	})
 	t.Run("InitCChainDB_InvalidDSN", func(t *testing.T) {
 		db, err := InitCChainDB("invalid_dsn", testOpts)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to open CChain DB after 2 attempts: invalid DSN: missing the slash")
 		require.Nil(t, db)
-		require.Contains(t, err.Error(), "CChain DB")
 	})
 }

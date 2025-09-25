@@ -38,8 +38,8 @@ func TestGetReceivedAmount(t *testing.T) {
 		val, err := GetReceivedAmount(&testhelper.TransactionMeta0)
 		require.NoError(t, err)
 		require.NotNil(t, val)
-		require.Equal(t, val[0].Amount, expectedAmount)
-		require.Equal(t, val[0].Address, expectedReceiver)
+		require.Equal(t, expectedAmount, val[0].Amount)
+		require.Equal(t, expectedReceiver, val[0].Address)
 	})
 	t.Run("Amount received 2", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000)
@@ -47,8 +47,8 @@ func TestGetReceivedAmount(t *testing.T) {
 		val, err := GetReceivedAmount(&testhelper.TransactionMeta1)
 		require.NoError(t, err)
 		require.NotNil(t, val)
-		require.Equal(t, val[0].Amount, expectedAmount)
-		require.Equal(t, val[0].Address, expectedReceiver)
+		require.Equal(t, expectedAmount, val[0].Amount)
+		require.Equal(t, expectedReceiver, val[0].Address)
 	})
 	t.Run("Expect error", func(t *testing.T) {
 		val, err := GetReceivedAmount(nil)
@@ -185,7 +185,7 @@ func TestFindReceivedAmountForAddress(t *testing.T) {
 	})
 	t.Run("No amount", func(t *testing.T) {
 		val, err := FindReceivedAmountForAddress(&testhelper.TransactionMeta1, receiver)
-		require.Equal(t, val, big.NewInt(0))
+		require.Equal(t, big.NewInt(0), val)
 		require.NoError(t, err)
 	})
 	t.Run("Some amount", func(t *testing.T) {
