@@ -23,7 +23,8 @@ var xrpConstructor = func(cfg *config.PMWMultisigAccountConfig) (
 }
 
 var registry = map[string]VerifierConstructor{
-	string(config.SourceXRP): xrpConstructor,
+	string(config.SourceXRP):     xrpConstructor,
+	string(config.SourceTestXRP): xrpConstructor,
 }
 
 func GetVerifier(cfg *config.PMWMultisigAccountConfig) (

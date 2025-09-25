@@ -107,9 +107,10 @@ var attestationTypes = []connector.AttestationType{
 	connector.PMWMultisigAccountConfigured,
 }
 
-var sourceIDs = []config.SourceName{
+var SourceIDs = []config.SourceName{
 	config.SourceTEE,
 	config.SourceXRP,
+	config.SourceTestXRP,
 }
 
 func parseAttestationType(value string) (connector.AttestationType, error) {
@@ -122,7 +123,7 @@ func parseAttestationType(value string) (connector.AttestationType, error) {
 }
 
 func parseSourceID(value string) (config.SourceName, error) {
-	for _, at := range sourceIDs {
+	for _, at := range SourceIDs {
 		if string(at) == value {
 			return at, nil
 		}
