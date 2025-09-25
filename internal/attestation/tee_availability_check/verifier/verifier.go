@@ -213,7 +213,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
 	// recover signer
-	signer, err := recoverSigner(actionResp.Result.Data, actionResp.Signature)
+	signer, err := recoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
 	if err != nil {
 		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
 	}
