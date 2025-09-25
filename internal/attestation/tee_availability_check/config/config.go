@@ -71,20 +71,11 @@ func getBoolOrError(key, val string) (bool, error) {
 	return b, nil
 }
 
-//go:embed assets/google_confidential_space_root.crt
+//go:embed assets/google_confidential_space_root_20340116.crt
 var rootCertBytes []byte
 
 func LoadGoogleRootCert() (*x509.Certificate, error) {
-	cert, err := DecodeAndParsePEMCertificate(string(rootCertBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse root certificate: %w", err)
-	}
-	return cert, nil
-}
-
-// DecodeAndParsePEMCertificate decodes the given PEM certificate string and parses it into an x509 certificate.
-func DecodeAndParsePEMCertificate(certificate string) (*x509.Certificate, error) {
-	block, _ := pem.Decode([]byte(certificate))
+	block, _ := pem.Decode(rootCertBytes)
 	if block == nil {
 		return nil, fmt.Errorf("cannot decode certificate: invalid PEM format")
 	}

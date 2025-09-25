@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +75,7 @@ func TestCheckMissingFields(t *testing.T) {
 			RelayContractAddress: "",
 		}
 		err := CheckMissingFields(cfg, fields)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS, DATABASE_URL, CCHAIN_DATABASE_URL")
 		require.Contains(t, err.Error(), EnvRelayContractAddress)
 		require.Contains(t, err.Error(), EnvCChainDatabaseURL)
 		require.Contains(t, err.Error(), EnvTeeMachineRegistryContractAddress)
@@ -83,7 +84,8 @@ func TestCheckMissingFields(t *testing.T) {
 		cfg := EnvConfig{}
 		err := CheckMissingFields(cfg, fields)
 		for _, f := range fields {
-			require.Contains(t, err.Error(), f)
+			require.ErrorContains(t, err, "missing environment variables:")
+			require.ErrorContains(t, err, f)
 		}
 	})
 }
@@ -147,8 +149,8 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			got, err := LoadEncodedAndABI(tt.input.envConfig)
 
 			if tt.expectError {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.expectedErrMsg)
+				require.ErrorContains(t, err, tt.expectedErrMsg)
+				require.Equal(t, EncodedAndABI{}, got)
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, got.SourceIDPair.SourceIDEncoded)
@@ -182,13 +184,14 @@ func TestGetABIArguments(t *testing.T) {
 		require.Equal(t, "uint256", arg.Type.String())
 	})
 	t.Run("method not found", func(t *testing.T) {
-		_, err := getABIArguments("MissingMethod")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid method definition")
+		val, err := getABIArguments("MissingMethod")
+		require.ErrorContains(t, err, "invalid method definition for MissingMethod")
+		require.Equal(t, abi.Argument{}, val)
 	})
 	t.Run("invalid ABI", func(t *testing.T) {
 		connector.ConnectorMetaData.ABI = "not json"
-		_, err := getABIArguments("TestMethod")
-		require.Contains(t, err.Error(), "failed to parse ABI")
+		val, err := getABIArguments("TestMethod")
+		require.ErrorContains(t, err, "failed to parse ABI: invalid character")
+		require.Equal(t, abi.Argument{}, val)
 	})
 }
