@@ -33,7 +33,7 @@ func TestSampleAllTees(t *testing.T) {
 				URLs:   []string{"url"},
 			}, nil
 		}
-		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleValid, nil
 		}
 		sampleAllTees(ctx, v, getTees, fakeValidator)
@@ -52,7 +52,7 @@ func TestSampleAllTees(t *testing.T) {
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{}, errors.New("boom")
 		}
-		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleIndeterminate, nil
 		}
 		sampleAllTees(ctx, v, getTees, fakeValidator)
@@ -70,7 +70,7 @@ func TestSampleAllTees(t *testing.T) {
 			return teeList{TeeIDs: []common.Address{common.HexToAddress("0x1")}, URLs: []string{"url"}}, nil
 		}
 		callCount := 0
-		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			callCount++
 			return teetype.TeePollerSampleValid, nil
 		}
@@ -90,7 +90,7 @@ func TestSampleAllTees(t *testing.T) {
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{TeeIDs: []common.Address{common.HexToAddress("0x1")}, URLs: []string{"url"}}, nil
 		}
-		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleInvalid, errors.New("query failed")
 		}
 		sampleAllTees(context.Background(), ver, getTees, query)
