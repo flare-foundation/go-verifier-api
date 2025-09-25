@@ -71,7 +71,7 @@ func getBoolOrError(key, val string) (bool, error) {
 	return b, nil
 }
 
-//go:embed assets/google_confidential_space_root.crt
+//go:embed assets/google_confidential_space_root_20340116.crt
 var rootCertBytes []byte
 
 func LoadGoogleRootCert() (*x509.Certificate, error) {
