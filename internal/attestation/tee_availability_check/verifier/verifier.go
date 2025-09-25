@@ -171,7 +171,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	// Validate teeID
 	receivedTeeID, err := RetrieveAddressFromPublicKey(infoData.PublicKey)
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("failed retrieve TEE ID from", err)
+		return teetype.StatusInfo{}, fmt.Errorf("failed retrieve TEE ID from: %w", err)
 	}
 	if expectedTeeID != receivedTeeID {
 		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
