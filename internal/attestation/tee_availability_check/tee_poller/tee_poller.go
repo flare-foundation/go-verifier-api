@@ -76,7 +76,7 @@ func sampleAllTees(
 	ctx context.Context,
 	teeVerifier *verifier.TeeVerifier,
 	getTees func(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error),
-	queryInfoAndValidate func(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error)) {
+	queryInfoAndValidate func(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error)) {
 	activeTees, err := getTees(ctx, teeVerifier)
 	if err != nil {
 		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
@@ -109,7 +109,7 @@ func sampleAllTees(
 					if !ok {
 						return
 					}
-					state, err := queryInfoAndValidate(ctx, teeVerifier, t.proxyURL)
+					state, err := queryInfoAndValidate(ctx, teeVerifier, t.proxyURL, t.teeID)
 					if err != nil {
 						logger.Errorf("Failed to query teeInfo %s or validate: %v", t.proxyURL, err)
 					}
@@ -136,7 +136,7 @@ func sampleAllTees(
 	teeVerifier.SamplesMu.RUnlock()
 }
 
-func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 	infoResponse, err := fetchTEEInfoData(ctx, proxyURL)
 	if err != nil {
 		return teetype.TeePollerSampleInvalid, err
@@ -145,7 +145,7 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	if err != nil {
 		return checkInfoChallenge, err
 	}
-	_, err = teeVerifier.DataVerification(infoResponse)
+	_, err = teeVerifier.DataVerification(infoResponse, teeID)
 	if err != nil {
 		return teetype.TeePollerSampleInvalid, err
 	}
