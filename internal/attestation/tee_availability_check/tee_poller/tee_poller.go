@@ -76,7 +76,7 @@ func sampleAllTees(
 	ctx context.Context,
 	teeVerifier *verifier.TeeVerifier,
 	getTees func(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error),
-	queryInfoAndValidate func(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error)) {
+	queryInfoAndValidate func(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error)) {
 	activeTees, err := getTees(ctx, teeVerifier)
 	if err != nil {
 		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
@@ -87,6 +87,7 @@ func sampleAllTees(
 		}
 	} else {
 		updateActiveTees(activeTees)
+		filterTeeSamplesToActive(teeVerifier, activeTees)
 	}
 
 	taskCh := make(chan task, len(activeTees.TeeIDs))
@@ -110,7 +111,7 @@ func sampleAllTees(
 						return
 					}
 					proxyURL := teeVerifier.FormatProxyURL(t.proxyURL)
-					state, err := queryInfoAndValidate(ctx, teeVerifier, proxyURL)
+					state, err := queryInfoAndValidate(ctx, teeVerifier, proxyURL, t.teeID)
 					if err != nil {
 						logger.Errorf("Failed to query teeInfo %s or validate: %v", proxyURL, err)
 					}
@@ -137,7 +138,7 @@ func sampleAllTees(
 	teeVerifier.SamplesMu.RUnlock()
 }
 
-func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 	infoResponse, err := fetchTEEInfoData(ctx, proxyURL)
 	if err != nil {
 		return teetype.TeePollerSampleInvalid, err
@@ -146,7 +147,7 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	if err != nil {
 		return checkInfoChallenge, err
 	}
-	_, err = teeVerifier.DataVerification(infoResponse)
+	_, err = teeVerifier.DataVerification(infoResponse, teeID)
 	if err != nil {
 		return teetype.TeePollerSampleInvalid, err
 	}
@@ -216,4 +217,20 @@ func getCachedActiveTees() teeList {
 	teesMu.RLock()
 	defer teesMu.RUnlock()
 	return lastActiveTees
+}
+
+func filterTeeSamplesToActive(teeVerifier *verifier.TeeVerifier, activeTees teeList) {
+	activeSet := make(map[common.Address]struct{}, len(activeTees.TeeIDs))
+	for _, id := range activeTees.TeeIDs {
+		activeSet[id] = struct{}{}
+	}
+
+	teeVerifier.SamplesMu.Lock()
+	defer teeVerifier.SamplesMu.Unlock()
+
+	for teeID := range teeVerifier.TeeSamples {
+		if _, ok := activeSet[teeID]; !ok {
+			delete(teeVerifier.TeeSamples, teeID)
+		}
+	}
 }

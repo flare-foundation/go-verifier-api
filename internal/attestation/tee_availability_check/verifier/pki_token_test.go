@@ -97,16 +97,14 @@ func TestValidateClaims(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.EATNonce = []string{}
 		val, err := verifier.ValidateClaims(&modClaims, teenodetype.TeeInfo{}, true)
-		var zero teetype.StatusInfo
-		require.Equal(t, zero, val)
+		require.Equal(t, teetype.StatusInfo{}, val)
 		require.ErrorContains(t, err, "expected one eat_nonce")
 	})
 	t.Run("EATNonce does not match", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.EATNonce = []string{"123"}
 		val, err := verifier.ValidateClaims(&modClaims, teenodetype.TeeInfo{}, true)
-		var zero teetype.StatusInfo
-		require.Equal(t, zero, val)
+		require.Equal(t, teetype.StatusInfo{}, val)
 		require.ErrorContains(t, err, "eat_nonce does not match")
 	})
 	t.Run("No supported attributes", func(t *testing.T) {
@@ -120,7 +118,7 @@ func TestValidateClaims(t *testing.T) {
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = []string{}
 		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.NoError(t, err)
-		require.Equal(t, val.Status, teetype.OBSOLETE)
+		require.Equal(t, teetype.OBSOLETE, val.Status)
 	})
 	t.Run("No confidential space", func(t *testing.T) {
 		modClaims := *baseClaims

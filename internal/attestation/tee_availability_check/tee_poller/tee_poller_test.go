@@ -34,7 +34,6 @@ func TestSampleAllTees(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		return v, ctx, cancel
 	}
-
 	t.Run("Success", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
@@ -44,7 +43,7 @@ func TestSampleAllTees(t *testing.T) {
 				URLs:   []string{"url"},
 			}, nil
 		}
-		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleValid, nil
 		}
 		sampleAllTees(ctx, v, getTees, fakeValidator)
@@ -63,7 +62,7 @@ func TestSampleAllTees(t *testing.T) {
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{}, errors.New("boom")
 		}
-		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleIndeterminate, nil
 		}
 		sampleAllTees(ctx, v, getTees, fakeValidator)
@@ -71,7 +70,6 @@ func TestSampleAllTees(t *testing.T) {
 		defer v.SamplesMu.RUnlock()
 		require.Contains(t, v.TeeSamples, common.HexToAddress("0x2"))
 	})
-
 	t.Run("Truncate old samples", func(t *testing.T) {
 		ver := &verifier.TeeVerifier{
 			TeeSamples:        make(map[common.Address][]teetype.TeePollerSample),
@@ -81,7 +79,7 @@ func TestSampleAllTees(t *testing.T) {
 			return teeList{TeeIDs: []common.Address{common.HexToAddress("0x1")}, URLs: []string{"url"}}, nil
 		}
 		callCount := 0
-		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			callCount++
 			return teetype.TeePollerSampleValid, nil
 		}
@@ -101,7 +99,7 @@ func TestSampleAllTees(t *testing.T) {
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{TeeIDs: []common.Address{common.HexToAddress("0x1")}, URLs: []string{"url"}}, nil
 		}
-		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string) (teetype.TeePollerSampleState, error) {
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleInvalid, errors.New("query failed")
 		}
 		sampleAllTees(context.Background(), ver, getTees, query)
@@ -109,6 +107,41 @@ func TestSampleAllTees(t *testing.T) {
 		defer ver.SamplesMu.RUnlock()
 		require.Len(t, ver.TeeSamples[common.HexToAddress("0x1")], 1)
 		require.Equal(t, teetype.TeePollerSampleInvalid, ver.TeeSamples[common.HexToAddress("0x1")][0].State)
+	})
+	t.Run("FilterTeeSamplesToActive removes inactive TEEs", func(t *testing.T) {
+		active := teeList{
+			TeeIDs: []common.Address{
+				common.HexToAddress("0x1"),
+				common.HexToAddress("0x2"),
+			},
+		}
+		ver := &verifier.TeeVerifier{
+			TeeSamples: make(map[common.Address][]teetype.TeePollerSample),
+		}
+		ver.TeeSamples[common.HexToAddress("0x1")] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleValid}}
+		ver.TeeSamples[common.HexToAddress("0x2")] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleInvalid}}
+		ver.TeeSamples[common.HexToAddress("0x3")] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleIndeterminate}} // inactive
+
+		filterTeeSamplesToActive(ver, active)
+		ver.SamplesMu.RLock()
+		defer ver.SamplesMu.RUnlock()
+
+		require.Contains(t, ver.TeeSamples, common.HexToAddress("0x1"))
+		require.Contains(t, ver.TeeSamples, common.HexToAddress("0x2"))
+		require.NotContains(t, ver.TeeSamples, common.HexToAddress("0x3")) // removed
+		require.Len(t, ver.TeeSamples, 2)
+	})
+	t.Run("FilterTeeSamplesToActive clears all when active list empty", func(t *testing.T) {
+		ver := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]teetype.TeePollerSample{
+				common.HexToAddress("0x1"): {{State: teetype.TeePollerSampleValid}},
+				common.HexToAddress("0x2"): {{State: teetype.TeePollerSampleInvalid}},
+			},
+		}
+		filterTeeSamplesToActive(ver, teeList{})
+		ver.SamplesMu.RLock()
+		defer ver.SamplesMu.RUnlock()
+		require.Empty(t, ver.TeeSamples)
 	})
 }
 

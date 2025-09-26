@@ -156,8 +156,9 @@ func TestPMWMultisig_PrepareRequestBody(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		_, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
-		require.Error(t, err)
+		val, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
+		require.ErrorContains(t, err, "500 Internal Server Error")
+		require.Equal(t, types.AttestationResponse{ResponseBody: hexutil.Bytes(nil)}, val)
 	})
 }
 

@@ -26,9 +26,8 @@ func TestUnsupportedAttestationType(t *testing.T) {
 		AttestationType: "UnknownType",
 	}
 	closers, err := LoadModule(ctx, api, envConfig)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "unsupported attestation type")
 	require.Nil(t, closers)
-	require.Contains(t, err.Error(), "unsupported attestation type")
 }
 
 func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
@@ -44,8 +43,7 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 		DisableAttestationCheckE2E:        "false",
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to connect to Flare node")
+	require.ErrorContains(t, err, "failed to connect to Flare node")
 	require.Nil(t, closers)
 }
 
@@ -57,9 +55,8 @@ func TestTEEAvailabilityCheckConfigError(t *testing.T) {
 		AttestationType: connector.AvailabilityCheck,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "cannot retrieve config")
 	require.Nil(t, closers)
-	require.Contains(t, err.Error(), "cannot retrieve config")
 }
 
 func TestPMWPaymentStatusServiceError(t *testing.T) {
@@ -69,7 +66,7 @@ func TestPMWPaymentStatusServiceError(t *testing.T) {
 		AttestationType: connector.PMWPaymentStatus,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, DATABASE_URL")
 	require.Nil(t, closers)
 }
 
@@ -80,6 +77,6 @@ func TestPMWMultisigAccountConfiguredServiceError(t *testing.T) {
 		AttestationType: connector.PMWMultisigAccountConfigured,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: RPC_URL")
 	require.Nil(t, closers)
 }

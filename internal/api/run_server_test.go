@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -21,8 +22,7 @@ func TestParseAttestationType(t *testing.T) {
 	}
 	// Invalid type
 	_, err := parseAttestationType("invalid-type")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid attestation type")
+	require.ErrorContains(t, err, "invalid attestation type")
 }
 
 func TestParseSourceID(t *testing.T) {
@@ -34,24 +34,31 @@ func TestParseSourceID(t *testing.T) {
 	}
 	// Invalid source ID
 	_, err := parseSourceID("invalid-source")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid source id")
+	require.ErrorContains(t, err, "invalid source id")
 }
 
 func TestGetAPIKeys(t *testing.T) {
-	_, err := getAPIKeys()
-	require.Error(t, err)
+	keys, err := getAPIKeys()
+	require.ErrorContains(t, err, "API_KEYS must be set")
+	require.Nil(t, keys)
 	// Empty string
 	t.Setenv(config.EnvAPIKeys, "   ")
-	_, err = getAPIKeys()
-	require.Error(t, err)
+	keys, err = getAPIKeys()
+	require.ErrorContains(t, err, "API_KEYS must be set")
+	require.Nil(t, keys)
 	// Only empty values
 	t.Setenv(config.EnvAPIKeys, " , , ")
-	_, err = getAPIKeys()
-	require.Error(t, err)
+	keys, err = getAPIKeys()
+	require.ErrorContains(t, err, "API_KEYS contains only empty values")
+	require.Nil(t, keys)
+	// Trailing comma key
+	t.Setenv(config.EnvAPIKeys, "key1,key2,")
+	keys, err = getAPIKeys()
+	require.NoError(t, err)
+	require.Equal(t, []string{"key1", "key2"}, keys)
 	// Single key
 	t.Setenv(config.EnvAPIKeys, "key1")
-	keys, err := getAPIKeys()
+	keys, err = getAPIKeys()
 	require.NoError(t, err)
 	require.Equal(t, []string{"key1"}, keys)
 	// Multiple keys, with spaces
@@ -64,17 +71,17 @@ func TestGetAPIKeys(t *testing.T) {
 func TestGetEnvOrError(t *testing.T) {
 	const testKey = "API_KEYS"
 
-	_, err := getEnvOrError(testKey)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), testKey)
+	val, err := getEnvOrError(testKey)
+	require.ErrorContains(t, err, fmt.Sprintf("%s must be set", testKey))
+	require.Equal(t, "", val)
 
 	t.Setenv(testKey, "   ")
-	_, err = getEnvOrError(testKey)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), testKey)
+	val, err = getEnvOrError(testKey)
+	require.ErrorContains(t, err, fmt.Sprintf("%s must be set", testKey))
+	require.Equal(t, "", val)
 
 	t.Setenv(testKey, "value")
-	val, err := getEnvOrError(testKey)
+	val, err = getEnvOrError(testKey)
 	require.NoError(t, err)
 	require.Equal(t, "value", val)
 }
@@ -102,8 +109,7 @@ func TestLoadEnvConfig(t *testing.T) {
 		t.Setenv(config.EnvSourceID, string(config.SourceTEE))
 		t.Setenv(config.EnvAttestationType, "invalid-attestation-type")
 		_, err := LoadEnvConfig()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid attestation type")
+		require.ErrorContains(t, err, "invalid attestation type: invalid-attestation-type")
 	})
 
 	t.Run("Env config should fail if source id is invalid", func(t *testing.T) {
@@ -111,12 +117,11 @@ func TestLoadEnvConfig(t *testing.T) {
 		t.Setenv(config.EnvSourceID, "invalid-source-id")
 		t.Setenv(config.EnvAttestationType, string(connector.AvailabilityCheck))
 		_, err := LoadEnvConfig()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid source id")
+		require.ErrorContains(t, err, "invalid source id: invalid-source-id")
 	})
 }
 
 func loadEnvShouldFail(t *testing.T) {
 	_, err := LoadEnvConfig()
-	require.Error(t, err)
+	require.ErrorContains(t, err, "must be set")
 }

@@ -120,7 +120,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		return zero, fmt.Errorf("proxy signer does not match: expected %s, got: %s", req.TeeProxyId.Hex(), dataSigner.Hex())
 	}
 	// Verify info data.
-	statusInfo, err := v.DataVerification(response)
+	statusInfo, err := v.DataVerification(response, req.TeeId)
 	if err != nil {
 		return zero, err
 	}
@@ -146,7 +146,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}, nil
 }
 
-func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (teetype.StatusInfo, error) {
+func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (teetype.StatusInfo, error) {
 	// if response.Platform != "google" { //TODO (platform) - add after teeInfo.Platform is defined
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
@@ -171,7 +171,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 	if !token.Valid {
 		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
-	// check claims
+	// Check claims
 	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
 	if !ok {
 		return teetype.StatusInfo{}, errors.New("cannot parse claims")
@@ -179,6 +179,14 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse) (t
 	statusInfo, err := ValidateClaims(claims, infoData, v.cfg.AllowTeeDebug)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+	}
+	// Validate teeID
+	receivedTeeID, err := RetrieveAddressFromPublicKey(infoData.PublicKey)
+	if err != nil {
+		return teetype.StatusInfo{}, fmt.Errorf("failed retrieve TEE ID from: %w", err)
+	}
+	if expectedTeeID != receivedTeeID {
+		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
 	}
 	return statusInfo, nil
 }
@@ -225,7 +233,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
 	// recover signer
-	signer, err := recoverSigner(actionResp.Result.Data, actionResp.Signature)
+	signer, err := recoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
 	if err != nil {
 		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
 	}
@@ -336,4 +344,13 @@ func recoverSigner(data hexutil.Bytes, signature hexutil.Bytes) (common.Address,
 		return common.Address{}, fmt.Errorf("failed to recover pubkey: %w", err)
 	}
 	return crypto.PubkeyToAddress(*pub), nil
+}
+
+func RetrieveAddressFromPublicKey(publicKey teenodetypes.PublicKey) (common.Address, error) {
+	pubKey, err := teenodetypes.ParsePubKey(publicKey)
+	if err != nil {
+		return common.Address{}, err
+	}
+	teeID := crypto.PubkeyToAddress(*pubKey)
+	return teeID, nil
 }

@@ -134,22 +134,20 @@ func TestFetchJSON(t *testing.T) {
 	t.Run("Unexpected status code", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/unexpected", server.URL), 50*time.Millisecond)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unexpected status code")
+		require.ErrorContains(t, err, "unexpected status code")
 	})
 
 	t.Run("Bad json", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/badjson", server.URL), 50*time.Millisecond)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "decoding failed")
+		require.ErrorContains(t, err, "decoding failed")
 	})
 
 	t.Run("Request error", func(t *testing.T) {
 		// Use an invalid URL to force a request error
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, "http://invalid.invalid/doesnotexist", 50*time.Millisecond)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "dial tcp: lookup invalid.invalid: no such host")
 	})
 
 	t.Run("Timeout", func(t *testing.T) {
@@ -165,14 +163,14 @@ func TestFetchJSON(t *testing.T) {
 
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/slow", slowServer.URL), 50*time.Millisecond)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
 	})
 
 	t.Run("Context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/ok", server.URL), 50*time.Millisecond)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "context canceled")
 	})
 }
 

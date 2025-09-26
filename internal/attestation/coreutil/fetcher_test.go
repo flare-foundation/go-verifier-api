@@ -37,8 +37,9 @@ func TestRetry_ExhaustRetries(t *testing.T) {
 	op := func() (int, error) {
 		return 0, errors.New("always fails")
 	}
-	_, err := Retry(3, time.Millisecond, op, nil)
-	require.Error(t, err, "expected error, got nil")
+	val, err := Retry(3, time.Millisecond, op, nil)
+	require.ErrorContains(t, err, "always fails")
+	require.Equal(t, 0, val)
 }
 
 func TestRetry_BreakOn(t *testing.T) {
@@ -64,6 +65,6 @@ func TestRetry_ReturnsLastResult(t *testing.T) {
 		return 99, errors.New("fail but keep result")
 	}
 	got, err := Retry(2, time.Millisecond, op, nil)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "fail but keep result")
 	require.Equal(t, 99, got)
 }
