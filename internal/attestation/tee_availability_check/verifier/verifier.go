@@ -14,17 +14,15 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/instruction"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/keyutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
@@ -169,7 +167,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}
 	// Validate teeID
-	receivedTeeID, err := RetrieveAddressFromPublicKey(infoData.PublicKey)
+	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("failed retrieve TEE ID from: %w", err)
 	}
@@ -221,7 +219,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
 	// recover signer
-	signer, err := recoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
+	signer, err := keyutil.RecoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
 	if err != nil {
 		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
 	}
@@ -314,23 +312,4 @@ func (v *TeeVerifier) Close() error {
 		return closer.Close()
 	}
 	return nil
-}
-
-func recoverSigner(data hexutil.Bytes, signature hexutil.Bytes) (common.Address, error) {
-	hash := crypto.Keccak256(data)
-	ethHash := accounts.TextHash(hash)
-	pub, err := crypto.SigToPub(ethHash, signature)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to recover pubkey: %w", err)
-	}
-	return crypto.PubkeyToAddress(*pub), nil
-}
-
-func RetrieveAddressFromPublicKey(publicKey teenodetypes.PublicKey) (common.Address, error) {
-	pubKey, err := teenodetypes.ParsePubKey(publicKey)
-	if err != nil {
-		return common.Address{}, err
-	}
-	teeID := crypto.PubkeyToAddress(*pubKey)
-	return teeID, nil
 }
