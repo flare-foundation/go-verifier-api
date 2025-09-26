@@ -86,7 +86,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 	})
 	t.Run("invalid fee field", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
-		modRawTransactionData.CommonFields.Fee = "fee"
+		modRawTransactionData.Fee = "fee"
 		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
 		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "invalid big.Int string: fee")

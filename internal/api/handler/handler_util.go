@@ -47,7 +47,7 @@ func ValidateSystemAndRequestAttestationNameAndSourceID(config *config.EncodedAn
 			string(config.AttestationTypePair.AttestationType), config.AttestationTypePair.AttestationTypeEncoded,
 			config.SourceIDPair.SourceID, config.SourceIDPair.SourceIDEncoded,
 		)
-		return huma.Error400BadRequest(fmt.Sprintf("Request validation failed: %v", errorMessage))
+		return fmt.Errorf("%v", errorMessage)
 	}
 	return nil
 }
@@ -56,7 +56,7 @@ func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, 
 	var zero T
 	data, err := abiDecodeRequestData[T](requestBody, config.ABIPair.Request)
 	if err != nil {
-		return zero, huma.Error400BadRequest(fmt.Sprintf("Decoding request body to data failed: %v", err))
+		return zero, fmt.Errorf("%v", err)
 	}
 	return data, nil
 }
@@ -72,7 +72,7 @@ func EncodeResponse[T any](data T, config *config.EncodedAndABI) ([]byte, error)
 func encodeWithABI[T any](data T, arg abi.Argument, kind string) ([]byte, error) {
 	encoded, err := abiEncodeData(data, arg)
 	if err != nil {
-		return nil, huma.Error500InternalServerError(fmt.Sprintf("Encoding %s data failed: %v", kind, err))
+		return nil, fmt.Errorf("encoding %s data failed: %w", kind, err)
 	}
 	return encoded, nil
 }
@@ -83,11 +83,11 @@ func PrepareRequestBody[T types.InternalConvertible[I], I any](
 ) (hexutil.Bytes, error) {
 	requestData, err := body.RequestData.ToInternal()
 	if err != nil {
-		return nil, huma.Error400BadRequest(fmt.Sprintf("Converting request body to data failed: %v", err))
+		return nil, fmt.Errorf("converting request body to data failed: %v", err)
 	}
 	encodedRequest, err := EncodeRequest(requestData, config)
 	if err != nil {
-		return nil, huma.Error400BadRequest(fmt.Sprintf("Encoding request data failed: %v", err))
+		return nil, fmt.Errorf("encoding request data failed: %v", err)
 	}
 	return encodedRequest, nil
 }

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -35,11 +34,13 @@ func TeeAvailabilityCheckHandler(
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, err
+				logger.Errorf("Request validation failed: %v", err)
+				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
 			}
 			encodedRequest, err := PrepareRequestBody(request.Body, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("%v", err)
+				return nil, huma.Error400BadRequest("Prepare request failed: " + err.Error())
 			}
 			return types.NewResponse(types.AttestationRequestEncoded{
 				RequestBody: encodedRequest,
@@ -56,19 +57,23 @@ func TeeAvailabilityCheckHandler(
 		}) (*types.Response[types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]], error) {
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, err
+				logger.Errorf("Request validation failed: %v", err)
+				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
 			}
 			requestData, err := DecodeRequest[connector.ITeeAvailabilityCheckRequestBody](request.Body.RequestBody, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Decoding request body to data failed: %v", err)
+				return nil, huma.Error400BadRequest("Decoding request body to data failed: " + err.Error())
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+				logger.Errorf("Verification failed: %v", err)
+				return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Encoding data to response body failed: %v", err)
+				return nil, huma.Error500InternalServerError("Encoding data to response body failed: " + err.Error())
 			}
 			return types.NewResponse(types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]{
 				ResponseData: types.TeeAvailabilityCheckResponseToExternal(responseData),
@@ -87,19 +92,23 @@ func TeeAvailabilityCheckHandler(
 			logger.Debug("Received request for TEEAvailabilityCheck")
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, err
+				logger.Errorf("Request validation failed: %v", err)
+				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
 			}
 			requestData, err := DecodeRequest[connector.ITeeAvailabilityCheckRequestBody](request.Body.RequestBody, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Decoding request body to data failed: %v", err)
+				return nil, huma.Error400BadRequest("Decoding request body to data failed: " + err.Error())
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+				logger.Errorf("Verification failed: %v", err)
+				return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Encoding data to response body failed: %v", err)
+				return nil, huma.Error500InternalServerError("Encoding data to response body failed: " + err.Error())
 			}
 			logTeeAvailabilityCheckResponse(responseData)
 			return types.NewResponse(types.AttestationResponse{
@@ -115,6 +124,7 @@ func TeeAvailabilityCheckHandler(
 		func(ctx context.Context, request *struct{}) (*types.Response[types.TeeSamplesResponse], error) {
 			teeVerifier, ok := verifier.(*teeverifier.TeeVerifier)
 			if !ok {
+				logger.Errorf("Internal server error: invalid verifier type")
 				return nil, huma.NewError(
 					http.StatusInternalServerError,
 					"Internal server error: invalid verifier type",
