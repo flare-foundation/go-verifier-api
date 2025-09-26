@@ -87,6 +87,7 @@ func sampleAllTees(
 		}
 	} else {
 		updateActiveTees(activeTees)
+		filterTeeSamplesToActive(teeVerifier, activeTees)
 	}
 
 	taskCh := make(chan task, len(activeTees.TeeIDs))
@@ -215,4 +216,20 @@ func getCachedActiveTees() teeList {
 	teesMu.RLock()
 	defer teesMu.RUnlock()
 	return lastActiveTees
+}
+
+func filterTeeSamplesToActive(teeVerifier *verifier.TeeVerifier, activeTees teeList) {
+	activeSet := make(map[common.Address]struct{}, len(activeTees.TeeIDs))
+	for _, id := range activeTees.TeeIDs {
+		activeSet[id] = struct{}{}
+	}
+
+	teeVerifier.SamplesMu.Lock()
+	defer teeVerifier.SamplesMu.Unlock()
+
+	for teeID := range teeVerifier.TeeSamples {
+		if _, ok := activeSet[teeID]; !ok {
+			delete(teeVerifier.TeeSamples, teeID)
+		}
+	}
 }
