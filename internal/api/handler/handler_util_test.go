@@ -44,14 +44,14 @@ func TestPrepareRequestBody(t *testing.T) {
 		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBodyMod)
 		val, err := PrepareRequestBody(invalidReq, encodedAndABI)
 		require.Nil(t, val)
-		require.ErrorContains(t, err, "Converting request body to data failed: public key at index 1 is empty")
+		require.ErrorContains(t, err, "converting request body to data failed: public key at index 1 is empty")
 	})
 	t.Run("Invalid ABI encode", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
 		val, err := PrepareRequestBody(req, encodedAndABI)
-		require.ErrorContains(t, err, "Encoding request data failed: encoding request data failed: encoding type connector.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
+		require.ErrorContains(t, err, "encoding request data failed: encoding request data failed: encoding type connector.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
 		require.Nil(t, val)
 	})
 }
