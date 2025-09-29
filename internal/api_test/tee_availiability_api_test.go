@@ -24,13 +24,18 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		DisableAttestationCheckE2E:        "false",
 	})
 	defer setup.Stop()
-
-	t.Run("prepareRequestBody", func(t *testing.T) {
-		reqBody := connector.ITeeAvailabilityCheckRequestBody{TeeId: common.HexToAddress("0x12345"), TeeProxyId: common.HexToAddress("0x23456"), Url: "https://example.com", Challenge: common.HexToHash("0x123")}
-		reqData := testhelper.TeeAvailabilityCheckRequestBody(reqBody)
+	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
+	baseReqBody := connector.ITeeAvailabilityCheckRequestBody{
+		TeeId:      common.HexToAddress("0x12345"),
+		TeeProxyId: common.HexToAddress("0x23456"),
+		Url:        "https://example.com",
+		Challenge:  common.HexToHash("0x123"),
+	}
+	t.Run("PrepareRequestBody: Valid", func(t *testing.T) {
+		reqData := testhelper.TeeAvailabilityCheckRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
-		response, err := testhelper.Post[types.AttestationRequestEncoded](t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
+		response, err := testhelper.Post[types.AttestationRequestEncoded](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 
@@ -41,14 +46,58 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
+	t.Run("PrepareRequestBody: Invalid sourceID", func(t *testing.T) {
+		reqData := testhelper.TeeAvailabilityCheckRequestBody(baseReqBody)
+		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x12345"), reqData)
 
-	t.Run("prepareRequestBody - bad request", func(t *testing.T) {
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), types.AttestationRequestData[types.TeeAvailabilityCheckRequestBody]{}, setup.APIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
-	t.Run("getPolledTees", func(t *testing.T) {
+	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
+	t.Run("PrepareResponseBody: Invalid request body", func(t *testing.T) {
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+	t.Run("PrepareResponseBody: Invalid sourceID", func(t *testing.T) {
+		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+	t.Run("PrepareResponseBody: Failed verification", func(t *testing.T) {
+		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+	})
+	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
+	t.Run("Verify: Invalid request body", func(t *testing.T) {
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+	t.Run("Verify: Invalid sourceID", func(t *testing.T) {
+		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+	t.Run("PrepareResponseBody: Failed verification", func(t *testing.T) {
+		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+	})
+	t.Run("PolledTees", func(t *testing.T) {
 		resp, err := testhelper.Get(t, fmt.Sprintf("http://localhost:%s/poller/tees", setup.Port), setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp)
