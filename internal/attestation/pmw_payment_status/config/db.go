@@ -11,23 +11,23 @@ import (
 )
 
 const (
-	mainDBRetries    = 5
-	mainDBRetryDelay = 1 * time.Second
-	mainDBMaxDelay   = 5 * time.Second
+	mainDBMaxAttempts = 5
+	mainDBRetryDelay  = 1 * time.Second
+	mainDBMaxDelay    = 5 * time.Second
 
-	cChainDBRetries    = 10
-	cChainDBRetryDelay = 2 * time.Second
-	cChainDBMaxDelay   = 10 * time.Second
+	cChainDBMaxAttempts = 10
+	cChainDBRetryDelay  = 2 * time.Second
+	cChainDBMaxDelay    = 10 * time.Second
 )
 
 type DBOptions struct {
-	Retries    int
-	RetryDelay time.Duration
-	MaxDelay   time.Duration
+	MaxAttempts int
+	RetryDelay  time.Duration
+	MaxDelay    time.Duration
 }
 
 func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions) (*gorm.DB, error) {
-	retries := opts.Retries
+	maxAttempts := opts.MaxAttempts
 	delay := opts.RetryDelay
 	maxDelay := opts.MaxDelay
 
@@ -35,13 +35,13 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 	var err error
 	currentDelay := delay
 
-	for i := 0; i < retries; i++ {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		db, err = gorm.Open(dialector, &gorm.Config{})
 		if err == nil {
 			return db, nil
 		}
 
-		if i < retries-1 {
+		if attempt < maxAttempts {
 			time.Sleep(currentDelay)
 			currentDelay *= 2
 			if currentDelay > maxDelay {
@@ -50,14 +50,14 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 		}
 	}
 
-	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, retries, err)
+	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, maxAttempts, err)
 }
 
 func InitMainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	opts := &DBOptions{
-		Retries:    mainDBRetries,
-		RetryDelay: mainDBRetryDelay,
-		MaxDelay:   mainDBMaxDelay,
+		MaxAttempts: mainDBMaxAttempts,
+		RetryDelay:  mainDBRetryDelay,
+		MaxDelay:    mainDBMaxDelay,
 	}
 	if overrideOpts != nil {
 		opts = overrideOpts
@@ -67,9 +67,9 @@ func InitMainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 
 func InitCChainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	opts := &DBOptions{
-		Retries:    cChainDBRetries,
-		RetryDelay: cChainDBRetryDelay,
-		MaxDelay:   cChainDBMaxDelay,
+		MaxAttempts: cChainDBMaxAttempts,
+		RetryDelay:  cChainDBRetryDelay,
+		MaxDelay:    cChainDBMaxDelay,
 	}
 	if overrideOpts != nil {
 		opts = overrideOpts

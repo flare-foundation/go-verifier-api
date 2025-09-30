@@ -30,10 +30,11 @@ import (
 )
 
 const (
-	fetchTimeout            = 5 * time.Second
+	fetchInfoTimeout        = 5 * time.Second
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
-	chainRetries            = 2
-	chainRetryDelay         = 500 * time.Millisecond
+	chainMaxAttemps         = 1
+	chainRetryDelay         = 400 * time.Millisecond
+	chainFetchTimeout       = 4 * time.Second
 	samplesToConsider       = 5
 )
 
@@ -178,20 +179,36 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 }
 
 func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teenodetypes.TeeInfo) (teetype.TeePollerSampleState, error) {
-	// check initial signing policy hash
-	initialSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID)
-	if err != nil {
-		return state, fmt.Errorf("failed to retrieve initial signing policy hash: %w", err)
+	type result struct {
+		hash  common.Hash
+		state teetype.TeePollerSampleState
+		err   error
 	}
-	if initialSigningPolicyHash != teeInfoData.InitialSigningPolicyHash {
+	initialSigningCh := make(chan result, 1)
+	lastSigningCh := make(chan result, 1)
+	// Fetch policies
+	go func() {
+		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID, chainMaxAttemps, chainRetryDelay)
+		initialSigningCh <- result{hash, state, err}
+	}()
+	go func() {
+		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID, chainMaxAttemps, chainRetryDelay)
+		lastSigningCh <- result{hash, state, err}
+	}()
+	// Wait for results
+	initialSigningRes := <-initialSigningCh
+	lastSigningRes := <-lastSigningCh
+	// Check
+	if initialSigningRes.err != nil {
+		return initialSigningRes.state, fmt.Errorf("failed to retrieve initial signing policy hash: %w", initialSigningRes.err)
+	}
+	if lastSigningRes.err != nil {
+		return lastSigningRes.state, fmt.Errorf("failed to retrieve last signing policy hash: %w", lastSigningRes.err)
+	}
+	if initialSigningRes.hash != teeInfoData.InitialSigningPolicyHash {
 		return teetype.TeePollerSampleInvalid, errors.New("failed to validate initial signing policy hash")
 	}
-	// check last signing policy hash
-	lastSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID)
-	if err != nil {
-		return state, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
-	}
-	if lastSigningPolicyHash != teeInfoData.LastSigningPolicyHash {
+	if lastSigningRes.hash != teeInfoData.LastSigningPolicyHash {
 		return teetype.TeePollerSampleInvalid, errors.New("failed to validate last signing policy hash")
 	}
 	return teetype.TeePollerSampleValid, nil
@@ -207,7 +224,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
 	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
-	actionResp, err := fetchFn(ctx, url, fetchTimeout)
+	actionResp, err := fetchFn(ctx, url, fetchInfoTimeout)
 	if err != nil {
 		return zero, zeroAdd, err
 	}
@@ -232,7 +249,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	ctx, cancel := context.WithTimeout(ctx, chainFetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
 		Context: ctx,
@@ -246,14 +263,19 @@ func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signing
 	return common.Hash(signingPolicyHashBytes), teetype.TeePollerSampleValid, nil
 }
 
-func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
+func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(
+	ctx context.Context,
+	signingPolicyID uint32,
+	maxAttempts int,
+	delay time.Duration,
+) (common.Hash, teetype.TeePollerSampleState, error) {
 	var (
 		hash       common.Hash
 		finalState teetype.TeePollerSampleState
 	)
 	_, err := coreutil.Retry(
-		chainRetries,
-		chainRetryDelay,
+		maxAttempts,
+		delay,
 		func() (struct{}, error) {
 			h, state, err := v.getSigningPolicyHashFromChain(ctx, signingPolicyID)
 			if err != nil {
@@ -270,8 +292,8 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context
 	)
 	if err != nil {
 		return common.Hash{}, finalState, fmt.Errorf(
-			"getSigningPolicyHashFromChainWithRetry failed after %d retries: %w",
-			chainRetries, err,
+			"getSigningPolicyHashFromChainWithRetry failed after %d attempts: %w",
+			maxAttempts, err,
 		)
 	}
 	return hash, finalState, nil

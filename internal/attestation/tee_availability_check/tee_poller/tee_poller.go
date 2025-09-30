@@ -35,7 +35,7 @@ const (
 	sampleInterval     = 1 * time.Minute
 	defaultWorkerCount = 10
 	fetchTimeout       = 5 * time.Second
-	chainRetries       = 2
+	chainMaxAttempts   = 2
 	chainRetryDelay    = 500 * time.Millisecond
 	teeMachineChunk    = 100
 )
@@ -196,7 +196,7 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 }
 
 func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
-	return utils.Retry(chainRetries, chainRetryDelay, func() (teeList, error) {
+	return utils.Retry(chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
 		return getAllActiveTeeMachines(ctx, teeVerifier)
 	}, nil)
 }

@@ -160,12 +160,14 @@ func TestTeeVerifier_getSigningPolicyHashFromChainWithRetry(t *testing.T) {
 	expectedHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 	var hashBytes [32]byte
 	copy(hashBytes[:], expectedHash.Bytes())
+	maxAttempts := 2
+	delay := 150 * time.Millisecond
 
 	t.Run("success on first attempt", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(42)).Return(hashBytes, nil)
-		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 42)
+		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 42, maxAttempts, delay)
 		require.NoError(t, err)
 		require.Equal(t, teetype.TeePollerSampleValid, state)
 		require.Equal(t, expectedHash, hash)
@@ -185,7 +187,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChainWithRetry(t *testing.T) {
 					mockRelay.ExpectedCalls[0].ReturnArguments = mock.Arguments{hashBytes, nil}
 				}
 			})
-		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 43)
+		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 43, maxAttempts, delay)
 		require.NoError(t, err)
 		require.Equal(t, teetype.TeePollerSampleValid, state)
 		require.Equal(t, expectedHash, hash)
@@ -196,8 +198,8 @@ func TestTeeVerifier_getSigningPolicyHashFromChainWithRetry(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
-		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 99)
-		require.ErrorContains(t, err, "getSigningPolicyHashFromChainWithRetry failed after 2 retries: ToSigningPolicyHash: unknown error")
+		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 99, maxAttempts, delay)
+		require.ErrorContains(t, err, "getSigningPolicyHashFromChainWithRetry failed after 2 attempts: ToSigningPolicyHash: unknown error")
 		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
 		require.Equal(t, common.Hash{}, hash)
 		mockRelay.AssertExpectations(t)
@@ -211,18 +213,18 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 	copy(initialBytes[:], expectedInitialHash.Bytes())
 	copy(lastBytes[:], expectedLastHash.Bytes())
 
+	baseTEEInfo := teenodetypes.TeeInfo{
+		InitialSigningPolicyID:   1,
+		InitialSigningPolicyHash: expectedInitialHash,
+		LastSigningPolicyID:      2,
+		LastSigningPolicyHash:    expectedLastHash,
+	}
 	t.Run("success", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
-		teeInfo := teenodetypes.TeeInfo{
-			InitialSigningPolicyID:   1,
-			InitialSigningPolicyHash: expectedInitialHash,
-			LastSigningPolicyID:      2,
-			LastSigningPolicyHash:    expectedLastHash,
-		}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
-		state, err := v.CheckSigningPolicies(context.Background(), teeInfo)
+		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
 		require.NoError(t, err)
 		require.Equal(t, teetype.TeePollerSampleValid, state)
 		mockRelay.AssertExpectations(t)
@@ -230,12 +232,11 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 	t.Run("initial hash mismatch", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
-		teeInfo := teenodetypes.TeeInfo{
-			InitialSigningPolicyID:   1,
-			InitialSigningPolicyHash: common.HexToHash("0xdeadbeef"),
-		}
+		modTEEInfo := baseTEEInfo
+		modTEEInfo.InitialSigningPolicyHash = common.HexToHash("0xdeadbeef")
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
-		state, err := v.CheckSigningPolicies(context.Background(), teeInfo)
+		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
+		state, err := v.CheckSigningPolicies(context.Background(), modTEEInfo)
 		require.ErrorContains(t, err, "failed to validate initial signing policy hash")
 		require.Equal(t, teetype.TeePollerSampleInvalid, state)
 		mockRelay.AssertExpectations(t)
@@ -243,15 +244,11 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 	t.Run("last hash mismatch", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
-		teeInfo := teenodetypes.TeeInfo{
-			InitialSigningPolicyID:   1,
-			InitialSigningPolicyHash: expectedInitialHash,
-			LastSigningPolicyID:      2,
-			LastSigningPolicyHash:    common.HexToHash("0xdeadbeef"),
-		}
+		modTEEInfo := baseTEEInfo
+		modTEEInfo.LastSigningPolicyHash = common.HexToHash("0xdeadbeef")
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
-		state, err := v.CheckSigningPolicies(context.Background(), teeInfo)
+		state, err := v.CheckSigningPolicies(context.Background(), modTEEInfo)
 		require.ErrorContains(t, err, "failed to validate last signing policy hash")
 		require.Equal(t, teetype.TeePollerSampleInvalid, state)
 		mockRelay.AssertExpectations(t)
@@ -259,11 +256,9 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 	t.Run("fail to retrieve initial hash", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
-		teeInfo := teenodetypes.TeeInfo{
-			InitialSigningPolicyID: 1,
-		}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return([32]byte{}, errors.New("rpc error"))
-		state, err := v.CheckSigningPolicies(context.Background(), teeInfo)
+		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
+		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
 		require.ErrorContains(t, err, "failed to retrieve initial signing policy hash")
 		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
 		mockRelay.AssertExpectations(t)
@@ -271,14 +266,10 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 	t.Run("fail to retrieve last hash", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{RelayCaller: mockRelay}
-		teeInfo := teenodetypes.TeeInfo{
-			InitialSigningPolicyID:   1,
-			InitialSigningPolicyHash: expectedInitialHash,
-			LastSigningPolicyID:      2,
-		}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return([32]byte{}, errors.New("rpc error"))
-		state, err := v.CheckSigningPolicies(context.Background(), teeInfo)
+		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
+		fmt.Println(state, err)
 		require.ErrorContains(t, err, "failed to retrieve last signing policy hash")
 		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
 		mockRelay.AssertExpectations(t)

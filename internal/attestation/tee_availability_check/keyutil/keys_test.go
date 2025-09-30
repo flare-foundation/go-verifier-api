@@ -1,8 +1,6 @@
 package keyutil_test
 
 import (
-	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -17,20 +15,6 @@ import (
 func TestRecoverSigner(t *testing.T) {
 	privKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
-
-	privKey2, err := crypto.GenerateKey()
-	require.NoError(t, err)
-
-	// private key bytes (32 bytes)
-	privBytes := crypto.FromECDSA(privKey2)
-	t.Logf("private key hex (KEEP SECRET): 0x%s", hex.EncodeToString(privBytes))
-
-	// public key -> address
-	pubKey := privKey2.PublicKey
-	address := crypto.PubkeyToAddress(pubKey)
-	t.Logf("address: %s", address.Hex())
-	fmt.Println(privKey2.X, privKey2.Y)
-
 	t.Run("valid signature", func(t *testing.T) {
 		expectedAddr := crypto.PubkeyToAddress(privKey.PublicKey)
 		data := []byte("hello world")
