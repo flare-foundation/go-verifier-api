@@ -62,8 +62,8 @@ func TestRetrieveAddressFromPublicKey(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		pub := teenodetypes.PublicKey{
-			X: common.Hash(key.PublicKey.X.Bytes()),
-			Y: common.Hash(key.PublicKey.Y.Bytes()),
+			X: common.Hash(key.X.Bytes()),
+			Y: common.Hash(key.Y.Bytes()),
 		}
 		addr, err := keyutil.RetrieveAddressFromPublicKey(pub)
 		require.NoError(t, err)

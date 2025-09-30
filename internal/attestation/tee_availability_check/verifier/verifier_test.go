@@ -336,7 +336,7 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 		address := crypto.PubkeyToAddress(privKey.PublicKey)
 		hash := crypto.Keccak256(data)
 		ethHash := accounts.TextHash(hash)
-		signature, err := crypto.Sign(ethHash[:], privKey)
+		signature, err := crypto.Sign(ethHash, privKey)
 		require.NoError(t, err)
 
 		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {

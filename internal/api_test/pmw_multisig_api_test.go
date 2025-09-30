@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net/http"
 	"testing"
@@ -86,9 +85,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("PrepareResponseBody: Invalid request body", func(t *testing.T) {
-		requestBytes := make([]byte, 16)
-		rand.Read(requestBytes)
-		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, requestBytes)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{1, 2, 3})
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
@@ -146,9 +143,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	t.Run("Verify: Invalid request body", func(t *testing.T) {
-		requestBytes := make([]byte, 16)
-		rand.Read(requestBytes)
-		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, requestBytes)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{1, 2, 3})
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
