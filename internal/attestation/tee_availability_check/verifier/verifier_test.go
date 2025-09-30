@@ -8,12 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -35,8 +37,7 @@ func (m *MockEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*ty
 func TestCheckInfoChallengeIsValid(t *testing.T) {
 	// #nosec G115: only used in test, integer overflow not a concern
 	now := uint64(time.Now().Unix())
-	info := testhelper.GetInfoResponse(t)
-	challengeHash := common.BytesToHash(info.TeeInfo.Challenge)
+	challengeHash := common.HexToHash("0x123")
 
 	t.Run("valid challenge (fresh)", func(t *testing.T) {
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 10})
@@ -287,7 +288,6 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 func TestTeeVerifier_isTEEInfoDown(t *testing.T) {
 	teeID := common.HexToAddress("0x1")
 	now := time.Now()
-
 	t.Run("insufficient samples", func(t *testing.T) {
 		v := &TeeVerifier{
 			TeeSamples: map[common.Address][]teetype.TeePollerSample{
@@ -329,5 +329,108 @@ func TestTeeVerifier_isTEEInfoDown(t *testing.T) {
 		down, err := v.isTEEInfoDown(teeID)
 		require.NoError(t, err)
 		require.True(t, down)
+	})
+}
+
+func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
+	ctx := context.Background()
+	baseURL := "http://example.com"
+	challengeID := common.HexToHash("0x123")
+	t.Run("success", func(t *testing.T) {
+		validJSON := `{"teeInfo":{"InitialSigningPolicyID":1}}`
+		data := hexutil.Bytes([]byte(validJSON))
+
+		privKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		address := crypto.PubkeyToAddress(privKey.PublicKey)
+		hash := crypto.Keccak256(data)
+		ethHash := accounts.TextHash(hash)
+		signature, err := crypto.Sign(ethHash[:], privKey)
+		require.NoError(t, err)
+
+		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
+			return teenodetypes.ActionResponse{
+				Result: teenodetypes.ActionResult{
+					Data: data,
+				},
+				ProxySignature: signature,
+			}, nil
+		}
+		v := &TeeVerifier{}
+		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		require.NotEqual(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, address, signer)
+		require.NoError(t, err)
+	})
+	t.Run("fetch error", func(t *testing.T) {
+		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
+			return teenodetypes.ActionResponse{}, errors.New("bad request")
+		}
+		v := &TeeVerifier{}
+		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, "bad request")
+	})
+	t.Run("empty data", func(t *testing.T) {
+		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
+			response := teenodetypes.ActionResponse{
+				Result: teenodetypes.ActionResult{
+					Data: hexutil.Bytes{},
+				},
+			}
+			return response, nil
+		}
+		v := &TeeVerifier{}
+		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, "TEE challenge result data is empty")
+	})
+	t.Run("invalid JSON data", func(t *testing.T) {
+		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
+			response := teenodetypes.ActionResponse{
+				Result: teenodetypes.ActionResult{
+					Data: hexutil.Bytes([]byte("not-json")),
+				},
+			}
+			return response, nil
+		}
+		v := &TeeVerifier{}
+		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, `TEE challenge result data is not valid JSON`)
+	})
+	t.Run("unmarshal error", func(t *testing.T) {
+		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
+			badJSON := `{"teeInfo":"this-should-be-an-object-not-a-string"}`
+			return teenodetypes.ActionResponse{
+				Result: teenodetypes.ActionResult{
+					Data: hexutil.Bytes([]byte(badJSON)),
+				},
+			}, nil
+		}
+		v := &TeeVerifier{}
+		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, "unmarshal TEE result")
+	})
+	t.Run("recover signer error", func(t *testing.T) {
+		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
+			validJSON := `{"teeInfo":{"InitialSigningPolicyID":1}}`
+			return teenodetypes.ActionResponse{
+				Result: teenodetypes.ActionResult{
+					Data: hexutil.Bytes([]byte(validJSON)),
+				},
+				ProxySignature: []byte("invalid-signature"),
+			}, nil
+		}
+		v := &TeeVerifier{}
+		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, "recover signer")
 	})
 }

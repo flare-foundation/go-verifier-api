@@ -96,7 +96,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
 	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
 		return zero, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
 	}
@@ -197,12 +197,17 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 	return teetype.TeePollerSampleValid, nil
 }
 
-func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionID common.Hash) (teenodetypes.TeeInfoResponse, common.Address, error) {
+func (v *TeeVerifier) fetchTEEChallengeResult(
+	ctx context.Context,
+	baseURL string,
+	challengeInstructionID common.Hash,
+	fetchFn func(context.Context, string, time.Duration) (teenodetypes.ActionResponse, error),
+) (teenodetypes.TeeInfoResponse, common.Address, error) {
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
 	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
-	actionResp, err := coreutil.GetJSON[teenodetypes.ActionResponse](ctx, url, fetchTimeout)
+	actionResp, err := fetchFn(ctx, url, fetchTimeout)
 	if err != nil {
 		return zero, zeroAdd, err
 	}
