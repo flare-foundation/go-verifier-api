@@ -31,7 +31,7 @@ Verify the encoded request body and returns ABI-encoded response.
 |----------------------------|----------------------|
 | 200 OK                     | The request succeeded.
 | 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, or conversion, encoding, or decoding errors). |
-| 503 Service Unavailable    | Indeterminate status - the request can be retried.
+| 503 Service Unavailable    | Indeterminate status - the request can be retried. This occurs when there is no result for the provided challenge and the poller has only VALID entries for that TEE.
 | 500 Internal Server Error  | Any other errors, with description provided in the `detail` field.
 
 

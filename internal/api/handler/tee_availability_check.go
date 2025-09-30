@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -103,7 +104,11 @@ func TeeAvailabilityCheckHandler(
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
 				logger.Errorf("Verification failed: %v", err)
-				return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
+				if errors.Is(err, teeverifier.ErrIndeterminate) {
+					return nil, huma.Error503ServiceUnavailable("Verification cannot be determinate: " + err.Error())
+				} else {
+					return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
+				}
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
