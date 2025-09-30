@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -323,7 +322,6 @@ func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {
 	v.SamplesMu.RUnlock()
 
 	if len(samples) < v.SamplesToConsider {
-		logger.Infof("TEE %s has insufficient samples (%d/%d). Samples: %+v", teeID.Hex(), len(samples), v.SamplesToConsider, samples)
 		return false, fmt.Errorf("insufficient samples to determine TEE %s status", teeID.Hex())
 	}
 	for _, sample := range samples {

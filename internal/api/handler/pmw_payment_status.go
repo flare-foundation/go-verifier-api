@@ -38,7 +38,7 @@ func PMWPaymentStatusHandler(
 			}
 			encodedRequest, err := PrepareRequestBody(request.Body, config)
 			if err != nil {
-				logger.Errorf(" %v", err)
+				logger.Errorf("Prepare Request failed: %v", err)
 				return nil, huma.Error400BadRequest("Prepare request failed: " + err.Error())
 			}
 			return types.NewResponse(types.AttestationRequestEncoded{
