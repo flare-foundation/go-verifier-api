@@ -1,9 +1,5 @@
 # Go Verifier API
 
-- [Attestation types specification](https://docs.google.com/document/d/1i9GccSjl3ixHkShA_rnkRkchcc0D8SChM2ormumimVo/edit?tab=t.0#heading=h.p2pheiao3ip0)
-- [Huma framework website](https://huma.rocks)
-- [Formatters and Linters](https://gitlab.com/flarenetwork/flare-handbook/-/tree/main/resources/tech_stack/golang)
-
 ## How to run `TeeAvailabilityCheck` verifier
 Environment variables:
  ```env
@@ -20,7 +16,7 @@ DISABLE_ATTESTATION_CHECK_E2E=false
 Environment variables:
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
-SOURCE_ID=XRP
+SOURCE_ID=testXRP
 RPC_URL=https://<xrpl>
 ```
 
@@ -30,7 +26,7 @@ You will need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/
 Environment variables:
 ```env
 VERIFIER_TYPE=PMWPaymentStatus
-SOURCE_ID=XRP
+SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 DATABASE_URL=postgres://user:pass@host:port/db
 ```
@@ -72,7 +68,5 @@ See [API reference](docs/api.md) for endpoint definitions and examples.
 ## TODO list
 - [ ] Other `TODO`s inside the code.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
-- [ ] Add poller API endpoint in readme.
-- [ ] Check all ctx's are sensible -> retry with backoff (wait 5s). Relay-client has 10 s timeout.
 - [ ] Improve healthy endpoint (all needed services are running).
 - [ ] Jakob: Place DisableAttestationCheckE2E properly in order to use TEEAvailabilityCheck verifier directly in e2e test.
