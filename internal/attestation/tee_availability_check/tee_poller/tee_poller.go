@@ -99,7 +99,7 @@ func sampleAllTees(
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					logger.Errorf("worker panic recovered: %v", r)
+					logger.Errorf("Worker panic recovered: %v", r)
 				}
 			}()
 			for {

@@ -16,8 +16,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
 
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp/client"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
+	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
 	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 )
 

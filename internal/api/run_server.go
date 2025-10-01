@@ -64,7 +64,7 @@ func startServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 		logger.Infof("Starting %s verifier server with type %s on: %s ...\n",
 			envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatalf("server error: %v", err)
+			logger.Fatalf("Server error: %v", err)
 		}
 	}()
 
@@ -76,14 +76,14 @@ func shutdownServer(srv *http.Server, closers []io.Closer) {
 
 	for _, c := range closers {
 		if err := c.Close(); err != nil {
-			logger.Errorf("error closing service: %v", err)
+			logger.Errorf("Error closing service: %v", err)
 		}
 	}
 
 	ctxShutdown, cancel := context.WithTimeout(context.Background(), shutdownAfter)
 	defer cancel()
 	if err := srv.Shutdown(ctxShutdown); err != nil {
-		logger.Errorf("server forced to shutdown: %v", err)
+		logger.Errorf("Server forced to shutdown: %v", err)
 	}
 }
 
@@ -187,7 +187,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		RPCURL:                            os.Getenv(config.EnvRPCURL),
 		RelayContractAddress:              os.Getenv(config.EnvRelayContractAddress),
 		TeeMachineRegistryContractAddress: os.Getenv(config.EnvTeeMachineRegistryContractAddress),
-		DatabaseURL:                       os.Getenv(config.EnvDatabaseURL),
+		SourceDatabaseURL:                 os.Getenv(config.EnvSourceDatabaseURL),
 		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
 		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),
 		DisableAttestationCheckE2E:        os.Getenv(config.EnvDisableAttestationCheckE2E),
@@ -217,7 +217,7 @@ func newRouter() chi.Router {
 
 func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
 	cfg := huma.DefaultConfig("FTDC Verifier API", "1.0")
-	cfg.Info.Description = "The FTDC Verifier API endpoints"
+	cfg.Info.Description = fmt.Sprintf("The Flare TEE Data Connector Verifier API endpoints for %s attestation sourced from %s.", envConfig.AttestationType, envConfig.SourceID)
 	cfg.DocsPath = ""
 	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"ApiKeyAuth": {

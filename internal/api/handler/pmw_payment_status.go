@@ -88,7 +88,7 @@ func PMWPaymentStatusHandler(
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponse], error) {
-			logger.Debug("Received request for PMWPaymentStatusRequest (verify)")
+			logger.Debug("Received request for PMWPaymentStatusRequest")
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
 				logger.Errorf("Request validation failed: %v", err)

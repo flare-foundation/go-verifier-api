@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/handler"
-	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account"
+	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured"
 	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilityconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
 	teepoller "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/tee_poller"
@@ -34,7 +34,7 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		// Start poller
 		teeVerifier, ok := verifier.(*teeavailabilitycheck.TeeVerifier)
 		if !ok {
-			log.Fatalf("unexpected type for verifier instance")
+			logger.Fatalf("Unexpected type for verifier instance")
 		}
 		poller := teepoller.StartTeePoller(ctx, teeVerifier)
 		closers = append(closers, poller, teeVerifier)
@@ -54,7 +54,7 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		}
 		verifier := service.GetVerifier()
 		config := service.GetConfig()
-		handler.PMWMultisigAccountHandler(api, &config.EncodedAndABI, verifier)
+		handler.PMWMultisigAccountConfiguredHandler(api, &config.EncodedAndABI, verifier)
 	default:
 		return nil, fmt.Errorf("unsupported attestation type: %s", string(envConfig.AttestationType))
 	}

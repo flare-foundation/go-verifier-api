@@ -43,7 +43,7 @@ func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, 
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("failed to close response body: %v", err)
+			logger.Warnf("Failed to close response body: %v", err)
 		}
 	}()
 
@@ -72,7 +72,7 @@ func Get(t *testing.T, url, apiKey string) ([]byte, error) {
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("failed to close response body: %v", err)
+			logger.Warnf("Failed to close response body: %v", err)
 		}
 	}()
 

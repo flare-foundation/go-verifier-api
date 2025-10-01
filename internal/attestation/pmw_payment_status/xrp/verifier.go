@@ -66,7 +66,7 @@ func (x *XRPVerifier) parseRawTransactionData(response string) (types.RawTransac
 	var rawTransactionData types.RawTransactionData
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
-		logger.Errorf("failed to unmarshal XRP transaction response: %v, response: %s", err, response)
+		logger.Errorf("Failed to unmarshal XRP transaction response: %v, response: %s", err, response)
 		return rawTransactionData, err
 	}
 	if rawTransactionData.MetaData.TransactionResult == "" {

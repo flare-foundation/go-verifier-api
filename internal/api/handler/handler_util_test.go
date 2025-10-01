@@ -51,7 +51,7 @@ func TestPrepareRequestBody(t *testing.T) {
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
 		val, err := PrepareRequestBody(req, encodedAndABI)
-		require.ErrorContains(t, err, "encoding request data failed: encoding request data failed: encoding type connector.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
+		require.ErrorContains(t, err, "encoding request data failed: encoding type connector.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
 		require.Nil(t, val)
 	})
 }

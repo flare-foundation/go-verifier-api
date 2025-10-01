@@ -12,14 +12,14 @@ var (
 	errPmwMultisigAccountConfig  error
 )
 
-func GetPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
+func GetPMWMultisigAccountConfiguredConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
 	pmwMultisigAccountConfigOnce.Do(func() {
-		pmwMultisigAccountConfig, errPmwMultisigAccountConfig = LoadPMWMultisigAccountConfig(envConfig)
+		pmwMultisigAccountConfig, errPmwMultisigAccountConfig = LoadPMWMultisigAccountConfiguredConfig(envConfig)
 	})
 	return pmwMultisigAccountConfig, errPmwMultisigAccountConfig
 }
 
-func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
+func LoadPMWMultisigAccountConfiguredConfig(envConfig config.EnvConfig) (*config.PMWMultisigAccountConfig, error) {
 	err := config.CheckMissingFields(envConfig, []string{config.EnvRPCURL})
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func LoadPMWMultisigAccountConfig(envConfig config.EnvConfig) (*config.PMWMultis
 	}, nil
 }
 
-func ClearPMWMultisigAccountConfigForTest() {
+func ClearPMWMultisigAccountConfiguredConfigForTest() {
 	pmwMultisigAccountConfig = nil
 	pmwMultisigAccountConfigOnce = sync.Once{}
 	errPmwMultisigAccountConfig = nil

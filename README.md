@@ -28,7 +28,7 @@ Environment variables:
 VERIFIER_TYPE=PMWPaymentStatus
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
-DATABASE_URL=postgres://user:pass@host:port/db
+SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 ```
 
 Check all enviroment variables in [.env.example](./.env.example)

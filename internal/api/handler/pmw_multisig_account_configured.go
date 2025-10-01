@@ -12,7 +12,7 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func PMWMultisigAccountHandler(
+func PMWMultisigAccountConfiguredHandler(
 	api huma.API,
 	config *config.EncodedAndABI,
 	verifier verifierinterface.VerifierInterface[

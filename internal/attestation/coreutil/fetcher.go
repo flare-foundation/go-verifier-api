@@ -26,7 +26,7 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("failed to close response body: %v", err)
+			logger.Warnf("Failed to close response body: %v", err)
 		}
 	}()
 	switch resp.StatusCode {

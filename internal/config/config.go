@@ -15,7 +15,7 @@ const (
 	EnvRPCURL                            = "RPC_URL"
 	EnvRelayContractAddress              = "RELAY_CONTRACT_ADDRESS"
 	EnvTeeMachineRegistryContractAddress = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
-	EnvDatabaseURL                       = "DATABASE_URL"
+	EnvSourceDatabaseURL                 = "SOURCE_DATABASE_URL"
 	EnvCChainDatabaseURL                 = "CCHAIN_DATABASE_URL"
 	EnvEnv                               = "ENV"
 	EnvPort                              = "PORT"
@@ -30,7 +30,7 @@ type EnvConfig struct {
 	RPCURL                            string
 	RelayContractAddress              string
 	TeeMachineRegistryContractAddress string
-	DatabaseURL                       string
+	SourceDatabaseURL                 string
 	CChainDatabaseURL                 string
 	AllowTeeDebug                     string
 	DisableAttestationCheckE2E        string
@@ -76,7 +76,7 @@ type TeeAvailabilityCheckConfig struct {
 
 type PMWPaymentStatusConfig struct {
 	EncodedAndABI
-	DatabaseURL              string
+	SourceDatabaseURL        string
 	CchainDatabaseURL        string
 	ParsedTeeInstructionsABI abi.ABI
 	ParsedPaymentABI         abi.ABI
@@ -168,8 +168,8 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 			if cfg.TeeMachineRegistryContractAddress == "" {
 				missing = append(missing, field)
 			}
-		case EnvDatabaseURL:
-			if cfg.DatabaseURL == "" {
+		case EnvSourceDatabaseURL:
+			if cfg.SourceDatabaseURL == "" {
 				missing = append(missing, field)
 			}
 		case EnvCChainDatabaseURL:
