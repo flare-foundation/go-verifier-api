@@ -5,8 +5,8 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
-	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp/client"
+	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )

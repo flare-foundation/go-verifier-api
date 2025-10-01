@@ -1,12 +1,10 @@
 package handler
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -36,22 +34,25 @@ func TestPrepareRequestBody(t *testing.T) {
 
 	t.Run("Valid encodedReq", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
-		_, err := PrepareRequestBody(req, encodedAndABI)
+		val, err := PrepareRequestBody(req, encodedAndABI)
 		require.NoError(t, err)
+		require.NotNil(t, val)
 	})
 	t.Run("Invalid encodedReq - validation fails", func(t *testing.T) {
 		reqBodyMod := reqBody
 		reqBodyMod.PublicKeys = append(reqBodyMod.PublicKeys, hexutil.Bytes{})
 		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBodyMod)
-		_, err := PrepareRequestBody(invalidReq, encodedAndABI)
-		assertHumaError(t, err, http.StatusBadRequest)
+		val, err := PrepareRequestBody(invalidReq, encodedAndABI)
+		require.Nil(t, val)
+		require.ErrorContains(t, err, "converting request body to data failed: public key at index 1 is empty")
 	})
 	t.Run("Invalid ABI encode", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
-		_, err := PrepareRequestBody(req, encodedAndABI)
-		assertHumaError(t, err, http.StatusBadRequest)
+		val, err := PrepareRequestBody(req, encodedAndABI)
+		require.ErrorContains(t, err, "encoding request data failed: encoding type connector.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
+		require.Nil(t, val)
 	})
 }
 
@@ -82,16 +83,14 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 		"0xdeadbeef",
 		sourceIDPair.SourceIDEncoded.Hex(),
 	)
-	assertHumaError(t, err, http.StatusBadRequest)
-	require.Contains(t, err.Error(), "attestation type and source id combination not supported")
+	require.ErrorContains(t, err, "attestation type and source id combination not supported")
 	// Mismatched source id
 	err = ValidateSystemAndRequestAttestationNameAndSourceID(
 		cfg,
 		attestationTypePair.AttestationTypeEncoded.Hex(),
 		"0xdeadbeef",
 	)
-	assertHumaError(t, err, http.StatusBadRequest)
-	require.Contains(t, err.Error(), "attestation type and source id combination not supported")
+	require.ErrorContains(t, err, "attestation type and source id combination not supported")
 }
 
 func TestDecodeRequest(t *testing.T) {
@@ -113,8 +112,9 @@ func TestDecodeRequest(t *testing.T) {
 		encoded := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		invalidBody := append([]byte(nil), encoded...)
 		invalidBody = append(invalidBody, 'a', 'a')
-		_, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndABI)
-		assertHumaError(t, err, http.StatusBadRequest)
+		val, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndABI)
+		require.ErrorContains(t, err, "initial data not equal to decoded and encoded data")
+		require.Equal(t, attestationtypes.PMWMultisigAccountConfiguredRequestBody{}, val)
 	})
 }
 
@@ -136,8 +136,9 @@ func TestEncodeResponse(t *testing.T) {
 			t int
 		}
 		resp := Temp{t: 1}
-		_, err := EncodeResponse(resp, encodedAndABI)
-		assertHumaError(t, err, http.StatusInternalServerError)
+		val, err := EncodeResponse(resp, encodedAndABI)
+		require.ErrorContains(t, err, "encoding response data failed: encoding type handler.Temp: field status for tuple not found in the given struct")
+		require.Nil(t, val)
 	})
 }
 
@@ -160,17 +161,10 @@ func TestEncodeRequest(t *testing.T) {
 			t int
 		}
 		req := Temp{t: 1}
-		_, err := EncodeRequest(req, encodedAndABI)
-		assertHumaError(t, err, http.StatusInternalServerError)
+		val, err := EncodeRequest(req, encodedAndABI)
+		require.ErrorContains(t, err, "encoding request data failed: encoding type handler.Temp: field accountAddress for tuple not found in the given struct")
+		require.Nil(t, val)
 	})
-}
-
-func assertHumaError(t *testing.T, err error, expectedStatus int) {
-	t.Helper()
-	var herr *huma.ErrorModel
-	require.Error(t, err)
-	require.ErrorAs(t, err, &herr)
-	require.Equal(t, expectedStatus, herr.Status)
 }
 
 func loadTestEncodedAndABI(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) *config.EncodedAndABI {

@@ -16,7 +16,7 @@ import (
 
 var envConfig = config.EnvConfig{
 	RPCURL:            "http://127.0.0.1:8545",
-	DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+	SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 	CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 	AttestationType:   connector.PMWPaymentStatus,
 	SourceID:          "XRP",
@@ -34,24 +34,24 @@ func TestPaymentService(t *testing.T) {
 	t.Run("Missing fields in env config", func(t *testing.T) {
 		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			DatabaseURL:       "",
+			SourceDatabaseURL: "",
 			CChainDatabaseURL: "",
 		}
 		service, err := NewPaymentService(badEnvConfig)
-		require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, DATABASE_URL")
+		require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
 		require.Nil(t, service)
 	})
 
 	t.Run("Using unsupported source ID", func(t *testing.T) {
 		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+			SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			SourceID:          "UNSUPPORTED_SOURCE",
 			AttestationType:   connector.PMWPaymentStatus,
 		}
 		service, err := NewPaymentService(badEnvConfig)
-		require.ErrorContains(t, err, "failed to initialize verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
+		require.ErrorContains(t, err, "failed to initialize PMWPaymentStatus verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
 		require.Nil(t, service)
 	})
 

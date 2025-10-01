@@ -35,7 +35,7 @@ const (
 	sampleInterval     = 1 * time.Minute
 	defaultWorkerCount = 10
 	fetchTimeout       = 5 * time.Second
-	chainRetries       = 2
+	chainMaxAttempts   = 2
 	chainRetryDelay    = 500 * time.Millisecond
 	teeMachineChunk    = 100
 )
@@ -87,6 +87,7 @@ func sampleAllTees(
 		}
 	} else {
 		updateActiveTees(activeTees)
+		filterTeeSamplesToActive(teeVerifier, activeTees)
 	}
 
 	taskCh := make(chan task, len(activeTees.TeeIDs))
@@ -98,7 +99,7 @@ func sampleAllTees(
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					logger.Errorf("worker panic recovered: %v", r)
+					logger.Errorf("Worker panic recovered: %v", r)
 				}
 			}()
 			for {
@@ -195,7 +196,7 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 }
 
 func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
-	return utils.Retry(chainRetries, chainRetryDelay, func() (teeList, error) {
+	return utils.Retry(chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
 		return getAllActiveTeeMachines(ctx, teeVerifier)
 	}, nil)
 }
@@ -215,4 +216,20 @@ func getCachedActiveTees() teeList {
 	teesMu.RLock()
 	defer teesMu.RUnlock()
 	return lastActiveTees
+}
+
+func filterTeeSamplesToActive(teeVerifier *verifier.TeeVerifier, activeTees teeList) {
+	activeSet := make(map[common.Address]struct{}, len(activeTees.TeeIDs))
+	for _, id := range activeTees.TeeIDs {
+		activeSet[id] = struct{}{}
+	}
+
+	teeVerifier.SamplesMu.Lock()
+	defer teeVerifier.SamplesMu.Unlock()
+
+	for teeID := range teeVerifier.TeeSamples {
+		if _, ok := activeSet[teeID]; !ok {
+			delete(teeVerifier.TeeSamples, teeID)
+		}
+	}
 }

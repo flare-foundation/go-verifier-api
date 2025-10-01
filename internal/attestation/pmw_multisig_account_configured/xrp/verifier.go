@@ -16,8 +16,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
 
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp/client"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
+	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
 	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -31,7 +31,6 @@ type XRPVerifier struct {
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
 	accountInfo, err := x.Client.GetAccountInfo(ctx, req.AccountAddress)
 	if err != nil {
-		logger.Infof("Failed to get account info: %v", err)
 		return connector.IPMWMultisigAccountConfiguredResponseBody{}, err
 	}
 	sequence, err := x.validateMultisigConfiguration(accountInfo, req)
@@ -51,7 +50,6 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
-		logger.Info("Account has no signer list")
 		return 0, fmt.Errorf("no signer list for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
 	signersValid := x.validateSignerList(accountInfo.Result.AccountData.SignerLists[0], req)
@@ -60,11 +58,9 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	}
 	flags := accountInfo.Result.AccountFlags
 	if err := checkAccountFlags(flags); err != nil {
-		logger.Infof("Invalid account flags: %v", err)
 		return 0, fmt.Errorf("invalid flag for account%s: %w: %w", accountInfo.Result.AccountData.Account, err, ErrValidationFailed)
 	}
 	if accountInfo.Result.AccountData.RegularKey != "" {
-		logger.Infof("Account has regular key set")
 		return 0, fmt.Errorf("account %s has regular key set: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
 	return accountInfo.Result.AccountData.Sequence, nil

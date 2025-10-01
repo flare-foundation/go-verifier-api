@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -13,7 +12,7 @@ import (
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
 )
 
-func PMWMultisigAccountHandler(
+func PMWMultisigAccountConfiguredHandler(
 	api huma.API,
 	config *config.EncodedAndABI,
 	verifier verifierinterface.VerifierInterface[
@@ -33,11 +32,13 @@ func PMWMultisigAccountHandler(
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, err
+				logger.Errorf("Request validation failed: %v", err)
+				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
 			}
 			encodedRequest, err := PrepareRequestBody(request.Body, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Prepare Request failed: %v", err)
+				return nil, huma.Error400BadRequest("Prepare request failed: " + err.Error())
 			}
 			return types.NewResponse(types.AttestationRequestEncoded{
 				RequestBody: encodedRequest,
@@ -54,19 +55,23 @@ func PMWMultisigAccountHandler(
 		}) (*types.Response[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]], error) {
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, err
+				logger.Errorf("Request validation failed: %v", err)
+				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
 			}
 			requestData, err := DecodeRequest[connector.IPMWMultisigAccountConfiguredRequestBody](request.Body.RequestBody, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Decoding request body to data failed: %v", err)
+				return nil, huma.Error400BadRequest("Decoding request body to data failed: " + err.Error())
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+				logger.Errorf("Verification failed: %v", err)
+				return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Encoding data to response body failed: %v", err)
+				return nil, huma.Error500InternalServerError("Encoding data to response body failed: " + err.Error())
 			}
 			return types.NewResponse(types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]{
 				ResponseData: types.PMWMultisigAccountResponseToExternal(responseData),
@@ -85,19 +90,23 @@ func PMWMultisigAccountHandler(
 			logger.Debug("Received request for PMWMultisigAccountConfigured")
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, err
+				logger.Errorf("Request validation failed: %v", err)
+				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
 			}
 			requestData, err := DecodeRequest[connector.IPMWMultisigAccountConfiguredRequestBody](request.Body.RequestBody, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Decoding request body to data failed: %v", err)
+				return nil, huma.Error400BadRequest("Decoding request body to data failed: " + err.Error())
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, huma.Error500InternalServerError(fmt.Sprintf("Verification failed: %v", err))
+				logger.Errorf("Verification failed: %v", err)
+				return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
-				return nil, err
+				logger.Errorf("Encoding data to response body failed: %v", err)
+				return nil, huma.Error500InternalServerError("Encoding data to response body failed: " + err.Error())
 			}
 			logPMWMultisigAccountResponse(responseData)
 			return types.NewResponse(types.AttestationResponse{

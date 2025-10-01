@@ -27,9 +27,9 @@ func NewPaymentService(envConfig mainconfig.EnvConfig) (*PaymentService, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to load PMWPaymentStatus config: %w", err)
 	}
-	db, err := config.InitMainDB(cfg.DatabaseURL, nil)
+	db, err := config.InitSourceDB(cfg.SourceDatabaseURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to DB: %w", err)
+		return nil, fmt.Errorf("failed to connect to Source DB: %w", err)
 	}
 	cchainDB, err := config.InitCChainDB(cfg.CchainDatabaseURL, nil)
 	if err != nil {
@@ -40,7 +40,7 @@ func NewPaymentService(envConfig mainconfig.EnvConfig) (*PaymentService, error) 
 	if err != nil {
 		_ = config.CloseDB(db)
 		_ = config.CloseDB(cchainDB)
-		return nil, fmt.Errorf("failed to initialize verifier: %w", err)
+		return nil, fmt.Errorf("failed to initialize PMWPaymentStatus verifier: %w", err)
 	}
 	return &PaymentService{verifier: verifierImpl, config: cfg, db: db, cdb: cchainDB}, nil
 }

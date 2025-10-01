@@ -11,7 +11,7 @@ import (
 )
 
 func TestInitDBWithRetries(t *testing.T) {
-	opts := &DBOptions{Retries: 3, RetryDelay: 1 * time.Millisecond, MaxDelay: 2 * time.Millisecond}
+	opts := &DBOptions{MaxAttempts: 3, RetryDelay: 1 * time.Millisecond, MaxDelay: 2 * time.Millisecond}
 	DBOptionsName := "fakeDB"
 	t.Run("SuccessFirstTry", func(t *testing.T) {
 		db, err := initDBWithRetries(sqlite.Open(":memory:"), "test DB", opts)
@@ -49,13 +49,13 @@ func TestCloseDB(t *testing.T) {
 
 func TestInitMainAndCChainDB(t *testing.T) {
 	testOpts := &DBOptions{
-		Retries:    2,
-		RetryDelay: 1 * time.Millisecond,
-		MaxDelay:   2 * time.Millisecond,
+		MaxAttempts: 2,
+		RetryDelay:  1 * time.Millisecond,
+		MaxDelay:    2 * time.Millisecond,
 	}
 	t.Run("InitMainDB_InvalidDSN", func(t *testing.T) {
-		db, err := InitMainDB("invalid_dsn", testOpts)
-		require.ErrorContains(t, err, "failed to open main DB after 2 attempts: cannot parse `invalid_dsn`: failed to parse")
+		db, err := InitSourceDB("invalid_dsn", testOpts)
+		require.ErrorContains(t, err, "failed to open Source DB after 2 attempts: cannot parse `invalid_dsn`: failed to parse")
 		require.Nil(t, db)
 	})
 	t.Run("InitCChainDB_InvalidDSN", func(t *testing.T) {

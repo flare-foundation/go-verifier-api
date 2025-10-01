@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 
@@ -11,23 +12,23 @@ import (
 )
 
 const (
-	mainDBRetries    = 5
-	mainDBRetryDelay = 1 * time.Second
-	mainDBMaxDelay   = 5 * time.Second
+	mainDBMaxAttempts = 5
+	mainDBRetryDelay  = 1 * time.Second
+	mainDBMaxDelay    = 5 * time.Second
 
-	cChainDBRetries    = 10
-	cChainDBRetryDelay = 2 * time.Second
-	cChainDBMaxDelay   = 10 * time.Second
+	cChainDBMaxAttempts = 10
+	cChainDBRetryDelay  = 2 * time.Second
+	cChainDBMaxDelay    = 10 * time.Second
 )
 
 type DBOptions struct {
-	Retries    int
-	RetryDelay time.Duration
-	MaxDelay   time.Duration
+	MaxAttempts int
+	RetryDelay  time.Duration
+	MaxDelay    time.Duration
 }
 
 func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions) (*gorm.DB, error) {
-	retries := opts.Retries
+	maxAttempts := opts.MaxAttempts
 	delay := opts.RetryDelay
 	maxDelay := opts.MaxDelay
 
@@ -35,13 +36,17 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 	var err error
 	currentDelay := delay
 
-	for i := 0; i < retries; i++ {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		logger.Infof("Attempt %d: connecting to %s (%s)", attempt, dbName, dialector.Name())
 		db, err = gorm.Open(dialector, &gorm.Config{})
 		if err == nil {
+			logger.Infof("Successfully connected to %s (%s) on attempt %d", dbName, dialector.Name(), attempt)
 			return db, nil
 		}
+		logger.Warnf("Attempt %d: failed to connect to %s (%s): %v", attempt, dbName, dialector.Name(), err)
 
-		if i < retries-1 {
+		if attempt < maxAttempts {
+			logger.Infof("Retrying in %v...", currentDelay)
 			time.Sleep(currentDelay)
 			currentDelay *= 2
 			if currentDelay > maxDelay {
@@ -49,27 +54,26 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 			}
 		}
 	}
-
-	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, retries, err)
+	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, maxAttempts, err)
 }
 
-func InitMainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
+func InitSourceDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	opts := &DBOptions{
-		Retries:    mainDBRetries,
-		RetryDelay: mainDBRetryDelay,
-		MaxDelay:   mainDBMaxDelay,
+		MaxAttempts: mainDBMaxAttempts,
+		RetryDelay:  mainDBRetryDelay,
+		MaxDelay:    mainDBMaxDelay,
 	}
 	if overrideOpts != nil {
 		opts = overrideOpts
 	}
-	return initDBWithRetries(postgres.Open(dsn), "main DB", opts)
+	return initDBWithRetries(postgres.Open(dsn), "Source DB", opts)
 }
 
 func InitCChainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	opts := &DBOptions{
-		Retries:    cChainDBRetries,
-		RetryDelay: cChainDBRetryDelay,
-		MaxDelay:   cChainDBMaxDelay,
+		MaxAttempts: cChainDBMaxAttempts,
+		RetryDelay:  cChainDBRetryDelay,
+		MaxDelay:    cChainDBMaxDelay,
 	}
 	if overrideOpts != nil {
 		opts = overrideOpts

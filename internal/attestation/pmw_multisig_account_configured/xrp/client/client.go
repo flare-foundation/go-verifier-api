@@ -12,13 +12,13 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account/xrp/type"
+	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
 )
 
 const (
-	chainRetries        = 2
+	chainMaxAttemps     = 2
 	chainRetryDelay     = 500 * time.Millisecond
-	chainRequestTimeout = 5 * time.Second
+	chainRequestTimeout = 4 * time.Second
 )
 
 type Client struct {
@@ -63,7 +63,7 @@ func (c *Client) doRequest(ctx context.Context, request request) ([]byte, error)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("failed to close response body: %v", err)
+			logger.Warnf("Failed to close response body: %v", err)
 		}
 	}()
 
@@ -81,7 +81,7 @@ func (c *Client) doRequest(ctx context.Context, request request) ([]byte, error)
 
 func (c *Client) doRequestWithRetry(ctx context.Context, request request) ([]byte, error) {
 	return coreutil.Retry(
-		chainRetries,
+		chainMaxAttemps,
 		chainRetryDelay,
 		func() ([]byte, error) {
 			return c.doRequest(ctx, request)

@@ -11,20 +11,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/instruction"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/keyutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	verifierinterface "github.com/flare-foundation/go-verifier-api/internal/verifier_interface"
@@ -32,10 +29,11 @@ import (
 )
 
 const (
-	fetchTimeout            = 5 * time.Second
+	fetchInfoTimeout        = 5 * time.Second
 	blockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
-	chainRetries            = 2
-	chainRetryDelay         = 500 * time.Millisecond
+	chainMaxAttemps         = 1
+	chainRetryDelay         = 400 * time.Millisecond
+	chainFetchTimeout       = 4 * time.Second
 	samplesToConsider       = 5
 )
 
@@ -73,15 +71,15 @@ type TeeMachineRegistryCallerInterface interface {
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Flare node: %w", err)
+		return nil, fmt.Errorf("cannot connect to Flare node: %w", err)
 	}
 	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create contract TeeRegistry caller: %w", err)
+		return nil, fmt.Errorf("cannot create contract TeeRegistry caller: %w", err)
 	}
 	relayCaller, err := relay.NewRelayCaller(common.HexToAddress(cfg.RelayContractAddress), client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create contract Relay caller: %w", err)
+		return nil, fmt.Errorf("cannot create contract Relay caller: %w", err)
 	}
 	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
@@ -98,7 +96,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID)
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
 	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
 		return zero, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
 	}
@@ -169,9 +167,9 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
 	}
 	// Validate teeID
-	receivedTeeID, err := RetrieveAddressFromPublicKey(infoData.PublicKey)
+	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("failed retrieve TEE ID from", err)
+		return teetype.StatusInfo{}, fmt.Errorf("failed retrieve TEE ID from: %w", err)
 	}
 	if expectedTeeID != receivedTeeID {
 		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
@@ -180,31 +178,52 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 }
 
 func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teenodetypes.TeeInfo) (teetype.TeePollerSampleState, error) {
-	// check initial signing policy hash
-	initialSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID)
-	if err != nil {
-		return state, fmt.Errorf("failed to retrieve initial signing policy hash: %w", err)
+	type result struct {
+		hash  common.Hash
+		state teetype.TeePollerSampleState
+		err   error
 	}
-	if initialSigningPolicyHash != teeInfoData.InitialSigningPolicyHash {
+	initialSigningCh := make(chan result, 1)
+	lastSigningCh := make(chan result, 1)
+	// Fetch policies
+	go func() {
+		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID, chainMaxAttemps, chainRetryDelay)
+		initialSigningCh <- result{hash, state, err}
+	}()
+	go func() {
+		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID, chainMaxAttemps, chainRetryDelay)
+		lastSigningCh <- result{hash, state, err}
+	}()
+	// Wait for results
+	initialSigningRes := <-initialSigningCh
+	lastSigningRes := <-lastSigningCh
+	// Check
+	if initialSigningRes.err != nil {
+		return initialSigningRes.state, fmt.Errorf("failed to retrieve initial signing policy hash: %w", initialSigningRes.err)
+	}
+	if lastSigningRes.err != nil {
+		return lastSigningRes.state, fmt.Errorf("failed to retrieve last signing policy hash: %w", lastSigningRes.err)
+	}
+	if initialSigningRes.hash != teeInfoData.InitialSigningPolicyHash {
 		return teetype.TeePollerSampleInvalid, errors.New("failed to validate initial signing policy hash")
 	}
-	// check last signing policy hash
-	lastSigningPolicyHash, state, err := v.getSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID)
-	if err != nil {
-		return state, fmt.Errorf("failed to retrieve last signing policy hash: %w", err)
-	}
-	if lastSigningPolicyHash != teeInfoData.LastSigningPolicyHash {
+	if lastSigningRes.hash != teeInfoData.LastSigningPolicyHash {
 		return teetype.TeePollerSampleInvalid, errors.New("failed to validate last signing policy hash")
 	}
 	return teetype.TeePollerSampleValid, nil
 }
 
-func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL string, challengeInstructionID common.Hash) (teenodetypes.TeeInfoResponse, common.Address, error) {
+func (v *TeeVerifier) fetchTEEChallengeResult(
+	ctx context.Context,
+	baseURL string,
+	challengeInstructionID common.Hash,
+	fetchFn func(context.Context, string, time.Duration) (teenodetypes.ActionResponse, error),
+) (teenodetypes.TeeInfoResponse, common.Address, error) {
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
 	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
-	actionResp, err := coreutil.GetJSON[teenodetypes.ActionResponse](ctx, url, fetchTimeout)
+	actionResp, err := fetchFn(ctx, url, fetchInfoTimeout)
 	if err != nil {
 		return zero, zeroAdd, err
 	}
@@ -221,7 +240,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
 	// recover signer
-	signer, err := recoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
+	signer, err := keyutil.RecoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
 	if err != nil {
 		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
 	}
@@ -229,7 +248,7 @@ func (v *TeeVerifier) fetchTEEChallengeResult(ctx context.Context, baseURL strin
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	ctx, cancel := context.WithTimeout(ctx, chainFetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
 		Context: ctx,
@@ -243,14 +262,19 @@ func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signing
 	return common.Hash(signingPolicyHashBytes), teetype.TeePollerSampleValid, nil
 }
 
-func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
+func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(
+	ctx context.Context,
+	signingPolicyID uint32,
+	maxAttempts int,
+	delay time.Duration,
+) (common.Hash, teetype.TeePollerSampleState, error) {
 	var (
 		hash       common.Hash
 		finalState teetype.TeePollerSampleState
 	)
 	_, err := coreutil.Retry(
-		chainRetries,
-		chainRetryDelay,
+		maxAttempts,
+		delay,
 		func() (struct{}, error) {
 			h, state, err := v.getSigningPolicyHashFromChain(ctx, signingPolicyID)
 			if err != nil {
@@ -267,8 +291,8 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(ctx context.Context
 	)
 	if err != nil {
 		return common.Hash{}, finalState, fmt.Errorf(
-			"getSigningPolicyHashFromChainWithRetry failed after %d retries: %w",
-			chainRetries, err,
+			"getSigningPolicyHashFromChainWithRetry failed after %d attempts: %w",
+			maxAttempts, err,
 		)
 	}
 	return hash, finalState, nil
@@ -298,7 +322,6 @@ func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {
 	v.SamplesMu.RUnlock()
 
 	if len(samples) < v.SamplesToConsider {
-		logger.Infof("TEE %s has insufficient samples (%d/%d). Samples: %+v", teeID.Hex(), len(samples), v.SamplesToConsider, samples)
 		return false, fmt.Errorf("insufficient samples to determine TEE %s status", teeID.Hex())
 	}
 	for _, sample := range samples {
@@ -314,23 +337,4 @@ func (v *TeeVerifier) Close() error {
 		return closer.Close()
 	}
 	return nil
-}
-
-func recoverSigner(data hexutil.Bytes, signature hexutil.Bytes) (common.Address, error) {
-	hash := crypto.Keccak256(data)
-	ethHash := accounts.TextHash(hash)
-	pub, err := crypto.SigToPub(ethHash, signature)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to recover pubkey: %w", err)
-	}
-	return crypto.PubkeyToAddress(*pub), nil
-}
-
-func RetrieveAddressFromPublicKey(publicKey teenodetypes.PublicKey) (common.Address, error) {
-	pubKey, err := teenodetypes.ParsePubKey(publicKey)
-	if err != nil {
-		return common.Address{}, err
-	}
-	teeID := crypto.PubkeyToAddress(*pubKey)
-	return teeID, nil
 }

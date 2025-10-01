@@ -16,27 +16,14 @@ func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context,
 			return
 		}
 		apiKey := ctx.Header("X-API-KEY")
-		if apiKey == "" {
-			err := huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized")
-			if err != nil {
-				logger.Error(err)
-			}
-			return
-		}
-		found := false
 		for _, key := range apiKeys {
 			if apiKey == key {
-				found = true
-				break
+				next(ctx)
+				return
 			}
 		}
-		if !found {
-			err := huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized")
-			if err != nil {
-				logger.Error(err)
-			}
-			return
+		if err := huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized"); err != nil {
+			logger.Error(err)
 		}
-		next(ctx)
 	}
 }
