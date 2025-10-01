@@ -25,7 +25,7 @@ func GetPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentSt
 }
 
 func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentStatusConfig, error) {
-	err := config.CheckMissingFields(envConfig, []string{config.EnvCChainDatabaseURL, config.EnvDatabaseURL})
+	err := config.CheckMissingFields(envConfig, []string{config.EnvCChainDatabaseURL, config.EnvSourceDatabaseURL})
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 	}
 	return &config.PMWPaymentStatusConfig{
 		EncodedAndABI:            commonConfig,
-		DatabaseURL:              envConfig.DatabaseURL,
+		SourceDatabaseURL:        envConfig.SourceDatabaseURL,
 		CchainDatabaseURL:        envConfig.CChainDatabaseURL,
 		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,
 		ParsedPaymentABI:         parsedPaymentABI,

@@ -71,15 +71,15 @@ type TeeMachineRegistryCallerInterface interface {
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Flare node: %w", err)
+		return nil, fmt.Errorf("cannot connect to Flare node: %w", err)
 	}
 	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create contract TeeRegistry caller: %w", err)
+		return nil, fmt.Errorf("cannot create contract TeeRegistry caller: %w", err)
 	}
 	relayCaller, err := relay.NewRelayCaller(common.HexToAddress(cfg.RelayContractAddress), client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create contract Relay caller: %w", err)
+		return nil, fmt.Errorf("cannot create contract Relay caller: %w", err)
 	}
 	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }

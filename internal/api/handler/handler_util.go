@@ -87,7 +87,7 @@ func PrepareRequestBody[T types.InternalConvertible[I], I any](
 	}
 	encodedRequest, err := EncodeRequest(requestData, config)
 	if err != nil {
-		return nil, fmt.Errorf("encoding request data failed: %w", err)
+		return nil, err
 	}
 	return encodedRequest, nil
 }

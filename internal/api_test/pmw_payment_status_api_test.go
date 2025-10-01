@@ -19,7 +19,7 @@ import (
 
 func TestPMWPaymentStatus(t *testing.T) {
 	setup := api.SetupServer(t, connector.PMWPaymentStatus, config.SourceXRP, config.EnvConfig{
-		DatabaseURL:       "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+		SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 		CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 	})
 	defer setup.Stop()

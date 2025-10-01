@@ -54,8 +54,8 @@ func TestInitMainAndCChainDB(t *testing.T) {
 		MaxDelay:    2 * time.Millisecond,
 	}
 	t.Run("InitMainDB_InvalidDSN", func(t *testing.T) {
-		db, err := InitMainDB("invalid_dsn", testOpts)
-		require.ErrorContains(t, err, "failed to open main DB after 2 attempts: cannot parse `invalid_dsn`: failed to parse")
+		db, err := InitSourceDB("invalid_dsn", testOpts)
+		require.ErrorContains(t, err, "failed to open Source DB after 2 attempts: cannot parse `invalid_dsn`: failed to parse")
 		require.Nil(t, db)
 	})
 	t.Run("InitCChainDB_InvalidDSN", func(t *testing.T) {
