@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 
@@ -36,12 +37,16 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 	currentDelay := delay
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		logger.Infof("Attempt %d: connecting to %s (%s)", attempt, dbName, dialector.Name())
 		db, err = gorm.Open(dialector, &gorm.Config{})
 		if err == nil {
+			logger.Infof("Successfully connected to %s (%s) on attempt %d", dbName, dialector.Name(), attempt)
 			return db, nil
 		}
+		logger.Warnf("Attempt %d: failed to connect to %s (%s): %v", attempt, dbName, dialector.Name(), err)
 
 		if attempt < maxAttempts {
+			logger.Infof("Retrying in %v...", currentDelay)
 			time.Sleep(currentDelay)
 			currentDelay *= 2
 			if currentDelay > maxDelay {
@@ -49,7 +54,6 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 			}
 		}
 	}
-
 	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, maxAttempts, err)
 }
 
