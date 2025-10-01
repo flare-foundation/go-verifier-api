@@ -35,13 +35,12 @@ func TestPMWPaymentStatus(t *testing.T) {
 		Nonce:         nonce,
 		SubNonce:      nonce,
 	}
-
-	// /prepareRequestBody
-	t.Run("prepareRequestBody: Valid request", func(t *testing.T) {
+	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
+	t.Run("PrepareRequestBody: Valid request", func(t *testing.T) {
 		reqData := testhelper.PMWPaymentStatusRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
-		response, err := testhelper.Post[types.AttestationRequest](t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), request, setup.APIKey)
+		response, err := testhelper.Post[types.AttestationRequest](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.RequestBody)
 
@@ -52,19 +51,20 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
-
-	t.Run("prepareRequestBody: Bad request", func(t *testing.T) {
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareRequestBody", setup.URL), types.AttestationRequestData[types.PMWPaymentStatusRequestBody]{}, setup.APIKey)
+	t.Run("PrepareRequestBody: Invalid sourceID", func(t *testing.T) {
+		reqData := testhelper.PMWPaymentStatusRequestBody(baseReqBody)
+		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqData)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 
-	// /prepareResponseBody
-	t.Run("prepareResponseBody: Valid payment", func(t *testing.T) {
+	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
+	t.Run("PrepareResponseBody: Valid payment", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		response, err := testhelper.Post[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]](t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
+		response, err := testhelper.Post[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.ResponseBody)
 		require.NotEmpty(t, response.ResponseData)
@@ -81,25 +81,33 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, common.HexToHash("0x24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA"), common.BytesToHash(response.ResponseData.TransactionID[:]))
 		require.Equal(t, uint64(10702291), response.ResponseData.BlockNumber)
 	})
-
-	t.Run("prepareResponseBody: Bad request", func(t *testing.T) {
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), types.AttestationRequest{}, setup.APIKey)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
-	})
-
-	t.Run("prepareResponseBody: Invalid body", func(t *testing.T) {
+	t.Run("PrepareResponseBody: Invalid request body", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-
-	// /verify
-	t.Run("verify: Valid payment", func(t *testing.T) {
+	t.Run("PrepareResponseBody: Invalid sourceID", func(t *testing.T) {
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+	t.Run("PrepareResponseBody: Verification failed", func(t *testing.T) {
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove 4 for chars.
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+	})
+	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
+	t.Run("Verify: Valid payment", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := testhelper.Post[types.AttestationResponse](t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
+		response, err := testhelper.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 
 		result := testhelper.DecodeResponseBody[connector.IPMWPaymentStatusResponseBody](t, connector.PMWPaymentStatus, response.ResponseBody)
@@ -116,41 +124,45 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, common.HexToHash("0x24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA"), common.BytesToHash(result.TransactionId[:]))
 		require.Equal(t, uint64(10702291), result.BlockNumber)
 	})
-
-	t.Run("verify: Missing api-key", func(t *testing.T) {
+	t.Run("Verify: Missing api-key", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, "")
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, "")
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, response.StatusCode)
 	})
-
-	t.Run("verify: Wrong api-key", func(t *testing.T) {
+	t.Run("Verify: Wrong api-key", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, "wrong api key")
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, "wrong api key")
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, response.StatusCode)
 	})
-
-	t.Run("verify: Invalid sourceID", func(t *testing.T) {
+	t.Run("Verify: Invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-
-	t.Run("verify: Invalid attestationType", func(t *testing.T) {
+	t.Run("Verify: Invalid attestationType", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-
-	t.Run("verify: Invalid body", func(t *testing.T) {
+	t.Run("Verify: Invalid request body", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := testhelper.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+	})
+	t.Run("Verify: Verification failed", func(t *testing.T) {
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove 4 for chars.
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 	})
 }

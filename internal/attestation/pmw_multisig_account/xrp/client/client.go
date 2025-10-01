@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	chainRetries        = 2
+	chainMaxAttemps     = 2
 	chainRetryDelay     = 500 * time.Millisecond
-	chainRequestTimeout = 5 * time.Second
+	chainRequestTimeout = 4 * time.Second
 )
 
 type Client struct {
@@ -81,7 +81,7 @@ func (c *Client) doRequest(ctx context.Context, request request) ([]byte, error)
 
 func (c *Client) doRequestWithRetry(ctx context.Context, request request) ([]byte, error) {
 	return coreutil.Retry(
-		chainRetries,
+		chainMaxAttemps,
 		chainRetryDelay,
 		func() ([]byte, error) {
 			return c.doRequest(ctx, request)

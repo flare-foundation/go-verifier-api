@@ -47,7 +47,7 @@ func ValidateSystemAndRequestAttestationNameAndSourceID(config *config.EncodedAn
 			string(config.AttestationTypePair.AttestationType), config.AttestationTypePair.AttestationTypeEncoded,
 			config.SourceIDPair.SourceID, config.SourceIDPair.SourceIDEncoded,
 		)
-		return fmt.Errorf("%v", errorMessage)
+		return fmt.Errorf("%w", errorMessage)
 	}
 	return nil
 }
@@ -56,7 +56,7 @@ func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, 
 	var zero T
 	data, err := abiDecodeRequestData[T](requestBody, config.ABIPair.Request)
 	if err != nil {
-		return zero, fmt.Errorf("%v", err)
+		return zero, fmt.Errorf("%w", err)
 	}
 	return data, nil
 }
@@ -83,11 +83,11 @@ func PrepareRequestBody[T types.InternalConvertible[I], I any](
 ) (hexutil.Bytes, error) {
 	requestData, err := body.RequestData.ToInternal()
 	if err != nil {
-		return nil, fmt.Errorf("converting request body to data failed: %v", err)
+		return nil, fmt.Errorf("converting request body to data failed: %w", err)
 	}
 	encodedRequest, err := EncodeRequest(requestData, config)
 	if err != nil {
-		return nil, fmt.Errorf("encoding request data failed: %v", err)
+		return nil, fmt.Errorf("encoding request data failed: %w", err)
 	}
 	return encodedRequest, nil
 }

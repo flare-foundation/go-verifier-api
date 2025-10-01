@@ -37,7 +37,7 @@ func PMWMultisigAccountHandler(
 			}
 			encodedRequest, err := PrepareRequestBody(request.Body, config)
 			if err != nil {
-				logger.Errorf("Prepare Request failed:", err)
+				logger.Errorf("Prepare Request failed: %v", err)
 				return nil, huma.Error400BadRequest("Prepare request failed: " + err.Error())
 			}
 			return types.NewResponse(types.AttestationRequestEncoded{
