@@ -73,15 +73,15 @@ type TeeMachineRegistryCallerInterface interface {
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to Flare node: %w", err)
+		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
 	}
 	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create contract TeeRegistry caller: %w", err)
+		return nil, fmt.Errorf("cannot create TeeRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress, err)
 	}
 	relayCaller, err := relay.NewRelayCaller(common.HexToAddress(cfg.RelayContractAddress), client)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create contract Relay caller: %w", err)
+		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
 	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
@@ -100,7 +100,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
 	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
 	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
-		return zero, fmt.Errorf("cannot fetch TEE data %s: %w", req.TeeId, err)
+		return zero, fmt.Errorf("cannot fetch TEE data for TeeID %s: %w", req.TeeId, err)
 	}
 	if errors.Is(err, coreutil.ErrNotFound) {
 		// check polled data
@@ -182,7 +182,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	// Validate teeID
 	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("failed retrieve TEE ID from: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("failed to retrieve TEE ID from: %w", err)
 	}
 	if expectedTeeID != receivedTeeID {
 		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
@@ -212,10 +212,10 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 	lastSigningRes := <-lastSigningCh
 	// Check
 	if initialSigningRes.err != nil {
-		return initialSigningRes.state, fmt.Errorf("failed to retrieve initial signing policy hash: %w", initialSigningRes.err)
+		return initialSigningRes.state, fmt.Errorf("cannot retrieve initial signing policy hash for ID %d: %w", teeInfoData.InitialSigningPolicyID, initialSigningRes.err)
 	}
 	if lastSigningRes.err != nil {
-		return lastSigningRes.state, fmt.Errorf("failed to retrieve last signing policy hash: %w", lastSigningRes.err)
+		return lastSigningRes.state, fmt.Errorf("cannot retrieve last signing policy hash for ID %d: %w", teeInfoData.LastSigningPolicyID, lastSigningRes.err)
 	}
 	if initialSigningRes.hash != teeInfoData.InitialSigningPolicyHash {
 		return teetype.TeePollerSampleInvalid, errors.New("failed to validate initial signing policy hash")
@@ -326,7 +326,7 @@ func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash c
 	if latestBlock.Time()-challengeBlock.Time() <= blockFreshnessInSeconds {
 		return teetype.TeePollerSampleValid, nil
 	}
-	return teetype.TeePollerSampleInvalid, fmt.Errorf("challenge too old %d", latestBlock.Time()-challengeBlock.Time())
+	return teetype.TeePollerSampleInvalid, fmt.Errorf("challenge too old: %d seconds old", latestBlock.Time()-challengeBlock.Time())
 }
 
 func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {

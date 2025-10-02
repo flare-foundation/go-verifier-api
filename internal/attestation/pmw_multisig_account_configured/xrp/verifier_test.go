@@ -20,7 +20,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 	verifier := &XRPVerifier{}
 	testAccounts := createTestAccounts(3, t)
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
 			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
@@ -33,8 +33,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, seq, sequence)
 	})
-
-	t.Run("Wrong signer weights", func(t *testing.T) {
+	t.Run("wrong signer weights", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
 			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
@@ -46,8 +45,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
-
-	t.Run("Wrong threshold", func(t *testing.T) {
+	t.Run("wrong threshold", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
 			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
@@ -59,8 +57,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
-
-	t.Run("Missing public key", func(t *testing.T) {
+	t.Run("missing public key", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
 			[][]byte{{}, testAccounts[1].PubKey},
@@ -72,8 +69,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
-
-	t.Run("SignerList mismatch", func(t *testing.T) {
+	t.Run("signer list mismatch", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
 			[][]byte{testAccounts[2].PubKey},
@@ -85,8 +81,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
-
-	t.Run("SignerList missing signer", func(t *testing.T) {
+	t.Run("signer list missing signer", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
 			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
@@ -98,7 +93,6 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "o signer list for account")
 	})
-
 	t.Run("MasterKey enabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
@@ -111,7 +105,6 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "master key is not disabled")
 	})
-
 	t.Run("DepositAuth enabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
@@ -124,7 +117,6 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "deposit authorization is enabled")
 	})
-
 	t.Run("RequireDestinationTagEnabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
@@ -137,7 +129,6 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "destination tag is required")
 	})
-
 	t.Run("DisallowIncomingXRPEnabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
@@ -150,7 +141,6 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "incoming XRP is disallowed")
 	})
-
 	t.Run("RegularKeySet", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			testAccountName,
@@ -166,7 +156,7 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 }
 
 func TestParsePubKey(t *testing.T) {
-	t.Run("ValidPubKey", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		assert.NoError(t, err)
 
@@ -178,8 +168,7 @@ func TestParsePubKey(t *testing.T) {
 		assert.Equal(t, privKey.Y, parsed.Y)
 		assert.Equal(t, privKey.Curve, parsed.Curve)
 	})
-
-	t.Run("InvalidPubKey", func(t *testing.T) {
+	t.Run("invalid", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		assert.NoError(t, err)
 
@@ -194,7 +183,7 @@ func TestParsePubKey(t *testing.T) {
 }
 
 func TestConvertPubkeyToAddress(t *testing.T) {
-	t.Run("ValidPubKey", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		assert.NoError(t, err)
 
@@ -203,8 +192,7 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, addr)
 	})
-
-	t.Run("ParsePubKeyFails", func(t *testing.T) {
+	t.Run("corrupted", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		assert.NoError(t, err)
 
@@ -216,8 +204,7 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		assert.Error(t, err)
 		assert.Empty(t, addr)
 	})
-
-	t.Run("WrongPubKeyLength", func(t *testing.T) {
+	t.Run("wrong length", func(t *testing.T) {
 		pubkey := make([]byte, 63) // invalid length
 		addr, err := XRPAddressFromPubKey(pubkey)
 		assert.Error(t, err)

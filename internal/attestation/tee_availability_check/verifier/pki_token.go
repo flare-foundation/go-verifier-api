@@ -10,13 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/tee"
 	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -198,7 +195,7 @@ func CompareCertificates(cert1, cert2 *x509.Certificate) error {
 func ValidateClaims(claims *teetype.GoogleTeeClaims, teeInfoData teenodetype.TeeInfo, allowDebugMode bool) (teetype.StatusInfo, error) {
 	var statusInfo teetype.StatusInfo
 	if len(claims.EATNonce) != 1 {
-		return teetype.StatusInfo{}, fmt.Errorf("expected one eat_nonce")
+		return teetype.StatusInfo{}, fmt.Errorf("expected exactly one EATNonce, got %d", len(claims.EATNonce))
 	}
 	// generate teeInfo hash
 	teeInfoBytes, err := teeInfoData.Hash()
@@ -207,7 +204,7 @@ func ValidateClaims(claims *teetype.GoogleTeeClaims, teeInfoData teenodetype.Tee
 	}
 	// match with eat_nonce
 	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) {
-		return teetype.StatusInfo{}, errors.New("eat_nonce does not match")
+		return teetype.StatusInfo{}, fmt.Errorf("EATNonce does not match hash of teeInfo")
 	}
 	// Check if running in production. Allow debug mode only if ALLOW_TEE_DEBUG is enabled.
 	if allowDebugMode {
@@ -220,11 +217,11 @@ func ValidateClaims(claims *teetype.GoogleTeeClaims, teeInfoData teenodetype.Tee
 	} else {
 		// Non-debug mode
 		if claims.DebugStatus != "disabled-since-boot" {
-			return teetype.StatusInfo{}, errors.New("not running in production mode")
+			return teetype.StatusInfo{}, errors.New("TEE is not running in production mode")
 		}
 		// Check Confidential Space image version
 		if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
-			return teetype.StatusInfo{}, errors.New("no supported attributes found")
+			return teetype.StatusInfo{}, errors.New("ConfidentialSpace component has no supported attributes")
 		}
 		foundIsStable := false
 		for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
@@ -241,26 +238,15 @@ func ValidateClaims(claims *teetype.GoogleTeeClaims, teeInfoData teenodetype.Tee
 	}
 	// Check the OS is Confidential Space
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
-		return teetype.StatusInfo{}, errors.New("not running in CONFIDENTIAL_SPACE")
+		return teetype.StatusInfo{}, fmt.Errorf("SWName check failed: expected CONFIDENTIAL_SPACE, got %q", claims.SWName)
 	}
 	statusInfo.CodeHash, err = coreutil.HexStringToBytes32(strings.TrimPrefix(claims.SubMods.Container.ImageDigest, "sha256:"))
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of container.image_digest: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot convert container.image_digest %q to Bytes32: %w", claims.SubMods.Container.ImageDigest, err)
 	}
 	statusInfo.Platform, err = coreutil.StringToBytes32(claims.HWModel)
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve hash of hwmodel: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot convert HWModel %s to Bytes32: %w", claims.HWModel, err)
 	}
 	return statusInfo, nil
-}
-
-// Taken from https://gitlab.com/flarenetwork/tee/tee-node/-/blob/main/pkg/types/tee.go?ref_type=heads#L28
-func TeeInfoHash(teeInfo tee.TeeStructsAttestation) (string, error) {
-	encoded, err := structs.Encode(tee.StructArg[tee.Attestation], teeInfo)
-	if err != nil {
-		return "", fmt.Errorf("cannot create teeInfoHash: %w", err)
-	}
-	hashBytes := crypto.Keccak256(encoded)
-	hashString := hex.EncodeToString(hashBytes)
-	return hashString, nil
 }

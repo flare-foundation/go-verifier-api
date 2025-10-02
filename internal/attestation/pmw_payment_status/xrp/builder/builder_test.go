@@ -111,6 +111,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 
 		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
 		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
-		require.ErrorContains(t, err, "invalid balance format in CreatedNode: balanceStr")
+		require.ErrorContains(t, err, "cannot calculate received amount for recipient")
+		require.ErrorContains(t, err, "invalid balance format in CreatedNode for account")
 	})
 }

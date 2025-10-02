@@ -58,7 +58,7 @@ func TestRecoverSigner(t *testing.T) {
 }
 
 func TestRetrieveAddressFromPublicKey(t *testing.T) {
-	t.Run("Valid", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		pub := teenodetypes.PublicKey{
@@ -69,7 +69,7 @@ func TestRetrieveAddressFromPublicKey(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, crypto.PubkeyToAddress(key.PublicKey), addr)
 	})
-	t.Run("Invalid", func(t *testing.T) {
+	t.Run("invalid", func(t *testing.T) {
 		pub := teenodetypes.PublicKey{
 			X: common.BigToHash(big.NewInt(123)),
 			Y: common.BigToHash(big.NewInt(456)),

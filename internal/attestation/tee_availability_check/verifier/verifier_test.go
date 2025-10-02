@@ -39,7 +39,7 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 	now := uint64(time.Now().Unix())
 	challengeHash := common.HexToHash("0x123")
 
-	t.Run("valid challenge (fresh)", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 10})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
 		mockClient := &MockEthClient{
@@ -259,7 +259,7 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return([32]byte{}, errors.New("rpc error"))
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
 		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
-		require.ErrorContains(t, err, "failed to retrieve initial signing policy hash")
+		require.ErrorContains(t, err, "cannot retrieve initial signing policy hash for ID 1")
 		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
 		mockRelay.AssertExpectations(t)
 	})
@@ -270,7 +270,7 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return([32]byte{}, errors.New("rpc error"))
 		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
 		fmt.Println(state, err)
-		require.ErrorContains(t, err, "failed to retrieve last signing policy hash")
+		require.ErrorContains(t, err, "cannot retrieve last signing policy hash for ID 2")
 		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
 		mockRelay.AssertExpectations(t)
 	})
