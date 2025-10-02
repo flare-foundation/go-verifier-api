@@ -47,10 +47,10 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 		return nil, err
 	}
 	if allowTeeDebug {
-		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", config.EnvAllowTeeDebug))
+		logger.Warnf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", config.EnvAllowTeeDebug)
 	}
 	if disableAttestationCheckE2E {
-		logger.Warn(fmt.Sprintf("%s is enabled. This flag is meant for E2E tests only and should NOT be used in production.", config.EnvDisableAttestationCheckE2E))
+		logger.Warnf("%s is enabled. This flag is meant for E2E tests only and should NOT be used in production.", config.EnvDisableAttestationCheckE2E)
 	}
 	return &config.TeeAvailabilityCheckConfig{
 		EncodedAndABI:                     commonConfig,
@@ -77,11 +77,11 @@ var rootCertBytes []byte
 func LoadGoogleRootCert() (*x509.Certificate, error) {
 	block, _ := pem.Decode(rootCertBytes)
 	if block == nil {
-		return nil, fmt.Errorf("cannot decode certificate: invalid PEM format")
+		return nil, fmt.Errorf("cannot decode embedded Google root certificate: invalid PEM format")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse certificate: %w", err)
+		return nil, fmt.Errorf("cannot parse embedded Google root certificate: %w", err)
 	}
 	return cert, nil
 }

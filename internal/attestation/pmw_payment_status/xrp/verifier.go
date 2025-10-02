@@ -25,7 +25,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	// Build instruction ID
 	instructionID, err := teeinstruction.GenerateInstructionID(req.OpType, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.Nonce)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction instruction id: %w", err)
+		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction ID: %w", err)
 	}
 	// Event log
 	eventHash, err := teeinstruction.GetTeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
@@ -45,7 +45,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	dbTransaction, err := x.Repo.GetTransactionBySourceAndSequence(ctx, repo.ChainQuery{SourceAddress: paymentMessage.SenderAddress, Nonce: req.Nonce})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("transaction not found")
+			return connector.IPMWPaymentStatusResponseBody{}, err
 		}
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
@@ -57,7 +57,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	// Validate transaction and build response
 	resp, err := builder.BuildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("failed to build payment status response: %w", err)
 	}
 	return resp, nil
 }
@@ -67,7 +67,7 @@ func (x *XRPVerifier) parseRawTransactionData(response string) (types.RawTransac
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
 		logger.Errorf("Failed to unmarshal XRP transaction response: %v, response: %s", err, response)
-		return rawTransactionData, err
+		return rawTransactionData, fmt.Errorf("failed to unmarshal XRP transaction response: %w", err)
 	}
 	if rawTransactionData.MetaData.TransactionResult == "" {
 		return rawTransactionData, fmt.Errorf("missing transaction result in raw transaction data")

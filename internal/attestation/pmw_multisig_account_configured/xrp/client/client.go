@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,41 +40,35 @@ func NewClient(url string) *Client {
 func (c *Client) doRequest(ctx context.Context, request request) ([]byte, error) {
 	getReq, err := json.Marshal(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-
 	buf := bytes.NewBuffer(getReq)
 	req, err := http.NewRequest("POST", c.url, buf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create HTTP request for %s: %w", c.url, err)
 	}
-
 	req.Header.Set("accept", "application/json")
 	req.Header.Set("content-type", "application/json")
-
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, chainRequestTimeout)
 	defer cancel()
-
 	req = req.WithContext(ctxWithTimeout)
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HTTP request failed for: %w", err)
+
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			logger.Warnf("Failed to close response body: %v", err)
 		}
 	}()
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error response status: %s", resp.Status)
+		return nil, fmt.Errorf("error response from %s: %s", c.url, resp.Status)
 	}
-
 	resBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body from %s (status: %s): %w", c.url, resp.Status, err)
 	}
-
 	return resBody, nil
 }
 
@@ -108,7 +101,7 @@ func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.Acc
 		return nil, fmt.Errorf("failed to parse account info: %w", err)
 	}
 	if accountInfo.Result.Status != "success" {
-		return nil, errors.New("xrp rpc returned non-success status")
+		return nil, fmt.Errorf("xrp rpc returned non-success status for account %s: %s", account, accountInfo.Result.Status)
 	}
 
 	return &accountInfo, nil

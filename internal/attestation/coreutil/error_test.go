@@ -140,7 +140,8 @@ func TestFetchJSON(t *testing.T) {
 	t.Run("Bad json", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/badjson", server.URL), 50*time.Millisecond)
-		require.ErrorContains(t, err, "decoding failed")
+		require.ErrorContains(t, err, "decoding JSON from http://127.0.0.1")
+		require.ErrorContains(t, err, "failed for type coreutil.testStruct")
 	})
 
 	t.Run("Request error", func(t *testing.T) {

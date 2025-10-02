@@ -71,7 +71,7 @@ func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req connec
 	for i, pk := range req.PublicKeys {
 		addrStr, err := XRPAddressFromPubKey(pk)
 		if err != nil {
-			logger.Infof("Failed to convert public key to address: %v", err)
+			logger.Warnf("Failed to convert public key %s to address: %v", hex.EncodeToString(pk), err)
 			return false
 		}
 		expectedAccounts[i] = addrStr
