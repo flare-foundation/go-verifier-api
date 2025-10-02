@@ -16,7 +16,7 @@ var envConfig = config.EnvConfig{
 }
 
 func TestMultisigService(t *testing.T) {
-	t.Run("Should successfully create MultisigService", func(t *testing.T) {
+	t.Run("should successfully create MultisigService", func(t *testing.T) {
 		service, err := NewMultisigService(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, service)
@@ -24,7 +24,7 @@ func TestMultisigService(t *testing.T) {
 		require.NotNil(t, service.GetConfig())
 	})
 
-	t.Run("Missing fields in env config", func(t *testing.T) {
+	t.Run("missing fields in env config", func(t *testing.T) {
 		pmwmultisigaccountconfig.ClearPMWMultisigAccountConfiguredConfigForTest()
 		badEnvConfig := config.EnvConfig{
 			RPCURL:          "",
@@ -36,7 +36,7 @@ func TestMultisigService(t *testing.T) {
 		require.Nil(t, service)
 	})
 
-	t.Run("Using unsupported source ID", func(t *testing.T) {
+	t.Run("using unsupported source ID", func(t *testing.T) {
 		pmwmultisigaccountconfig.ClearPMWMultisigAccountConfiguredConfigForTest()
 		badEnvConfig := config.EnvConfig{
 			RPCURL:          "https://s.altnet.rippletest.net:51234",

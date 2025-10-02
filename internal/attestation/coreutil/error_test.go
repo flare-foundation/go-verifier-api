@@ -15,7 +15,7 @@ import (
 )
 
 func TestMapFetchErrorToState(t *testing.T) {
-	t.Run("Context errors", func(t *testing.T) {
+	t.Run("context errors", func(t *testing.T) {
 		st, err := MapFetchErrorToState("op1", context.DeadlineExceeded)
 		require.Equal(t, teetypes.TeePollerSampleIndeterminate, st)
 		requireFetchError(t, err, "op1", ErrContext)
@@ -24,8 +24,7 @@ func TestMapFetchErrorToState(t *testing.T) {
 		require.Equal(t, teetypes.TeePollerSampleIndeterminate, st)
 		requireFetchError(t, err, "op2", ErrContext)
 	})
-
-	t.Run("HTTPError", func(t *testing.T) {
+	t.Run("HTTP error", func(t *testing.T) {
 		// Simulate HTTP 400 (BadRequest)
 		httpErr := rpc.HTTPError{StatusCode: http.StatusBadRequest, Status: "Bad Request", Body: []byte("bad")}
 		st, err := MapFetchErrorToState("op", httpErr)
@@ -44,8 +43,7 @@ func TestMapFetchErrorToState(t *testing.T) {
 		require.Equal(t, teetypes.TeePollerSampleIndeterminate, st)
 		requireFetchError(t, err, "op", ErrNetwork)
 	})
-
-	t.Run("RPCErrors", func(t *testing.T) {
+	t.Run("RPC error", func(t *testing.T) {
 		// Deterministic client-side errors
 		for _, code := range []int{-32600, -32601, -32602, -32700} {
 			rpcErr := &testRPCError{code: code, message: "client error"}
@@ -68,8 +66,7 @@ func TestMapFetchErrorToState(t *testing.T) {
 		require.Equal(t, teetypes.TeePollerSampleIndeterminate, st)
 		requireFetchError(t, err, "op", ErrRPC)
 	})
-
-	t.Run("NetworkError", func(t *testing.T) {
+	t.Run("network error", func(t *testing.T) {
 		// Simulate a net.Error (timeout)
 		netErr := &testNetError{timeout: true, temporary: false, msg: "timeout"}
 		st, err := MapFetchErrorToState("op", netErr)
@@ -82,8 +79,7 @@ func TestMapFetchErrorToState(t *testing.T) {
 		require.Equal(t, teetypes.TeePollerSampleIndeterminate, st)
 		requireFetchError(t, err, "op", ErrNetwork)
 	})
-
-	t.Run("UnknownError", func(t *testing.T) {
+	t.Run("unknown error", func(t *testing.T) {
 		unknownErr := errors.New("unknown error")
 		st, err := MapFetchErrorToState("op", unknownErr)
 		require.Equal(t, teetypes.TeePollerSampleIndeterminate, st)
@@ -118,41 +114,34 @@ func TestFetchJSON(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		ctx := context.Background()
 		result, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/ok", server.URL), 50*time.Millisecond)
 		require.NoError(t, err)
 		require.Equal(t, testStruct{Foo: "hello", Bar: 42}, result)
 	})
-
-	t.Run("Not found", func(t *testing.T) {
+	t.Run("not found", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/notfound", server.URL), 50*time.Millisecond)
 		require.ErrorIs(t, err, ErrNotFound)
 	})
-
-	t.Run("Unexpected status code", func(t *testing.T) {
+	t.Run("unexpected status code", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/unexpected", server.URL), 50*time.Millisecond)
 		require.ErrorContains(t, err, "unexpected status code")
 	})
-
-	t.Run("Bad json", func(t *testing.T) {
+	t.Run("bad json", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/badjson", server.URL), 50*time.Millisecond)
 		require.ErrorContains(t, err, "decoding JSON from http://127.0.0.1")
 		require.ErrorContains(t, err, "failed for type coreutil.testStruct")
 	})
-
-	t.Run("Request error", func(t *testing.T) {
-		// Use an invalid URL to force a request error
+	t.Run("request error", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := GetJSON[testStruct](ctx, "http://invalid.invalid/doesnotexist", 50*time.Millisecond)
 		require.ErrorContains(t, err, "dial tcp: lookup invalid.invalid: no such host")
 	})
-
-	t.Run("Timeout", func(t *testing.T) {
-		// Use a handler that sleeps longer than the timeout
+	t.Run("timeout", func(t *testing.T) {
 		slowHandler := http.NewServeMux()
 		slowHandler.HandleFunc("/slow", func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(100 * time.Millisecond)
@@ -166,8 +155,7 @@ func TestFetchJSON(t *testing.T) {
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/slow", slowServer.URL), 50*time.Millisecond)
 		require.ErrorContains(t, err, "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
 	})
-
-	t.Run("Context canceled", func(t *testing.T) {
+	t.Run("context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/ok", server.URL), 50*time.Millisecond)

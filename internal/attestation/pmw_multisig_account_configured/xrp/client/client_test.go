@@ -10,7 +10,7 @@ import (
 const testAddress = "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL"
 
 func TestGetAccountInfo(t *testing.T) {
-	t.Run("Invalid rpc url", func(t *testing.T) {
+	t.Run("invalid rpc url", func(t *testing.T) {
 		client := NewClient("https://invalid.invalid")
 		ctx := context.Background()
 		val, err := client.GetAccountInfo(ctx, testAddress)
@@ -19,14 +19,14 @@ func TestGetAccountInfo(t *testing.T) {
 		require.ErrorContains(t, err, "no such host")
 		require.Nil(t, val)
 	})
-	t.Run("Invalid address", func(t *testing.T) {
+	t.Run("invalid address", func(t *testing.T) {
 		client := NewClient("https://s.altnet.rippletest.net:51234")
 		ctx := context.Background()
 		val, err := client.GetAccountInfo(ctx, "0x")
 		require.ErrorContains(t, err, "xrp rpc returned non-success status")
 		require.Nil(t, val)
 	})
-	t.Run("Valid address", func(t *testing.T) {
+	t.Run("valid address", func(t *testing.T) {
 		client := NewClient("https://s.altnet.rippletest.net:51234")
 		ctx := context.Background()
 		resp, err := client.GetAccountInfo(ctx, testAddress)

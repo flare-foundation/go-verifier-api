@@ -39,7 +39,7 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 	now := uint64(time.Now().Unix())
 	challengeHash := common.HexToHash("0x123")
 
-	t.Run("valid challenge (fresh)", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 10})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
 		mockClient := &MockEthClient{

@@ -33,27 +33,27 @@ func TestValidateClaims(t *testing.T) {
 		},
 	}
 
-	t.Run("Valid claims", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		_, err := verifier.ValidateClaims(baseClaims, teeInfoData, false)
 		require.NoError(t, err)
 	})
-	t.Run("Valid claims in debug mode", func(t *testing.T) {
+	t.Run("valid in debug mode", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.DebugStatus = "enabled"
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, true)
 		require.NoError(t, err)
 	})
-	t.Run("Production TEE not allowed in debug mode", func(t *testing.T) {
+	t.Run("production TEE not allowed in debug mode", func(t *testing.T) {
 		_, err := verifier.ValidateClaims(baseClaims, teeInfoData, true)
 		require.ErrorContains(t, err, "production TEE not allowed when ALLOW_TEE_DEBUG=true")
 	})
-	t.Run("Debug TEE not allowed in production mode", func(t *testing.T) {
+	t.Run("debug TEE not allowed in production mode", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.DebugStatus = "enabled"
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.ErrorContains(t, err, "not running in production mode")
 	})
-	t.Run("Expect one EATNonce", func(t *testing.T) {
+	t.Run("expect one EATNonce", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.EATNonce = []string{}
 		val, err := verifier.ValidateClaims(&modClaims, teenodetype.TeeInfo{}, true)
@@ -67,32 +67,32 @@ func TestValidateClaims(t *testing.T) {
 		require.Equal(t, teetype.StatusInfo{}, val)
 		require.ErrorContains(t, err, "EATNonce does not match hash of teeInfo")
 	})
-	t.Run("No supported attributes", func(t *testing.T) {
+	t.Run("no supported attributes", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = nil
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.ErrorContains(t, err, "ConfidentialSpace component has no supported attributes")
 	})
-	t.Run("No supported attributes", func(t *testing.T) {
+	t.Run("no supported attributes", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = []string{}
 		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.NoError(t, err)
 		require.Equal(t, teetype.OBSOLETE, val.Status)
 	})
-	t.Run("No confidential space", func(t *testing.T) {
+	t.Run("no confidential space", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SWName = "CONF"
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.ErrorContains(t, err, "SWName check failed: expected CONFIDENTIAL_SPACE")
 	})
-	t.Run("Cannot retrieve hash of hwmodel", func(t *testing.T) {
+	t.Run("cannot retrieve hash of hwmodel", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.HWModel = "0x" + strings.Repeat("ff", 33)
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.ErrorContains(t, err, "cannot convert HWMode")
 	})
-	t.Run("Cannot retrieve hash of container.image_digest", func(t *testing.T) {
+	t.Run("cannot retrieve hash of container.image_digest", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SubMods.Container.ImageDigest = "0x" + strings.Repeat("ff", 33)
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)

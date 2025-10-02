@@ -7,25 +7,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMustAbiType_ValidTypes(t *testing.T) {
+func TestMustAbiType(t *testing.T) {
 	tests := []struct {
-		input    string
-		expected abi.Type
+		name        string
+		input       string
+		expected    abi.Type
+		expectPanic bool
+		panicMsg    string
 	}{
-		{"bytes32", Bytes32Type},
-		{"address", AddressType},
-		{"uint64", Uint64Type},
-		{"string", StringType},
+		{"bytes32 type", "bytes32", Bytes32Type, false, ""},
+		{"address type", "address", AddressType, false, ""},
+		{"uint64 type", "uint64", Uint64Type, false, ""},
+		{"string type", "string", StringType, false, ""},
+		{"invalid type", "invalid", abi.Type{}, true, "invalid ABI type: unsupported arg type: invalid"},
 	}
 
 	for _, tt := range tests {
-		ty := mustAbiType(tt.input)
-		require.Equal(t, tt.expected, ty)
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.expectPanic {
+				require.PanicsWithValue(t, tt.panicMsg, func() {
+					mustAbiType(tt.input)
+				})
+			} else {
+				got := mustAbiType(tt.input)
+				require.Equal(t, tt.expected, got)
+			}
+		})
 	}
-}
-
-func TestMustAbiType_PanicOnInvalidType(t *testing.T) {
-	require.PanicsWithValue(t, "invalid ABI type: unsupported arg type: invalid", func() {
-		mustAbiType("invalid")
-	})
 }

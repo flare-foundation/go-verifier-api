@@ -23,15 +23,14 @@ var envConfig = config.EnvConfig{
 }
 
 func TestPaymentService(t *testing.T) {
-	t.Run("Should successfully create PaymentService", func(t *testing.T) {
+	t.Run("should successfully create PaymentService", func(t *testing.T) {
 		service, err := NewPaymentService(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, service)
 		require.NotNil(t, service.GetVerifier())
 		require.NotNil(t, service.GetConfig())
 	})
-
-	t.Run("Missing fields in env config", func(t *testing.T) {
+	t.Run("missing fields in env config", func(t *testing.T) {
 		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 		badEnvConfig := config.EnvConfig{
 			SourceDatabaseURL: "",
@@ -41,8 +40,7 @@ func TestPaymentService(t *testing.T) {
 		require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
 		require.Nil(t, service)
 	})
-
-	t.Run("Using unsupported source ID", func(t *testing.T) {
+	t.Run("using unsupported source ID", func(t *testing.T) {
 		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 		badEnvConfig := config.EnvConfig{
 			SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
@@ -54,7 +52,6 @@ func TestPaymentService(t *testing.T) {
 		require.ErrorContains(t, err, "failed to initialize PMWPaymentStatus verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
 		require.Nil(t, service)
 	})
-
 	pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 }
 
@@ -67,7 +64,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	verifier := service.GetVerifier()
 	opType, err := coreutil.StringToBytes32(string(op.XRP))
 	require.NoError(t, err)
-	t.Run("Should successfully verify PMWPaymentStatus", func(t *testing.T) {
+	t.Run("should successfully verify PMWPaymentStatus", func(t *testing.T) {
 		response, err := verifier.Verify(t.Context(), connector.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
 			SenderAddress: "r9CWG1aj4tUsZn5agTLahfyiqnNhMhPjDt",
@@ -91,8 +88,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, common.HexToHash("0x24671113AE7A5777AADA6A4D09903B0A2D27A6B3E55B447571BFD4845CCCE4CA"), common.BytesToHash(response.TransactionId[:]))
 		require.Equal(t, uint64(10702291), response.BlockNumber)
 	})
-
-	t.Run("Should return error if transaction not found", func(t *testing.T) {
+	t.Run("should return error if transaction not found", func(t *testing.T) {
 		service, err := NewPaymentService(envConfig)
 		require.NoError(t, err)
 		verifier := service.GetVerifier()

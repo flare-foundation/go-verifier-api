@@ -22,7 +22,7 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return zero, fmt.Errorf("HTTP request failed for %s: %w", url, err)
+		return zero, fmt.Errorf("HTTP request failed for: %w", err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
