@@ -20,6 +20,8 @@ ALLOW_TEE_DEBUG=false
 DISABLE_ATTESTATION_CHECK_E2E=false
 ```
 
+The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/tee_availability_check/config/assets_. Read more about it [here](./internal/attestation/tee_availability_check/config/assets/README.md).
+
 ### `PMWMultisigAccountConfigured` attestation type
 Environment variables:
 ```

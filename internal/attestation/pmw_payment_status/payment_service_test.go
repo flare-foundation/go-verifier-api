@@ -55,7 +55,7 @@ func TestPaymentService(t *testing.T) {
 	pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
 }
 
-// Should this be moved?
+// Should this be moved? TODO
 // Both tests need docker compose running.
 func TestPMWPaymentStatus(t *testing.T) {
 	service, err := NewPaymentService(envConfig)
