@@ -79,7 +79,7 @@ func sampleAllTees(
 	queryInfoAndValidate func(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error)) {
 	activeTees, err := getTees(ctx, teeVerifier)
 	if err != nil {
-		logger.Warnf("Failed to fetch active TEEs, using last cached version: %v", err)
+		logger.Warnf("Failed to fetch active TEEs from TeeMachineRegistry, using last cached version: %v", err)
 		activeTees = getCachedActiveTees()
 		if len(activeTees.TeeIDs) == 0 {
 			logger.Infof("No cached TEEs available, skipping this poll")
@@ -110,9 +110,12 @@ func sampleAllTees(
 					if !ok {
 						return
 					}
-					state, err := queryInfoAndValidate(ctx, teeVerifier, t.proxyURL, t.teeID)
+					proxyURL := teeVerifier.FormatProxyURL(t.proxyURL)
+					state, err := queryInfoAndValidate(ctx, teeVerifier, proxyURL, t.teeID)
 					if err != nil {
-						logger.Errorf("Failed to query teeInfo %s or validate: %v", t.proxyURL, err)
+						logger.Errorf("Failed to query teeInfo %s or validate: %v", proxyURL, err)
+					} else {
+						logger.Debugf("TEE %s state updated to %v", t.teeID.Hex(), state)
 					}
 					teeVerifier.SamplesMu.Lock()
 					samples := teeVerifier.TeeSamples[t.teeID]
@@ -133,14 +136,14 @@ func sampleAllTees(
 	close(taskCh)
 	wg.Wait()
 	teeVerifier.SamplesMu.RLock()
-	logger.Debugf("TEE poller samples: %v", teeVerifier.TeeSamples)
+	logger.Debugf("TEE poller samples snapshot: %v", teeVerifier.TeeSamples)
 	teeVerifier.SamplesMu.RUnlock()
 }
 
 func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 	infoResponse, err := fetchTEEInfoData(ctx, proxyURL)
 	if err != nil {
-		return teetype.TeePollerSampleInvalid, err
+		return teetype.TeePollerSampleInvalid, fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
 	}
 	checkInfoChallenge, err := teeVerifier.CheckInfoChallengeIsValid(ctx, infoResponse.TeeInfo.Challenge)
 	if err != nil {
@@ -148,12 +151,12 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	}
 	_, err = teeVerifier.DataVerification(infoResponse, teeID)
 	if err != nil {
-		return teetype.TeePollerSampleInvalid, err
+		return teetype.TeePollerSampleInvalid, fmt.Errorf("data verification failed for TEE %s: %w", teeID.Hex(), err)
 	}
 	infoData := infoResponse.TeeInfo
 	state, err := teeVerifier.CheckSigningPolicies(ctx, infoData)
 	if err != nil {
-		return state, err
+		return state, fmt.Errorf("signing policy check failed for TEE %s: %w", teeID.Hex(), err)
 	}
 	return state, nil
 }
@@ -176,7 +179,7 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 	for {
 		tees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
 		if err != nil {
-			return teeList{}, fmt.Errorf("getAllActiveTeeMachines: %w", err)
+			return teeList{}, fmt.Errorf("getAllActiveTeeMachines(start=%d, chunk=%d) failed: %w", start.Int64(), chunk.Int64(), err)
 		}
 		allTeeIDs = append(allTeeIDs, tees.TeeIds...)
 		allURLs = append(allURLs, tees.Urls...)
@@ -191,7 +194,7 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 		TeeIDs: allTeeIDs,
 		URLs:   allURLs,
 	}
-	logger.Debugf("TEE poller got active Tees: %v", activeTees)
+	logger.Debugf("TEE poller retrieved active TEEs: %v", activeTees)
 	return activeTees, nil
 }
 
@@ -227,9 +230,15 @@ func filterTeeSamplesToActive(teeVerifier *verifier.TeeVerifier, activeTees teeL
 	teeVerifier.SamplesMu.Lock()
 	defer teeVerifier.SamplesMu.Unlock()
 
+	removedCount := 0
 	for teeID := range teeVerifier.TeeSamples {
 		if _, ok := activeSet[teeID]; !ok {
 			delete(teeVerifier.TeeSamples, teeID)
+			removedCount++
+
 		}
+	}
+	if removedCount > 0 {
+		logger.Debugf("Removed %d inactive TEE samples from cache", removedCount)
 	}
 }

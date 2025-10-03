@@ -14,28 +14,11 @@ func TestEncodeAttestationOrSourceName(t *testing.T) {
 		input       string
 		expectError bool
 	}{
-		{
-			name:        "valid short string",
-			input:       "TEE",
-			expectError: false,
-		},
-		{
-			name:        "valid 32 byte string",
-			input:       "12345678901234567890123456789012",
-			expectError: false,
-		},
-		{
-			name:        "string starting with 0x",
-			input:       "0xABC",
-			expectError: true,
-		},
-		{
-			name:        "string too long",
-			input:       "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
-			expectError: true,
-		},
+		{name: "valid short string", input: "TEE", expectError: false},
+		{name: "valid 32 byte string", input: "12345678901234567890123456789012", expectError: false},
+		{name: "string starting with 0x", input: "0xABC", expectError: true},
+		{name: "string too long", input: "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", expectError: true},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := EncodeAttestationOrSourceName(tt.input)
@@ -94,7 +77,6 @@ func TestLoadEncodedAndABI(t *testing.T) {
 	type args struct {
 		envConfig EnvConfig
 	}
-
 	tests := []struct {
 		name           string
 		input          args
@@ -143,7 +125,6 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			expectedErrMsg: "no ABI struct names defined for attestation type",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := LoadEncodedAndABI(tt.input.envConfig)

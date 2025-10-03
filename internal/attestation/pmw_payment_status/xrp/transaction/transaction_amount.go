@@ -68,11 +68,11 @@ func extractFromModifiedNode(mod *types.ModifiedNode) (*types.AddressAmount, err
 	}
 	finalBal, err := helper.ParseBigInt(finalBalStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid final balance format: %s", finalBalStr)
+		return nil, fmt.Errorf("invalid final balance format for account %s: %s", account, finalBalStr)
 	}
 	prevBal, err := helper.ParseBigInt(prevBalStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid previous balance format: %s", prevBalStr)
+		return nil, fmt.Errorf("invalid previous balance format for account %s: %s", account, prevBalStr)
 	}
 	diff := new(big.Int).Sub(finalBal, prevBal)
 	if diff.Sign() <= 0 {
@@ -99,7 +99,7 @@ func extractFromCreatedNode(created *types.CreatedNode) (*types.AddressAmount, e
 	}
 	balance, err := helper.ParseBigInt(balanceStr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid balance format in CreatedNode: %s", balanceStr)
+		return nil, fmt.Errorf("invalid balance format in CreatedNode for account %s: %s", account, balanceStr)
 	}
 	return &types.AddressAmount{
 		Address: account,

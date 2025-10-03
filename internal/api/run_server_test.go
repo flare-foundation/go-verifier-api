@@ -10,80 +10,87 @@ import (
 )
 
 func TestParseAttestationType(t *testing.T) {
-	// Valid types
-	for _, at := range []connector.AttestationType{
-		connector.AvailabilityCheck,
-		connector.PMWPaymentStatus,
-		connector.PMWMultisigAccountConfigured,
-	} {
-		got, err := parseAttestationType(string(at))
-		require.NoError(t, err)
-		require.Equal(t, at, got)
+	for _, at := range AttestationTypes {
+		t.Run(string(at), func(t *testing.T) {
+			got, err := parseAttestationType(string(at))
+			require.NoError(t, err)
+			require.Equal(t, at, got)
+		})
 	}
-	// Invalid type
-	_, err := parseAttestationType("invalid-type")
-	require.ErrorContains(t, err, "invalid attestation type")
+	t.Run("invalid-source", func(t *testing.T) {
+		_, err := parseAttestationType("invalid-type")
+		require.ErrorContains(t, err, "invalid attestation type")
+	})
 }
 
 func TestParseSourceID(t *testing.T) {
-	// Valid source IDs
 	for _, sid := range SourceIDs {
-		got, err := parseSourceID(string(sid))
-		require.NoError(t, err)
-		require.Equal(t, sid, got)
+		t.Run(string(sid), func(t *testing.T) {
+			got, err := parseSourceID(string(sid))
+			require.NoError(t, err)
+			require.Equal(t, sid, got)
+		})
 	}
-	// Invalid source ID
-	_, err := parseSourceID("invalid-source")
-	require.ErrorContains(t, err, "invalid source id")
+	t.Run("invalid-source", func(t *testing.T) {
+		_, err := parseSourceID("invalid-source")
+		require.ErrorContains(t, err, "invalid source id")
+	})
 }
 
 func TestGetAPIKeys(t *testing.T) {
-	keys, err := getAPIKeys()
-	require.ErrorContains(t, err, "API_KEYS must be set")
-	require.Nil(t, keys)
-	// Empty string
-	t.Setenv(config.EnvAPIKeys, "   ")
-	keys, err = getAPIKeys()
-	require.ErrorContains(t, err, "API_KEYS must be set")
-	require.Nil(t, keys)
-	// Only empty values
-	t.Setenv(config.EnvAPIKeys, " , , ")
-	keys, err = getAPIKeys()
-	require.ErrorContains(t, err, "API_KEYS contains only empty values")
-	require.Nil(t, keys)
-	// Trailing comma key
-	t.Setenv(config.EnvAPIKeys, "key1,key2,")
-	keys, err = getAPIKeys()
-	require.NoError(t, err)
-	require.Equal(t, []string{"key1", "key2"}, keys)
-	// Single key
-	t.Setenv(config.EnvAPIKeys, "key1")
-	keys, err = getAPIKeys()
-	require.NoError(t, err)
-	require.Equal(t, []string{"key1"}, keys)
-	// Multiple keys, with spaces
-	t.Setenv(config.EnvAPIKeys, "key1, key2 ,key3")
-	keys, err = getAPIKeys()
-	require.NoError(t, err)
-	require.Equal(t, []string{"key1", "key2", "key3"}, keys)
+	tests := []struct {
+		name      string
+		envValue  string
+		wantKeys  []string
+		wantError string
+	}{
+		{"unset", "", nil, "API_KEYS must be set"},
+		{"empty string", "   ", nil, "API_KEYS must be set"},
+		{"only empty values", " , , ", nil, "API_KEYS contains only empty values"},
+		{"trailing comma", "key1,key2,", []string{"key1", "key2"}, ""},
+		{"single key", "key1", []string{"key1"}, ""},
+		{"multiple keys with spaces", "key1, key2 ,key3", []string{"key1", "key2", "key3"}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(config.EnvAPIKeys, tt.envValue)
+			keys, err := getAPIKeys()
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+				require.Nil(t, keys)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.wantKeys, keys)
+			}
+		})
+	}
 }
 
 func TestGetEnvOrError(t *testing.T) {
 	const testKey = "API_KEYS"
-
-	val, err := getEnvOrError(testKey)
-	require.ErrorContains(t, err, fmt.Sprintf("%s must be set", testKey))
-	require.Equal(t, "", val)
-
-	t.Setenv(testKey, "   ")
-	val, err = getEnvOrError(testKey)
-	require.ErrorContains(t, err, fmt.Sprintf("%s must be set", testKey))
-	require.Equal(t, "", val)
-
-	t.Setenv(testKey, "value")
-	val, err = getEnvOrError(testKey)
-	require.NoError(t, err)
-	require.Equal(t, "value", val)
+	tests := []struct {
+		name      string
+		envValue  string
+		wantValue string
+		wantError string
+	}{
+		{"unset", "", "", fmt.Sprintf("%s must be set", testKey)},
+		{"empty string", "   ", "", fmt.Sprintf("%s must be set", testKey)},
+		{"valid value", "value", "value", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(testKey, tt.envValue)
+			val, err := getEnvOrError(testKey)
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+				require.Equal(t, "", val)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.wantValue, val)
+			}
+		})
+	}
 }
 
 func TestLoadEnvConfig(t *testing.T) {
@@ -103,7 +110,6 @@ func TestLoadEnvConfig(t *testing.T) {
 		require.Equal(t, connector.AvailabilityCheck, cfg.AttestationType)
 		require.Equal(t, config.SourceTEE, cfg.SourceID)
 	})
-
 	t.Run("Env config should fail if attestation type is invalid", func(t *testing.T) {
 		t.Setenv(config.EnvPort, "1234")
 		t.Setenv(config.EnvSourceID, string(config.SourceTEE))
@@ -111,7 +117,6 @@ func TestLoadEnvConfig(t *testing.T) {
 		_, err := LoadEnvConfig()
 		require.ErrorContains(t, err, "invalid attestation type: invalid-attestation-type")
 	})
-
 	t.Run("Env config should fail if source id is invalid", func(t *testing.T) {
 		t.Setenv(config.EnvPort, "1234")
 		t.Setenv(config.EnvSourceID, "invalid-source-id")

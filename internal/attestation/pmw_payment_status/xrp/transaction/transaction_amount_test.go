@@ -32,7 +32,7 @@ func TestGetStringField(t *testing.T) {
 const balanceStr = "balance"
 
 func TestGetReceivedAmount(t *testing.T) {
-	t.Run("Amount received 1", func(t *testing.T) {
+	t.Run("amount received 1", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000000)
 		expectedReceiver := "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
 		val, err := GetReceivedAmount(&testhelper.TransactionMeta0)
@@ -41,7 +41,7 @@ func TestGetReceivedAmount(t *testing.T) {
 		require.Equal(t, expectedAmount, val[0].Amount)
 		require.Equal(t, expectedReceiver, val[0].Address)
 	})
-	t.Run("Amount received 2", func(t *testing.T) {
+	t.Run("amount received 2", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000)
 		expectedReceiver := "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G"
 		val, err := GetReceivedAmount(&testhelper.TransactionMeta1)
@@ -50,12 +50,12 @@ func TestGetReceivedAmount(t *testing.T) {
 		require.Equal(t, expectedAmount, val[0].Amount)
 		require.Equal(t, expectedReceiver, val[0].Address)
 	})
-	t.Run("Expect error", func(t *testing.T) {
+	t.Run("expect error", func(t *testing.T) {
 		val, err := GetReceivedAmount(nil)
 		require.ErrorContains(t, err, "transaction meta is not available, thus received amounts cannot be calculated")
 		require.Nil(t, val)
 	})
-	t.Run("Expect error 2", func(t *testing.T) {
+	t.Run("expect error 2", func(t *testing.T) {
 		modNode := copyModifiedNode(testhelper.BasicModifiedNode_tr0)
 		modNode.FinalFields["Balance"] = balanceStr
 		modTx := testhelper.TransactionMeta0
@@ -66,7 +66,7 @@ func TestGetReceivedAmount(t *testing.T) {
 		require.ErrorContains(t, err, "invalid final balance format")
 		require.Nil(t, val)
 	})
-	t.Run("Expect error 3", func(t *testing.T) {
+	t.Run("expect error 3", func(t *testing.T) {
 		crNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
 		crNode.NewFields["Balance"] = balanceStr
 		modTx := testhelper.TransactionMeta0
@@ -80,7 +80,7 @@ func TestGetReceivedAmount(t *testing.T) {
 }
 
 func TestExtractModifiedNode(t *testing.T) {
-	t.Run("No 'AccountRoot'", func(t *testing.T) {
+	t.Run("no 'AccountRoot'", func(t *testing.T) {
 		modNode := copyModifiedNode(testhelper.BasicModifiedNode_tr0)
 		modNode.LedgerEntryType = "DirectoryNode"
 		val, err := extractFromModifiedNode(modNode)
@@ -139,7 +139,7 @@ func TestExtractModifiedNode(t *testing.T) {
 }
 
 func TestExtractCreatedNode(t *testing.T) {
-	t.Run("No 'AccountRoot'", func(t *testing.T) {
+	t.Run("no 'AccountRoot'", func(t *testing.T) {
 		modNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
 		modNode.LedgerEntryType = "Root"
 		val, err := extractFromCreatedNode(modNode)
@@ -178,17 +178,17 @@ func TestExtractCreatedNode(t *testing.T) {
 
 func TestFindReceivedAmountForAddress(t *testing.T) {
 	receiver := "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
-	t.Run("Error", func(t *testing.T) {
+	t.Run("error", func(t *testing.T) {
 		val, err := FindReceivedAmountForAddress(nil, receiver)
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "transaction meta is not available, thus received amounts cannot be calculated")
 	})
-	t.Run("No amount", func(t *testing.T) {
+	t.Run("no amount", func(t *testing.T) {
 		val, err := FindReceivedAmountForAddress(&testhelper.TransactionMeta1, receiver)
 		require.Equal(t, big.NewInt(0), val)
 		require.NoError(t, err)
 	})
-	t.Run("Some amount", func(t *testing.T) {
+	t.Run("some amount", func(t *testing.T) {
 		val, err := FindReceivedAmountForAddress(&testhelper.TransactionMeta0, receiver)
 		require.NotNil(t, val)
 		require.NoError(t, err)

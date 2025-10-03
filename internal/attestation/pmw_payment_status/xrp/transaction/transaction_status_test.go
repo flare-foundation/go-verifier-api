@@ -23,16 +23,13 @@ func TestGetTransactionStatus(t *testing.T) {
 		{name: "too short input", input: "te", expectedValue: 0, expectError: true, errorMessage: "transaction result too short"},
 		{name: "unknown tec code", input: "tecINVALID_NOT_KNOWN_CODE", expectedValue: 0, expectError: true, errorMessage: "unknown tec error code"},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			val, err := GetTransactionStatus(tt.input)
-
 			if tt.expectError {
 				require.ErrorContains(t, err, tt.errorMessage)
 				return
 			}
-
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedValue, val)
 		})

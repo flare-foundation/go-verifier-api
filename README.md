@@ -1,6 +1,14 @@
+<p align="left">
+  <a href="https://flare.network/" target="blank"><img src="https://content.flare.network/Flare-2.svg" width="410" height="106" alt="Flare Logo" /></a>
+</p>
+
 # Go Verifier API
 
-## How to run `TeeAvailabilityCheck` verifier
+
+## How to run  Verifier API
+Check all enviroment variables in [.env.example](./.env.example)
+
+### `TeeAvailabilityCheck` attestation type
 Environment variables:
  ```env
 VERIFIER_TYPE=TeeAvailabilityCheck
@@ -12,7 +20,9 @@ ALLOW_TEE_DEBUG=false
 DISABLE_ATTESTATION_CHECK_E2E=false
 ```
 
-## How to run `PMWMultisigAccountConfigured` verifier
+The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/tee_availability_check/config/assets_. Read more about it [here](./internal/attestation/tee_availability_check/config/assets/README.md).
+
+### `PMWMultisigAccountConfigured` attestation type
 Environment variables:
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
@@ -20,7 +30,7 @@ SOURCE_ID=testXRP
 RPC_URL=https://<xrpl>
 ```
 
-## How to run `PMWPaymentStatus` verifier
+### `PMWPaymentStatus` attestation type
 You will need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
 
 Environment variables:
@@ -30,8 +40,6 @@ SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 ```
-
-Check all enviroment variables in [.env.example](./.env.example)
 
 ## How to run setup verifier
 1. Fill in the `.env` file or use environment variables according to the attestation type.
@@ -65,8 +73,14 @@ Check all enviroment variables in [.env.example](./.env.example)
 
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
+## Attestation request submission
+The process of submitting an attestation requests is as follows:
+
+Attestation requests are triggered via TEE smart contracts. The TEE relay client, which acts as a connector between contracts on Flare's C-chain and TEE clients, listens to `TeeInstructionsSent` events with an `instructionId` that correspond to an attestation request (`FTDC_OP_TYPE` (`"F_FTDC"`) and `PROVE` (`"PROVE"`)). Each attestation request is than placed into a queue and gradually promoted to the designated verifier server. It is advised that each TEE relay client runs its own verifier server.
+
+### Rate limit
+The blockchain itself limits how many attestation requests can be emitted per block, while the queue system enforces a controlled consumption rate for verifier servers. It is also expected that the person deploying the verifier server implements additional rate limiting at other levels.
+
 ## TODO list
 - [ ] Other `TODO`s inside the code.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
-- [ ] Improve healthy endpoint (all needed services are running).
-- [ ] Jakob: Place DisableAttestationCheckE2E properly in order to use TEEAvailabilityCheck verifier directly in e2e test.

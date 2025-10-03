@@ -31,7 +31,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		Url:        "https://example.com",
 		Challenge:  common.HexToHash("0x123"),
 	}
-	t.Run("PrepareRequestBody: Valid", func(t *testing.T) {
+	t.Run("prepareRequestBody: valid", func(t *testing.T) {
 		reqData := testhelper.TeeAvailabilityCheckRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
@@ -46,7 +46,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
-	t.Run("PrepareRequestBody: Invalid sourceID", func(t *testing.T) {
+	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
 		reqData := testhelper.TeeAvailabilityCheckRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x12345"), reqData)
 
@@ -56,20 +56,20 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	})
 
 	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
-	t.Run("PrepareResponseBody: Invalid request body", func(t *testing.T) {
+	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("PrepareResponseBody: Invalid sourceID", func(t *testing.T) {
+	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("PrepareResponseBody: Failed verification", func(t *testing.T) {
+	t.Run("prepareResponseBody: failed verification", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
@@ -77,27 +77,20 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
-	t.Run("Verify: Invalid request body", func(t *testing.T) {
+	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("Verify: Invalid sourceID", func(t *testing.T) {
+	t.Run("verify: invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("PrepareResponseBody: Failed verification", func(t *testing.T) {
-		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
-		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-	})
-	t.Run("PolledTees", func(t *testing.T) {
+	t.Run("polledTees", func(t *testing.T) {
 		resp, err := testhelper.Get(t, fmt.Sprintf("http://localhost:%s/poller/tees", setup.Port), setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp)

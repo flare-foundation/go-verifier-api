@@ -1,6 +1,8 @@
 package builder
 
 import (
+	"fmt"
+
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
@@ -18,19 +20,19 @@ func BuildPaymentStatusResponse(
 	var zero connector.IPMWPaymentStatusResponseBody
 	transactionResult, err := transaction.GetTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("cannot parse transaction status: %w", err)
 	}
 	transactionFee, err := helper.ParseBigInt(raw.Fee)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("invalid transaction fee %q: %w", raw.Fee, err)
 	}
 	hashBytes, err := utils.HexStringToBytes32(tx.Hash)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("invalid transaction hash %q: %w", tx.Hash, err)
 	}
 	receivedAmount, err := transaction.FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("cannot calculate received amount for recipient %s: %w", paymentMsg.RecipientAddress, err)
 	}
 	revertReason := ""
 	if transactionResult != types.Success {

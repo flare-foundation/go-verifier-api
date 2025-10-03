@@ -32,13 +32,13 @@ func TestPrepareRequestBody(t *testing.T) {
 	}
 	reqBody := testhelper.PMWMultisigAccountConfiguredRequestBody(attBody)
 
-	t.Run("Valid encodedReq", func(t *testing.T) {
+	t.Run("valid encodedReq", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		val, err := PrepareRequestBody(req, encodedAndABI)
 		require.NoError(t, err)
 		require.NotNil(t, val)
 	})
-	t.Run("Invalid encodedReq - validation fails", func(t *testing.T) {
+	t.Run("invalid encodedReq - validation fails", func(t *testing.T) {
 		reqBodyMod := reqBody
 		reqBodyMod.PublicKeys = append(reqBodyMod.PublicKeys, hexutil.Bytes{})
 		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBodyMod)
@@ -46,7 +46,7 @@ func TestPrepareRequestBody(t *testing.T) {
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "converting request body to data failed: public key at index 1 is empty")
 	})
-	t.Run("Invalid ABI encode", func(t *testing.T) {
+	t.Run("invalid ABI encode", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
@@ -100,7 +100,7 @@ func TestDecodeRequest(t *testing.T) {
 		PublicKeys:     testPublicKeys,
 		Threshold:      testThreshold,
 	}
-	t.Run("Valid", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		encoded := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		decoded, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](encoded, encodedAndABI)
 		require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestDecodeRequest(t *testing.T) {
 		require.Equal(t, testPublicKeys[0], []byte(decoded.PublicKeys[0]))
 		require.Equal(t, testThreshold, decoded.Threshold)
 	})
-	t.Run("Invalid", func(t *testing.T) {
+	t.Run("invalid", func(t *testing.T) {
 		encoded := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		invalidBody := append([]byte(nil), encoded...)
 		invalidBody = append(invalidBody, 'a', 'a')
@@ -120,7 +120,7 @@ func TestDecodeRequest(t *testing.T) {
 
 func TestEncodeResponse(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
-	t.Run("Valid", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
 			Sequence: 10136106,
@@ -131,7 +131,7 @@ func TestEncodeResponse(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, resp, decoded)
 	})
-	t.Run("Unserializable type", func(t *testing.T) {
+	t.Run("unserializable type", func(t *testing.T) {
 		type Temp struct {
 			t int
 		}
@@ -144,7 +144,7 @@ func TestEncodeResponse(t *testing.T) {
 
 func TestEncodeRequest(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
-	t.Run("Valid", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		req := connector.IPMWMultisigAccountConfiguredRequestBody{
 			AccountAddress: testAccountAddress,
 			PublicKeys:     testPublicKeys,
@@ -156,7 +156,7 @@ func TestEncodeRequest(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, req, decoded)
 	})
-	t.Run("Unserializable type", func(t *testing.T) {
+	t.Run("unserializable type", func(t *testing.T) {
 		type Temp struct {
 			t int
 		}

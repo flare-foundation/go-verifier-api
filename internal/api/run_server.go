@@ -101,7 +101,7 @@ func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
 	return stop
 }
 
-var attestationTypes = []connector.AttestationType{
+var AttestationTypes = []connector.AttestationType{
 	connector.AvailabilityCheck,
 	connector.PMWPaymentStatus,
 	connector.PMWMultisigAccountConfigured,
@@ -114,7 +114,7 @@ var SourceIDs = []config.SourceName{
 }
 
 func parseAttestationType(value string) (connector.AttestationType, error) {
-	for _, at := range attestationTypes {
+	for _, at := range AttestationTypes {
 		if string(at) == value {
 			return at, nil
 		}

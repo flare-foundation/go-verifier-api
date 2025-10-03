@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPMWMultisig(t *testing.T) {
+func TestPMWMultisigAccountConfigured(t *testing.T) {
 	setup := api.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
 		RPCURL: "https://s.altnet.rippletest.net:51234",
 	})
@@ -31,7 +31,7 @@ func TestPMWMultisig(t *testing.T) {
 		Threshold:      mSigThr,
 	}
 	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
-	t.Run("PrepareRequestBody: Valid request", func(t *testing.T) {
+	t.Run("prepareRequestBody: valid", func(t *testing.T) {
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
@@ -46,7 +46,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
-	t.Run("PrepareRequestBody: Empty public key", func(t *testing.T) {
+	t.Run("prepareRequestBody: empty public key", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PublicKeys = [][]byte{{}}
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(modifiedReqBody)
@@ -56,7 +56,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("PrepareRequestBody: Invalid sourceID", func(t *testing.T) {
+	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqData)
 
@@ -65,7 +65,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
 	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
-	t.Run("PrepareResponseBody: Valid", func(t *testing.T) {
+	t.Run("prepareResponseBody: valid", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
@@ -76,7 +76,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), response.ResponseData.PMWMultisigAccountStatus)
 		require.Equal(t, uint64(10136106), response.ResponseData.Sequence)
 	})
-	t.Run("PrepareResponseBody: Invalid sourceID", func(t *testing.T) {
+	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 
@@ -84,14 +84,14 @@ func TestPMWMultisig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("PrepareResponseBody: Invalid request body", func(t *testing.T) {
+	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{1, 2, 3})
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("PrepareResponseBody: Invalid address - failed to get account info", func(t *testing.T) {
+	t.Run("prepareResponseBody: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove 4 for chars.
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
@@ -102,7 +102,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.Equal(t, types.AttestationResponse{ResponseBody: hexutil.Bytes(nil)}, val)
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
-	t.Run("Verify: Valid", func(t *testing.T) {
+	t.Run("verify: valid", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
@@ -113,7 +113,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), result.Status)
 		require.Equal(t, uint64(10136106), result.Sequence)
 	})
-	t.Run("Verify: Missing pubkey in request", func(t *testing.T) {
+	t.Run("verify: missing pubkey in request", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PublicKeys = modifiedReqBody.PublicKeys[:2] // Remove last public key.
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
@@ -126,7 +126,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusERROR), result.Status)
 		require.Equal(t, uint64(0), result.Sequence)
 	})
-	t.Run("Verify: Invalid sourceID", func(t *testing.T) {
+	t.Run("verify: invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 
@@ -134,7 +134,7 @@ func TestPMWMultisig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("Verify: Invalid attestation type", func(t *testing.T) {
+	t.Run("verify: invalid attestation type", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, [32]byte{0xFF}, setup.SourceIDEncoded, reqBody)
 
@@ -142,14 +142,14 @@ func TestPMWMultisig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("Verify: Invalid request body", func(t *testing.T) {
+	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{1, 2, 3})
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, response.StatusCode)
 	})
-	t.Run("Verify: Invalid address - failed to get account info", func(t *testing.T) {
+	t.Run("verify: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove 4 for chars.
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)

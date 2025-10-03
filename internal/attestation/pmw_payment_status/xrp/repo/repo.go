@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
@@ -37,7 +38,10 @@ func (r *XRPRepository) FetchInstructionLog(ctx context.Context, eventHash strin
 			utils.RemoveHexPrefix(instructionID.Hex())).
 		First(&dbLog).Error
 	if err != nil {
-		return nil, fmt.Errorf("log not found for instruction %s", instructionID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("log not found for instruction %s, eventHash %s", instructionID.Hex(), eventHash)
+		}
+		return nil, fmt.Errorf("failed to query instruction log for %s: %w", instructionID.Hex(), err)
 	}
 	return events.ConvertDatabaseLogToChainLog(dbLog)
 }
@@ -48,7 +52,10 @@ func (r *XRPRepository) GetTransactionBySourceAndSequence(ctx context.Context, q
 		Where("source_address = ? AND sequence = ?", query.SourceAddress, query.Nonce).
 		First(&tx).Error
 	if err != nil {
-		return model.DBTransaction{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.DBTransaction{}, fmt.Errorf("transaction not found for source %s, nonce %d", query.SourceAddress, query.Nonce)
+		}
+		return model.DBTransaction{}, fmt.Errorf("failed to fetch transaction for source %s, nonce %d: %w", query.SourceAddress, query.Nonce, err)
 	}
 	return tx, nil
 }

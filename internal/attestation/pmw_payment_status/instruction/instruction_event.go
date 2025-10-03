@@ -18,7 +18,7 @@ const EventNameTeeInstructionsSent = "TeeInstructionsSent"
 func GetTeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 	event, exists := abiDef.Events[EventNameTeeInstructionsSent]
 	if !exists {
-		return "", fmt.Errorf("event %s not found", EventNameTeeInstructionsSent)
+		return "", fmt.Errorf("ABI does not contain event %s", EventNameTeeInstructionsSent)
 	}
 	return event.ID.Hex(), nil
 }
@@ -30,12 +30,13 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI) (*paymen
 		log.Data,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode event %s: %w", EventNameTeeInstructionsSent, err)
 	}
 	var message payment.ITeePaymentsPaymentInstructionMessage
 	err = structs.DecodeTo(payment.MessageArguments[op.Pay], eventData.Message, &message)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
+
 	}
 	return &message, nil
 }
@@ -44,7 +45,8 @@ func abiDecodeEventData[T any](abiObj abi.ABI, eventName string, data hexutil.By
 	var result T
 	err := abiObj.UnpackIntoInterface(&result, eventName, data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode event %s: %w", eventName, err)
+		return nil, fmt.Errorf("ABI unpack into %T failed for event %q: %w", result, eventName, err)
+
 	}
 	return &result, nil
 }

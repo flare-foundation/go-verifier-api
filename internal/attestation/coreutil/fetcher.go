@@ -18,15 +18,15 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("HTTP request failed for: %w", err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("Failed to close response body: %v", err)
+			logger.Warnf("Failed to close response body for %s: %v", url, err)
 		}
 	}()
 	switch resp.StatusCode {
@@ -39,7 +39,7 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	}
 	err = json.NewDecoder(resp.Body).Decode(&zero)
 	if err != nil {
-		return zero, fmt.Errorf("decoding failed for type %s: %w", reflect.TypeOf(zero), err)
+		return zero, fmt.Errorf("decoding JSON from %s failed for type %s: %w", url, reflect.TypeOf(zero), err)
 	}
 	return zero, nil
 }
