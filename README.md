@@ -84,4 +84,3 @@ The blockchain itself limits how many attestation requests can be emitted per bl
 ## TODO list
 - [ ] Other `TODO`s inside the code.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
-- [ ] Jakob: Place DisableAttestationCheckE2E properly in order to use TEEAvailabilityCheck verifier directly in e2e test.

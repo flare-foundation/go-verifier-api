@@ -354,7 +354,6 @@ func (v *TeeVerifier) Close() error {
 
 func (v *TeeVerifier) FormatProxyURL(url string) string {
 	if v.cfg.DisableAttestationCheckE2E {
-		logger.Warn("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Rewriting proxy URL.")
 		url = strings.Replace(url, "localhost", "host.docker.internal", -1)
 	}
 	return url
