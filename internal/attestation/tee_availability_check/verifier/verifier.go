@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -96,7 +98,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, req.Url, challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
 	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
 		return zero, fmt.Errorf("cannot fetch TEE data for TeeID %s: %w", req.TeeId, err)
 	}
@@ -147,6 +149,17 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	// if response.Platform != "google" { //TODO (platform) - add after teeInfo.Platform is defined
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
+	if v.cfg.DisableAttestationCheckE2E {
+		platform := common.HexToHash("4743505f494e54454c5f54445800000000000000000000000000000000000000")
+		codeHash := common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
+		logger.Warnf("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Status %d, Codehash %s, Platform %s", teetype.OK, codeHash, platform)
+		return teetype.StatusInfo{
+			Status:   teetype.OK,
+			CodeHash: codeHash,
+			Platform: platform,
+		}, nil
+
+	}
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
@@ -337,4 +350,12 @@ func (v *TeeVerifier) Close() error {
 		return closer.Close()
 	}
 	return nil
+}
+
+func (v *TeeVerifier) FormatProxyURL(url string) string {
+	if v.cfg.DisableAttestationCheckE2E {
+		logger.Warn("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Rewriting proxy URL.")
+		url = strings.Replace(url, "localhost", "host.docker.internal", -1)
+	}
+	return url
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
@@ -207,6 +208,7 @@ func ValidateClaims(claims *teetype.GoogleTeeClaims, teeInfoData teenodetype.Tee
 	}
 	// Check if running in production. Allow debug mode only if ALLOW_TEE_DEBUG is enabled.
 	if allowDebugMode {
+		logger.Warn("DebugStatus and SupportAttributes check disabled for Debug mode (using ALLOW_TEE_DEBUG=true). Do not use in production.")
 		if claims.DebugStatus == "disabled-since-boot" {
 			return teetype.StatusInfo{}, errors.New("production TEE not allowed when ALLOW_TEE_DEBUG=true")
 		}
