@@ -85,6 +85,16 @@ Attestation requests are triggered via TEE smart contracts. The TEE relay client
 ### Rate limit
 The blockchain itself limits how many attestation requests can be emitted per block, while the queue system enforces a controlled consumption rate for verifier servers. It is also expected that the person deploying the verifier server implements additional rate limiting at other levels.
 
+### Security Headers
+
+For internal-only APIs, we use a minimal set of headers:
+- FrameDeny – prevent clickjacking
+- ContentTypeNosniff – prevent MIME sniffing
+
+Other headers (CORS, SSL redirect, STS, cross-origin policies) are not needed because these services are only accessed internally by trusted services, not browsers or public clients.
+
+Minimal headers keep internal communication safe without unnecessary overhead.
+
 ## TODO list
 - [ ] Other `TODO`s inside the code.
 - [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.

@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/flare-foundation/go-verifier-api/internal/api/middleware"
-	"github.com/rs/cors"
-	"github.com/unrolled/secure"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -27,7 +25,6 @@ import (
 )
 
 const (
-	EnvDevelopment    = "development"
 	shutdownAfter     = 10 * time.Second
 	readHeaderTimeout = 5 * time.Second
 )
@@ -56,7 +53,7 @@ func startServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 
 	srv := &http.Server{
 		Addr:              ":" + envConfig.Port,
-		Handler:           newSecurityHandler(envConfig, router),
+		Handler:           newSecurityHandler(router),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
@@ -178,11 +175,6 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	if err != nil {
 		return config.EnvConfig{}, err
 	}
-	env := os.Getenv(config.EnvEnv)
-	if env == "" {
-		logger.Infof("%s is not set, defaulting to development", config.EnvEnv)
-		env = EnvDevelopment
-	}
 	return config.EnvConfig{
 		RPCURL:                            os.Getenv(config.EnvRPCURL),
 		RelayContractAddress:              os.Getenv(config.EnvRelayContractAddress),
@@ -191,7 +183,6 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
 		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),
 		DisableAttestationCheckE2E:        os.Getenv(config.EnvDisableAttestationCheckE2E),
-		Env:                               env,
 		Port:                              port,
 		APIKeys:                           apiKeys,
 		AttestationType:                   attestationType,
@@ -235,31 +226,10 @@ func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
 	return api
 }
 
-func newSecurityHandler(envConfig config.EnvConfig, handler http.Handler) http.Handler {
-	const (
-		SecondsPerDay        = 24 * 60 * 60
-		STSDurationInSeconds = 180 * SecondsPerDay
-	)
-	secureMiddleware := secure.New(secure.Options{
-		SSLRedirect:               envConfig.Env != EnvDevelopment,
-		STSSeconds:                STSDurationInSeconds,
-		STSIncludeSubdomains:      true,
-		STSPreload:                true,
-		ForceSTSHeader:            true,
-		FrameDeny:                 true,
-		ContentTypeNosniff:        true,
-		ReferrerPolicy:            "no-referrer",
-		CrossOriginOpenerPolicy:   "same-origin",
-		CrossOriginResourcePolicy: "same-origin",
-		CrossOriginEmbedderPolicy: "require-corp",
-		XDNSPrefetchControl:       "off",
-		IsDevelopment:             envConfig.Env == EnvDevelopment,
+func newSecurityHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		handler.ServeHTTP(w, r)
 	})
-
-	corsHandler := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	})
-
-	return corsHandler.Handler(secureMiddleware.Handler(handler))
 }

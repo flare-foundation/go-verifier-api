@@ -17,7 +17,6 @@ const (
 	EnvTeeMachineRegistryContractAddress = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
 	EnvSourceDatabaseURL                 = "SOURCE_DATABASE_URL"
 	EnvCChainDatabaseURL                 = "CCHAIN_DATABASE_URL"
-	EnvEnv                               = "ENV"
 	EnvPort                              = "PORT"
 	EnvAPIKeys                           = "API_KEYS"
 	EnvAttestationType                   = "VERIFIER_TYPE"
@@ -34,7 +33,6 @@ type EnvConfig struct {
 	CChainDatabaseURL                 string
 	AllowTeeDebug                     string
 	DisableAttestationCheckE2E        string
-	Env                               string
 	Port                              string
 	APIKeys                           []string
 	AttestationType                   connector.AttestationType
