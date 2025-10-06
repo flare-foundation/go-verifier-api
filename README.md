@@ -16,9 +16,13 @@ SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
 TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
-ALLOW_TEE_DEBUG=false
-DISABLE_ATTESTATION_CHECK_E2E=false
+
+# Test/E2E-only flags (optional, default to false):
+ALLOW_TEE_DEBUG=false               # Enables debug mode for TEE. Only for test deployments.
+DISABLE_ATTESTATION_CHECK_E2E=false # Disables attestation check for E2E tests.
 ```
+
+> **NOTE**: `ALLOW_TEE_DEBUG` and `DISABLE_ATTESTATION_CHECK_E2E` are test/E2E-only flags. In production, you can leave them unset (they default to false).
 
 The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/tee_availability_check/config/assets_. Read more about it [here](./internal/attestation/tee_availability_check/config/assets/README.md).
 

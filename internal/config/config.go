@@ -22,8 +22,8 @@ const (
 	EnvAPIKeys                           = "API_KEYS"
 	EnvAttestationType                   = "VERIFIER_TYPE"
 	EnvSourceID                          = "SOURCE_ID"
-	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"
-	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E"
+	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
+	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
 )
 
 type EnvConfig struct {

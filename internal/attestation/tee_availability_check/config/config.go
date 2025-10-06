@@ -26,7 +26,13 @@ func GetTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvail
 }
 
 func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvailabilityCheckConfig, error) {
-	err := config.CheckMissingFields(envConfig, []string{config.EnvRelayContractAddress, config.EnvTeeMachineRegistryContractAddress, config.EnvRPCURL, config.EnvAllowTeeDebug, config.EnvDisableAttestationCheckE2E})
+	err := config.CheckMissingFields(envConfig, []string{
+		config.EnvRelayContractAddress,
+		config.EnvTeeMachineRegistryContractAddress,
+		config.EnvRPCURL,
+		// config.EnvAllowTeeDebug, // only for tests
+		// config.EnvDisableAttestationCheckE2E, // only for tests
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -38,14 +44,8 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 	if err != nil {
 		return nil, err
 	}
-	allowTeeDebug, err := getBoolOrError(config.EnvAllowTeeDebug, envConfig.AllowTeeDebug)
-	if err != nil {
-		return nil, err
-	}
-	disableAttestationCheckE2E, err := getBoolOrError(config.EnvDisableAttestationCheckE2E, envConfig.DisableAttestationCheckE2E)
-	if err != nil {
-		return nil, err
-	}
+	allowTeeDebug := getBoolOrSetFalse(config.EnvAllowTeeDebug, envConfig.AllowTeeDebug)
+	disableAttestationCheckE2E := getBoolOrSetFalse(config.EnvDisableAttestationCheckE2E, envConfig.DisableAttestationCheckE2E)
 	if allowTeeDebug {
 		logger.Warnf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", config.EnvAllowTeeDebug)
 	}
@@ -63,12 +63,17 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 	}, nil
 }
 
-func getBoolOrError(key, val string) (bool, error) {
+func getBoolOrSetFalse(key, val string) bool {
+	if val == "" {
+		logger.Infof("%s not set, defaulting to false", key)
+		return false
+	}
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		return false, fmt.Errorf("%s must be a boolean, got %q", key, val)
+		logger.Warnf("%s has invalid value %q, defaulting to false", key, val)
+		return false
 	}
-	return b, nil
+	return b
 }
 
 //go:embed assets/google_confidential_space_root_20340116.crt
