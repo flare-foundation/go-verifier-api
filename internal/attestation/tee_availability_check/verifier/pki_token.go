@@ -28,7 +28,7 @@ func ValidatePKIToken(storedRootCertificate *x509.Certificate, attestationToken 
 		return jwt.Token{}, fmt.Errorf("cannot extract JWTHeaders returned error: %w", err)
 	}
 	if jwtHeaders["alg"] != "RS256" {
-		return jwt.Token{}, fmt.Errorf(fmt.Sprintf("Cannot validate PKI TOKEN - got Alg: %v, want: %v", jwtHeaders["alg"], "RS256"), nil)
+		return jwt.Token{}, fmt.Errorf("cannot validate PKI TOKEN - got Alg: %v, want: %v", jwtHeaders["alg"], "RS256")
 	}
 	// Additional Check: Validate the ALG in the header matches the certificate SPKI.
 	// https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.7

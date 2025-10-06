@@ -35,11 +35,11 @@ func LoadPMWPaymentStatusConfig(envConfig config.EnvConfig) (*config.PMWPaymentS
 	}
 	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse TeeInstructions ABI: %w", err)
+		return nil, fmt.Errorf("cannot parse TeeInstructions ABI: %w", err)
 	}
 	parsedPaymentABI, err := abi.JSON(strings.NewReader(payment.PaymentMetaData.ABI))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse Payment ABI: %w", err)
+		return nil, fmt.Errorf("cannot parse Payment ABI: %w", err)
 	}
 	return &config.PMWPaymentStatusConfig{
 		EncodedAndABI:            commonConfig,

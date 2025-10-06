@@ -31,7 +31,7 @@ func TestRecoverSigner(t *testing.T) {
 		invalidSig := []byte("notavalidsignature")
 
 		addr, err := keyutil.RecoverSigner(data, invalidSig)
-		require.ErrorContains(t, err, "failed to recover pubkey: invalid signature length")
+		require.ErrorContains(t, err, "cannot recover pubkey: invalid signature length")
 		require.Equal(t, common.Address{}, addr)
 	})
 	t.Run("empty data", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestRecoverSigner(t *testing.T) {
 		truncatedSig := signature[:len(signature)-1]
 
 		addr, err := keyutil.RecoverSigner(data, truncatedSig)
-		require.ErrorContains(t, err, "failed to recover pubkey: invalid signature length")
+		require.ErrorContains(t, err, "cannot recover pubkey: invalid signature length")
 		require.Equal(t, common.Address{}, addr)
 	})
 }

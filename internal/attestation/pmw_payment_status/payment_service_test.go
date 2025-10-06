@@ -37,7 +37,7 @@ func TestPaymentService(t *testing.T) {
 			CChainDatabaseURL: "",
 		}
 		service, err := NewPaymentService(badEnvConfig)
-		require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
+		require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
 		require.Nil(t, service)
 	})
 	t.Run("using unsupported source ID", func(t *testing.T) {
@@ -49,7 +49,7 @@ func TestPaymentService(t *testing.T) {
 			AttestationType:   connector.PMWPaymentStatus,
 		}
 		service, err := NewPaymentService(badEnvConfig)
-		require.ErrorContains(t, err, "failed to initialize PMWPaymentStatus verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
+		require.ErrorContains(t, err, "cannot initialize PMWPaymentStatus verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
 		require.Nil(t, service)
 	})
 	pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()

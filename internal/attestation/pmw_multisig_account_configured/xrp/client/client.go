@@ -95,13 +95,13 @@ func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.Acc
 	var accountInfo types.AccountInfoResponse
 	raw, err := c.doRequestWithRetry(ctx, request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account info: %w", err)
+		return nil, fmt.Errorf("cannot get account info: %w", err)
 	}
 	if err := json.Unmarshal(raw, &accountInfo); err != nil {
-		return nil, fmt.Errorf("failed to parse account info: %w", err)
+		return nil, fmt.Errorf("cannot parse account info: %w", err)
 	}
 	if accountInfo.Result.Status != "success" {
-		return nil, fmt.Errorf("xrp rpc returned non-success status for account %s: %s", account, accountInfo.Result.Status)
+		return nil, fmt.Errorf("XRP RPC returned non-success status for account %s: %s", account, accountInfo.Result.Status)
 	}
 
 	return &accountInfo, nil

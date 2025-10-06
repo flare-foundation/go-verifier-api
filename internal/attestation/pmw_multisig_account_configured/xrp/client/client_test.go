@@ -14,7 +14,7 @@ func TestGetAccountInfo(t *testing.T) {
 		client := NewClient("https://invalid.invalid")
 		ctx := context.Background()
 		val, err := client.GetAccountInfo(ctx, testAddress)
-		require.ErrorContains(t, err, "failed to get account info")
+		require.ErrorContains(t, err, "cannot get account info")
 		require.ErrorContains(t, err, "HTTP request failed for")
 		require.ErrorContains(t, err, "no such host")
 		require.Nil(t, val)
@@ -23,7 +23,7 @@ func TestGetAccountInfo(t *testing.T) {
 		client := NewClient("https://s.altnet.rippletest.net:51234")
 		ctx := context.Background()
 		val, err := client.GetAccountInfo(ctx, "0x")
-		require.ErrorContains(t, err, "xrp rpc returned non-success status")
+		require.ErrorContains(t, err, "XRP RPC returned non-success status")
 		require.Nil(t, val)
 	})
 	t.Run("valid address", func(t *testing.T) {

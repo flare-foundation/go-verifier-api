@@ -59,9 +59,9 @@ func TestCheckMissingFields(t *testing.T) {
 		}
 		err := CheckMissingFields(cfg, fields)
 		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS, SOURCE_DATABASE_URL, CCHAIN_DATABASE_URL")
-		require.Contains(t, err.Error(), EnvRelayContractAddress)
-		require.Contains(t, err.Error(), EnvCChainDatabaseURL)
-		require.Contains(t, err.Error(), EnvTeeMachineRegistryContractAddress)
+		require.ErrorContains(t, err, EnvRelayContractAddress)
+		require.ErrorContains(t, err, EnvCChainDatabaseURL)
+		require.ErrorContains(t, err, EnvTeeMachineRegistryContractAddress)
 	})
 	t.Run("all missing fields", func(t *testing.T) {
 		cfg := EnvConfig{}

@@ -15,7 +15,7 @@ func RecoverSigner(data hexutil.Bytes, signature hexutil.Bytes) (common.Address,
 	ethHash := accounts.TextHash(hash)
 	pub, err := crypto.SigToPub(ethHash, signature)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to recover pubkey: %w", err)
+		return common.Address{}, fmt.Errorf("cannot recover pubkey: %w", err)
 	}
 	return crypto.PubkeyToAddress(*pub), nil
 }

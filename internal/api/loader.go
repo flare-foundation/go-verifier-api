@@ -28,7 +28,7 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		}
 		verifier, err := teeavailabilitycheck.GetVerifier(config)
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize TEE verifier: %w", err)
+			return nil, fmt.Errorf("cannot initialize TEE verifier: %w", err)
 		}
 		handler.TeeAvailabilityCheckHandler(api, &config.EncodedAndABI, verifier)
 		// Start poller

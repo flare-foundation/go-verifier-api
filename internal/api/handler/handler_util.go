@@ -92,6 +92,23 @@ func PrepareRequestBody[T types.InternalConvertible[I], I any](
 	return encodedRequest, nil
 }
 
+func abiEncodeData[T any](data T, arg abi.Argument) (hexutil.Bytes, error) {
+	encoded, err := structs.Encode(arg, data)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
+}
+
+func abiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error) {
+	decode, err := structs.Decode[T](arg, data)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return decode, nil
+}
+
 func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
 	logger.Debugf("PMWMultisigAccountConfigured result: Status=%d, Sequence=%d",
 		response.Status, response.Sequence)
@@ -124,21 +141,4 @@ func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckRes
 		response.InitialSigningPolicyId,
 		response.LastSigningPolicyId,
 		response.State)
-}
-
-func abiEncodeData[T any](data T, arg abi.Argument) (hexutil.Bytes, error) {
-	encoded, err := structs.Encode(arg, data)
-	if err != nil {
-		return nil, err
-	}
-	return encoded, nil
-}
-
-func abiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error) {
-	decode, err := structs.Decode[T](arg, data)
-	if err != nil {
-		var zero T
-		return zero, err
-	}
-	return decode, nil
 }
