@@ -115,7 +115,7 @@ func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfigu
 }
 
 func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBody) {
-	logger.Debugf("PMWPaymentStatus result: Recipient=%s, TokenID=%v, Amount=%v, Fee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
+	logger.Debugf("PMWPaymentStatus result: Recipient=%s, TokenID=%x, Amount=%v, Fee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
 		response.RecipientAddress,
 		response.TokenId,
 		response.Amount,
