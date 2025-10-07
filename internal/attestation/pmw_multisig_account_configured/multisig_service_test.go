@@ -11,7 +11,7 @@ import (
 
 var envConfig = config.EnvConfig{
 	RPCURL:          "https://s.altnet.rippletest.net:51234",
-	SourceID:        "XRP",
+	SourceID:        "testXRP",
 	AttestationType: connector.PMWMultisigAccountConfigured,
 }
 
@@ -28,7 +28,7 @@ func TestMultisigService(t *testing.T) {
 		pmwmultisigaccountconfig.ClearPMWMultisigAccountConfiguredConfigForTest()
 		badEnvConfig := config.EnvConfig{
 			RPCURL:          "",
-			SourceID:        "XRP",
+			SourceID:        "testXRP",
 			AttestationType: connector.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
