@@ -27,7 +27,8 @@ func TestSampleAllTees(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		v := tmpV.(*verifier.TeeVerifier)
+		v, ok := tmpV.(*verifier.TeeVerifier)
+		require.True(t, ok, "tmpV should be *TeeVerifier")
 		v.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
 		v.SamplesToConsider = 3
 

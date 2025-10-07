@@ -55,7 +55,6 @@ func (c *Client) doRequest(ctx context.Context, request request) ([]byte, error)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed for: %w", err)
-
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {

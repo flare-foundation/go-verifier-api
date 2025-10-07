@@ -158,7 +158,6 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 			CodeHash: codeHash,
 			Platform: platform,
 		}, nil
-
 	}
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
@@ -354,7 +353,7 @@ func (v *TeeVerifier) Close() error {
 
 func (v *TeeVerifier) FormatProxyURL(url string) string {
 	if v.cfg.DisableAttestationCheckE2E {
-		url = strings.Replace(url, "localhost", "host.docker.internal", -1)
+		url = strings.ReplaceAll(url, "localhost", "host.docker.internal")
 	}
 	return url
 }

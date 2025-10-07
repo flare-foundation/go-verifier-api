@@ -231,7 +231,6 @@ func filterTeeSamplesToActive(teeVerifier *verifier.TeeVerifier, activeTees teeL
 		if _, ok := activeSet[teeID]; !ok {
 			delete(teeVerifier.TeeSamples, teeID)
 			removedCount++
-
 		}
 	}
 	if removedCount > 0 {
