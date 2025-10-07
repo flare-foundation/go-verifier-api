@@ -110,10 +110,9 @@ func sampleAllTees(
 					proxyURL := teeVerifier.FormatProxyURL(t.proxyURL)
 					state, err := queryInfoAndValidate(ctx, teeVerifier, proxyURL, t.teeID)
 					if err != nil {
-						logger.Errorf("Failed to query teeInfo %s or validate: %v", proxyURL, err)
-					} else {
-						logger.Debugf("TEE %s state updated to %v", t.teeID.Hex(), state)
+						logger.Errorf("Failed to validate %s: %v", t.teeID.Hex(), err)
 					}
+					logger.Debugf("TEE %s state updated to %v", t.teeID.Hex(), state)
 					teeVerifier.SamplesMu.Lock()
 					samples := teeVerifier.TeeSamples[t.teeID]
 					sample := teetype.TeePollerSample{Timestamp: time.Now().UTC(), State: state}
