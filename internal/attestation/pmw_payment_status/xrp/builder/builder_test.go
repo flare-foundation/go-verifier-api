@@ -74,7 +74,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, "tecNO_DST_INSUF_XRP", val.RevertReason)
 		require.Equal(t, paymentMessageInstruction.Amount, val.ReceivedAmount)
 		require.Equal(t, paymentMessageInstruction.Fee, val.TransactionFee)
-		require.Equal(t, uint8(types.ReceiverFault), val.TransactionStatus)
+		require.Equal(t, uint8(types.Reverted), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
 	})
 	t.Run("invalid transaction status", func(t *testing.T) {
