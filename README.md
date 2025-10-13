@@ -97,5 +97,4 @@ Minimal headers keep internal communication safe without unnecessary overhead.
 
 ## TODO list
 - [ ] Other `TODO`s inside the code.
-- [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`. Do we actually need it? Currently, we have it because XRP accepts transactions on-chain, and those transactions are not necessarily successful. However, one could probably check the chain using the transaction hash to retrieve the revert reason for a given transaction.
 - [ ] How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
