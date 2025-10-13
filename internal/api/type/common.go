@@ -20,6 +20,7 @@ type AttestationRequest struct {
 	RequestBody     hexutil.Bytes `json:"requestBody" validate:"required" example:"0x0000abcd..."`
 }
 
+// Resolve adds extra validation beyond struct tags, ensuring RequestBody has data.
 func (req AttestationRequest) Resolve(ctx huma.Context) []error {
 	if len(req.RequestBody) == 0 {
 		return []error{fmt.Errorf("requestBody cannot be empty")}
@@ -65,6 +66,7 @@ func NewResponse[T any](body T) *Response[T] {
 	return &Response[T]{Body: body}
 }
 
+// InternalConvertible defines an interface for converting API types to internal ones.
 type InternalConvertible[T any] interface {
 	ToInternal() (T, error)
 }
