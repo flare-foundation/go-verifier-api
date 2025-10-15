@@ -33,13 +33,11 @@ func PMWPaymentStatusHandler(
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				logger.Errorf("Request validation failed: %v", err)
-				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
+				return nil, warnHuma400("Request validation failed", err)
 			}
 			encodedRequest, err := PrepareRequestBody(request.Body, config)
 			if err != nil {
-				logger.Errorf("Prepare Request failed: %v", err)
-				return nil, huma.Error400BadRequest("Prepare request failed: " + err.Error())
+				return nil, warnHuma400("Prepare request failed", err)
 			}
 			return types.NewResponse(types.AttestationRequestEncoded{
 				RequestBody: encodedRequest,
@@ -56,23 +54,19 @@ func PMWPaymentStatusHandler(
 		}) (*types.Response[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]], error) {
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				logger.Errorf("Request validation failed: %v", err)
-				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
+				return nil, warnHuma400("Request validation failed", err)
 			}
 			requestData, err := DecodeRequest[connector.IPMWPaymentStatusRequestBody](request.Body.RequestBody, config)
 			if err != nil {
-				logger.Errorf("Decoding request body to data failed: %v", err)
-				return nil, huma.Error400BadRequest("Decoding request body to data failed: " + err.Error())
+				return nil, warnHuma400("Decoding request body to data failed", err)
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				logger.Errorf("Verification failed: %v", err)
-				return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
+				return nil, warnHuma500("Verification failed", err)
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
-				logger.Errorf("Encoding data to response body failed: %v", err)
-				return nil, huma.Error500InternalServerError("Encoding data to response body failed: " + err.Error())
+				return nil, warnHuma500("Encoding data to response body failed", err)
 			}
 			return types.NewResponse(types.AttestationResponseData[types.PMWPaymentStatusResponseBody]{
 				ResponseData: types.PMWPaymentStatusResponseToExternal(responseData),
@@ -91,23 +85,19 @@ func PMWPaymentStatusHandler(
 			logger.Debug("Received request for PMWPaymentStatusRequest")
 			err := ValidateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				logger.Errorf("Request validation failed: %v", err)
-				return nil, huma.Error400BadRequest("Request validation failed: " + err.Error())
+				return nil, warnHuma400("Request validation failed", err)
 			}
 			requestData, err := DecodeRequest[connector.IPMWPaymentStatusRequestBody](request.Body.RequestBody, config)
 			if err != nil {
-				logger.Errorf("Decoding request body to data failed: %v", err)
-				return nil, huma.Error400BadRequest("Decoding request body to data failed: " + err.Error())
+				return nil, warnHuma400("Decoding request body to data failed", err)
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				logger.Errorf("Verification failed: %v", err)
-				return nil, huma.Error500InternalServerError("Verification failed: " + err.Error())
+				return nil, warnHuma500("Verification failed", err)
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
-				logger.Errorf("Encoding data to response body failed: %v", err)
-				return nil, huma.Error500InternalServerError("Encoding data to response body failed: " + err.Error())
+				return nil, warnHuma500("Encoding data to response body failed", err)
 			}
 			logPMWPaymentStatusResponse(responseData)
 			return types.NewResponse(types.AttestationResponse{

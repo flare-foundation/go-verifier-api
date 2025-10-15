@@ -109,6 +109,21 @@ func abiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error
 	return decode, nil
 }
 
+func warnHuma400(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error400BadRequest(message + ": " + err.Error())
+}
+
+func warnHuma500(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error500InternalServerError(message + ": " + err.Error())
+}
+
+func warnHuma503(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error503ServiceUnavailable(message + ": " + err.Error())
+}
+
 func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
 	logger.Debugf("PMWMultisigAccountConfigured result: Status=%d, Sequence=%d",
 		response.Status, response.Sequence)
