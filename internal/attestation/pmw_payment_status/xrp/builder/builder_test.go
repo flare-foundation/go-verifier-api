@@ -101,7 +101,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 	})
 	t.Run("no meta data", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
-		crNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		crNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		crNode.NewFields["Balance"] = "balanceStr"
 		modTx := testhelper.TransactionMeta0
 		modTx.AffectedNodes = make([]types.AffectedNode, len(testhelper.TransactionMeta0.AffectedNodes))

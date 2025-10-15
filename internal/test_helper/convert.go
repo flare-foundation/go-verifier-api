@@ -3,7 +3,6 @@ package testhelper
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
@@ -23,12 +22,4 @@ func DecodeResponseBody[T any](t *testing.T, attType connector.AttestationType, 
 	err := structs.DecodeTo(connector.AttestationTypeArguments[attType].Response, data, &resp)
 	require.NoError(t, err)
 	return resp
-}
-
-func ToHexutilBytesSlice(src [][]byte) []hexutil.Bytes {
-	res := make([]hexutil.Bytes, len(src))
-	for i, b := range src {
-		res[i] = hexutil.Bytes(b)
-	}
-	return res
 }

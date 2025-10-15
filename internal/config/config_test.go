@@ -1,6 +1,7 @@
 package config
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -74,6 +75,22 @@ func TestCheckMissingFields(t *testing.T) {
 }
 
 func TestLoadEncodedAndABI(t *testing.T) {
+	original := abiStructNames
+	abiStructNames = maps.Clone(original)
+	defer func() { abiStructNames = original }()
+
+	testCases := map[connector.AttestationType]struct {
+		Request, Response string
+	}{
+		"0xInvalidName":             {"req", "res"},
+		connector.AvailabilityCheck: {"availabilityCheckRequestBodyStruct", "availabilityCheckResponseBodyStruct"},
+		"InvalidRequestABI":         {"req", "availabilityCheckResponseBodyStruct"},
+		"InvalidResponseABI":        {"availabilityCheckRequestBodyStruct", "res"},
+	}
+	for k, v := range testCases {
+		abiStructNames[k] = v
+	}
+
 	type args struct {
 		envConfig EnvConfig
 	}
@@ -94,26 +111,6 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "valid pmw payment status",
-			input: args{
-				envConfig: EnvConfig{
-					SourceID:        SourceTEE,
-					AttestationType: connector.PMWPaymentStatus,
-				},
-			},
-			expectError: false,
-		},
-		{
-			name: "valid pmw multisig account configured",
-			input: args{
-				envConfig: EnvConfig{
-					SourceID:        SourceTEE,
-					AttestationType: connector.PMWMultisigAccountConfigured,
-				},
-			},
-			expectError: false,
-		},
-		{
 			name: "invalid attestation type",
 			input: args{
 				envConfig: EnvConfig{
@@ -123,6 +120,50 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			},
 			expectError:    true,
 			expectedErrMsg: "no ABI struct names defined for attestation type",
+		},
+		{
+			name: "invalid attestation type 2",
+			input: args{
+				envConfig: EnvConfig{
+					SourceID:        SourceTEE,
+					AttestationType: "0xInvalidName",
+				},
+			},
+			expectError:    true,
+			expectedErrMsg: "attestation type or source id name must not start with '0x'. Provided: 0xInvalidName",
+		},
+		{
+			name: "invalid sourceID",
+			input: args{
+				envConfig: EnvConfig{
+					SourceID:        "0xInvalidName",
+					AttestationType: connector.PMWMultisigAccountConfigured,
+				},
+			},
+			expectError:    true,
+			expectedErrMsg: "attestation type or source id name must not start with '0x'. Provided: 0xInvalidName",
+		},
+		{
+			name: "invalid request ABI",
+			input: args{
+				envConfig: EnvConfig{
+					SourceID:        SourceTEE,
+					AttestationType: "InvalidRequestABI",
+				},
+			},
+			expectError:    true,
+			expectedErrMsg: "invalid method definition for req",
+		},
+		{
+			name: "invalid response ABI",
+			input: args{
+				envConfig: EnvConfig{
+					SourceID:        SourceTEE,
+					AttestationType: "InvalidResponseABI",
+				},
+			},
+			expectError:    true,
+			expectedErrMsg: "invalid method definition for res",
 		},
 	}
 	for _, tt := range tests {

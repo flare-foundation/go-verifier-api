@@ -56,6 +56,28 @@ func TestPrepareRequestBody(t *testing.T) {
 	})
 }
 
+func TestResolve(t *testing.T) {
+	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
+	attBodyInvalid := connector.IPMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: testAccountAddress,
+		PublicKeys:     [][]byte{}, // empty slice triggers "min=1" validation
+		Threshold:      0,          // violates "gte=1"
+	}
+	reqBodyInvalid := testhelper.PMWMultisigAccountConfiguredRequestBody(attBodyInvalid)
+
+	req := attestationtypes.AttestationRequestData[attestationtypes.PMWMultisigAccountConfiguredRequestBody]{
+		AttestationType: encodedAndABI.AttestationTypePair.AttestationTypeEncoded,
+		SourceID:        encodedAndABI.SourceIDPair.SourceIDEncoded,
+		RequestData:     reqBodyInvalid,
+	}
+
+	errs := req.Resolve(nil)
+	require.NotEmpty(t, errs)
+	require.Len(t, errs, 1)
+	require.Contains(t, errs[0].Error(), "PublicKeys")
+	require.Contains(t, errs[0].Error(), "Threshold")
+}
+
 func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 	attestationTypePair := config.AttestationTypeEncodedPair{
 		AttestationType:        "TestType",

@@ -1,4 +1,4 @@
-package teeavailabilitycheckconfig
+package config
 
 import (
 	"crypto/x509"
@@ -80,7 +80,11 @@ func getBoolOrSetFalse(key, val string) bool {
 var rootCertBytes []byte
 
 func LoadGoogleRootCert() (*x509.Certificate, error) {
-	block, _ := pem.Decode(rootCertBytes)
+	return loadGoogleRootCertFromBytes(rootCertBytes)
+}
+
+func loadGoogleRootCertFromBytes(data []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(data)
 	if block == nil {
 		return nil, fmt.Errorf("cannot decode embedded Google root certificate: invalid PEM format")
 	}

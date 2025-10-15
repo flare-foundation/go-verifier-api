@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
 )
@@ -38,7 +39,7 @@ func TeeAvailabilityCheckRequestBody(data connector.ITeeAvailabilityCheckRequest
 func PMWMultisigAccountConfiguredRequestBody(data connector.IPMWMultisigAccountConfiguredRequestBody) attestationtypes.PMWMultisigAccountConfiguredRequestBody {
 	return attestationtypes.PMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: data.AccountAddress,
-		PublicKeys:     ToHexutilBytesSlice(data.PublicKeys),
+		PublicKeys:     toHexutilBytesSlice(data.PublicKeys),
 		Threshold:      data.Threshold,
 	}
 }
@@ -50,4 +51,12 @@ func PMWPaymentStatusRequestBody(data connector.IPMWPaymentStatusRequestBody) at
 		Nonce:         data.Nonce,
 		SubNonce:      data.SubNonce,
 	}
+}
+
+func toHexutilBytesSlice(src [][]byte) []hexutil.Bytes {
+	res := make([]hexutil.Bytes, len(src))
+	for i, b := range src {
+		res[i] = hexutil.Bytes(b)
+	}
+	return res
 }

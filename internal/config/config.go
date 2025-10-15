@@ -93,11 +93,11 @@ type EncodedAndABI struct {
 
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.Hash, error) {
 	if len(attestationTypeOrSourceName) >= 2 && (attestationTypeOrSourceName[:2] == "0x" || attestationTypeOrSourceName[:2] == "0X") {
-		return common.Hash{}, fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: '%s'", attestationTypeOrSourceName)
+		return common.Hash{}, fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: %s", attestationTypeOrSourceName)
 	}
 	bytes := []byte(attestationTypeOrSourceName)
 	if len(bytes) > utils.Bytes32Size {
-		return common.Hash{}, fmt.Errorf("attestation type or source id name '%s' is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
+		return common.Hash{}, fmt.Errorf("attestation type or source id name %s is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
 	}
 	padded := make([]byte, utils.Bytes32Size)
 	copy(padded, bytes)

@@ -1,8 +1,13 @@
 package testhelper
 
-import types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
+import (
+	"testing"
 
-func CopyCreatedNode(orig *types.CreatedNode) *types.CreatedNode {
+	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
+)
+
+func CopyCreatedNode(t *testing.T, orig *types.CreatedNode) *types.CreatedNode {
+	t.Helper()
 	if orig == nil {
 		return nil
 	}

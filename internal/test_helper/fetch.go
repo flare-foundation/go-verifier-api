@@ -14,7 +14,6 @@ import (
 
 func doRequest(t *testing.T, method, url, apiKey string, payload interface{}) (*http.Response, error) {
 	t.Helper()
-
 	var body io.Reader
 	if payload != nil {
 		b, err := json.Marshal(payload)
@@ -36,6 +35,7 @@ func doRequest(t *testing.T, method, url, apiKey string, payload interface{}) (*
 }
 
 func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, error) {
+	t.Helper()
 	var empty T
 	resp, err := doRequest(t, http.MethodPost, url, apiKey, data)
 	if err != nil {
@@ -62,10 +62,12 @@ func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, 
 }
 
 func PostWithoutMarshalling(t *testing.T, url string, data interface{}, apiKey string) (*http.Response, error) {
+	t.Helper()
 	return doRequest(t, http.MethodPost, url, apiKey, data)
 }
 
 func Get(t *testing.T, url, apiKey string) ([]byte, error) {
+	t.Helper()
 	resp, err := doRequest(t, http.MethodGet, url, apiKey, nil)
 	if err != nil {
 		return nil, err

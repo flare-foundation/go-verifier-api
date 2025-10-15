@@ -20,7 +20,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
 		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
-		AllowTeeDebug:                     "false",
+		AllowTeeDebug:                     "true",
 		DisableAttestationCheckE2E:        "true",
 	})
 	defer setup.Stop()
@@ -61,6 +61,12 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
+	})
+	t.Run("prepareResponseBody: empty request body", func(t *testing.T) {
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{})
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		testhelper.AssertHumaError(t, response, http.StatusUnprocessableEntity, "requestBody cannot be empty")
 	})
 	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
