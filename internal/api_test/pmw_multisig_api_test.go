@@ -54,7 +54,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Prepare request failed: converting request body to data failed: public key at index 0 is empty")
 	})
 	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
 		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(baseReqBody)
@@ -62,7 +62,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
 	})
 	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
@@ -82,14 +82,14 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
 	})
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
-		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{1, 2, 3})
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
 	})
 	t.Run("prepareResponseBody: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -97,9 +97,9 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		val, err := testhelper.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
-		require.ErrorContains(t, err, "500 Internal Server Error")
-		require.Equal(t, types.AttestationResponse{ResponseBody: hexutil.Bytes(nil)}, val)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
 	t.Run("verify: valid", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
 	})
 	t.Run("verify: invalid attestation type", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
@@ -140,14 +140,14 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
-		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{1, 2, 3})
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
 	})
 	t.Run("verify: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -155,9 +155,9 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
-		val, err := testhelper.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
-		require.ErrorContains(t, err, "500 Internal Server Error")
-		require.Equal(t, types.AttestationResponse{ResponseBody: hexutil.Bytes(nil)}, val)
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey)
+		require.NoError(t, err)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
 	})
 }
 
