@@ -10,8 +10,7 @@ type TransactionStatus uint8
 
 const (
 	Success TransactionStatus = iota
-	SenderFault
-	ReceiverFault
+	Reverted
 )
 
 type RawTransactionData struct {

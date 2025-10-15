@@ -27,13 +27,13 @@ func RemoveHexPrefix(s string) string {
 
 func HexStringToBytes32(s string) (common.Hash, error) {
 	var arr common.Hash
-	s = RemoveHexPrefix(s)
-	b, err := hex.DecodeString(s)
+	st := RemoveHexPrefix(s)
+	b, err := hex.DecodeString(st)
 	if err != nil {
-		return arr, err
+		return arr, fmt.Errorf("invalid hex string %s: %w", s, err)
 	}
 	if len(b) != Bytes32Size {
-		return arr, fmt.Errorf("invalid length for bytes32: got %d bytes, expected %d", len(b), Bytes32Size)
+		return arr, fmt.Errorf("invalid length for bytes32 hex string: got %d bytes, want %d (%s)", len(b), Bytes32Size, s)
 	}
 	copy(arr[:], b)
 	return arr, nil

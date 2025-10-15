@@ -39,7 +39,7 @@ Verify the encoded request body and returns ABI-encoded response.
 ## 2. Helper endpoint `POST /verifier/<sourceName>/<attestationType>/prepareRequestBody`
 Returns ABI-encoded request data. This helper endpoint generates the ABI-encoded `requestBody`.
 
-- Note: Currently, this endpoint only performs encoding.
+> **NOTE**: Currently, this endpoint only performs encoding.
 ### Example for `PMWMultisigAccountConfigured`:
 Request:
 ```json
@@ -215,7 +215,7 @@ type IPMWPaymentStatusResponseBody struct {
 | Amount            | Amount from the payment instruction message
 | Fee               | Fee from the payment instruction message
 | PaymentReference  | Payment reference from the payment instruction message
-| TransactionStatus | Enum 	TransactionStatus { Success, SenderFault, ReceiverFault }
+| TransactionStatus | Enum 	TransactionStatus { Success, Reverted }
 | RevertReason      | Reason for transaction failure (blockchain-specific)
 | ReceivedAmount    | Actual amount received by the recipient
 | TransactionFee    | Total transaction fee spent

@@ -74,7 +74,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, "tecNO_DST_INSUF_XRP", val.RevertReason)
 		require.Equal(t, paymentMessageInstruction.Amount, val.ReceivedAmount)
 		require.Equal(t, paymentMessageInstruction.Fee, val.TransactionFee)
-		require.Equal(t, uint8(types.ReceiverFault), val.TransactionStatus)
+		require.Equal(t, uint8(types.Reverted), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
 	})
 	t.Run("invalid transaction status", func(t *testing.T) {
@@ -97,11 +97,11 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		}
 		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &paymentMessageInstruction, txFromDB)
 		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
-		require.ErrorContains(t, err, "invalid length for bytes32: got 2 bytes, expected 32")
+		require.ErrorContains(t, err, "invalid transaction hash 0x1234: invalid length for bytes32 hex string: got 2 bytes, want 32 (0x1234)")
 	})
 	t.Run("no meta data", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
-		crNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		crNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		crNode.NewFields["Balance"] = "balanceStr"
 		modTx := testhelper.TransactionMeta0
 		modTx.AffectedNodes = make([]types.AffectedNode, len(testhelper.TransactionMeta0.AffectedNodes))

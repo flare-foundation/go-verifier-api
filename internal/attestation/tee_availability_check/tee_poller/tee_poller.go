@@ -20,12 +20,6 @@ type TeePollerService struct {
 	cancel context.CancelFunc
 }
 
-func StartTeePoller(parentCtx context.Context, verifier *verifier.TeeVerifier) *TeePollerService {
-	ctx, cancel := context.WithCancel(parentCtx)
-	StartPoller(ctx, verifier)
-	return &TeePollerService{cancel: cancel}
-}
-
 func (s *TeePollerService) Close() error {
 	s.cancel()
 	return nil
@@ -50,7 +44,8 @@ type task struct {
 	proxyURL string
 }
 
-func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
+func StartTeePoller(parentCtx context.Context, teeVerifier *verifier.TeeVerifier) *TeePollerService {
+	ctx, cancel := context.WithCancel(parentCtx)
 	teeVerifier.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
 	go func() {
 		defer func() {
@@ -60,6 +55,7 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 		}()
 		ticker := time.NewTicker(sampleInterval)
 		defer ticker.Stop()
+		logger.Info("TEE poller started")
 		for {
 			select {
 			case <-ticker.C:
@@ -70,6 +66,7 @@ func StartPoller(ctx context.Context, teeVerifier *verifier.TeeVerifier) {
 			}
 		}
 	}()
+	return &TeePollerService{cancel: cancel}
 }
 
 func sampleAllTees(
@@ -113,10 +110,9 @@ func sampleAllTees(
 					proxyURL := teeVerifier.FormatProxyURL(t.proxyURL)
 					state, err := queryInfoAndValidate(ctx, teeVerifier, proxyURL, t.teeID)
 					if err != nil {
-						logger.Errorf("Failed to query teeInfo %s or validate: %v", proxyURL, err)
-					} else {
-						logger.Debugf("TEE %s state updated to %v", t.teeID.Hex(), state)
+						logger.Errorf("Failed to validate %s: %v", t.teeID.Hex(), err)
 					}
+					logger.Debugf("TEE %s state updated to %v", t.teeID.Hex(), state)
 					teeVerifier.SamplesMu.Lock()
 					samples := teeVerifier.TeeSamples[t.teeID]
 					sample := teetype.TeePollerSample{Timestamp: time.Now().UTC(), State: state}
@@ -235,7 +231,6 @@ func filterTeeSamplesToActive(teeVerifier *verifier.TeeVerifier, activeTees teeL
 		if _, ok := activeSet[teeID]; !ok {
 			delete(teeVerifier.TeeSamples, teeID)
 			removedCount++
-
 		}
 	}
 	if removedCount > 0 {

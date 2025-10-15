@@ -18,7 +18,7 @@ func BuildPaymentStatusResponse(
 	tx model.DBTransaction,
 ) (connector.IPMWPaymentStatusResponseBody, error) {
 	var zero connector.IPMWPaymentStatusResponseBody
-	transactionResult, err := transaction.GetTransactionStatus(raw.MetaData.TransactionResult)
+	transactionResult, err := getTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
 		return zero, fmt.Errorf("cannot parse transaction status: %w", err)
 	}
@@ -28,7 +28,7 @@ func BuildPaymentStatusResponse(
 	}
 	hashBytes, err := utils.HexStringToBytes32(tx.Hash)
 	if err != nil {
-		return zero, fmt.Errorf("invalid transaction hash %q: %w", tx.Hash, err)
+		return zero, fmt.Errorf("invalid transaction hash %s: %w", tx.Hash, err)
 	}
 	receivedAmount, err := transaction.FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
 	if err != nil {
@@ -52,4 +52,17 @@ func BuildPaymentStatusResponse(
 		BlockNumber:       tx.BlockNumber,
 		BlockTimestamp:    tx.Timestamp,
 	}, nil
+}
+
+// https://xrpl.org/docs/references/protocol/transactions/transaction-results
+func getTransactionStatus(result string) (types.TransactionStatus, error) {
+	const transactionResultPrefixLength = 3
+	if len(result) < transactionResultPrefixLength {
+		return 0, fmt.Errorf("transaction result too short: %q", result) // Should never happen.
+	}
+	prefix := result[:transactionResultPrefixLength]
+	if prefix == "tes" {
+		return types.Success, nil
+	}
+	return types.Reverted, nil
 }

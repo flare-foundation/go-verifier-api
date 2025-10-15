@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,8 +29,8 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		flags := accountFlags(true, false, false, false)
 		accountInfo := makeAccountInfo(signerList, flags, "", sequence)
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
-		assert.NoError(t, err)
-		assert.Equal(t, seq, sequence)
+		require.NoError(t, err)
+		require.Equal(t, seq, sequence)
 	})
 	t.Run("wrong signer weights", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
@@ -158,64 +157,63 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 func TestParsePubKey(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 
 		parsed, err := parsePubKey([64]byte(pubkey))
-		assert.NoError(t, err)
-		assert.Equal(t, privKey.X, parsed.X)
-		assert.Equal(t, privKey.Y, parsed.Y)
-		assert.Equal(t, privKey.Curve, parsed.Curve)
+		require.NoError(t, err)
+		require.Equal(t, privKey.X, parsed.X)
+		require.Equal(t, privKey.Y, parsed.Y)
+		require.Equal(t, privKey.Curve, parsed.Curve)
 	})
 	t.Run("invalid", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Corrupt the public key
 		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 		pubkey[10] ^= 0xFF
 
 		parsed, err := parsePubKey([64]byte(pubkey))
-		assert.Error(t, err)
-		assert.Nil(t, parsed)
+		require.ErrorContains(t, err, "invalid public key bytes")
+		require.Nil(t, parsed)
 	})
 }
 
 func TestConvertPubkeyToAddress(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 		addr, err := XRPAddressFromPubKey(pubkey)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, addr)
+		require.NoError(t, err)
+		require.NotEmpty(t, addr)
 	})
 	t.Run("corrupted", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Corrupt the public key
 		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
 		pubkey[5] ^= 0xFF
 
 		addr, err := XRPAddressFromPubKey(pubkey)
-		assert.Error(t, err)
-		assert.Empty(t, addr)
+		require.ErrorContains(t, err, "invalid public key bytes")
+		require.Empty(t, addr)
 	})
 	t.Run("wrong length", func(t *testing.T) {
 		pubkey := make([]byte, 63) // invalid length
 		addr, err := XRPAddressFromPubKey(pubkey)
-		assert.Error(t, err)
-		assert.Empty(t, addr)
+		require.ErrorContains(t, err, "invalid public key length")
+		require.Empty(t, addr)
 	})
 }
 
 func requireMultisigConfigFailed(t *testing.T, seq uint64, err error, errorMessage string) {
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, errorMessage)
-	assert.Equal(t, uint64(0), seq)
+	require.ErrorContains(t, err, errorMessage)
+	require.Equal(t, uint64(0), seq)
 }
 
 func accountFlags(disableMasterKey bool, depositAuth bool, requireDestinationTag bool, disallowIncomingXRP bool) types.AccountFlags {
@@ -281,7 +279,7 @@ func createTestAccounts(n int, t *testing.T) []testAccount {
 	accounts := make([]testAccount, n)
 	for i := 0; i < n; i++ {
 		priv, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		pubkey := append(priv.X.Bytes(), priv.Y.Bytes()...)
 		address, err := XRPAddressFromPubKey(pubkey)
 		require.NoError(t, err)

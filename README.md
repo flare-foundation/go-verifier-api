@@ -16,9 +16,13 @@ SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
 TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
+
+# Test/E2E-only flags (optional, default to false):
 ALLOW_TEE_DEBUG=false
 DISABLE_ATTESTATION_CHECK_E2E=false
 ```
+
+> **NOTE**: `ALLOW_TEE_DEBUG` and `DISABLE_ATTESTATION_CHECK_E2E` are test/E2E-only flags. In production, you can leave them unset (they default to false).
 
 The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/tee_availability_check/config/assets_. Read more about it [here](./internal/attestation/tee_availability_check/config/assets/README.md).
 
@@ -81,6 +85,16 @@ Attestation requests are triggered via TEE smart contracts. The TEE relay client
 ### Rate limit
 The blockchain itself limits how many attestation requests can be emitted per block, while the queue system enforces a controlled consumption rate for verifier servers. It is also expected that the person deploying the verifier server implements additional rate limiting at other levels.
 
+### Security Headers
+
+For internal-only APIs, we use a minimal set of headers:
+- FrameDeny – prevent clickjacking
+- ContentTypeNosniff – prevent MIME sniffing
+
+Other headers (CORS, SSL redirect, STS, cross-origin policies) are not needed because these services are only accessed internally by trusted services, not browsers or public clients.
+
+Minimal headers keep internal communication safe without unnecessary overhead.
+
 ## TODO list
 - [ ] Other `TODO`s inside the code.
-- [ ] PMWPaymentStatus: is there a way to avoid using `string` for `RevertReason`.
+- [ ] How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.

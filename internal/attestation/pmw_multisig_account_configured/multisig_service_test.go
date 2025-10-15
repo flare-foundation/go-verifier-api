@@ -11,7 +11,7 @@ import (
 
 var envConfig = config.EnvConfig{
 	RPCURL:          "https://s.altnet.rippletest.net:51234",
-	SourceID:        "XRP",
+	SourceID:        "testXRP",
 	AttestationType: connector.PMWMultisigAccountConfigured,
 }
 
@@ -28,11 +28,11 @@ func TestMultisigService(t *testing.T) {
 		pmwmultisigaccountconfig.ClearPMWMultisigAccountConfiguredConfigForTest()
 		badEnvConfig := config.EnvConfig{
 			RPCURL:          "",
-			SourceID:        "XRP",
+			SourceID:        "testXRP",
 			AttestationType: connector.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
-		require.ErrorContains(t, err, "failed to load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
+		require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
 		require.Nil(t, service)
 	})
 
@@ -44,7 +44,7 @@ func TestMultisigService(t *testing.T) {
 			AttestationType: connector.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
-		require.ErrorContains(t, err, "failed to initialize PMWMultisigAccountConfigured verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
+		require.ErrorContains(t, err, "cannot initialize PMWMultisigAccountConfigured verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
 		require.Nil(t, service)
 	})
 

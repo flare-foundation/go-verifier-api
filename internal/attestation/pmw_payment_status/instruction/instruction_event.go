@@ -30,13 +30,12 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI) (*paymen
 		log.Data,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode event %s: %w", EventNameTeeInstructionsSent, err)
+		return nil, fmt.Errorf("cannot decode event %s: %w", EventNameTeeInstructionsSent, err)
 	}
 	var message payment.ITeePaymentsPaymentInstructionMessage
 	err = structs.DecodeTo(payment.MessageArguments[op.Pay], eventData.Message, &message)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
-
+		return nil, fmt.Errorf("cannot decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
 	}
 	return &message, nil
 }
@@ -46,7 +45,6 @@ func abiDecodeEventData[T any](abiObj abi.ABI, eventName string, data hexutil.By
 	err := abiObj.UnpackIntoInterface(&result, eventName, data)
 	if err != nil {
 		return nil, fmt.Errorf("ABI unpack into %T failed for event %q: %w", result, eventName, err)
-
 	}
 	return &result, nil
 }

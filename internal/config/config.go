@@ -17,13 +17,12 @@ const (
 	EnvTeeMachineRegistryContractAddress = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
 	EnvSourceDatabaseURL                 = "SOURCE_DATABASE_URL"
 	EnvCChainDatabaseURL                 = "CCHAIN_DATABASE_URL"
-	EnvEnv                               = "ENV"
 	EnvPort                              = "PORT"
 	EnvAPIKeys                           = "API_KEYS"
 	EnvAttestationType                   = "VERIFIER_TYPE"
 	EnvSourceID                          = "SOURCE_ID"
-	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"
-	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E"
+	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
+	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
 )
 
 type EnvConfig struct {
@@ -34,7 +33,6 @@ type EnvConfig struct {
 	CChainDatabaseURL                 string
 	AllowTeeDebug                     string
 	DisableAttestationCheckE2E        string
-	Env                               string
 	Port                              string
 	APIKeys                           []string
 	AttestationType                   connector.AttestationType
@@ -95,11 +93,11 @@ type EncodedAndABI struct {
 
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.Hash, error) {
 	if len(attestationTypeOrSourceName) >= 2 && (attestationTypeOrSourceName[:2] == "0x" || attestationTypeOrSourceName[:2] == "0X") {
-		return common.Hash{}, fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: '%s'", attestationTypeOrSourceName)
+		return common.Hash{}, fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: %s", attestationTypeOrSourceName)
 	}
 	bytes := []byte(attestationTypeOrSourceName)
 	if len(bytes) > utils.Bytes32Size {
-		return common.Hash{}, fmt.Errorf("attestation type or source id name '%s' is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
+		return common.Hash{}, fmt.Errorf("attestation type or source id name %s is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
 	}
 	padded := make([]byte, utils.Bytes32Size)
 	copy(padded, bytes)

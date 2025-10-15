@@ -1,4 +1,4 @@
-package pmwmultisigaccountconfig
+package config
 
 import (
 	"sync"

@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
@@ -19,8 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/keyutil"
@@ -77,7 +77,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	}
 	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create TeeRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress, err)
+		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress, err)
 	}
 	relayCaller, err := relay.NewRelayCaller(common.HexToAddress(cfg.RelayContractAddress), client)
 	if err != nil {
@@ -158,14 +158,13 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 			CodeHash: codeHash,
 			Platform: platform,
 		}, nil
-
 	}
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
 	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("failed to validate certificate signature: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
 	}
 	if !token.Valid {
 		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
@@ -177,12 +176,12 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	}
 	statusInfo, err := ValidateClaims(claims, infoData, v.cfg.AllowTeeDebug)
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("failed to validate claims: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot validate claims: %w", err)
 	}
 	// Validate teeID
 	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
 	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("failed to retrieve TEE ID from: %w", err)
+		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve TEE ID from: %w", err)
 	}
 	if expectedTeeID != receivedTeeID {
 		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
@@ -354,7 +353,7 @@ func (v *TeeVerifier) Close() error {
 
 func (v *TeeVerifier) FormatProxyURL(url string) string {
 	if v.cfg.DisableAttestationCheckE2E {
-		url = strings.Replace(url, "localhost", "host.docker.internal", -1)
+		url = strings.ReplaceAll(url, "localhost", "host.docker.internal")
 	}
 	return url
 }

@@ -57,7 +57,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	// Validate transaction and build response
 	resp, err := builder.BuildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("failed to build payment status response: %w", err)
+		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot build payment status response: %w", err)
 	}
 	return resp, nil
 }
@@ -66,8 +66,8 @@ func (x *XRPVerifier) parseRawTransactionData(response string) (types.RawTransac
 	var rawTransactionData types.RawTransactionData
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
-		logger.Errorf("Failed to unmarshal XRP transaction response: %v, response: %s", err, response)
-		return rawTransactionData, fmt.Errorf("failed to unmarshal XRP transaction response: %w", err)
+		logger.Errorf("Cannot unmarshal XRP transaction response: %v, response: %s", err, response)
+		return rawTransactionData, fmt.Errorf("cannot unmarshal XRP transaction response: %w", err)
 	}
 	if rawTransactionData.MetaData.TransactionResult == "" {
 		return rawTransactionData, fmt.Errorf("missing transaction result in raw transaction data")

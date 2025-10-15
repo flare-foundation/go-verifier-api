@@ -67,7 +67,7 @@ func TestGetReceivedAmount(t *testing.T) {
 		require.Nil(t, val)
 	})
 	t.Run("expect error 3", func(t *testing.T) {
-		crNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		crNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		crNode.NewFields["Balance"] = balanceStr
 		modTx := testhelper.TransactionMeta0
 		modTx.AffectedNodes = make([]types.AffectedNode, len(testhelper.TransactionMeta0.AffectedNodes))
@@ -140,35 +140,35 @@ func TestExtractModifiedNode(t *testing.T) {
 
 func TestExtractCreatedNode(t *testing.T) {
 	t.Run("no 'AccountRoot'", func(t *testing.T) {
-		modNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		modNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		modNode.LedgerEntryType = "Root"
 		val, err := extractFromCreatedNode(modNode)
 		require.Nil(t, val)
 		require.Nil(t, err)
 	})
 	t.Run("NewFields is nil", func(t *testing.T) {
-		modNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		modNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		modNode.NewFields = nil
 		val, err := extractFromCreatedNode(modNode)
 		require.Nil(t, val)
 		require.Nil(t, err)
 	})
 	t.Run("balanceStr is not string", func(t *testing.T) {
-		modNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		modNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		modNode.NewFields["Balance"] = nil
 		val, err := extractFromCreatedNode(modNode)
 		require.Nil(t, val)
 		require.Nil(t, err)
 	})
 	t.Run("account is not string", func(t *testing.T) {
-		modNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		modNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		modNode.NewFields["Account"] = nil
 		val, err := extractFromCreatedNode(modNode)
 		require.Nil(t, val)
 		require.Nil(t, err)
 	})
 	t.Run("balanceStr is not string number", func(t *testing.T) {
-		modNode := testhelper.CopyCreatedNode(testhelper.BasicCreatedNode_tr0)
+		modNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
 		modNode.NewFields["Balance"] = balanceStr
 		val, err := extractFromCreatedNode(modNode)
 		require.Nil(t, val)

@@ -2,6 +2,8 @@ package verifier
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -16,7 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
+	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -423,5 +428,36 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "recover signer")
+	})
+}
+
+func TestDataVerifcation(t *testing.T) {
+	t.Run("DisableAttestationCheckE2E", func(t *testing.T) {
+		v := &TeeVerifier{cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}
+		res, err := v.DataVerification(teenodetypes.TeeInfoResponse{}, common.Address{})
+		require.NoError(t, err)
+		require.Equal(t, common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"), res.CodeHash)
+		require.Equal(t, common.HexToHash("4743505f494e54454c5f54445800000000000000000000000000000000000000"), res.Platform)
+	})
+	t.Run("valid input fails on chain", func(t *testing.T) {
+		cert := testhelper.GenerateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
+		v := &TeeVerifier{
+			cfg: &config.TeeAvailabilityCheckConfig{
+				DisableAttestationCheckE2E: false,
+				GoogleRootCertificate:      cert},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"foo": "bar"})
+		token.Header["x5c"] = []string{"invalid-cert", "invalid-cert", "invalid-cert"}
+		privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		signedToken, err := token.SignedString(privKey)
+		require.NoError(t, err)
+
+		teeInfo := teenodetypes.TeeInfoResponse{
+			TeeInfo:     teenodetypes.TeeInfo{},
+			Attestation: hexutil.Bytes([]byte(signedToken)),
+		}
+		_, err = v.DataVerification(teeInfo, common.Address{})
+		require.ErrorContains(t, err, "cannot validate certificate signature: cannot ExtractCertificatesFromX5CHeader: cannot parse leaf certificate: cannot decode base64 certificate: illegal base64 data at input byte 7")
 	})
 }

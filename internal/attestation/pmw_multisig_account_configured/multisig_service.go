@@ -21,11 +21,11 @@ type MultisigService struct {
 func NewMultisigService(envConfig config.EnvConfig) (*MultisigService, error) {
 	cfg, err := pmwmultisigaccountconfig.GetPMWMultisigAccountConfiguredConfig(envConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load PMWMultisigAccountConfigured config: %w", err)
+		return nil, fmt.Errorf("cannot load PMWMultisigAccountConfigured config: %w", err)
 	}
 	verifierImpl, err := pmwmultisigaccountverifier.GetVerifier(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize PMWMultisigAccountConfigured verifier: %w", err)
+		return nil, fmt.Errorf("cannot initialize PMWMultisigAccountConfigured verifier: %w", err)
 	}
 	return &MultisigService{verifier: verifierImpl, config: cfg}, nil
 }

@@ -66,7 +66,7 @@ func TestPMWPaymentStatusServiceError(t *testing.T) {
 		AttestationType: connector.PMWPaymentStatus,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.ErrorContains(t, err, "failed to load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
+	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
 	require.Nil(t, closers)
 }
 
@@ -77,6 +77,6 @@ func TestPMWMultisigAccountConfiguredServiceError(t *testing.T) {
 		AttestationType: connector.PMWMultisigAccountConfigured,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.ErrorContains(t, err, "failed to load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
+	require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
 	require.Nil(t, closers)
 }

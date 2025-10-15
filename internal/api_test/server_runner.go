@@ -33,7 +33,6 @@ func SetupServer(t *testing.T, attestationType connector.AttestationType, source
 	t.Helper()
 	config.AttestationType = attestationType
 	config.SourceID = sourceID
-	config.Env = "development"
 	config.Port = port
 	config.APIKeys = []string{apiKey}
 

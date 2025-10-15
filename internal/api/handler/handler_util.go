@@ -92,13 +92,45 @@ func PrepareRequestBody[T types.InternalConvertible[I], I any](
 	return encodedRequest, nil
 }
 
+func abiEncodeData[T any](data T, arg abi.Argument) (hexutil.Bytes, error) {
+	encoded, err := structs.Encode(arg, data)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
+}
+
+func abiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error) {
+	decode, err := structs.Decode[T](arg, data)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return decode, nil
+}
+
+func warnHuma400(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error400BadRequest(message + ": " + err.Error())
+}
+
+func warnHuma500(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error500InternalServerError(message + ": " + err.Error())
+}
+
+func warnHuma503(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error503ServiceUnavailable(message + ": " + err.Error())
+}
+
 func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
 	logger.Debugf("PMWMultisigAccountConfigured result: Status=%d, Sequence=%d",
 		response.Status, response.Sequence)
 }
 
 func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBody) {
-	logger.Debugf("PMWPaymentStatus result: Recipient=%s, TokenID=%v, Amount=%v, Fee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
+	logger.Debugf("PMWPaymentStatus result: Recipient=%s, TokenID=%x, Amount=%v, Fee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
 		response.RecipientAddress,
 		response.TokenId,
 		response.Amount,
@@ -124,21 +156,4 @@ func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckRes
 		response.InitialSigningPolicyId,
 		response.LastSigningPolicyId,
 		response.State)
-}
-
-func abiEncodeData[T any](data T, arg abi.Argument) (hexutil.Bytes, error) {
-	encoded, err := structs.Encode(arg, data)
-	if err != nil {
-		return nil, err
-	}
-	return encoded, nil
-}
-
-func abiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error) {
-	decode, err := structs.Decode[T](arg, data)
-	if err != nil {
-		var zero T
-		return zero, err
-	}
-	return decode, nil
 }

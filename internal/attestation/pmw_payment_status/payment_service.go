@@ -25,22 +25,22 @@ type PaymentService struct {
 func NewPaymentService(envConfig mainconfig.EnvConfig) (*PaymentService, error) {
 	cfg, err := config.GetPMWPaymentStatusConfig(envConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load PMWPaymentStatus config: %w", err)
+		return nil, fmt.Errorf("cannot load PMWPaymentStatus config: %w", err)
 	}
 	db, err := config.InitSourceDB(cfg.SourceDatabaseURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Source DB: %w", err)
+		return nil, fmt.Errorf("cannot connect to Source DB: %w", err)
 	}
 	cchainDB, err := config.InitCChainDB(cfg.CchainDatabaseURL, nil)
 	if err != nil {
 		_ = config.CloseDB(db)
-		return nil, fmt.Errorf("failed to connect to CChain DB: %w", err)
+		return nil, fmt.Errorf("cannot connect to CChain DB: %w", err)
 	}
 	verifierImpl, err := pmwpaymentstatusverifier.GetVerifier(cfg, db, cchainDB)
 	if err != nil {
 		_ = config.CloseDB(db)
 		_ = config.CloseDB(cchainDB)
-		return nil, fmt.Errorf("failed to initialize PMWPaymentStatus verifier: %w", err)
+		return nil, fmt.Errorf("cannot initialize PMWPaymentStatus verifier: %w", err)
 	}
 	return &PaymentService{verifier: verifierImpl, config: cfg, db: db, cdb: cchainDB}, nil
 }
