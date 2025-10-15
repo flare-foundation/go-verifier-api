@@ -97,7 +97,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		}
 		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &paymentMessageInstruction, txFromDB)
 		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
-		require.ErrorContains(t, err, "invalid length for bytes32: got 2 bytes, expected 32")
+		require.ErrorContains(t, err, "invalid transaction hash 0x1234: invalid length for bytes32 hex string: got 2 bytes, want 32 (0x1234)")
 	})
 	t.Run("no meta data", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData

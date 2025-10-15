@@ -59,7 +59,7 @@ func TestHexStringToBytes32(t *testing.T) {
 			name:           "too short hex string",
 			input:          "0x1234",
 			expectError:    true,
-			expectedErrMsg: "invalid length for bytes32: got 2 bytes, expected 32",
+			expectedErrMsg: "invalid length for bytes32 hex string: got 2 bytes, want 32 (0x1234)",
 		},
 		{
 			name:           "invalid hex characters",
@@ -71,13 +71,13 @@ func TestHexStringToBytes32(t *testing.T) {
 			name:           "too long hex string",
 			input:          "0x" + strings.Repeat("ff", 33), // 66 hex chars = 33 bytes
 			expectError:    true,
-			expectedErrMsg: "invalid length for bytes32: got 33 bytes, expected 32",
+			expectedErrMsg: "invalid length for bytes32 hex string: got 33 bytes, want 32 (0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)",
 		},
 		{
 			name:           "empty string",
 			input:          "",
 			expectError:    true,
-			expectedErrMsg: "invalid length for bytes32: got 0 bytes, expected 32",
+			expectedErrMsg: "invalid length for bytes32 hex string: got 0 bytes, want 32 ()",
 		},
 	}
 	for _, tt := range tests {

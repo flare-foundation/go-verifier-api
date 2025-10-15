@@ -28,7 +28,7 @@ func BuildPaymentStatusResponse(
 	}
 	hashBytes, err := utils.HexStringToBytes32(tx.Hash)
 	if err != nil {
-		return zero, fmt.Errorf("invalid transaction hash %q: %w", tx.Hash, err)
+		return zero, fmt.Errorf("invalid transaction hash %s: %w", tx.Hash, err)
 	}
 	receivedAmount, err := transaction.FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
 	if err != nil {
