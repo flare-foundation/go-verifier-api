@@ -75,7 +75,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
 	}
-	teeRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
+	teeMachineRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress, err)
 	}
@@ -83,7 +83,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
-	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
+	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
 }
 
 func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {

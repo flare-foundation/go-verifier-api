@@ -177,7 +177,6 @@ func isCertificateLifetimeValid(certificate *x509.Certificate) bool {
 	if currentTime.After(certificate.NotAfter) {
 		return false
 	}
-
 	return true
 }
 
