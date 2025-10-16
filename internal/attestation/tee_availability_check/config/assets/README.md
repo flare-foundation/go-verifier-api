@@ -16,7 +16,7 @@
 3. Commit the new certificate and re-run all tests to ensure attestation validation still works.
 
 
-## Validity of the Certificate 
+## Validity of the Certificate
 Validity can be checked via the following command.
 
 **IMPORTANT**: This only shows the validity period and does **not** check whether the certificate has been revoked.

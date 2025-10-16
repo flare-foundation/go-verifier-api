@@ -30,8 +30,6 @@ func LoadTeeAvailabilityCheckConfig(envConfig config.EnvConfig) (*config.TeeAvai
 		config.EnvRelayContractAddress,
 		config.EnvTeeMachineRegistryContractAddress,
 		config.EnvRPCURL,
-		// config.EnvAllowTeeDebug, // only for tests
-		// config.EnvDisableAttestationCheckE2E, // only for tests
 	})
 	if err != nil {
 		return nil, err
