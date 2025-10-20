@@ -114,6 +114,11 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	if err != nil {
 		return zero, fmt.Errorf("cannot fetch TEE data for TeeID %s: %w", req.TeeId, err)
 	}
+	// Check corresponding challenge.
+	challengeHex := common.BytesToHash(req.Challenge[:])
+	if response.TeeInfo.Challenge != challengeHex {
+		return zero, fmt.Errorf("challenge does not match: expected %s, got %s", challengeHex.Hex(), response.TeeInfo.Challenge.Hex())
+	}
 	// Check proxy signature.
 	if dataSigner != req.TeeProxyId {
 		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s", req.TeeProxyId.Hex(), dataSigner.Hex())
