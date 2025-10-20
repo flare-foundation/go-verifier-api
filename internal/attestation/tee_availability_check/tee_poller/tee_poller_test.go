@@ -30,7 +30,6 @@ func TestSampleAllTees(t *testing.T) {
 		v, ok := tmpV.(*verifier.TeeVerifier)
 		require.True(t, ok, "tmpV should be *TeeVerifier")
 		v.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
-		v.SamplesToConsider = 3
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		return v, ctx, cancel
@@ -74,7 +73,6 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("truncate old samples", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		v.SamplesToConsider = 2
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{
 				TeeIDs: []common.Address{common.HexToAddress("0x1")},
@@ -85,17 +83,16 @@ func TestSampleAllTees(t *testing.T) {
 			return teetype.TeePollerSampleValid, nil
 		}
 		// Call multiple times to exceed SamplesToConsider
-		for i := 0; i < 3; i++ {
+		for i := 0; i < verifier.SamplesToConsider+2; i++ {
 			sampleAllTees(ctx, v, getTees, query)
 		}
 		v.SamplesMu.RLock()
 		defer v.SamplesMu.RUnlock()
-		require.Len(t, v.TeeSamples[common.HexToAddress("0x1")], 2)
+		require.Len(t, v.TeeSamples[common.HexToAddress("0x1")], verifier.SamplesToConsider)
 	})
 	t.Run("query failure does not crash and logs error", func(t *testing.T) {
 		ver, _, cancel := setup()
 		defer cancel()
-		ver.SamplesToConsider = 2
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{
 				TeeIDs: []common.Address{common.HexToAddress("0x1")},
