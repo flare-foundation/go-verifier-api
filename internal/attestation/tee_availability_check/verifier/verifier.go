@@ -36,7 +36,8 @@ const (
 	chainMaxAttemps         = 1
 	chainRetryDelay         = 400 * time.Millisecond
 	chainFetchTimeout       = 4 * time.Second
-	samplesToConsider       = 5
+	SamplesToConsider       = 5               // NOTE: SamplesToConsider and SampleInterval need to be correlated.
+	SampleInterval          = 1 * time.Minute // NOTE: SamplesToConsider and SampleInterval need to be correlated.
 )
 
 var (
@@ -49,7 +50,6 @@ type TeeVerifier struct {
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
 	TeeSamples               map[common.Address][]teetype.TeePollerSample
-	SamplesToConsider        int
 	SamplesMu                sync.RWMutex
 }
 
@@ -83,7 +83,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
-	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller, SamplesToConsider: samplesToConsider}, nil
+	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller}, nil
 }
 
 func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
@@ -99,9 +99,6 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}
 	// Fetch from TEE proxy /action/result/<challengeInstructionID>
 	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
-	if err != nil && !errors.Is(err, coreutil.ErrNotFound) {
-		return zero, fmt.Errorf("cannot fetch TEE data for TeeID %s: %w", req.TeeId, err)
-	}
 	if errors.Is(err, coreutil.ErrNotFound) {
 		// check polled data
 		isDown, infoErr := v.isTEEInfoDown(req.TeeId)
@@ -114,9 +111,12 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 			return zero, ErrIndeterminate
 		}
 	}
+	if err != nil {
+		return zero, fmt.Errorf("cannot fetch TEE data for TeeID %s: %w", req.TeeId, err)
+	}
 	// Check proxy signature.
 	if dataSigner != req.TeeProxyId {
-		return zero, fmt.Errorf("proxy signer does not match: expected %s, got: %s", req.TeeProxyId.Hex(), dataSigner.Hex())
+		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s", req.TeeProxyId.Hex(), dataSigner.Hex())
 	}
 	// Verify info data.
 	statusInfo, err := v.DataVerification(response, req.TeeId)
@@ -333,7 +333,7 @@ func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {
 	samples := v.TeeSamples[teeID]
 	v.SamplesMu.RUnlock()
 
-	if len(samples) < v.SamplesToConsider {
+	if len(samples) < SamplesToConsider {
 		return false, fmt.Errorf("insufficient samples to determine TEE %s status", teeID.Hex())
 	}
 	for _, sample := range samples {

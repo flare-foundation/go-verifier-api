@@ -45,7 +45,7 @@ CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 ```
 
-## How to run setup verifier
+## How to setup verifier
 1. Fill in the `.env` file or use environment variables according to the attestation type.
 
 2. Install dependencies:
@@ -76,6 +76,13 @@ SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 See [API reference](docs/api.md) for endpoint definitions and examples.
+
+## TEE poller
+The `TeeAvailabilityCheck` attestation type initiates a process called [`tee_poller`](internal/attestation/tee_availability_check/tee_poller/tee_poller.go). The purpose of the `tee_poller` is to continuously ping all available TEEs (retrieved from the `TeeMachineRegistry` smart contract), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables to provide a proof that a TEE machine is DOWN.
+
+Samples retrieved by the poller can be VALID, INVALID or INDETERMINATE (the latter case occurs when the check fails due to verifier fault, e.g. being unable to connect to RPC).
+
+Samples are stored in memory. The number of samples is defined by the constant `SamplesToConsider`, which is closely related to the constant `SampleInterval`, determining the polling interval. See [verifier file](internal/attestation/tee_availability_check/verifier/verifier.go) for reference.
 
 ## Attestation request submission
 The process of submitting an attestation requests is as follows:

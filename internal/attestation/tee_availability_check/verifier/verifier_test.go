@@ -289,7 +289,6 @@ func TestTeeVerifier_isTEEInfoDown(t *testing.T) {
 			TeeSamples: map[common.Address][]teetype.TeePollerSample{
 				teeID: {{Timestamp: now, State: teetype.TeePollerSampleValid}},
 			},
-			SamplesToConsider: 3,
 		}
 		down, err := v.isTEEInfoDown(teeID)
 		require.ErrorContains(t, err, "insufficient samples to determine TEE")
@@ -302,9 +301,10 @@ func TestTeeVerifier_isTEEInfoDown(t *testing.T) {
 					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
 					{Timestamp: now, State: teetype.TeePollerSampleValid},
 					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
+					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
+					{Timestamp: now, State: teetype.TeePollerSampleIndeterminate},
 				},
 			},
-			SamplesToConsider: 3,
 		}
 		down, err := v.isTEEInfoDown(teeID)
 		require.NoError(t, err)
@@ -317,9 +317,10 @@ func TestTeeVerifier_isTEEInfoDown(t *testing.T) {
 					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
 					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
 					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
+					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
+					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
 				},
 			},
-			SamplesToConsider: 3,
 		}
 
 		down, err := v.isTEEInfoDown(teeID)

@@ -26,7 +26,6 @@ func (s *TeePollerService) Close() error {
 }
 
 const (
-	sampleInterval     = 1 * time.Minute
 	defaultWorkerCount = 10
 	fetchTimeout       = 5 * time.Second
 	chainMaxAttempts   = 2
@@ -53,7 +52,7 @@ func StartTeePoller(parentCtx context.Context, teeVerifier *verifier.TeeVerifier
 				logger.Errorf("TEE poller panic recovered: %v", r)
 			}
 		}()
-		ticker := time.NewTicker(sampleInterval)
+		ticker := time.NewTicker(verifier.SampleInterval)
 		defer ticker.Stop()
 		logger.Info("TEE poller started")
 		for {
@@ -117,7 +116,7 @@ func sampleAllTees(
 					samples := teeVerifier.TeeSamples[t.teeID]
 					sample := teetype.TeePollerSample{Timestamp: time.Now().UTC(), State: state}
 					samples = append(samples, sample)
-					if len(samples) > teeVerifier.SamplesToConsider {
+					if len(samples) > verifier.SamplesToConsider {
 						samples = samples[1:]
 					}
 					teeVerifier.TeeSamples[t.teeID] = samples
