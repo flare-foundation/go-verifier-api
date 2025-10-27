@@ -22,7 +22,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/keyutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -92,13 +91,8 @@ func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	var zero connector.ITeeAvailabilityCheckResponseBody
-	// Build challenge instruction id
-	challengeInstructionID, err := instruction.GenerateChallengeInstructionID(req.TeeId, req.Challenge)
-	if err != nil {
-		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
-	}
-	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
+	// Fetch from TEE proxy /action/result/<instructionID>
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, coreutil.GetJSON[teenodetypes.ActionResponse])
 	if errors.Is(err, coreutil.ErrNotFound) {
 		// check polled data
 		isDown, infoErr := v.isTEEInfoDown(req.TeeId)
