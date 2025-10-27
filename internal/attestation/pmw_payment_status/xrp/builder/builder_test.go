@@ -38,7 +38,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 				},
 			},
 		},
-		MetaData: testhelper.TransactionMeta0,
+		MetaData: testhelper.PaymentTransaction0.MetaData,
 	}
 	txFromDB := model.DBTransaction{
 		Hash:        "4818566F359119B16544087CEA17CE2E7152A5BD4B21572C809A9AA5A7DE2B2F",
@@ -100,16 +100,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.ErrorContains(t, err, "invalid transaction hash 0x1234: invalid length for bytes32 hex string: got 2 bytes, want 32 (0x1234)")
 	})
 	t.Run("no meta data", func(t *testing.T) {
-		modRawTransactionData := rawTransactionData
-		crNode := testhelper.CopyCreatedNode(t, testhelper.BasicCreatedNode_tr0)
-		crNode.NewFields["Balance"] = "balanceStr"
-		modTx := testhelper.TransactionMeta0
-		modTx.AffectedNodes = make([]types.AffectedNode, len(testhelper.TransactionMeta0.AffectedNodes))
-		copy(modTx.AffectedNodes, testhelper.TransactionMeta0.AffectedNodes)
-		modTx.AffectedNodes[0].CreatedNode = crNode
-		modRawTransactionData.MetaData = modTx
-
-		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
+		val, err := builder.BuildPaymentStatusResponse(testhelper.PaymentTransaction0_error0, &paymentMessageInstruction, txFromDB)
 		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "cannot calculate received amount for recipient")
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode for account")

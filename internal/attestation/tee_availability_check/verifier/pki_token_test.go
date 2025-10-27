@@ -211,10 +211,10 @@ func TestValidatePKIToken(t *testing.T) {
 	cert := testhelper.GenerateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
 
 	t.Run("extract JWTHeaders fails", func(t *testing.T) {
-		badToken := "this-is-not-a-jwt"
+		badTkn := "this-is-not-a-jwt"
 		cert := testhelper.GenerateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
 
-		val, err := verifier.ValidatePKIToken(cert, badToken)
+		val, err := verifier.ValidatePKIToken(cert, badTkn)
 		require.Equal(t, jwt.Token{}, val)
 		require.ErrorContains(t, err, "cannot extract JWTHeaders")
 	})
