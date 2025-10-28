@@ -26,10 +26,11 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	defer setup.Stop()
 	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
 	baseReqBody := connector.ITeeAvailabilityCheckRequestBody{
-		TeeId:      common.HexToAddress("0x12345"),
-		TeeProxyId: common.HexToAddress("0x23456"),
-		Url:        "https://example.com",
-		Challenge:  common.HexToHash("0x123"),
+		TeeId:         common.HexToAddress("0x12345"),
+		TeeProxyId:    common.HexToAddress("0x23456"),
+		Url:           "https://example.com",
+		Challenge:     common.HexToHash("0x123"),
+		InstructionId: common.HexToHash("0x234"),
 	}
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
 		reqData := testhelper.TeeAvailabilityCheckRequestBody(baseReqBody)
