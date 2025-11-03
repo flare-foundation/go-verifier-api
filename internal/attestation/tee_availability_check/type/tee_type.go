@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type TeeSample struct {
@@ -80,7 +80,7 @@ type GoogleTeeClaims struct {
 	EATNonce    EatNonce   `json:"eat_nonce"`
 	SubMods     SubModules `json:"submods"`
 	DebugStatus string     `json:"dbgstat"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 type SubModules struct {

@@ -14,7 +14,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 )
 
@@ -257,5 +257,5 @@ func TestExtractJWTHeaders(t *testing.T) {
 
 	val, err := verifier.ExtractJWTHeaders("invalid.token")
 	require.Nil(t, val)
-	require.ErrorContains(t, err, "failed to parse claims token: token contains an invalid number of segments")
+	require.ErrorContains(t, err, "failed to parse claims token: token is malformed: token contains an invalid number of segments")
 }

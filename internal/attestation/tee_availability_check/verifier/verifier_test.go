@@ -21,7 +21,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
