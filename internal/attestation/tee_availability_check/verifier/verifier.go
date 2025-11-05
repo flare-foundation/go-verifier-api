@@ -168,6 +168,14 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	if !token.Valid {
 		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
+	// Validate teeID
+	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
+	if err != nil {
+		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve TEE ID from: %w", err)
+	}
+	if expectedTeeID != receivedTeeID {
+		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
+	}
 	// Check claims
 	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
 	if !ok {
@@ -176,14 +184,6 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	statusInfo, err := ValidateClaims(claims, infoData, v.cfg.AllowTeeDebug)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot validate claims: %w", err)
-	}
-	// Validate teeID
-	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
-	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("cannot retrieve TEE ID from: %w", err)
-	}
-	if expectedTeeID != receivedTeeID {
-		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
 	}
 	return statusInfo, nil
 }
