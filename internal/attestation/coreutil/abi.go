@@ -14,7 +14,6 @@ func mustAbiType(t string) abi.Type {
 
 var (
 	Bytes32Type = mustAbiType("bytes32")
-	AddressType = mustAbiType("address")
 	Uint64Type  = mustAbiType("uint64")
 	StringType  = mustAbiType("string")
 )
