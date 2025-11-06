@@ -107,7 +107,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: log not found for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b")
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
 	t.Run("verify: valid", func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: log not found for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b")
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
 	})
 	t.Run("verify: verification failed - not found in xrp indexer", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -188,6 +188,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: transaction not found for source renoX7N3xcss6nbh62tYAhaTH1XG17Arc, nonce 11263155")
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch transaction for source renoX7N3xcss6nbh62tYAhaTH1XG17Arc, nonce 11263155: record not found")
 	})
 }
