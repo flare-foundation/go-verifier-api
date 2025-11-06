@@ -15,6 +15,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/google_cloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -161,7 +162,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
-	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
+	token, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.cfg.GoogleRootCertificate)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
 	}
@@ -177,10 +178,6 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
 	}
 	// Check claims
-	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
-	if !ok {
-		return teetype.StatusInfo{}, errors.New("cannot parse claims")
-	}
 	statusInfo, err := ValidateClaims(claims, infoData, v.cfg.AllowTeeDebug)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot validate claims: %w", err)

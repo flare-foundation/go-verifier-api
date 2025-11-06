@@ -459,6 +459,6 @@ func TestDataVerifcation(t *testing.T) {
 			Attestation: hexutil.Bytes([]byte(signedToken)),
 		}
 		_, err = v.DataVerification(teeInfo, common.Address{})
-		require.ErrorContains(t, err, "cannot validate certificate signature: cannot ExtractCertificatesFromX5CHeader: cannot parse leaf certificate: cannot decode base64 certificate: illegal base64 data at input byte 7")
+		require.ErrorContains(t, err, "cannot validate certificate signature: parsing and verifying: token is unverifiable: error while executing keyfunc: extracting certificates from x5c headers: cannot parse certificate at index 0: cannot decode certificate illegal base64 data at input byte 7")
 	})
 }

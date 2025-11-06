@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
 	api "github.com/flare-foundation/go-verifier-api/internal/api_test"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	defer setup.Stop()
 
-	opType, err := coreutil.StringToBytes32(string(op.XRP))
+	opType, err := convert.StringToCommonHash(string(op.XRP))
 	require.NoError(t, err)
 
 	testAddress := "renoX7N3xcss6nbh62tYAhaTH1XG17Arc"

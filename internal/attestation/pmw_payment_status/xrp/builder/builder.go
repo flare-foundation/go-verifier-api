@@ -3,9 +3,9 @@ package builder
 import (
 	"fmt"
 
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
-	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/helper"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/model"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/transaction"
@@ -26,7 +26,7 @@ func BuildPaymentStatusResponse(
 	if err != nil {
 		return zero, fmt.Errorf("invalid transaction fee %q: %w", raw.Fee, err)
 	}
-	hashBytes, err := utils.HexStringToBytes32(tx.Hash)
+	hashBytes, err := convert.Hex32StringToCommonHash(tx.Hash)
 	if err != nil {
 		return zero, fmt.Errorf("invalid transaction hash %s: %w", tx.Hash, err)
 	}
