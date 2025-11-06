@@ -29,10 +29,11 @@ func CreateAttestationRequestData[T any](t *testing.T, attestationType common.Ha
 
 func TeeAvailabilityCheckRequestBody(data connector.ITeeAvailabilityCheckRequestBody) attestationtypes.TeeAvailabilityCheckRequestBody {
 	return attestationtypes.TeeAvailabilityCheckRequestBody{
-		TeeID:      data.TeeId,
-		TeeProxyID: data.TeeProxyId,
-		URL:        data.Url,
-		Challenge:  data.Challenge,
+		TeeID:         data.TeeId,
+		TeeProxyID:    data.TeeProxyId,
+		URL:           data.Url,
+		Challenge:     data.Challenge,
+		InstructionID: data.InstructionId,
 	}
 }
 

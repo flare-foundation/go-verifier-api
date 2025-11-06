@@ -16,7 +16,6 @@ func TestMustAbiType(t *testing.T) {
 		panicMsg    string
 	}{
 		{"bytes32 type", "bytes32", Bytes32Type, false, ""},
-		{"address type", "address", AddressType, false, ""},
 		{"uint64 type", "uint64", Uint64Type, false, ""},
 		{"string type", "string", StringType, false, ""},
 		{"invalid type", "invalid", abi.Type{}, true, "invalid ABI type: unsupported arg type: invalid"},

@@ -15,6 +15,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/google_cloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,7 +23,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/keyutil"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -92,13 +92,8 @@ func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	var zero connector.ITeeAvailabilityCheckResponseBody
-	// Build challenge instruction id
-	challengeInstructionID, err := instruction.GenerateChallengeInstructionID(req.TeeId, req.Challenge)
-	if err != nil {
-		return zero, fmt.Errorf("cannot generate challenge instruction id: %w", err)
-	}
-	// Fetch from TEE proxy /action/result/<challengeInstructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), challengeInstructionID, coreutil.GetJSON[teenodetypes.ActionResponse])
+	// Fetch from TEE proxy /action/result/<instructionID>
+	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, coreutil.GetJSON[teenodetypes.ActionResponse])
 	if errors.Is(err, coreutil.ErrNotFound) {
 		// check polled data
 		isDown, infoErr := v.isTEEInfoDown(req.TeeId)
@@ -167,21 +162,12 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
-	token, err := ValidatePKIToken(v.cfg.GoogleRootCertificate, string(attestationToken))
+	token, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.cfg.GoogleRootCertificate)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
 	}
 	if !token.Valid {
 		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
-	}
-	// Check claims
-	claims, ok := token.Claims.(*teetype.GoogleTeeClaims)
-	if !ok {
-		return teetype.StatusInfo{}, errors.New("cannot parse claims")
-	}
-	statusInfo, err := ValidateClaims(claims, infoData, v.cfg.AllowTeeDebug)
-	if err != nil {
-		return teetype.StatusInfo{}, fmt.Errorf("cannot validate claims: %w", err)
 	}
 	// Validate teeID
 	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
@@ -190,6 +176,11 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	}
 	if expectedTeeID != receivedTeeID {
 		return teetype.StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeID.Hex())
+	}
+	// Check claims
+	statusInfo, err := ValidateClaims(claims, infoData, v.cfg.AllowTeeDebug)
+	if err != nil {
+		return teetype.StatusInfo{}, fmt.Errorf("cannot validate claims: %w", err)
 	}
 	return statusInfo, nil
 }

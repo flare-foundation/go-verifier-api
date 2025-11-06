@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
-	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/model"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,9 +33,9 @@ func (r *XRPRepository) FetchInstructionLog(ctx context.Context, eventHash strin
 	var dbLog database.Log
 	err := r.cChainDb.WithContext(ctx).
 		Where("topic0 = ? AND topic1 = ? AND topic2 = ?",
-			utils.RemoveHexPrefix(eventHash),
-			utils.RemoveHexPrefix(common.HexToHash("").String()),
-			utils.RemoveHexPrefix(instructionID.Hex())).
+			removeHexPrefix(eventHash),
+			removeHexPrefix(common.HexToHash("").String()),
+			removeHexPrefix(instructionID.Hex())).
 		First(&dbLog).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -58,4 +58,8 @@ func (r *XRPRepository) GetTransactionBySourceAndSequence(ctx context.Context, q
 		return model.DBTransaction{}, fmt.Errorf("cannot fetch transaction for source %s, nonce %d: %w", query.SourceAddress, query.Nonce, err)
 	}
 	return tx, nil
+}
+
+func removeHexPrefix(s string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "0X")
 }

@@ -1,11 +1,9 @@
 package teetypes
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 type TeeSample struct {
@@ -55,45 +53,6 @@ func (s TeePollerSampleState) String() string {
 
 func (s TeePollerSampleState) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + s.String() + `"`), nil
-}
-
-type EatNonce []string
-
-func (e *EatNonce) UnmarshalJSON(data []byte) error {
-	var arr []string
-	if err := json.Unmarshal(data, &arr); err == nil {
-		*e = arr
-		return nil
-	}
-	var s string
-	if err := json.Unmarshal(data, &s); err == nil {
-		*e = []string{s}
-		return nil
-	}
-	*e = []string{}
-	return nil
-}
-
-type GoogleTeeClaims struct {
-	HWModel     string     `json:"hwmodel"`
-	SWName      string     `json:"swname"`
-	EATNonce    EatNonce   `json:"eat_nonce"`
-	SubMods     SubModules `json:"submods"`
-	DebugStatus string     `json:"dbgstat"`
-	jwt.StandardClaims
-}
-
-type SubModules struct {
-	ConfidentialSpace ConfidentialSpaceInfo `json:"confidential_space"`
-	Container         Container             `json:"container"`
-}
-
-type ConfidentialSpaceInfo struct {
-	SupportAttributes []string `json:"support_attributes"`
-}
-
-type Container struct {
-	ImageDigest string `json:"image_digest"`
 }
 
 type StatusInfo struct {

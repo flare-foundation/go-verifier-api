@@ -7,8 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	utils "github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 )
 
 const (
@@ -95,13 +95,7 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.H
 	if len(attestationTypeOrSourceName) >= 2 && (attestationTypeOrSourceName[:2] == "0x" || attestationTypeOrSourceName[:2] == "0X") {
 		return common.Hash{}, fmt.Errorf("attestation type or source id name must not start with '0x'. Provided: %s", attestationTypeOrSourceName)
 	}
-	bytes := []byte(attestationTypeOrSourceName)
-	if len(bytes) > utils.Bytes32Size {
-		return common.Hash{}, fmt.Errorf("attestation type or source id name %s is too long (%d bytes)", attestationTypeOrSourceName, len(bytes))
-	}
-	padded := make([]byte, utils.Bytes32Size)
-	copy(padded, bytes)
-	return common.BytesToHash(padded), nil
+	return convert.StringToCommonHash(attestationTypeOrSourceName)
 }
 
 var abiStructNames = map[connector.AttestationType]struct {
