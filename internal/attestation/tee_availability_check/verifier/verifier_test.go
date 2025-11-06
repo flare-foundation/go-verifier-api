@@ -353,8 +353,7 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 				ProxySignature: signature,
 			}, nil
 		}
-		v := &TeeVerifier{}
-		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.NotEqual(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, address, signer)
 		require.NoError(t, err)
@@ -363,8 +362,7 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
 			return teenodetypes.ActionResponse{}, errors.New("bad request")
 		}
-		v := &TeeVerifier{}
-		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "bad request")
@@ -378,8 +376,7 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 			}
 			return response, nil
 		}
-		v := &TeeVerifier{}
-		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is empty")
@@ -393,8 +390,7 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 			}
 			return response, nil
 		}
-		v := &TeeVerifier{}
-		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, `TEE challenge result data is not valid JSON`)
@@ -408,8 +404,7 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 				},
 			}, nil
 		}
-		v := &TeeVerifier{}
-		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "unmarshal TEE result")
@@ -424,8 +419,7 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 				ProxySignature: []byte("invalid-signature"),
 			}, nil
 		}
-		v := &TeeVerifier{}
-		teeInfo, signer, err := v.fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "recover signer")
