@@ -426,13 +426,13 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 	})
 }
 
-func TestDataVerifcation(t *testing.T) {
+func TestDataVerification(t *testing.T) {
 	t.Run("DisableAttestationCheckE2E", func(t *testing.T) {
 		v := &TeeVerifier{cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}
 		res, err := v.DataVerification(teenodetypes.TeeInfoResponse{}, common.Address{})
 		require.NoError(t, err)
 		require.Equal(t, common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"), res.CodeHash)
-		require.Equal(t, common.HexToHash("4743505f494e54454c5f54445800000000000000000000000000000000000000"), res.Platform)
+		require.Equal(t, common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000"), res.Platform)
 	})
 	t.Run("valid input fails on chain", func(t *testing.T) {
 		cert := testhelper.GenerateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
