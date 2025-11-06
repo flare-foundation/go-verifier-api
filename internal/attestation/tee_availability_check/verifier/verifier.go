@@ -93,7 +93,7 @@ func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	var zero connector.ITeeAvailabilityCheckResponseBody
 	// Fetch from TEE proxy /action/result/<instructionID>
-	response, dataSigner, err := v.fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, coreutil.GetJSON[teenodetypes.ActionResponse])
+	response, dataSigner, err := fetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, coreutil.GetJSON[teenodetypes.ActionResponse])
 	if errors.Is(err, coreutil.ErrNotFound) {
 		// check polled data
 		isDown, infoErr := v.isTEEInfoDown(req.TeeId)
@@ -150,7 +150,7 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
 	if v.cfg.DisableAttestationCheckE2E {
-		platform := common.HexToHash("4743505f494e54454c5f54445800000000000000000000000000000000000000")
+		platform := common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 		codeHash := common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 		logger.Warnf("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Status %d, Codehash %s, Platform %s", teetype.OK, codeHash, platform)
 		return teetype.StatusInfo{
@@ -219,40 +219,6 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 		return teetype.TeePollerSampleInvalid, errors.New("failed to validate last signing policy hash")
 	}
 	return teetype.TeePollerSampleValid, nil
-}
-
-func (v *TeeVerifier) fetchTEEChallengeResult(
-	ctx context.Context,
-	baseURL string,
-	challengeInstructionID common.Hash,
-	fetchFn func(context.Context, string, time.Duration) (teenodetypes.ActionResponse, error),
-) (teenodetypes.TeeInfoResponse, common.Address, error) {
-	var zero teenodetypes.TeeInfoResponse
-	var zeroAdd common.Address
-	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
-	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
-	actionResp, err := fetchFn(ctx, url, fetchInfoTimeout)
-	if err != nil {
-		return zero, zeroAdd, err
-	}
-	if len(actionResp.Result.Data) == 0 {
-		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is empty")
-	}
-	if !json.Valid(actionResp.Result.Data) {
-		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON: %q", actionResp.Result.Data)
-	}
-	// teeInfo is marshaled inside actionResponse.Result.Data
-	var teeInfo teenodetypes.TeeInfoResponse
-	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
-	if err != nil {
-		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
-	}
-	// recover signer
-	signer, err := keyutil.RecoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
-	if err != nil {
-		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
-	}
-	return teeInfo, signer, nil
 }
 
 func (v *TeeVerifier) getSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, teetype.TeePollerSampleState, error) {
@@ -352,4 +318,38 @@ func (v *TeeVerifier) FormatProxyURL(url string) string {
 		url = strings.ReplaceAll(url, "localhost", "host.docker.internal")
 	}
 	return url
+}
+
+func fetchTEEChallengeResult(
+	ctx context.Context,
+	baseURL string,
+	challengeInstructionID common.Hash,
+	fetchFn func(context.Context, string, time.Duration) (teenodetypes.ActionResponse, error),
+) (teenodetypes.TeeInfoResponse, common.Address, error) {
+	var zero teenodetypes.TeeInfoResponse
+	var zeroAdd common.Address
+	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
+	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
+	actionResp, err := fetchFn(ctx, url, fetchInfoTimeout)
+	if err != nil {
+		return zero, zeroAdd, err
+	}
+	if len(actionResp.Result.Data) == 0 {
+		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is empty")
+	}
+	if !json.Valid(actionResp.Result.Data) {
+		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON: %q", actionResp.Result.Data)
+	}
+	// teeInfo is marshaled inside actionResponse.Result.Data
+	var teeInfo teenodetypes.TeeInfoResponse
+	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
+	if err != nil {
+		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
+	}
+	// recover signer
+	signer, err := keyutil.RecoverSigner(actionResp.Result.Data, actionResp.ProxySignature)
+	if err != nil {
+		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
+	}
+	return teeInfo, signer, nil
 }

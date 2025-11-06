@@ -3,7 +3,6 @@ package xrpverifier
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -13,7 +12,6 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/repo"
 	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	"gorm.io/gorm"
 )
 
 type XRPVerifier struct {
@@ -44,9 +42,6 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	// Query underlying chain for transaction
 	dbTransaction, err := x.Repo.GetTransactionBySourceAndSequence(ctx, repo.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return connector.IPMWPaymentStatusResponseBody{}, err
-		}
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Parse transaction response JSON into structured data

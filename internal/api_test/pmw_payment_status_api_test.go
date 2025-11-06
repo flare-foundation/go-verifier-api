@@ -107,10 +107,10 @@ func TestPMWPaymentStatus(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: log not found for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b")
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
-	t.Run("verify: valid", func(t *testing.T) {
+	t.Run("verify: valid", func(t *testing.T) { // Using log (12) in c-chain idx db and transaction 7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA from xrp idx db.
 		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := testhelper.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
@@ -176,9 +176,9 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: log not found for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b")
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
 	})
-	t.Run("verify: verification failed - not found in xrp indexer", func(t *testing.T) {
+	t.Run("verify: verification failed - not found in xrp indexer", func(t *testing.T) { // Using fake entry log (19) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 10
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 10
@@ -188,6 +188,54 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: transaction not found for source renoX7N3xcss6nbh62tYAhaTH1XG17Arc, nonce 11263155")
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch transaction for source renoX7N3xcss6nbh62tYAhaTH1XG17Arc, nonce 11263155: record not found")
+	})
+	t.Run("verify: verification failed - cannot decode event data", func(t *testing.T) { // Using fake entry log (20) in c-chain idx db.
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.Nonce = baseReqBody.Nonce + 1
+		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 1
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode event TeeInstructionsSent: ABI unpack into teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent failed for event \\\"TeeInstructionsSent\\\": abi: cannot marshal in to go type: length insufficient 1344 require 1635")
+	})
+	t.Run("verify: verification failed - cannot decode event data", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.Nonce = baseReqBody.Nonce + 2
+		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 2
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot unmarshal XRP transaction response: json: cannot unmarshal string into Go struct field RawTransactionData.CommonFields.Sequence of type uint")
+	})
+	t.Run("verify: verification failed - missing transaction result", func(t *testing.T) { // Using fake entry log (22) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c5.
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.Nonce = baseReqBody.Nonce + 3
+		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 3
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: missing transaction result in raw transaction data")
+	})
+	t.Run("verify: verification failed - cannot build payment status response", func(t *testing.T) { // Using fake entry log (23) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c6.
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.Nonce = baseReqBody.Nonce + 4
+		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 4
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot build payment status response: cannot parse transaction status: transaction result too short: \\\"te\\\"")
 	})
 }
