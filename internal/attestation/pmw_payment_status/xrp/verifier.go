@@ -42,7 +42,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
-	dbTransaction, err := x.Repo.GetTransactionBySourceAndSequence(ctx, repo.ChainQuery{SourceAddress: paymentMessage.SenderAddress, Nonce: req.Nonce})
+	dbTransaction, err := x.Repo.GetTransactionBySourceAndSequence(ctx, repo.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return connector.IPMWPaymentStatusResponseBody{}, err

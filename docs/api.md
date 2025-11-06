@@ -106,18 +106,20 @@ type AttestationRequest struct {
 - Attestations type `TeeAvailabilityCheck`:
 ```go
 type TeeAvailabilityCheckRequestBody struct {
-	TeeID      [20]byte
-	ProxyTeeID [20]byte
-	URL        string
-	Challenge  [32]byte
+	TeeID         [20]byte
+	ProxyTeeID    [20]byte
+	URL           string
+	Challenge     [32]byte
+  InstructionId [32]byte
 }
 ```
-| Field      | Description          |
-|------------|----------------------|
-| TeeID      | Hex-encoded 20-byte Ethereum address of the TEE
-| ProxyTeeID | Hex-encoded 20-byte Ethereum address of the TEE Proxy ID
-| URL        | TEE proxy endpoint URL
-| Challenge  | Hex-encoded 32-byte challenge
+| Field         | Description          |
+|---------------|----------------------|
+| TeeID         | Hex-encoded 20-byte Ethereum address of the TEE
+| ProxyTeeID    | Hex-encoded 20-byte Ethereum address of the TEE Proxy ID
+| URL           | TEE proxy endpoint URL
+| Challenge     | Hex-encoded 32-byte challenge
+| InstructionID | Hex-encoded 32-byte instruction ID
 
 ```go
 type TeeAvailabilityCheckResponseBody struct {

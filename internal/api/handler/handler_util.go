@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -147,12 +147,11 @@ func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBod
 }
 
 func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckResponseBody) {
-	const nullByte = "\x00"
 	logger.Debugf("TEEAvailabilityCheck result: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyID:%d, LastSigningPolicyID=%d, State=%v",
 		response.Status,
 		response.TeeTimestamp,
 		response.CodeHash,
-		bytes.Trim(response.Platform[:], nullByte),
+		convert.CommonHashToString(response.Platform),
 		response.InitialSigningPolicyId,
 		response.LastSigningPolicyId,
 		response.State)

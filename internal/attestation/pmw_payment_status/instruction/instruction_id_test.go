@@ -3,20 +3,21 @@ package instruction_test
 import (
 	"testing"
 
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/instruction"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateInstructionID(t *testing.T) {
-	expected := "0x99dac3c061c7beb1d87cf2dc5beb9f0a6df256f03cc5a7213247778b51e7291d"
-	senderAddress := "r9CWG1aj4tUsZn5agTLahfyiqnNhMhPjDt"
-	nonce := uint64(10702286)
-	opTypeBytes, err := coreutil.StringToBytes32(string(op.XRP))
+	expected := "0xaf551716a458aae6b63fad419f4f467fd588c7c2ad921bf2e8a2a52ee16215aa"
+	senderAddress := "renoX7N3xcss6nbh62tYAhaTH1XG17Arc"
+	nonce := uint64(11263155)
+	opTypeBytes, err := convert.StringToCommonHash(string(op.XRP))
 	require.NoError(t, err)
-	sourceIDBytes, err := coreutil.StringToBytes32("XRP")
+	sourceIDBytes, err := convert.StringToCommonHash(string(config.SourceTestXRP))
 	require.NoError(t, err)
 	id, err := instruction.GenerateInstructionID(opTypeBytes, sourceIDBytes, senderAddress, nonce)
 	require.NoError(t, err)

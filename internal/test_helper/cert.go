@@ -13,8 +13,8 @@ import (
 
 func GenerateTestCertificate(t *testing.T, notBefore, notAfter time.Time) *x509.Certificate {
 	t.Helper()
-
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	bits := 2048
+	priv, err := rsa.GenerateKey(rand.Reader, bits)
 	require.NoError(t, err)
 
 	template := &x509.Certificate{
