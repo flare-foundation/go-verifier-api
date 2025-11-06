@@ -103,6 +103,14 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
 	})
+	t.Run("verify: failed verification", func(t *testing.T) {
+		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: insufficient samples to determine TEE")
+	})
 	t.Run("polledTees", func(t *testing.T) {
 		resp, err := testhelper.Get(t, fmt.Sprintf("http://localhost:%s/poller/tees", setup.Port), setup.APIKey)
 		require.NoError(t, err)

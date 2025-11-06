@@ -34,7 +34,7 @@ func (r *XRPRepository) FetchInstructionLog(ctx context.Context, eventHash strin
 	err := r.cChainDb.WithContext(ctx).
 		Where("topic0 = ? AND topic1 = ? AND topic2 = ?",
 			removeHexPrefix(eventHash),
-			removeHexPrefix(common.HexToHash("").String()),
+			removeHexPrefix(common.HexToHash("").String()), // Only checking for extensionID = 0.
 			removeHexPrefix(instructionID.Hex())).
 		First(&dbLog).Error
 	if err != nil {
