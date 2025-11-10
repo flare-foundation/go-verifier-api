@@ -17,7 +17,7 @@ var envConfig = config.EnvConfig{
 	SourceID:          "testXRP",
 }
 
-func TestPaymentService(t *testing.T) {
+func TestNewPaymentService(t *testing.T) {
 	t.Run("should successfully create PaymentService", func(t *testing.T) {
 		service, err := NewPaymentService(envConfig)
 		require.NoError(t, err)
@@ -45,6 +45,30 @@ func TestPaymentService(t *testing.T) {
 		}
 		service, err := NewPaymentService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot initialize PMWPaymentStatus verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
+		require.Nil(t, service)
+	})
+	t.Run("misconfigured Source DB", func(t *testing.T) {
+		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
+		badEnvConfig := config.EnvConfig{
+			SourceDatabaseURL: "postgres:",
+			CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+			SourceID:          "testXRP",
+			AttestationType:   connector.PMWPaymentStatus,
+		}
+		service, err := NewPaymentService(badEnvConfig)
+		require.ErrorContains(t, err, "cannot connect to Source DB:")
+		require.Nil(t, service)
+	})
+	t.Run("misconfigured CChain DB", func(t *testing.T) {
+		pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()
+		badEnvConfig := config.EnvConfig{
+			SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+			CChainDatabaseURL: "root:root@tcp()",
+			SourceID:          "testXRP",
+			AttestationType:   connector.PMWPaymentStatus,
+		}
+		service, err := NewPaymentService(badEnvConfig)
+		require.ErrorContains(t, err, "cannot connect to CChain DB:")
 		require.Nil(t, service)
 	})
 	pmwpaymentstatusconfig.ClearPMWPaymentStatusConfigForTest()

@@ -59,4 +59,24 @@ func TestRetry(t *testing.T) {
 		require.ErrorContains(t, err, "fail but keep result")
 		require.Equal(t, 99, got)
 	})
+	t.Run("zero maxAttempts returns zero value", func(t *testing.T) {
+		op := func() (int, error) { return 123, errors.New("should not run") }
+		got, err := Retry(0, time.Millisecond, op, nil)
+		require.NoError(t, err)
+		require.Equal(t, 0, got)
+	})
+	t.Run("breakOn true on first attempt stops retrying", func(t *testing.T) {
+		attempts := 0
+		specialErr := errors.New("break immediately")
+		op := func() (string, error) {
+			attempts++
+			return "", specialErr
+		}
+		got, err := Retry(5, time.Millisecond, op, func(e error) bool {
+			return true
+		})
+		require.ErrorIs(t, err, specialErr)
+		require.Equal(t, "", got)
+		require.Equal(t, 1, attempts, "should break after first attempt")
+	})
 }

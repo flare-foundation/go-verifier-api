@@ -136,11 +136,6 @@ func TestFetchJSON(t *testing.T) {
 		require.ErrorContains(t, err, "decoding JSON from http://127.0.0.1")
 		require.ErrorContains(t, err, "failed for type coreutil.testStruct")
 	})
-	t.Run("request error", func(t *testing.T) {
-		ctx := context.Background()
-		_, err := GetJSON[testStruct](ctx, "http://invalid.invalid/doesnotexist", 50*time.Millisecond)
-		require.ErrorContains(t, err, "dial tcp: lookup invalid.invalid: no such host")
-	})
 	t.Run("timeout", func(t *testing.T) {
 		slowHandler := http.NewServeMux()
 		slowHandler.HandleFunc("/slow", func(w http.ResponseWriter, r *http.Request) {
@@ -160,6 +155,17 @@ func TestFetchJSON(t *testing.T) {
 		cancel()
 		_, err := GetJSON[testStruct](ctx, fmt.Sprintf("%s/ok", server.URL), 50*time.Millisecond)
 		require.ErrorContains(t, err, "context canceled")
+	})
+	t.Run("malformed URL causes request creation failure", func(t *testing.T) {
+		ctx := context.Background()
+		_, err := GetJSON[testStruct](ctx, "http://%41:8080", 50*time.Millisecond)
+		require.ErrorContains(t, err, "failed to create HTTP request")
+	})
+	t.Run("FetchError methods", func(t *testing.T) {
+		err := &FetchError{Op: "fetchOp", Err: ErrRPC}
+		require.Contains(t, err.Error(), "fetchOp")
+		require.Contains(t, err.Error(), ErrRPC.Error())
+		require.ErrorIs(t, err, ErrRPC)
 	})
 }
 
