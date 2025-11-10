@@ -238,4 +238,16 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot build payment status response: cannot parse transaction status: transaction result too short: \\\"te\\\"")
 	})
+	t.Run("verify: verification failed - cannot decode event data message", func(t *testing.T) { // Using fake entry log (24) in c-chain idx db.
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.Nonce = baseReqBody.Nonce + 5
+		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 5
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode TeeInstructionsSent message arguments: abi: improperly encoded uint64 value")
+	})
 }
