@@ -43,7 +43,7 @@ func TestGetAccountInfo(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			},
-			wantErr: "cannot get account info",
+			wantErr: "cannot get account info: max retries reached: request responded with code 500, reason: Internal Server Error",
 		},
 		{
 			name: "bad JSON",
@@ -51,7 +51,7 @@ func TestGetAccountInfo(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.Write([]byte(`{"result": { "status": "success", "account_data": `)) // invalid JSON
 			},
-			wantErr: "cannot parse account info",
+			wantErr: "cannot get account info: max retries reached: decoding response:",
 		},
 		{
 			name: "non-success status",
