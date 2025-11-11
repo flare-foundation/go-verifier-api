@@ -274,7 +274,6 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return([32]byte{}, errors.New("rpc error"))
 		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
-		fmt.Println(state, err)
 		require.ErrorContains(t, err, "cannot retrieve last signing policy hash for ID 2")
 		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
 		mockRelay.AssertExpectations(t)

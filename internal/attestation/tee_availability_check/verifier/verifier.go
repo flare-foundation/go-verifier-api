@@ -42,6 +42,8 @@ const (
 
 var (
 	ErrIndeterminate = errors.New("indeterminate verifier status")
+	E2ETestPlatform  = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
+	E2ETestCodeHash  = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 )
 
 type TeeVerifier struct {
@@ -150,8 +152,8 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
 	if v.cfg.DisableAttestationCheckE2E {
-		platform := common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
-		codeHash := common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
+		platform := E2ETestPlatform
+		codeHash := E2ETestCodeHash
 		logger.Warnf("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Status %d, Codehash %s, Platform %s", teetype.OK, codeHash, platform)
 		return teetype.StatusInfo{
 			Status:   teetype.OK,
