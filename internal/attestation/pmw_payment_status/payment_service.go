@@ -66,7 +66,7 @@ func (s *PaymentService) Close() error {
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return fmt.Errorf("errors closing PaymentService: %v", errors.Join(errs...))
+		return fmt.Errorf("errors closing PaymentService: %w", errors.Join(errs...))
 	}
 	return nil
 }

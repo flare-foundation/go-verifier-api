@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	chainMaxAttemps     = 2
-	chainRetryDelay     = 500 * time.Millisecond
-	chainRequestTimeout = 4 * time.Second
+	chainMaxAttemps            = 2
+	chainRetryDelay            = 500 * time.Millisecond
+	chainRequestTimeout        = 4 * time.Second
+	maxAccountInfoResponseSize = 256 * 1024 // 256 KB
 )
 
 type Client struct {
@@ -47,7 +48,7 @@ func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.Acc
 		req,
 		call.Params{
 			Timeout:         chainRequestTimeout,
-			MaxResponseSize: 256 * 1024, // 265 KB
+			MaxResponseSize: maxAccountInfoResponseSize,
 		},
 		nil,
 		retry.Params{
