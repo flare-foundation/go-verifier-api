@@ -29,7 +29,7 @@ func TestValidateClaims(t *testing.T) {
 				SupportAttributes: []string{"STABLE"},
 			},
 			Container: googlecloud.Container{
-				ImageDigest: "sha256:0f5455255ce543c2fa319153577e2ad75d7f8ea698df1cab1a8c782b391b6354",
+				ImageDigest: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
 			},
 		},
 	}

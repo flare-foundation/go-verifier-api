@@ -276,7 +276,6 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		fmt.Println("ERR", err)
 		require.NoError(t, err)
 		require.Equal(t, teetype.TeePollerSampleValid, sampleState)
 	})
