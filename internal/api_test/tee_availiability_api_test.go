@@ -31,7 +31,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	})
 	defer setup.Stop()
 
-	chainChallenge := common.HexToHash("0x12345678901234567890")
+	contractChallenge := common.HexToHash("0x12345678901234567890")
 	instructionId := common.HexToHash("0x234234234")
 	teeTimestamp := uint64(111)
 	privTEEKey, err := crypto.GenerateKey()
@@ -44,17 +44,8 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	handler.HandleFunc(fmt.Sprintf("/action/result/%s", instructionId.Hex()[2:]), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		teeInfo := teenodetypes.TeeInfoResponse{
-			TeeInfo: teenodetypes.TeeInfo{
-				Challenge:                chainChallenge,
-				InitialSigningPolicyID:   4819,
-				InitialSigningPolicyHash: common.HexToHash("0x78042a0613055ef7112c2385946ff2eef3d83bad9d67b5e2d825f0b30fa8aef3"),
-				LastSigningPolicyID:      4830,
-				LastSigningPolicyHash:    common.HexToHash("0x0102ae123095bc60c947ce0dd6f2e8ffcc757fa60e7e98f430f8fded9212cc6f"),
-				TeeTimestamp:             teeTimestamp,
-				PublicKey:                teenodetypes.PublicKey{X: common.Hash(privTEEKey.X.Bytes()), Y: common.Hash(privTEEKey.Y.Bytes())},
-			},
-		}
+
+		teeInfo := testhelper.GetTeeInfoResponse(contractChallenge, privTEEKey, teeTimestamp)
 		teeInfoBytes, err := json.Marshal(teeInfo)
 		require.NoError(t, err)
 		hash := crypto.Keccak256(teeInfoBytes)
@@ -81,7 +72,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		TeeId:         crypto.PubkeyToAddress(privTEEKey.PublicKey),
 		TeeProxyId:    crypto.PubkeyToAddress(privProxyKey.PublicKey),
 		Url:           server.URL,
-		Challenge:     chainChallenge,
+		Challenge:     contractChallenge,
 		InstructionId: instructionId,
 	}
 	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
@@ -178,7 +169,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, fmt.Sprintf("Verification failed: challenge does not match: expected 0x0000000000000000000000000000000000000000000000000000000000000011, got %s", chainChallenge))
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, fmt.Sprintf("Verification failed: challenge does not match: expected 0x0000000000000000000000000000000000000000000000000000000000000011, got %s", contractChallenge))
 	})
 	t.Run("verify: not enough TEE poller data", func(t *testing.T) {
 		modifiedReqBody := baseReqBody

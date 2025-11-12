@@ -26,19 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockEthClient struct {
-	BlockByHashFn   func(ctx context.Context, hash common.Hash) (*types.Block, error)
-	BlockByNumberFn func(ctx context.Context, number *big.Int) (*types.Block, error)
-}
-
-func (m *MockEthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	return m.BlockByHashFn(ctx, hash)
-}
-
-func (m *MockEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return m.BlockByNumberFn(ctx, number)
-}
-
 func TestCheckInfoChallengeIsValid(t *testing.T) {
 	// #nosec G115: only used in test, integer overflow not a concern
 	now := uint64(time.Now().Unix())
@@ -47,7 +34,7 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 10})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
-		mockClient := &MockEthClient{
+		mockClient := &testhelper.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return challengeBlock, nil
 			},
@@ -55,14 +42,14 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 				return latestBlock, nil
 			},
 		}
-		v := &TeeVerifier{ethClient: mockClient}
+		v := &TeeVerifier{EthClient: mockClient}
 
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.NoError(t, err)
 		require.Equal(t, teetype.TeePollerSampleValid, state)
 	})
 	t.Run("challenge block fetch fails", func(t *testing.T) {
-		mockClient := &MockEthClient{
+		mockClient := &testhelper.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return nil, errors.New("rpc error")
 			},
@@ -70,13 +57,13 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 				return types.NewBlockWithHeader(&types.Header{Time: now}), nil
 			},
 		}
-		v := &TeeVerifier{ethClient: mockClient}
+		v := &TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "fetch challenge block: unknown error")
 		require.NotEqual(t, teetype.TeePollerSampleValid, state)
 	})
 	t.Run("latest block fetch fails with ErrInvalidInput", func(t *testing.T) {
-		mockClient := &MockEthClient{
+		mockClient := &testhelper.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return types.NewBlockWithHeader(&types.Header{Time: now - 10}), nil
 			},
@@ -84,13 +71,13 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 				return nil, coreutil.ErrInvalidInput
 			},
 		}
-		v := &TeeVerifier{ethClient: mockClient}
+		v := &TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "fetch latest block: invalid input")
 		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
 	})
 	t.Run("latest block fetch fails with other error", func(t *testing.T) {
-		mockClient := &MockEthClient{
+		mockClient := &testhelper.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return types.NewBlockWithHeader(&types.Header{Time: now - 10}), nil
 			},
@@ -98,7 +85,7 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 				return nil, errors.New("rpc failure")
 			},
 		}
-		v := &TeeVerifier{ethClient: mockClient}
+		v := &TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "fetch latest block: unknown error")
 		require.NotEqual(t, teetype.TeePollerSampleValid, state)
@@ -106,7 +93,7 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 	t.Run("challenge too old", func(t *testing.T) {
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - (blockFreshnessInSeconds + 10)})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
-		mockClient := &MockEthClient{
+		mockClient := &testhelper.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return challengeBlock, nil
 			},
@@ -114,24 +101,11 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 				return latestBlock, nil
 			},
 		}
-		v := &TeeVerifier{ethClient: mockClient}
+		v := &TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "challenge too old")
 		require.Equal(t, teetype.TeePollerSampleInvalid, state)
 	})
-}
-
-type MockRelayCaller struct {
-	mock.Mock
-}
-
-func (m *MockRelayCaller) ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error) {
-	args := m.Called(opts, id)
-	val, ok := args.Get(0).([32]byte)
-	if !ok {
-		return [32]byte{}, fmt.Errorf("expected [32]byte, got %T", args.Get(0))
-	}
-	return val, args.Error(1)
 }
 
 func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
@@ -454,4 +428,17 @@ func TestDataVerification(t *testing.T) {
 		_, err = v.DataVerification(teeInfo, common.Address{})
 		require.ErrorContains(t, err, "cannot validate certificate signature: parsing and verifying: token is unverifiable: error while executing keyfunc: extracting certificates from x5c headers: cannot parse certificate at index 0: cannot decode certificate illegal base64 data at input byte 7")
 	})
+}
+
+type MockRelayCaller struct {
+	mock.Mock
+}
+
+func (m *MockRelayCaller) ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error) {
+	args := m.Called(opts, id)
+	val, ok := args.Get(0).([32]byte)
+	if !ok {
+		return [32]byte{}, fmt.Errorf("expected [32]byte, got %T", args.Get(0))
+	}
+	return val, args.Error(1)
 }

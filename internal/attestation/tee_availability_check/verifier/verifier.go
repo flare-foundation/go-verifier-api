@@ -48,7 +48,7 @@ var (
 
 type TeeVerifier struct {
 	cfg                      *config.TeeAvailabilityCheckConfig
-	ethClient                EthClient
+	EthClient                EthClient
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
 	TeeSamples               map[common.Address][]teetype.TeePollerSample
@@ -85,7 +85,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	if err != nil {
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
-	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller}, nil
+	return &TeeVerifier{cfg: cfg, EthClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller}, nil
 }
 
 func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
@@ -275,11 +275,11 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(
 }
 
 func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (teetype.TeePollerSampleState, error) {
-	challengeBlock, err := v.ethClient.BlockByHash(ctx, blockHash)
+	challengeBlock, err := v.EthClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return coreutil.MapFetchErrorToState("fetch challenge block", err)
 	}
-	latestBlock, err := v.ethClient.BlockByNumber(ctx, nil)
+	latestBlock, err := v.EthClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		if errors.Is(err, coreutil.ErrInvalidInput) {
 			return teetype.TeePollerSampleIndeterminate, fmt.Errorf("fetch latest block: %w", err)
@@ -309,7 +309,7 @@ func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {
 }
 
 func (v *TeeVerifier) Close() error {
-	if closer, ok := v.ethClient.(io.Closer); ok {
+	if closer, ok := v.EthClient.(io.Closer); ok {
 		return closer.Close()
 	}
 	return nil
