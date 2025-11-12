@@ -79,10 +79,12 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	}
 	teeMachineRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
+		client.Close()
 		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress, err)
 	}
 	relayCaller, err := relay.NewRelayCaller(common.HexToAddress(cfg.RelayContractAddress), client)
 	if err != nil {
+		client.Close()
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
 	return &TeeVerifier{cfg: cfg, EthClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller}, nil
@@ -331,7 +333,6 @@ func fetchTEEChallengeResult(
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
-	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
 	actionResp, err := fetchFn(ctx, url, fetchInfoTimeout)
 	if err != nil {
 		return zero, zeroAdd, err
