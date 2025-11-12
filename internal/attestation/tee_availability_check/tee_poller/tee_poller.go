@@ -52,9 +52,11 @@ func StartTeePoller(parentCtx context.Context, teeVerifier *verifier.TeeVerifier
 				logger.Errorf("TEE poller panic recovered: %v", r)
 			}
 		}()
+		logger.Info("TEE poller started")
+		// Run once immediately, before ticker starts.
+		sampleAllTees(ctx, teeVerifier, getAllActiveTeesWithRetry, queryTeeInfoAndValidate)
 		ticker := time.NewTicker(verifier.SampleInterval)
 		defer ticker.Stop()
-		logger.Info("TEE poller started")
 		for {
 			select {
 			case <-ticker.C:
@@ -161,7 +163,7 @@ type teeList struct {
 	URLs   []string
 }
 
-func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
+func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerifier, teeChunk int64) (teeList, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
@@ -170,7 +172,7 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 	var allTeeIDs []common.Address
 	var allURLs []string
 	start := big.NewInt(0)
-	chunk := big.NewInt(teeMachineChunk)
+	chunk := big.NewInt(teeChunk)
 	for {
 		tees, err := teeVerifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
 		if err != nil {
@@ -195,7 +197,7 @@ func getAllActiveTeeMachines(ctx context.Context, teeVerifier *verifier.TeeVerif
 
 func getAllActiveTeesWithRetry(ctx context.Context, teeVerifier *verifier.TeeVerifier) (teeList, error) {
 	return utils.Retry(chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
-		return getAllActiveTeeMachines(ctx, teeVerifier)
+		return getAllActiveTeeMachines(ctx, teeVerifier, teeMachineChunk)
 	}, nil)
 }
 
