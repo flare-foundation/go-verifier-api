@@ -64,7 +64,11 @@ func TeeAvailabilityCheckHandler(
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, warnHuma500("Verification failed", err)
+				if errors.Is(err, teeverifier.ErrIndeterminate) {
+					return nil, warnHuma503("Verification cannot be determinate", err)
+				} else {
+					return nil, warnHuma500("Verification failed", err)
+				}
 			}
 			encodedResponse, err := EncodeResponse(responseData, config)
 			if err != nil {
