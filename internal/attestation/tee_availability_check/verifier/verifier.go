@@ -166,12 +166,9 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
-	token, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.cfg.GoogleRootCertificate)
+	_, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.cfg.GoogleRootCertificate)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
-	}
-	if !token.Valid {
-		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
 	// Validate teeID
 	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
