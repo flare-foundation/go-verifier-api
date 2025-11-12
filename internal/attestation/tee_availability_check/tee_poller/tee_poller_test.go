@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
-	teetypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
@@ -279,14 +278,14 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
 		fmt.Println("ERR", err)
 		require.NoError(t, err)
-		require.Equal(t, teetypes.TeePollerSampleValid, sampleState)
+		require.Equal(t, teetype.TeePollerSampleValid, sampleState)
 	})
 	t.Run("invalid challenge", func(t *testing.T) {
 		server := makeTeeInfoServer(t, failedChallengeHash, privTEEKey, teeTimestamp, false, false)
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetypes.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
 		require.ErrorContains(t, err, "challenge too old: 300 seconds old")
 	})
 	t.Run("signing policy fail", func(t *testing.T) {
@@ -294,7 +293,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetypes.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
 		require.ErrorContains(t, err, fmt.Sprintf("signing policy check failed for TEE %s: failed to validate initial signing policy hash", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 	t.Run("teeInfo fail", func(t *testing.T) {
@@ -302,7 +301,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetypes.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
 		require.ErrorContains(t, err, fmt.Sprintf("cannot fetch TEE info from %s: resource not found (404)", server.URL))
 	})
 	t.Run("data verification fail", func(t *testing.T) {
@@ -331,7 +330,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), verInt, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetypes.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
 		require.ErrorContains(t, err, fmt.Sprintf("data verification failed for TEE %s: cannot validate certificate signature: parsing and verifying: token is malformed: token contains an invalid number of segments", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 }

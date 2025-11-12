@@ -126,7 +126,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := testhelper.Post[types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]](t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := testhelper.Post[types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, response.ResponseBody)
 		require.NotEmpty(t, response.ResponseData)
@@ -185,7 +185,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := testhelper.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := testhelper.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 
 		result := testhelper.DecodeResponseBody[connector.ITeeAvailabilityCheckResponseBody](t, connector.AvailabilityCheck, response.ResponseBody)

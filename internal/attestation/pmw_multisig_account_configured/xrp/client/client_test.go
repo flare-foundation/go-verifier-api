@@ -34,7 +34,8 @@ func TestGetAccountInfo(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, http.MethodPost, r.Method)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(expected)
+				err := json.NewEncoder(w).Encode(expected)
+				require.NoError(t, err)
 			},
 			wantAccount: "rEXAMPLE",
 		},
@@ -49,7 +50,8 @@ func TestGetAccountInfo(t *testing.T) {
 			name: "bad JSON",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"result": { "status": "success", "account_data": `)) // invalid JSON
+				_, err := w.Write([]byte(`{"result": { "status": "success", "account_data": `)) // invalid JSON
+				require.NoError(t, err)
 			},
 			wantErr: "cannot get account info: max retries reached: decoding response:",
 		},
@@ -59,7 +61,8 @@ func TestGetAccountInfo(t *testing.T) {
 				resp := types.AccountInfoResponse{
 					Result: types.AccountInfoResult{Status: "error"},
 				}
-				json.NewEncoder(w).Encode(resp)
+				err := json.NewEncoder(w).Encode(resp)
+				require.NoError(t, err)
 			},
 			wantErr: "XRP RPC returned non-success status",
 		},
