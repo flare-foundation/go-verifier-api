@@ -70,7 +70,6 @@ func startServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 
 func shutdownServer(srv *http.Server, closers []io.Closer) {
 	logger.Info("Shutting down gracefully...")
-
 	for _, c := range closers {
 		if err := c.Close(); err != nil {
 			logger.Errorf("Error closing service: %v", err)
@@ -86,7 +85,6 @@ func shutdownServer(srv *http.Server, closers []io.Closer) {
 
 func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
 	t.Helper()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	srv, closers := startServer(ctx, envConfig)
 

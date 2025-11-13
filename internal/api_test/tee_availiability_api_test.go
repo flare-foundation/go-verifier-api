@@ -118,6 +118,16 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
 	})
+	t.Run("prepareResponseBody: proxy ID does not match", func(t *testing.T) {
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.TeeProxyId = common.HexToAddress("0x11")
+		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, fmt.Sprintf("Verification failed: proxy signer does not match: expected 0x0000000000000000000000000000000000000011, got %s", baseReqBody.TeeProxyId))
+	})
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
 		reqBody := testhelper.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)

@@ -35,7 +35,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCheckInfoChallengeIsValid(t *testing.T) {
+func TestCheckInfoChallenge(t *testing.T) {
 	// #nosec G115: only used in test, integer overflow not a concern
 	now := uint64(time.Now().Unix())
 	challengeHash := common.HexToHash("0x123")

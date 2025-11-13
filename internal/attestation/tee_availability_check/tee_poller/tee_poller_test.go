@@ -46,7 +46,7 @@ func TestSampleAllTees(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return mockActiveTees([]string{"0x1"}, []string{"url"}), nil
+			return mockActiveTees(t, []string{"0x1"}, []string{"url"}), nil
 		}
 		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleValid, nil
@@ -60,7 +60,7 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("fallback to cache", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		updateActiveTees(mockActiveTees([]string{"0x2"}, []string{"url"}))
+		updateActiveTees(mockActiveTees(t, []string{"0x2"}, []string{"url"}))
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{}, errors.New("boom")
 		}
@@ -75,7 +75,7 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("try to fallback to cache (empty cache)", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		updateActiveTees(mockActiveTees([]string{}, []string{}))
+		updateActiveTees(mockActiveTees(t, []string{}, []string{}))
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
 			return teeList{}, errors.New("boom")
 		}
@@ -91,7 +91,7 @@ func TestSampleAllTees(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return mockActiveTees([]string{"0x1"}, []string{"url"}), nil
+			return mockActiveTees(t, []string{"0x1"}, []string{"url"}), nil
 		}
 		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleValid, nil
@@ -108,7 +108,7 @@ func TestSampleAllTees(t *testing.T) {
 		ver, _, cancel := setup()
 		defer cancel()
 		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return mockActiveTees([]string{"0x1"}, []string{"url"}), nil
+			return mockActiveTees(t, []string{"0x1"}, []string{"url"}), nil
 		}
 		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
 			return teetype.TeePollerSampleInvalid, errors.New("query failed")
@@ -120,7 +120,7 @@ func TestSampleAllTees(t *testing.T) {
 		require.Equal(t, teetype.TeePollerSampleInvalid, ver.TeeSamples[common.HexToAddress("0x1")][0].State)
 	})
 	t.Run("remove inactive TEEs", func(t *testing.T) {
-		active := mockActiveTees([]string{"0x1", "0x2"}, []string{"url", "url2"})
+		active := mockActiveTees(t, []string{"0x1", "0x2"}, []string{"url", "url2"})
 		ver := &verifier.TeeVerifier{
 			TeeSamples: make(map[common.Address][]teetype.TeePollerSample),
 		}
@@ -152,7 +152,7 @@ func TestSampleAllTees(t *testing.T) {
 }
 
 func TestCachedActiveTees(t *testing.T) {
-	expected := mockActiveTees([]string{"0xcafe"}, []string{"http://cached"})
+	expected := mockActiveTees(t, []string{"0xcafe"}, []string{"http://cached"})
 	updateActiveTees(expected)
 
 	got := getCachedActiveTees()
@@ -176,7 +176,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 				if s > e {
 					s = e
 				}
-				return mockAllActiveTeeMAchines(ids[s:e], urls[s:e]), nil
+				return mockAllActiveTeeMAchines(t, ids[s:e], urls[s:e]), nil
 			},
 		}
 		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
@@ -209,7 +209,7 @@ func TestGetAllActiveTeesWithRetry(t *testing.T) {
 			if callCount == 1 {
 				return teeMachinesResult{}, errors.New("boom")
 			}
-			return mockAllActiveTeeMAchines([]string{"0x123"}, []string{"http://tee-123"}), nil
+			return mockAllActiveTeeMAchines(t, []string{"0x123"}, []string{"http://tee-123"}), nil
 		},
 	}
 	ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
@@ -344,7 +344,8 @@ func (m *mockTeeMachineRegistryCaller) GetAllActiveTeeMachines(
 ) (teeMachinesResult, error) {
 	return m.getAllActiveFunc(opts, start, end)
 }
-func mockAllActiveTeeMAchines(ids []string, urls []string) teeMachinesResult {
+func mockAllActiveTeeMAchines(t *testing.T, ids []string, urls []string) teeMachinesResult {
+	t.Helper()
 	addresses := make([]common.Address, len(ids))
 	for i, id := range ids {
 		addresses[i] = common.HexToAddress(id)
@@ -356,7 +357,8 @@ func mockAllActiveTeeMAchines(ids []string, urls []string) teeMachinesResult {
 	}
 }
 
-func mockActiveTees(ids []string, urls []string) teeList {
+func mockActiveTees(t *testing.T, ids []string, urls []string) teeList {
+	t.Helper()
 	addresses := make([]common.Address, len(ids))
 	for i, id := range ids {
 		addresses[i] = common.HexToAddress(id)
