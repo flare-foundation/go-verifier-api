@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -116,7 +117,7 @@ func TestCheckInfoChallengeIsValid(t *testing.T) {
 	})
 }
 
-func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
+func TestGetSigningPolicyHashFromChain(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &TeeVerifier{
@@ -143,7 +144,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChain(t *testing.T) {
 	})
 }
 
-func TestTeeVerifier_getSigningPolicyHashFromChainWithRetry(t *testing.T) {
+func TestGetSigningPolicyHashFromChainWithRetry(t *testing.T) {
 	expectedHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 	var hashBytes [32]byte
 	copy(hashBytes[:], expectedHash.Bytes())
@@ -193,7 +194,7 @@ func TestTeeVerifier_getSigningPolicyHashFromChainWithRetry(t *testing.T) {
 	})
 }
 
-func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
+func TestCheckSigningPolicies(t *testing.T) {
 	expectedInitialHash := common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111")
 	expectedLastHash := common.HexToHash("0x2222222222222222222222222222222222222222222222222222222222222222")
 	var initialBytes, lastBytes [32]byte
@@ -262,7 +263,7 @@ func TestTeeVerifier_CheckSigningPolicies(t *testing.T) {
 	})
 }
 
-func TestTeeVerifier_isTEEInfoDown(t *testing.T) {
+func TestIsTEEInfoDown(t *testing.T) {
 	teeID := common.HexToAddress("0x1")
 	now := time.Now()
 	t.Run("insufficient samples", func(t *testing.T) {
@@ -310,7 +311,7 @@ func TestTeeVerifier_isTEEInfoDown(t *testing.T) {
 	})
 }
 
-func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
+func TestFetchTEEChallengeResult(t *testing.T) {
 	ctx := context.Background()
 	baseURL := "http://base"
 	challengeID := common.HexToHash("0x123")
@@ -408,18 +409,8 @@ func TestTeeVerifier_fetchTEEChallengeResult(t *testing.T) {
 }
 
 func TestDataVerification(t *testing.T) {
-	rootCert, rootKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true, nil, nil)
-	intermediateCert, intermediateKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true, rootCert, rootKey)
-	leafCert, leafKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false, intermediateCert, intermediateKey)
-	x5c := []string{
-		base64.StdEncoding.EncodeToString(leafCert.Raw),
-		base64.StdEncoding.EncodeToString(intermediateCert.Raw),
-		base64.StdEncoding.EncodeToString(rootCert.Raw),
-	}
-	privTEEKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
+	rootCert, leafKey, x5c := generateTestCertificateChain(t)
 	challengeHash := common.HexToHash("123")
-	teeTimestamp := uint64(11)
 	t.Run("DisableAttestationCheckE2E", func(t *testing.T) {
 		v := &TeeVerifier{cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}
 		res, err := v.DataVerification(teenodetypes.TeeInfoResponse{}, common.Address{})
@@ -428,7 +419,7 @@ func TestDataVerification(t *testing.T) {
 		require.Equal(t, E2ETestPlatform, res.Platform)
 	})
 	t.Run("success", func(t *testing.T) {
-		teeInfoResponse := testhelper.GetTeeInfoResponse(challengeHash, privTEEKey, teeTimestamp)
+		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
 		teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
 		require.NoError(t, err)
 		baseClaims := &googlecloud.GoogleTeeClaims{
@@ -463,8 +454,7 @@ func TestDataVerification(t *testing.T) {
 		require.Equal(t, E2ETestPlatform, resp.Platform)
 	})
 	t.Run("invalid claims", func(t *testing.T) {
-		teeInfoResponse := testhelper.GetTeeInfoResponse(challengeHash, privTEEKey, teeTimestamp)
-		require.NoError(t, err)
+		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",
@@ -485,8 +475,7 @@ func TestDataVerification(t *testing.T) {
 		require.ErrorContains(t, err, "cannot validate claims: expected exactly one EATNonce, got 0")
 	})
 	t.Run("expected tee different", func(t *testing.T) {
-		teeInfoResponse := testhelper.GetTeeInfoResponse(challengeHash, privTEEKey, teeTimestamp)
-		require.NoError(t, err)
+		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",
@@ -507,9 +496,8 @@ func TestDataVerification(t *testing.T) {
 		require.ErrorContains(t, err, fmt.Sprintf("expected TEE ID %s, got: %s", common.HexToAddress("0x123"), crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 	t.Run("cannot retrieve address from public key", func(t *testing.T) {
-		teeInfoResponse := testhelper.GetTeeInfoResponse(challengeHash, privTEEKey, teeTimestamp)
+		teeInfoResponse, _ := testhelper.GetTeeInfoResponse(t, challengeHash)
 		teeInfoResponse.TeeInfo.PublicKey.X = common.HexToHash("0x1")
-		require.NoError(t, err)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",
@@ -532,19 +520,19 @@ func TestDataVerification(t *testing.T) {
 }
 
 func TestVerify(t *testing.T) {
+	rootCert, leafKey, x5c := generateTestCertificateChain(t)
 	verIface, err := NewVerifier(&config.TeeAvailabilityCheckConfig{
 		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
 		RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 		AllowTeeDebug:                     false,
 		DisableAttestationCheckE2E:        false,
+		GoogleRootCertificate:             rootCert,
 	})
 	require.NoError(t, err)
 	ver, ok := verIface.(*TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	teeID := common.HexToAddress("0x123")
 	ver.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
-	instructionID := common.HexToHash("0x123456789")
 	t.Run("fetchTeeChallengeResult error", func(t *testing.T) {
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
@@ -554,9 +542,7 @@ func TestVerify(t *testing.T) {
 		defer server.Close()
 
 		req := connector.ITeeAvailabilityCheckRequestBody{
-			InstructionId: instructionID,
-			Url:           server.URL,
-			TeeId:         teeID,
+			Url: server.URL,
 		}
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot fetch TEE data for TeeID")
@@ -571,15 +557,14 @@ func TestVerify(t *testing.T) {
 		defer server.Close()
 
 		req := connector.ITeeAvailabilityCheckRequestBody{
-			InstructionId: instructionID,
-			TeeId:         teeID,
-			Url:           server.URL,
+			Url: server.URL,
 		}
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "insufficient samples to determine TEE")
 		require.Empty(t, resp)
 	})
 	t.Run("indeterminate status", func(t *testing.T) {
+		teeID := common.HexToAddress("0x123")
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -588,9 +573,8 @@ func TestVerify(t *testing.T) {
 		defer server.Close()
 
 		req := connector.ITeeAvailabilityCheckRequestBody{
-			InstructionId: instructionID,
-			TeeId:         teeID,
-			Url:           server.URL,
+			TeeId: teeID,
+			Url:   server.URL,
 		}
 		ver.TeeSamples[teeID] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleValid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
@@ -600,6 +584,7 @@ func TestVerify(t *testing.T) {
 		ver.TeeSamples[teeID] = []teetype.TeePollerSample{}
 	})
 	t.Run("tee is down", func(t *testing.T) {
+		teeID := common.HexToAddress("0x123")
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -608,9 +593,8 @@ func TestVerify(t *testing.T) {
 		defer server.Close()
 
 		req := connector.ITeeAvailabilityCheckRequestBody{
-			InstructionId: instructionID,
-			TeeId:         teeID,
-			Url:           server.URL,
+			TeeId: teeID,
+			Url:   server.URL,
 		}
 		ver.TeeSamples[teeID] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
@@ -618,6 +602,114 @@ func TestVerify(t *testing.T) {
 		require.Equal(t, uint8(teetype.DOWN), resp.Status)
 		// reset samples
 		ver.TeeSamples[teeID] = []teetype.TeePollerSample{}
+	})
+	t.Run("signing policy check fails", func(t *testing.T) {
+		challengeHash := common.HexToHash("123")
+		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse.TeeInfo.InitialSigningPolicyID = 3000 // invalid signing policy ID
+		teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
+		require.NoError(t, err)
+		baseClaims := &googlecloud.GoogleTeeClaims{
+			HWModel:     "TEST_PLATFORM",
+			SWName:      "CONFIDENTIAL_SPACE",
+			EATNonce:    []string{hex.EncodeToString(teeInfoHash)},
+			DebugStatus: "disabled-since-boot",
+			SubMods: googlecloud.SubMods{
+				ConfidentialSpace: googlecloud.ConfidentialSpaceInfo{
+					SupportAttributes: []string{"STABLE"},
+				},
+				Container: googlecloud.Container{
+					ImageDigest: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
+				},
+			},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, baseClaims)
+		token.Header["x5c"] = x5c
+		signedToken, err := token.SignedString(leafKey)
+		require.NoError(t, err)
+		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		data, err := json.Marshal(teeInfoResponse)
+		require.NoError(t, err)
+
+		privProxyKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		hash := crypto.Keccak256(data)
+		ethHash := accounts.TextHash(hash)
+		signature, err := crypto.Sign(ethHash, privProxyKey)
+		require.NoError(t, err)
+
+		handler := http.NewServeMux()
+		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := teenodetypes.ActionResponse{
+				Result: teenodetypes.ActionResult{
+					Data: data,
+				},
+				ProxySignature: signature,
+			}
+			err := json.NewEncoder(w).Encode(resp)
+			require.NoError(t, err)
+		})
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		req := connector.ITeeAvailabilityCheckRequestBody{
+			TeeId:      crypto.PubkeyToAddress(privTEEKey.PublicKey),
+			Url:        server.URL,
+			TeeProxyId: crypto.PubkeyToAddress(privProxyKey.PublicKey),
+			Challenge:  challengeHash,
+		}
+		resp, err := ver.Verify(context.Background(), req)
+		require.ErrorContains(t, err, "failed to validate initial signing policy hash")
+		require.Empty(t, resp)
+
+	})
+	t.Run("data verification fails", func(t *testing.T) {
+		challengeHash := common.HexToHash("123")
+		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
+		baseClaims := &googlecloud.GoogleTeeClaims{
+			HWModel: "GCP_INTEL_TDX",
+			SWName:  "CONFIDENTIAL_SPACE",
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, baseClaims)
+		token.Header["x5c"] = x5c
+		signedToken, err := token.SignedString(leafKey)
+		require.NoError(t, err)
+		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		data, err := json.Marshal(teeInfoResponse)
+		require.NoError(t, err)
+
+		privProxyKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		hash := crypto.Keccak256(data)
+		ethHash := accounts.TextHash(hash)
+		signature, err := crypto.Sign(ethHash, privProxyKey)
+		require.NoError(t, err)
+
+		handler := http.NewServeMux()
+		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := teenodetypes.ActionResponse{
+				Result: teenodetypes.ActionResult{
+					Data: data,
+				},
+				ProxySignature: signature,
+			}
+			err := json.NewEncoder(w).Encode(resp)
+			require.NoError(t, err)
+		})
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		req := connector.ITeeAvailabilityCheckRequestBody{
+			TeeId:      crypto.PubkeyToAddress(privTEEKey.PublicKey),
+			Url:        server.URL,
+			TeeProxyId: crypto.PubkeyToAddress(privProxyKey.PublicKey),
+			Challenge:  challengeHash,
+		}
+		resp, err := ver.Verify(context.Background(), req)
+		require.ErrorContains(t, err, "cannot validate claims: expected exactly one EATNonce, got 0")
+		require.Empty(t, resp)
 	})
 }
 
@@ -673,4 +765,16 @@ func generateTestCertificate(
 	cert, err := x509.ParseCertificate(certDER)
 	require.NoError(t, err)
 	return cert, priv
+}
+
+func generateTestCertificateChain(t *testing.T) (*x509.Certificate, *rsa.PrivateKey, []string) {
+	rootCert, rootKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true, nil, nil)
+	intermediateCert, intermediateKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true, rootCert, rootKey)
+	leafCert, leafKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false, intermediateCert, intermediateKey)
+	x5c := []string{
+		base64.StdEncoding.EncodeToString(leafCert.Raw),
+		base64.StdEncoding.EncodeToString(intermediateCert.Raw),
+		base64.StdEncoding.EncodeToString(rootCert.Raw),
+	}
+	return rootCert, leafKey, x5c
 }

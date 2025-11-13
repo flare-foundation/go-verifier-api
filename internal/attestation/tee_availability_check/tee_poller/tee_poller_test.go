@@ -267,12 +267,8 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		},
 	}
 	ver.EthClient = mockClient
-	// info response
-	teeTimestamp := uint64(111)
-	privTEEKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
 	t.Run("success", func(t *testing.T) {
-		server := makeTeeInfoServer(t, challengeHash, privTEEKey, teeTimestamp, false, false)
+		server, privTEEKey := makeTeeInfoServer(t, challengeHash, false, false)
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -280,7 +276,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		require.Equal(t, teetype.TeePollerSampleValid, sampleState)
 	})
 	t.Run("invalid challenge", func(t *testing.T) {
-		server := makeTeeInfoServer(t, failedChallengeHash, privTEEKey, teeTimestamp, false, false)
+		server, privTEEKey := makeTeeInfoServer(t, failedChallengeHash, false, false)
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -288,7 +284,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		require.ErrorContains(t, err, "challenge too old: 300 seconds old")
 	})
 	t.Run("signing policy fail", func(t *testing.T) {
-		server := makeTeeInfoServer(t, challengeHash, privTEEKey, teeTimestamp, true, false)
+		server, privTEEKey := makeTeeInfoServer(t, challengeHash, true, false)
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -296,7 +292,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		require.ErrorContains(t, err, fmt.Sprintf("signing policy check failed for TEE %s: failed to validate initial signing policy hash", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 	t.Run("teeInfo fail", func(t *testing.T) {
-		server := makeTeeInfoServer(t, challengeHash, privTEEKey, teeTimestamp, true, true)
+		server, privTEEKey := makeTeeInfoServer(t, challengeHash, true, true)
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -325,7 +321,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 			},
 		}
 		verInt.EthClient = mockClient
-		server := makeTeeInfoServer(t, challengeHash, privTEEKey, teeTimestamp, false, false)
+		server, privTEEKey := makeTeeInfoServer(t, challengeHash, false, false)
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), verInt, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -371,9 +367,10 @@ func mockActiveTees(ids []string, urls []string) teeList {
 	}
 }
 
-func makeTeeInfoServer(t *testing.T, challenge common.Hash, privKey *ecdsa.PrivateKey, timestamp uint64, failSigningPolicy bool, notFound bool) *httptest.Server {
+func makeTeeInfoServer(t *testing.T, challenge common.Hash, failSigningPolicy bool, notFound bool) (*httptest.Server, *ecdsa.PrivateKey) {
 	t.Helper()
 	handler := http.NewServeMux()
+	resp, privKey := testhelper.GetTeeInfoResponse(t, challenge)
 	if notFound {
 		handler.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -381,7 +378,6 @@ func makeTeeInfoServer(t *testing.T, challenge common.Hash, privKey *ecdsa.Priva
 	} else {
 		handler.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			resp := testhelper.GetTeeInfoResponse(challenge, privKey, timestamp)
 			if failSigningPolicy {
 				resp.TeeInfo.InitialSigningPolicyID = 4800
 			}
@@ -389,5 +385,5 @@ func makeTeeInfoServer(t *testing.T, challenge common.Hash, privKey *ecdsa.Priva
 		})
 	}
 	server := httptest.NewServer(handler)
-	return server
+	return server, privKey
 }

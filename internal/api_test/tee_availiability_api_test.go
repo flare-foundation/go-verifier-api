@@ -33,19 +33,15 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 
 	contractChallenge := common.HexToHash("0x12345678901234567890")
 	instructionId := common.HexToHash("0x234234234")
-	teeTimestamp := uint64(111)
-	privTEEKey, err := crypto.GenerateKey()
-	require.NoError(t, err)
 	privProxyKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
-
+	teeInfo, privTEEKey := testhelper.GetTeeInfoResponse(t, contractChallenge)
 	// Set up a temporary HTTP server
 	handler := http.NewServeMux()
 	handler.HandleFunc(fmt.Sprintf("/action/result/%s", instructionId.Hex()[2:]), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
-		teeInfo := testhelper.GetTeeInfoResponse(contractChallenge, privTEEKey, teeTimestamp)
 		teeInfoBytes, err := json.Marshal(teeInfo)
 		require.NoError(t, err)
 		hash := crypto.Keccak256(teeInfoBytes)
@@ -77,7 +73,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	}
 	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
-		reqData := testhelper.TeeAvailabilityCheckRequestBody(baseReqBody)
+		reqData := testhelper.TeeAvailabilityCheckRequestBody(t, baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequestEncoded](t, desiredURL, request, setup.APIKey)
@@ -92,7 +88,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
 	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
-		reqData := testhelper.TeeAvailabilityCheckRequestBody(baseReqBody)
+		reqData := testhelper.TeeAvailabilityCheckRequestBody(t, baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x12345"), reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
@@ -131,7 +127,6 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NotEmpty(t, response.ResponseBody)
 		require.NotEmpty(t, response.ResponseData)
 		require.Equal(t, uint8(teetypes.OK), response.ResponseData.Status)
-		require.Equal(t, teeTimestamp, response.ResponseData.TeeTimestamp)
 		require.Equal(t, verifier.E2ETestCodeHash[:], response.ResponseData.CodeHash[:])
 		require.Equal(t, verifier.E2ETestPlatform[:], response.ResponseData.Platform[:])
 	})
@@ -191,7 +186,6 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		result := testhelper.DecodeResponseBody[connector.ITeeAvailabilityCheckResponseBody](t, connector.AvailabilityCheck, response.ResponseBody)
 		require.NotEmpty(t, result)
 		require.Equal(t, uint8(teetypes.OK), result.Status)
-		require.Equal(t, teeTimestamp, result.TeeTimestamp)
 		require.Equal(t, verifier.E2ETestCodeHash[:], result.CodeHash[:])
 		require.Equal(t, verifier.E2ETestPlatform[:], result.Platform[:])
 	})

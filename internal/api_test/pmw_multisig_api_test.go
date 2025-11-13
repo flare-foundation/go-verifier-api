@@ -32,7 +32,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	}
 	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
-		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(baseReqBody)
+		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(t, baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequestEncoded](t, desiredURL, request, setup.APIKey)
@@ -49,7 +49,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	t.Run("prepareRequestBody: empty public key", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PublicKeys = [][]byte{{}}
-		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(modifiedReqBody)
+		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(t, modifiedReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
@@ -57,7 +57,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		testhelper.AssertHumaError(t, response, http.StatusBadRequest, "Prepare request failed: converting request body to data failed: public key at index 0 is empty")
 	})
 	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
-		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(baseReqBody)
+		reqData := testhelper.PMWMultisigAccountConfiguredRequestBody(t, baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
