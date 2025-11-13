@@ -108,6 +108,37 @@ Other headers (CORS, SSL redirect, STS, cross-origin policies) are not needed be
 
 Minimal headers keep internal communication safe without unnecessary overhead.
 
+## Running Tests
+1. Running all tests with coverage
+```bash
+sh gencover.sh
+```
+The script is located in [gencover.sh](./gencover.sh).
+- Docker services defined in [internal/test_helper/docker/docker-compose.yaml](./internal/test_helper/docker/docker-compose.yaml) will **automatically start**.
+- All tests (unit + integration) will run.
+- Docker services will **automatically shut down** after all tests complete.
+This is the simplest way to run everything without worrying about Docker manually.
+
+2. Running specific tests manually
+- Self-contained tests:
+    - Do **not require Docker** and can be run directly:
+        ```bash
+        go test -v <path_to_test>
+        ```
+- **Docker dependant tests** (e.g., tests that access the indexer databases).
+    - Start Docker manually:
+        ```bash
+        docker compose -f internal/test_helper/docker/docker-compose.yaml up -d
+        ```
+    - Run the test:
+        ```bash
+        go test -v <path_to_test>
+        ```
+    - Stop Docker after finishing:
+        ```bash
+        docker compose -f internal/test_helper/docker/docker-compose.yaml down
+        ```
+
 ## TODO list
 - [ ] Other `TODO`s inside the code and README.
 - [ ] How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
