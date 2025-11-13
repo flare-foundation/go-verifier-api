@@ -662,7 +662,6 @@ func TestVerify(t *testing.T) {
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "failed to validate initial signing policy hash")
 		require.Empty(t, resp)
-
 	})
 	t.Run("data verification fails", func(t *testing.T) {
 		challengeHash := common.HexToHash("123")
