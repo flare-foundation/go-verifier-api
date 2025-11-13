@@ -5,7 +5,7 @@ DOCKER_COMPOSE_FILE="internal/test_helper/docker/docker-compose.yaml"
 # Docker setup
 docker compose -f "$DOCKER_COMPOSE_FILE" up -d
 
-# Function to wait for service health
+# Function to wait for a service to become healthy
 wait_for_health() {
   local service=$1
   local retries=30
@@ -27,9 +27,9 @@ wait_for_health() {
 wait_for_health c-chain-db
 wait_for_health xrp-indexer-db
 
-# Run tests
+# Run Go tests
 go test -v -coverpkg=./... -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 
-# Docker shutdown
+# Shut down Docker services
 docker compose -f "$DOCKER_COMPOSE_FILE" down
