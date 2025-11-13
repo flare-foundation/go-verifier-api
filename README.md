@@ -120,12 +120,13 @@ The script is located in [gencover.sh](./gencover.sh).
 This is the simplest way to run everything without worrying about Docker manually.
 
 2. Running specific tests manually
-- Self-contained tests:
+- The majority of tests are **self-contained**:
     - Do **not require Docker** and can be run directly:
         ```bash
         go test -v <path_to_test>
         ```
-- **Docker dependant tests** (e.g., tests that access the indexer databases).
+- A few tests, related to **PMWPaymentStatus attestation type** are **Docker dependant tests** (e.g., tests that access the indexer databases).
+    > Note: These tests include a comment in the test file marking them as Docker-dependent.
     - Start Docker manually:
         ```bash
         docker compose -f internal/test_helper/docker/docker-compose.yaml up -d

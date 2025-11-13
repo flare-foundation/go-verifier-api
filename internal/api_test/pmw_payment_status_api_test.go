@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Docker-dependent test: Requires Docker services.
+// See README.md, section "Running specific tests manually" for details.
 func TestPMWPaymentStatus(t *testing.T) {
 	setup := api.SetupServer(t, connector.PMWPaymentStatus, config.SourceTestXRP, config.EnvConfig{
 		SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",

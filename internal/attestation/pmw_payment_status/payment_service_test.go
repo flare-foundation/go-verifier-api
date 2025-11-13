@@ -17,6 +17,8 @@ var envConfig = config.EnvConfig{
 	SourceID:          "testXRP",
 }
 
+// Docker-dependent test: Requires Docker services.
+// See README.md, section "Running specific tests manually" for details.
 func TestNewPaymentService(t *testing.T) {
 	t.Run("should successfully create PaymentService", func(t *testing.T) {
 		service, err := NewPaymentService(envConfig)
