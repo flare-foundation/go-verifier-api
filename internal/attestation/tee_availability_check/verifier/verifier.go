@@ -42,11 +42,13 @@ const (
 
 var (
 	ErrIndeterminate = errors.New("indeterminate verifier status")
+	E2ETestPlatform  = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
+	E2ETestCodeHash  = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 )
 
 type TeeVerifier struct {
 	cfg                      *config.TeeAvailabilityCheckConfig
-	ethClient                EthClient
+	EthClient                EthClient
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
 	TeeSamples               map[common.Address][]teetype.TeePollerSample
@@ -77,13 +79,15 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.Veri
 	}
 	teeMachineRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
 	if err != nil {
+		client.Close()
 		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress, err)
 	}
 	relayCaller, err := relay.NewRelayCaller(common.HexToAddress(cfg.RelayContractAddress), client)
 	if err != nil {
+		client.Close()
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
-	return &TeeVerifier{cfg: cfg, ethClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller}, nil
+	return &TeeVerifier{cfg: cfg, EthClient: client, TeeMachineRegistryCaller: teeMachineRegistryCaller, RelayCaller: relayCaller}, nil
 }
 
 func GetVerifier(cfg *config.TeeAvailabilityCheckConfig) (verifierinterface.VerifierInterface[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
@@ -150,8 +154,8 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
 	// }
 	if v.cfg.DisableAttestationCheckE2E {
-		platform := common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
-		codeHash := common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
+		platform := E2ETestPlatform
+		codeHash := E2ETestCodeHash
 		logger.Warnf("Attestation check disabled for E2E (using DISABLE_ATTESTATION_CHECK_E2E=true). Do not use in production. Status %d, Codehash %s, Platform %s", teetype.OK, codeHash, platform)
 		return teetype.StatusInfo{
 			Status:   teetype.OK,
@@ -162,12 +166,9 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
-	token, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.cfg.GoogleRootCertificate)
+	_, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.cfg.GoogleRootCertificate)
 	if err != nil {
 		return teetype.StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
-	}
-	if !token.Valid {
-		return teetype.StatusInfo{}, fmt.Errorf("attestation token is invalid: %v", token)
 	}
 	// Validate teeID
 	receivedTeeID, err := keyutil.RetrieveAddressFromPublicKey(infoData.PublicKey)
@@ -273,11 +274,11 @@ func (v *TeeVerifier) getSigningPolicyHashFromChainWithRetry(
 }
 
 func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (teetype.TeePollerSampleState, error) {
-	challengeBlock, err := v.ethClient.BlockByHash(ctx, blockHash)
+	challengeBlock, err := v.EthClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return coreutil.MapFetchErrorToState("fetch challenge block", err)
 	}
-	latestBlock, err := v.ethClient.BlockByNumber(ctx, nil)
+	latestBlock, err := v.EthClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		if errors.Is(err, coreutil.ErrInvalidInput) {
 			return teetype.TeePollerSampleIndeterminate, fmt.Errorf("fetch latest block: %w", err)
@@ -307,7 +308,7 @@ func (v *TeeVerifier) isTEEInfoDown(teeID common.Address) (bool, error) {
 }
 
 func (v *TeeVerifier) Close() error {
-	if closer, ok := v.ethClient.(io.Closer); ok {
+	if closer, ok := v.EthClient.(io.Closer); ok {
 		return closer.Close()
 	}
 	return nil
@@ -329,7 +330,6 @@ func fetchTEEChallengeResult(
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
-	// ActionResponse = https://gitlab.com/flarenetwork/tee/tee-node/-/blob/brezTilna/internal/processor/direct/getcoreutil/tee.go?ref_type=heads#L12
 	actionResp, err := fetchFn(ctx, url, fetchInfoTimeout)
 	if err != nil {
 		return zero, zeroAdd, err

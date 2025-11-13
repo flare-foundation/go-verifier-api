@@ -58,7 +58,7 @@ func BuildPaymentStatusResponse(
 func getTransactionStatus(result string) (types.TransactionStatus, error) {
 	const transactionResultPrefixLength = 3
 	if len(result) < transactionResultPrefixLength {
-		return 0, fmt.Errorf("transaction result too short: %q", result) // Should never happen.
+		return 0, fmt.Errorf("transaction result too short: %q", result)
 	}
 	prefix := result[:transactionResultPrefixLength]
 	if prefix == "tes" {

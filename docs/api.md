@@ -1,6 +1,6 @@
 # API Reference
 
-This API exposes a POST endpoints to verify different attestation types.
+This API exposes a **POST endpoints** to verify different attestation types.
 
 <b>Base path for all verifier endpoints</b>:
 ```
@@ -10,7 +10,7 @@ This API exposes a POST endpoints to verify different attestation types.
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 ## 1. Main endpoint `POST /verifier/<sourceName>/<attestationType>/verify`
-Verify the encoded request body and returns ABI-encoded response.
+Verifies the encoded request body and returns ABI-encoded response.
 ### Request:
 ```json
 {
@@ -30,16 +30,15 @@ Verify the encoded request body and returns ABI-encoded response.
 | HTTP Status Code           | Description          |
 |----------------------------|----------------------|
 | 200 OK                     | The request succeeded.
-| 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, or conversion, encoding, or decoding errors). |
-| 503 Service Unavailable    | Indeterminate status - the request can be retried. This occurs when there is no result for the provided challenge and the poller has only VALID entries for that TEE.
-| 500 Internal Server Error  | Any other errors, with description provided in the `detail` field.
+| 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, or conversion, encoding, or decoding errors).
+| 503 Service Unavailable    | Indeterminate status - the request can be retried. This occurs only in TEEAvailabilityCheck attestation type, when there is no result for the provided challenge and the poller has only VALID or INDETERMINATE entries for that TEE.
+| 500 Internal Server Error  | Any other errors, with a description provided in the `detail` field.
 
 
 
 ## 2. Helper endpoint `POST /verifier/<sourceName>/<attestationType>/prepareRequestBody`
-Returns ABI-encoded request data. This helper endpoint generates the ABI-encoded `requestBody`.
+Generates ABI-encoded `requestBody`. This endpoint only performs encoding.
 
-> **NOTE**: Currently, this endpoint only performs encoding.
 ### Example for `PMWMultisigAccountConfigured`:
 Request:
 ```json
@@ -65,7 +64,7 @@ Response:
 ```
 
 ## 3. Helper endpoint `POST /verifier/<sourceName>/<attestationType>/prepareResponseBody`
-Verify the encoded request body and returns both the decoded response data and its ABI-encoded form.
+Verifies the encoded request body and returns both the decoded response data and its ABI-encoded form.
 ### Example for `PMWMultisigAccountConfigured`:
 Request:
 ```json
@@ -89,7 +88,7 @@ Response:
 
 # Data Structures
 
-- Common request with shared metadata.
+- Common request structure.
 ```go
 type AttestationRequest struct {
   AttestationType [32]byte
@@ -101,7 +100,7 @@ type AttestationRequest struct {
 |--------------------|-----------------------|
 | AttestationType    | Hex-encoded 32-byte identifier of the attestation type
 | SourceID           | Hex-encoded 32-byte source identifier
-| RequestBody        | ABI encoded request data
+| RequestBody        | ABI-encoded request data
 
 - Attestations type `TeeAvailabilityCheck`:
 ```go

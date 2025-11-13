@@ -27,7 +27,8 @@ func CreateAttestationRequestData[T any](t *testing.T, attestationType common.Ha
 	}
 }
 
-func TeeAvailabilityCheckRequestBody(data connector.ITeeAvailabilityCheckRequestBody) attestationtypes.TeeAvailabilityCheckRequestBody {
+func TeeAvailabilityCheckRequestBody(t *testing.T, data connector.ITeeAvailabilityCheckRequestBody) attestationtypes.TeeAvailabilityCheckRequestBody {
+	t.Helper()
 	return attestationtypes.TeeAvailabilityCheckRequestBody{
 		TeeID:         data.TeeId,
 		TeeProxyID:    data.TeeProxyId,
@@ -37,15 +38,17 @@ func TeeAvailabilityCheckRequestBody(data connector.ITeeAvailabilityCheckRequest
 	}
 }
 
-func PMWMultisigAccountConfiguredRequestBody(data connector.IPMWMultisigAccountConfiguredRequestBody) attestationtypes.PMWMultisigAccountConfiguredRequestBody {
+func PMWMultisigAccountConfiguredRequestBody(t *testing.T, data connector.IPMWMultisigAccountConfiguredRequestBody) attestationtypes.PMWMultisigAccountConfiguredRequestBody {
+	t.Helper()
 	return attestationtypes.PMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: data.AccountAddress,
-		PublicKeys:     toHexutilBytesSlice(data.PublicKeys),
+		PublicKeys:     toHexutilBytesSlice(t, data.PublicKeys),
 		Threshold:      data.Threshold,
 	}
 }
 
-func PMWPaymentStatusRequestBody(data connector.IPMWPaymentStatusRequestBody) attestationtypes.PMWPaymentStatusRequestBody {
+func PMWPaymentStatusRequestBody(t *testing.T, data connector.IPMWPaymentStatusRequestBody) attestationtypes.PMWPaymentStatusRequestBody {
+	t.Helper()
 	return attestationtypes.PMWPaymentStatusRequestBody{
 		OpType:        data.OpType,
 		SenderAddress: data.SenderAddress,
@@ -54,7 +57,8 @@ func PMWPaymentStatusRequestBody(data connector.IPMWPaymentStatusRequestBody) at
 	}
 }
 
-func toHexutilBytesSlice(src [][]byte) []hexutil.Bytes {
+func toHexutilBytesSlice(t *testing.T, src [][]byte) []hexutil.Bytes {
+	t.Helper()
 	res := make([]hexutil.Bytes, len(src))
 	for i, b := range src {
 		res[i] = hexutil.Bytes(b)

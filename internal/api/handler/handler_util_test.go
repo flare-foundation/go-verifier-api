@@ -30,7 +30,7 @@ func TestPrepareRequestBody(t *testing.T) {
 		PublicKeys:     testPublicKeys,
 		Threshold:      testThreshold,
 	}
-	reqBody := testhelper.PMWMultisigAccountConfiguredRequestBody(attBody)
+	reqBody := testhelper.PMWMultisigAccountConfiguredRequestBody(t, attBody)
 
 	t.Run("valid encodedReq", func(t *testing.T) {
 		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
@@ -63,7 +63,7 @@ func TestResolve(t *testing.T) {
 		PublicKeys:     [][]byte{}, // empty slice triggers "min=1" validation
 		Threshold:      0,          // violates "gte=1"
 	}
-	reqBodyInvalid := testhelper.PMWMultisigAccountConfiguredRequestBody(attBodyInvalid)
+	reqBodyInvalid := testhelper.PMWMultisigAccountConfiguredRequestBody(t, attBodyInvalid)
 
 	req := attestationtypes.AttestationRequestData[attestationtypes.PMWMultisigAccountConfiguredRequestBody]{
 		AttestationType: encodedAndABI.AttestationTypePair.AttestationTypeEncoded,

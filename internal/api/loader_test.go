@@ -13,11 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockAdapter struct{}
-
-func (mockAdapter) Handle(op *huma.Operation, handler func(ctx huma.Context)) {}
-func (mockAdapter) ServeHTTP(http.ResponseWriter, *http.Request)              {}
-
 func TestUnsupportedAttestationType(t *testing.T) {
 	ctx := context.Background()
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
@@ -80,3 +75,8 @@ func TestPMWMultisigAccountConfiguredServiceError(t *testing.T) {
 	require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
 	require.Nil(t, closers)
 }
+
+type mockAdapter struct{}
+
+func (mockAdapter) Handle(op *huma.Operation, handler func(ctx huma.Context)) {}
+func (mockAdapter) ServeHTTP(http.ResponseWriter, *http.Request)              {}

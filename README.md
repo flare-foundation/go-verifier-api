@@ -5,10 +5,14 @@
 # Go Verifier API
 
 
-## How to run  Verifier API
-Check all enviroment variables in [.env.example](./.env.example)
+## Prerequisites to Run  Verifier API
+Each attestation type requires certain environment variables to be set. The following are common variables needed for all attestation types:
+ ```env
+PORT=<port_number>
+API_KEYS=<comma_separated_strings>
+```
 
-### `TeeAvailabilityCheck` attestation type
+### `TeeAvailabilityCheck` Attestation Type
 Environment variables:
  ```env
 VERIFIER_TYPE=TeeAvailabilityCheck
@@ -26,7 +30,7 @@ DISABLE_ATTESTATION_CHECK_E2E=false
 
 The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/tee_availability_check/config/assets_. Read more about it [here](./internal/attestation/tee_availability_check/config/assets/README.md).
 
-### `PMWMultisigAccountConfigured` attestation type
+### `PMWMultisigAccountConfigured` Attestation Type
 Environment variables:
 ```
 VERIFIER_TYPE=PMWMultisigAccountConfigured
@@ -34,8 +38,11 @@ SOURCE_ID=testXRP
 RPC_URL=https://<xrpl>
 ```
 
-### `PMWPaymentStatus` attestation type
-You will need to run https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads and https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer.
+### `PMWPaymentStatus` Attestation Type
+You will need to run following indexers:
+(TODO replace with publicly available links.)
+- [xrp-indexer](https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads)
+- [c-chain indexer](https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer) 
 
 Environment variables:
 ```env
@@ -45,12 +52,12 @@ CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 ```
 
-## How to setup verifier
-1. Fill in the `.env` file or use environment variables according to the attestation type.
+## How to Set Up and Run Verifier
+1. Fill in the `.env` file or set environment variables according to the attestation type.
 
 2. Install dependencies:
 
-    Ensure the [tee-node](https://gitlab.com/flarenetwork/tee/tee-node) package is cloned locally.
+    Ensure the [tee-node](https://gitlab.com/flarenetwork/tee/tee-node) package is cloned locally. (TODO remove, when tee-node is publicly available.)
 
     ```bash
     go mod tidy
@@ -77,23 +84,22 @@ SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
-## TEE poller
-The `TeeAvailabilityCheck` attestation type initiates a process called [`tee_poller`](internal/attestation/tee_availability_check/tee_poller/tee_poller.go). The purpose of the `tee_poller` is to continuously ping all available TEEs (retrieved from the `TeeMachineRegistry` smart contract), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables to provide a proof that a TEE machine is DOWN.
+## TEE Poller
+The `TeeAvailabilityCheck` attestation type initiates a process called [`tee_poller`](internal/attestation/tee_availability_check/tee_poller/tee_poller.go). The purpose of the `tee_poller` is to continuously ping all available TEEs (retrieved from the `TeeMachineRegistry` smart contract), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
 
 Samples retrieved by the poller can be VALID, INVALID or INDETERMINATE (the latter case occurs when the check fails due to verifier fault, e.g. being unable to connect to RPC).
 
 Samples are stored in memory. The number of samples is defined by the constant `SamplesToConsider`, which is closely related to the constant `SampleInterval`, determining the polling interval. See [verifier file](internal/attestation/tee_availability_check/verifier/verifier.go) for reference.
 
-## Attestation request submission
+## Attestation Request Submission
 The process of submitting an attestation requests is as follows:
 
-Attestation requests are triggered via TEE smart contracts. The TEE relay client, which acts as a connector between contracts on Flare's C-chain and TEE clients, listens to `TeeInstructionsSent` events with an `instructionId` that correspond to an attestation request (`FTDC_OP_TYPE` (`"F_FTDC"`) and `PROVE` (`"PROVE"`)). Each attestation request is than placed into a queue and gradually promoted to the designated verifier server. It is advised that each TEE relay client runs its own verifier server.
+Attestation requests are triggered via TEE smart contracts. The TEE relay client, which acts as a connector between contracts on Flare's C-chain and TEE clients, listens to `TeeInstructionsSent` events with an `instructionId` that correspond to an attestation request (`FTDC_OP_TYPE` (`"F_FTDC"`) and `PROVE` (`"PROVE"`)). Each attestation request is then placed into a queue and gradually promoted to the designated verifier server. It is advised that each TEE relay client runs its own verifier server.
 
-### Rate limit
+### Rate Limit
 The blockchain itself limits how many attestation requests can be emitted per block, while the queue system enforces a controlled consumption rate for verifier servers. It is also expected that the person deploying the verifier server implements additional rate limiting at other levels.
 
 ### Security Headers
-
 For internal-only APIs, we use a minimal set of headers:
 - FrameDeny – prevent clickjacking
 - ContentTypeNosniff – prevent MIME sniffing
@@ -102,6 +108,38 @@ Other headers (CORS, SSL redirect, STS, cross-origin policies) are not needed be
 
 Minimal headers keep internal communication safe without unnecessary overhead.
 
+## Running Tests
+1. Running all tests with coverage
+```bash
+sh gencover.sh
+```
+The script is located in [gencover.sh](./gencover.sh).
+- Docker services defined in [internal/test_helper/docker/docker-compose.yaml](./internal/test_helper/docker/docker-compose.yaml) will **automatically start**.
+- All tests (unit + integration) will run.
+- Docker services will **automatically shut down** after all tests complete.
+This is the simplest way to run everything without worrying about Docker manually.
+
+2. Running specific tests manually
+- The majority of tests are **self-contained**:
+    - Do **not require Docker** and can be run directly:
+        ```bash
+        go test -v <path_to_test>
+        ```
+- A few tests, related to **PMWPaymentStatus attestation type** are **Docker dependant tests** (e.g., tests that access the indexer databases).
+    > Note: These tests include a comment in the test file marking them as Docker-dependent.
+    - Start Docker manually:
+        ```bash
+        docker compose -f internal/test_helper/docker/docker-compose.yaml up -d
+        ```
+    - Run the test:
+        ```bash
+        go test -v <path_to_test>
+        ```
+    - Stop Docker after finishing:
+        ```bash
+        docker compose -f internal/test_helper/docker/docker-compose.yaml down
+        ```
+
 ## TODO list
-- [ ] Other `TODO`s inside the code.
+- [ ] Other `TODO`s inside the code and README.
 - [ ] How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.

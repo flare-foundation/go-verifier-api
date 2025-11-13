@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Docker-dependent test: Requires Docker services.
+// See README.md, section "Running specific tests manually" for details.
 func TestPMWPaymentStatus(t *testing.T) {
 	setup := api.SetupServer(t, connector.PMWPaymentStatus, config.SourceTestXRP, config.EnvConfig{
 		SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
@@ -39,7 +41,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	}
 	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
-		reqData := testhelper.PMWPaymentStatusRequestBody(baseReqBody)
+		reqData := testhelper.PMWPaymentStatusRequestBody(t, baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 
 		response, err := testhelper.Post[types.AttestationRequest](t, desiredURL, request, setup.APIKey)
@@ -54,7 +56,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
 	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
-		reqData := testhelper.PMWPaymentStatusRequestBody(baseReqBody)
+		reqData := testhelper.PMWPaymentStatusRequestBody(t, baseReqBody)
 		request := testhelper.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
@@ -237,5 +239,17 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot build payment status response: cannot parse transaction status: transaction result too short: \\\"te\\\"")
+	})
+	t.Run("verify: verification failed - cannot decode event data message", func(t *testing.T) { // Using fake entry log (24) in c-chain idx db.
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.Nonce = baseReqBody.Nonce + 5
+		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 5
+		reqBody := testhelper.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		request := testhelper.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := testhelper.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		testhelper.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode TeeInstructionsSent message arguments: abi: improperly encoded uint64 value")
 	})
 }

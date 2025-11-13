@@ -127,6 +127,7 @@ func TestLoadEnvConfig(t *testing.T) {
 }
 
 func loadEnvShouldFail(t *testing.T) {
+	t.Helper()
 	_, err := LoadEnvConfig()
 	require.ErrorContains(t, err, "must be set")
 }

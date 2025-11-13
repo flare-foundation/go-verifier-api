@@ -2,37 +2,105 @@ package client
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
 	"github.com/stretchr/testify/require"
 )
 
-const testAddress = "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL"
-
 func TestGetAccountInfo(t *testing.T) {
-	t.Run("invalid rpc url", func(t *testing.T) {
-		client := NewClient("https://invalid.invalid")
-		ctx := context.Background()
-		val, err := client.GetAccountInfo(ctx, testAddress)
-		require.ErrorContains(t, err, "cannot get account info")
-		require.ErrorContains(t, err, "HTTP request failed for")
-		require.ErrorContains(t, err, "no such host")
-		require.Nil(t, val)
-	})
-	t.Run("invalid address", func(t *testing.T) {
-		client := NewClient("https://s.altnet.rippletest.net:51234")
-		ctx := context.Background()
-		val, err := client.GetAccountInfo(ctx, "0x")
-		require.ErrorContains(t, err, "XRP RPC returned non-success status")
-		require.Nil(t, val)
-	})
-	t.Run("valid address", func(t *testing.T) {
-		client := NewClient("https://s.altnet.rippletest.net:51234")
-		ctx := context.Background()
-		resp, err := client.GetAccountInfo(ctx, testAddress)
-		require.NoError(t, err)
-		require.Equal(t, testAddress, resp.Result.AccountData.Account)
-		require.NotZero(t, resp.Result.AccountData.Sequence)
-		require.GreaterOrEqual(t, len(resp.Result.AccountData.SignerLists), 1)
-	})
+	expected := types.AccountInfoResponse{
+		Result: types.AccountInfoResult{
+			Status: "success",
+			AccountData: types.AccountData{
+				Account: "rEXAMPLE",
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		handler     http.HandlerFunc
+		wantErr     string
+		wantAccount string
+		ctx         func() context.Context
+	}{
+		{
+			name: "success",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, http.MethodPost, r.Method)
+				w.Header().Set("Content-Type", "application/json")
+				err := json.NewEncoder(w).Encode(expected)
+				require.NoError(t, err)
+			},
+			wantAccount: "rEXAMPLE",
+		},
+		{
+			name: "error response",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			},
+			wantErr: "cannot get account info: max retries reached: request responded with code 500, reason: Internal Server Error",
+		},
+		{
+			name: "bad JSON",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, err := w.Write([]byte(`{"result": { "status": "success", "account_data": `)) // invalid JSON
+				require.NoError(t, err)
+			},
+			wantErr: "cannot get account info: max retries reached: decoding response:",
+		},
+		{
+			name: "non-success status",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				resp := types.AccountInfoResponse{
+					Result: types.AccountInfoResult{Status: "error"},
+				}
+				err := json.NewEncoder(w).Encode(resp)
+				require.NoError(t, err)
+			},
+			wantErr: "XRP RPC returned non-success status",
+		},
+		{
+			name: "context timeout",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				time.Sleep(100 * time.Millisecond)
+			},
+			wantErr: "context deadline exceeded",
+			ctx: func() context.Context {
+				c, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+				defer cancel()
+				return c
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(tt.handler)
+			defer server.Close()
+
+			client := NewClient(server.URL)
+			ctx := context.Background()
+			if tt.ctx != nil {
+				ctx = tt.ctx()
+			}
+
+			resp, err := client.GetAccountInfo(ctx, "rEXAMPLE")
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				require.Nil(t, resp)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantAccount, resp.Result.AccountData.Account)
+		})
+	}
 }
