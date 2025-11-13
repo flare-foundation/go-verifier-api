@@ -14,7 +14,7 @@ import (
 func GenerateInstructionID(opType, sourceID [32]byte, senderAddress string, nonce uint64) (common.Hash, error) {
 	PAY, err := convert.StringToCommonHash(string(op.Pay))
 	if err != nil {
-		return common.Hash{}, fmt.Errorf("cannot convert PAY to Bytes32: %w", err) // Should never happen.
+		return common.Hash{}, fmt.Errorf("cannot convert PAY to Bytes32: %w", err)
 	}
 	args := abi.Arguments{
 		{Type: coreutil.Bytes32Type}, // opType
