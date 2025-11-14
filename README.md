@@ -140,6 +140,9 @@ This is the simplest way to run everything without worrying about Docker manuall
         docker compose -f internal/test_helper/docker/docker-compose.yaml down
         ```
 
-## TODO list
-- [ ] Other `TODO`s inside the code and README.
-- [ ] How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
+## TODO (to-think-about) list
+- Other `TODO`s inside the code and README.
+- How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
+
+### Monitoring
+- When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures.

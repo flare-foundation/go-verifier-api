@@ -2,6 +2,15 @@
 
 DOCKER_COMPOSE_FILE="internal/test_helper/docker/docker-compose.yaml"
 
+GOBIN=${GOBIN:-$(go env GOPATH)/bin}
+
+# Install go-test-coverage if not already installed
+if ! command -v "${GOBIN}/go-test-coverage" >/dev/null 2>&1; then
+  echo "Installing go-test-coverage..."
+  go install github.com/vladopajic/go-test-coverage/v2@latest
+fi
+
+
 # Docker setup
 docker compose -f "$DOCKER_COMPOSE_FILE" up -d
 
@@ -29,7 +38,10 @@ wait_for_health xrp-indexer-db
 
 # Run Go tests
 go test -v -coverpkg=./... -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
+# go tool cover -html=coverage.out # This opens coverage for each file in the browser.
+
+# Run go-test-coverage
+"${GOBIN}/go-test-coverage" --config=./.testcoverage.yml
 
 # Shut down Docker services
-docker compose -f "$DOCKER_COMPOSE_FILE" down
+docker compose -f "$DOCKER_COMPOSE_FILE" down --remove-orphans
