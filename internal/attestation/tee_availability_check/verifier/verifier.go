@@ -15,7 +15,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/google_cloud"
+	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
