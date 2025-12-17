@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/google_cloud"
+	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 
 	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
