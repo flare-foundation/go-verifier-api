@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	chainMaxAttemps            = 2
+	chainMaxAttempts           = 2
 	chainRetryDelay            = 500 * time.Millisecond
 	chainRequestTimeout        = 4 * time.Second
 	maxAccountInfoResponseSize = 256 * 1024 // 256 KB
@@ -52,7 +52,7 @@ func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.Acc
 		},
 		nil,
 		retry.Params{
-			MaxAttempts: chainMaxAttemps,
+			MaxAttempts: chainMaxAttempts,
 			Delay:       chainRetryDelay,
 		},
 	)
