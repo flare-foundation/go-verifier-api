@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
+	"github.com/flare-foundation/go-verifier-api/internal/api/types"
+	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -30,27 +30,27 @@ func TestPrepareRequestBody(t *testing.T) {
 		PublicKeys:     testPublicKeys,
 		Threshold:      testThreshold,
 	}
-	reqBody := testhelper.PMWMultisigAccountConfiguredRequestBody(t, attBody)
+	reqBody := helpers.PMWMultisigAccountConfiguredRequestBody(t, attBody)
 
 	t.Run("valid encodedReq", func(t *testing.T) {
-		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
-		val, err := PrepareRequestBody(req, encodedAndABI)
+		req := helpers.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
+		val, err := prepareRequestBody(req, encodedAndABI)
 		require.NoError(t, err)
 		require.NotNil(t, val)
 	})
 	t.Run("invalid encodedReq - validation fails", func(t *testing.T) {
 		reqBodyMod := reqBody
 		reqBodyMod.PublicKeys = append(reqBodyMod.PublicKeys, hexutil.Bytes{})
-		invalidReq := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBodyMod)
-		val, err := PrepareRequestBody(invalidReq, encodedAndABI)
+		invalidReq := helpers.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBodyMod)
+		val, err := prepareRequestBody(invalidReq, encodedAndABI)
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "converting request body to data failed: public key at index 1 is empty")
 	})
 	t.Run("invalid ABI encode", func(t *testing.T) {
-		req := testhelper.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
+		req := helpers.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
-		val, err := PrepareRequestBody(req, encodedAndABI)
+		val, err := prepareRequestBody(req, encodedAndABI)
 		require.ErrorContains(t, err, "encoding request data failed: encoding type connector.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
 		require.Nil(t, val)
 	})
@@ -63,9 +63,9 @@ func TestResolve(t *testing.T) {
 		PublicKeys:     [][]byte{}, // empty slice triggers "min=1" validation
 		Threshold:      0,          // violates "gte=1"
 	}
-	reqBodyInvalid := testhelper.PMWMultisigAccountConfiguredRequestBody(t, attBodyInvalid)
+	reqBodyInvalid := helpers.PMWMultisigAccountConfiguredRequestBody(t, attBodyInvalid)
 
-	req := attestationtypes.AttestationRequestData[attestationtypes.PMWMultisigAccountConfiguredRequestBody]{
+	req := types.AttestationRequestData[types.PMWMultisigAccountConfiguredRequestBody]{
 		AttestationType: encodedAndABI.AttestationTypePair.AttestationTypeEncoded,
 		SourceID:        encodedAndABI.SourceIDPair.SourceIDEncoded,
 		RequestData:     reqBodyInvalid,
@@ -93,21 +93,21 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 		ABIPair:             config.ABIArgPair{},
 	}
 	// Matching values
-	err := ValidateSystemAndRequestAttestationNameAndSourceID(
+	err := validateSystemAndRequestAttestationNameAndSourceID(
 		cfg,
 		attestationTypePair.AttestationTypeEncoded.Hex(),
 		sourceIDPair.SourceIDEncoded.Hex(),
 	)
 	require.NoError(t, err)
 	// Mismatched attestation type
-	err = ValidateSystemAndRequestAttestationNameAndSourceID(
+	err = validateSystemAndRequestAttestationNameAndSourceID(
 		cfg,
 		"0xdeadbeef",
 		sourceIDPair.SourceIDEncoded.Hex(),
 	)
 	require.ErrorContains(t, err, "attestation type and source id combination not supported")
 	// Mismatched source id
-	err = ValidateSystemAndRequestAttestationNameAndSourceID(
+	err = validateSystemAndRequestAttestationNameAndSourceID(
 		cfg,
 		attestationTypePair.AttestationTypeEncoded.Hex(),
 		"0xdeadbeef",
@@ -123,20 +123,20 @@ func TestDecodeRequest(t *testing.T) {
 		Threshold:      testThreshold,
 	}
 	t.Run("valid", func(t *testing.T) {
-		encoded := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
-		decoded, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](encoded, encodedAndABI)
+		encoded := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		decoded, err := decodeRequest[types.PMWMultisigAccountConfiguredRequestBody](encoded, encodedAndABI)
 		require.NoError(t, err)
 		require.Equal(t, testAccountAddress, decoded.AccountAddress)
 		require.Equal(t, testPublicKeys[0], []byte(decoded.PublicKeys[0]))
 		require.Equal(t, testThreshold, decoded.Threshold)
 	})
 	t.Run("invalid", func(t *testing.T) {
-		encoded := testhelper.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		encoded := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		invalidBody := append([]byte(nil), encoded...)
 		invalidBody = append(invalidBody, 'a', 'a')
-		val, err := DecodeRequest[attestationtypes.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndABI)
+		val, err := decodeRequest[types.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndABI)
 		require.ErrorContains(t, err, "initial data not equal to decoded and encoded data")
-		require.Equal(t, attestationtypes.PMWMultisigAccountConfiguredRequestBody{}, val)
+		require.Equal(t, types.PMWMultisigAccountConfiguredRequestBody{}, val)
 	})
 }
 
@@ -144,10 +144,10 @@ func TestEncodeResponse(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
 	t.Run("valid", func(t *testing.T) {
 		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
-			Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
+			Status:   uint8(types.PMWMultisigAccountStatusOK),
 			Sequence: 10136106,
 		}
-		encoded, err := EncodeResponse(resp, encodedAndABI)
+		encoded, err := encodeResponse(resp, encodedAndABI)
 		require.NoError(t, err)
 		decoded, err := structs.Decode[connector.IPMWMultisigAccountConfiguredResponseBody](encodedAndABI.ABIPair.Response, encoded)
 		require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestEncodeResponse(t *testing.T) {
 			t int
 		}
 		resp := Temp{t: 1}
-		val, err := EncodeResponse(resp, encodedAndABI)
+		val, err := encodeResponse(resp, encodedAndABI)
 		require.ErrorContains(t, err, "encoding response data failed: encoding type handler.Temp: field status for tuple not found in the given struct")
 		require.Nil(t, val)
 	})
@@ -172,7 +172,7 @@ func TestEncodeRequest(t *testing.T) {
 			PublicKeys:     testPublicKeys,
 			Threshold:      testThreshold,
 		}
-		encoded, err := EncodeRequest(req, encodedAndABI)
+		encoded, err := encodeRequest(req, encodedAndABI)
 		require.NoError(t, err)
 		decoded, err := structs.Decode[connector.IPMWMultisigAccountConfiguredRequestBody](encodedAndABI.ABIPair.Request, encoded)
 		require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestEncodeRequest(t *testing.T) {
 			t int
 		}
 		req := Temp{t: 1}
-		val, err := EncodeRequest(req, encodedAndABI)
+		val, err := encodeRequest(req, encodedAndABI)
 		require.ErrorContains(t, err, "encoding request data failed: encoding type handler.Temp: field accountAddress for tuple not found in the given struct")
 		require.Nil(t, val)
 	})

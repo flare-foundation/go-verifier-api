@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"testing"
 
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/types"
+	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +33,7 @@ func TestGetReceivedAmount(t *testing.T) {
 	t.Run("amount received 1", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000000)
 		expectedReceiver := "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
-		val, err := GetReceivedAmount(&testhelper.PaymentTransaction0.MetaData)
+		val, err := GetReceivedAmount(&helpers.PaymentTransaction0.MetaData)
 		require.NoError(t, err)
 		require.NotNil(t, val)
 		require.Equal(t, expectedAmount, val[0].Amount)
@@ -42,7 +42,7 @@ func TestGetReceivedAmount(t *testing.T) {
 	t.Run("amount received 2", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000)
 		expectedReceiver := "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G"
-		val, err := GetReceivedAmount(&testhelper.TransactionMeta1)
+		val, err := GetReceivedAmount(&helpers.TransactionMeta1)
 		require.NoError(t, err)
 		require.NotNil(t, val)
 		require.Equal(t, expectedAmount, val[0].Amount)
@@ -54,12 +54,12 @@ func TestGetReceivedAmount(t *testing.T) {
 		require.Nil(t, val)
 	})
 	t.Run("expect error 2", func(t *testing.T) {
-		val, err := GetReceivedAmount(&testhelper.TransactionMeta0_error0)
+		val, err := GetReceivedAmount(&helpers.TransactionMeta0_error0)
 		require.ErrorContains(t, err, "invalid final balance format")
 		require.Nil(t, val)
 	})
 	t.Run("expect error 3", func(t *testing.T) {
-		val, err := GetReceivedAmount(&testhelper.PaymentTransaction0_error0.MetaData)
+		val, err := GetReceivedAmount(&helpers.PaymentTransaction0_error0.MetaData)
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode")
 		require.Nil(t, val)
 	})
@@ -233,17 +233,17 @@ func TestFindReceivedAmountForAddress(t *testing.T) {
 		require.ErrorContains(t, err, "transaction meta is not available, thus received amounts cannot be calculated")
 	})
 	t.Run("no amount", func(t *testing.T) {
-		val, err := FindReceivedAmountForAddress(&testhelper.TransactionMeta1, receiver)
+		val, err := FindReceivedAmountForAddress(&helpers.TransactionMeta1, receiver)
 		require.Equal(t, big.NewInt(0), val)
 		require.NoError(t, err)
 	})
 	t.Run("no amount 2", func(t *testing.T) {
-		val, err := FindReceivedAmountForAddress(&testhelper.AccountRootTx.MetaData, receiver)
+		val, err := FindReceivedAmountForAddress(&helpers.AccountRootTx.MetaData, receiver)
 		require.Equal(t, big.NewInt(0), val)
 		require.NoError(t, err)
 	})
 	t.Run("some amount", func(t *testing.T) {
-		val, err := FindReceivedAmountForAddress(&testhelper.PaymentTransaction0.MetaData, receiver)
+		val, err := FindReceivedAmountForAddress(&helpers.PaymentTransaction0.MetaData, receiver)
 		require.NotNil(t, val)
 		require.NoError(t, err)
 	})

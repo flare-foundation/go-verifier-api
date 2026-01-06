@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
-	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 )
 
 func RegisterHealthHandler(api huma.API) {

@@ -7,16 +7,24 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/builder"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/repo"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
+	"gorm.io/gorm"
 )
 
 type XRPVerifier struct {
-	Repo   *repo.XRPRepository
+	Repo   *db.DBRepo
 	Config *config.PMWPaymentStatusConfig
+}
+
+func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB) *XRPVerifier {
+	return &XRPVerifier{
+		Repo:   db.NewDBRepo(xrpDB, cChainDB),
+		Config: cfg,
+	}
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
@@ -40,7 +48,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
-	dbTransaction, err := x.Repo.GetTransactionBySourceAndSequence(ctx, repo.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
+	dbTransaction, err := x.Repo.GetTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}

@@ -1,4 +1,4 @@
-package verifier
+package verifier_test
 
 import (
 	"context"
@@ -23,12 +23,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
-	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
+	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/mock"
@@ -43,7 +43,7 @@ func TestCheckInfoChallenge(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 10})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
-		mockClient := &testhelper.MockEthClient{
+		mockClient := &helpers.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return challengeBlock, nil
 			},
@@ -51,14 +51,14 @@ func TestCheckInfoChallenge(t *testing.T) {
 				return latestBlock, nil
 			},
 		}
-		v := &TeeVerifier{EthClient: mockClient}
+		v := &verifier.TeeVerifier{EthClient: mockClient}
 
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.NoError(t, err)
-		require.Equal(t, teetype.TeePollerSampleValid, state)
+		require.Equal(t, verifiertypes.TeeSampleValid, state)
 	})
 	t.Run("challenge block fetch fails", func(t *testing.T) {
-		mockClient := &testhelper.MockEthClient{
+		mockClient := &helpers.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return nil, errors.New("rpc error")
 			},
@@ -66,27 +66,27 @@ func TestCheckInfoChallenge(t *testing.T) {
 				return types.NewBlockWithHeader(&types.Header{Time: now}), nil
 			},
 		}
-		v := &TeeVerifier{EthClient: mockClient}
+		v := &verifier.TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "fetch challenge block: unknown error")
-		require.NotEqual(t, teetype.TeePollerSampleValid, state)
+		require.NotEqual(t, verifiertypes.TeeSampleValid, state)
 	})
 	t.Run("latest block fetch fails with ErrInvalidInput", func(t *testing.T) {
-		mockClient := &testhelper.MockEthClient{
+		mockClient := &helpers.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return types.NewBlockWithHeader(&types.Header{Time: now - 10}), nil
 			},
 			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return nil, coreutil.ErrInvalidInput
+				return nil, verifiertypes.ErrInvalidInput
 			},
 		}
-		v := &TeeVerifier{EthClient: mockClient}
+		v := &verifier.TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "fetch latest block: invalid input")
-		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 	})
 	t.Run("latest block fetch fails with other error", func(t *testing.T) {
-		mockClient := &testhelper.MockEthClient{
+		mockClient := &helpers.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return types.NewBlockWithHeader(&types.Header{Time: now - 10}), nil
 			},
@@ -94,15 +94,15 @@ func TestCheckInfoChallenge(t *testing.T) {
 				return nil, errors.New("rpc failure")
 			},
 		}
-		v := &TeeVerifier{EthClient: mockClient}
+		v := &verifier.TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "fetch latest block: unknown error")
-		require.NotEqual(t, teetype.TeePollerSampleValid, state)
+		require.NotEqual(t, verifiertypes.TeeSampleValid, state)
 	})
 	t.Run("challenge too old", func(t *testing.T) {
-		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - (blockFreshnessInSeconds + 10)})
+		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - (verifier.BlockFreshnessInSeconds + 10)})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
-		mockClient := &testhelper.MockEthClient{
+		mockClient := &helpers.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return challengeBlock, nil
 			},
@@ -110,35 +110,35 @@ func TestCheckInfoChallenge(t *testing.T) {
 				return latestBlock, nil
 			},
 		}
-		v := &TeeVerifier{EthClient: mockClient}
+		v := &verifier.TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
 		require.ErrorContains(t, err, "challenge too old")
-		require.Equal(t, teetype.TeePollerSampleInvalid, state)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 	})
 }
 
 func TestGetSigningPolicyHashFromChain(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{
+		v := &verifier.TeeVerifier{
 			RelayCaller: mockRelay,
 		}
 		expectedHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 		var hashBytes [32]byte
 		copy(hashBytes[:], expectedHash.Bytes())
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(42)).Return(hashBytes, nil)
-		hash, _, err := v.getSigningPolicyHashFromChain(context.Background(), 42)
+		hash, _, err := v.GetSigningPolicyHashFromChain(context.Background(), 42)
 		require.NoError(t, err)
 		require.Equal(t, expectedHash, hash)
 		mockRelay.AssertExpectations(t)
 	})
 	t.Run("failure", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{
+		v := &verifier.TeeVerifier{
 			RelayCaller: mockRelay,
 		}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
-		_, _, err := v.getSigningPolicyHashFromChain(context.Background(), 99)
+		_, _, err := v.GetSigningPolicyHashFromChain(context.Background(), 99)
 		require.ErrorContains(t, err, "ToSigningPolicyHash: unknown error")
 		mockRelay.AssertExpectations(t)
 	})
@@ -153,17 +153,17 @@ func TestGetSigningPolicyHashFromChainWithRetry(t *testing.T) {
 
 	t.Run("success on first attempt", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(42)).Return(hashBytes, nil)
-		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 42, maxAttempts, delay)
+		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(context.Background(), 42, maxAttempts, delay)
 		require.NoError(t, err)
-		require.Equal(t, teetype.TeePollerSampleValid, state)
+		require.Equal(t, verifiertypes.TeeSampleValid, state)
 		require.Equal(t, expectedHash, hash)
 		mockRelay.AssertExpectations(t)
 	})
 	t.Run("succeeds after retry", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		callCount := 0
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(43)).
 			Return([32]byte{}, nil).
@@ -175,20 +175,20 @@ func TestGetSigningPolicyHashFromChainWithRetry(t *testing.T) {
 					mockRelay.ExpectedCalls[0].ReturnArguments = mock.Arguments{hashBytes, nil}
 				}
 			})
-		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 43, maxAttempts, delay)
+		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(context.Background(), 43, maxAttempts, delay)
 		require.NoError(t, err)
-		require.Equal(t, teetype.TeePollerSampleValid, state)
+		require.Equal(t, verifiertypes.TeeSampleValid, state)
 		require.Equal(t, expectedHash, hash)
 		require.GreaterOrEqual(t, callCount, 2, "should retry at least once")
 		mockRelay.AssertExpectations(t)
 	})
 	t.Run("fails after all retries", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
-		hash, state, err := v.getSigningPolicyHashFromChainWithRetry(context.Background(), 99, maxAttempts, delay)
+		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(context.Background(), 99, maxAttempts, delay)
 		require.ErrorContains(t, err, "getSigningPolicyHashFromChainWithRetry failed after 2 attempts: ToSigningPolicyHash: unknown error")
-		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 		require.Equal(t, common.Hash{}, hash)
 		mockRelay.AssertExpectations(t)
 	})
@@ -209,56 +209,56 @@ func TestCheckSigningPolicies(t *testing.T) {
 	}
 	t.Run("success", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
 		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
 		require.NoError(t, err)
-		require.Equal(t, teetype.TeePollerSampleValid, state)
+		require.Equal(t, verifiertypes.TeeSampleValid, state)
 		mockRelay.AssertExpectations(t)
 	})
 	t.Run("initial hash mismatch", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		modTEEInfo := baseTEEInfo
 		modTEEInfo.InitialSigningPolicyHash = common.HexToHash("0xdeadbeef")
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
 		state, err := v.CheckSigningPolicies(context.Background(), modTEEInfo)
 		require.ErrorContains(t, err, "failed to validate initial signing policy hash")
-		require.Equal(t, teetype.TeePollerSampleInvalid, state)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 		mockRelay.AssertExpectations(t)
 	})
 	t.Run("last hash mismatch", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		modTEEInfo := baseTEEInfo
 		modTEEInfo.LastSigningPolicyHash = common.HexToHash("0xdeadbeef")
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
 		state, err := v.CheckSigningPolicies(context.Background(), modTEEInfo)
 		require.ErrorContains(t, err, "failed to validate last signing policy hash")
-		require.Equal(t, teetype.TeePollerSampleInvalid, state)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 		mockRelay.AssertExpectations(t)
 	})
 	t.Run("fail to retrieve initial hash", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return([32]byte{}, errors.New("rpc error"))
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return(lastBytes, nil)
 		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
 		require.ErrorContains(t, err, "cannot retrieve initial signing policy hash for ID 1")
-		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 		mockRelay.AssertExpectations(t)
 	})
 	t.Run("fail to retrieve last hash", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
-		v := &TeeVerifier{RelayCaller: mockRelay}
+		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(1)).Return(initialBytes, nil)
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(2)).Return([32]byte{}, errors.New("rpc error"))
 		state, err := v.CheckSigningPolicies(context.Background(), baseTEEInfo)
 		require.ErrorContains(t, err, "cannot retrieve last signing policy hash for ID 2")
-		require.Equal(t, teetype.TeePollerSampleIndeterminate, state)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 		mockRelay.AssertExpectations(t)
 	})
 }
@@ -267,45 +267,45 @@ func TestIsTEEInfoDown(t *testing.T) {
 	teeID := common.HexToAddress("0x1")
 	now := time.Now()
 	t.Run("insufficient samples", func(t *testing.T) {
-		v := &TeeVerifier{
-			TeeSamples: map[common.Address][]teetype.TeePollerSample{
-				teeID: {{Timestamp: now, State: teetype.TeePollerSampleValid}},
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeID: {{Timestamp: now, State: verifiertypes.TeeSampleValid}},
 			},
 		}
-		down, err := v.isTEEInfoDown(teeID)
+		down, err := v.IsTEEInfoDown(teeID)
 		require.ErrorContains(t, err, "insufficient samples to determine TEE")
 		require.False(t, down)
 	})
 	t.Run("at least one valid sample", func(t *testing.T) {
-		v := &TeeVerifier{
-			TeeSamples: map[common.Address][]teetype.TeePollerSample{
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
 				teeID: {
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
-					{Timestamp: now, State: teetype.TeePollerSampleValid},
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
-					{Timestamp: now, State: teetype.TeePollerSampleIndeterminate},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleValid},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleIndeterminate},
 				},
 			},
 		}
-		down, err := v.isTEEInfoDown(teeID)
+		down, err := v.IsTEEInfoDown(teeID)
 		require.NoError(t, err)
 		require.False(t, down)
 	})
 	t.Run("all samples invalid", func(t *testing.T) {
-		v := &TeeVerifier{
-			TeeSamples: map[common.Address][]teetype.TeePollerSample{
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
 				teeID: {
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
-					{Timestamp: now, State: teetype.TeePollerSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
 				},
 			},
 		}
 
-		down, err := v.isTEEInfoDown(teeID)
+		down, err := v.IsTEEInfoDown(teeID)
 		require.NoError(t, err)
 		require.True(t, down)
 	})
@@ -335,7 +335,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 				ProxySignature: signature,
 			}, nil
 		}
-		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.NotEqual(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, address, signer)
 		require.NoError(t, err)
@@ -344,7 +344,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
 			return teenodetypes.ActionResponse{}, errors.New("bad request")
 		}
-		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "bad request")
@@ -358,7 +358,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 			}
 			return response, nil
 		}
-		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is empty")
@@ -372,7 +372,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 			}
 			return response, nil
 		}
-		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, `TEE challenge result data is not valid JSON`)
@@ -386,7 +386,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 				},
 			}, nil
 		}
-		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "unmarshal TEE result")
@@ -401,7 +401,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 				ProxySignature: []byte("invalid-signature"),
 			}, nil
 		}
-		teeInfo, signer, err := fetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, mockFetchFn)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "recover signer")
@@ -412,14 +412,14 @@ func TestDataVerification(t *testing.T) {
 	rootCert, leafKey, x5c := generateTestCertificateChain(t)
 	challengeHash := common.HexToHash("123")
 	t.Run("DisableAttestationCheckE2E", func(t *testing.T) {
-		v := &TeeVerifier{cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}
+		v := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}
 		res, err := v.DataVerification(teenodetypes.TeeInfoResponse{}, common.Address{})
 		require.NoError(t, err)
-		require.Equal(t, E2ETestCodeHash, res.CodeHash)
-		require.Equal(t, E2ETestPlatform, res.Platform)
+		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
+		require.Equal(t, verifier.E2ETestPlatform, res.Platform)
 	})
 	t.Run("success", func(t *testing.T) {
-		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
 		teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
 		require.NoError(t, err)
 		baseClaims := &googlecloud.GoogleTeeClaims{
@@ -442,19 +442,19 @@ func TestDataVerification(t *testing.T) {
 		require.NoError(t, err)
 		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
 
-		v := &TeeVerifier{
-			cfg: &config.TeeAvailabilityCheckConfig{
+		v := &verifier.TeeVerifier{
+			Cfg: &config.TeeAvailabilityCheckConfig{
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
 		resp, err := v.DataVerification(teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
 		require.NoError(t, err)
-		require.Equal(t, teetype.OK, resp.Status)
-		require.Equal(t, E2ETestCodeHash, resp.CodeHash)
-		require.Equal(t, E2ETestPlatform, resp.Platform)
+		require.Equal(t, verifier.OK, resp.Status)
+		require.Equal(t, verifier.E2ETestCodeHash, resp.CodeHash)
+		require.Equal(t, verifier.E2ETestPlatform, resp.Platform)
 	})
 	t.Run("invalid claims", func(t *testing.T) {
-		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",
@@ -465,8 +465,8 @@ func TestDataVerification(t *testing.T) {
 		require.NoError(t, err)
 		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
 
-		v := &TeeVerifier{
-			cfg: &config.TeeAvailabilityCheckConfig{
+		v := &verifier.TeeVerifier{
+			Cfg: &config.TeeAvailabilityCheckConfig{
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
@@ -475,7 +475,7 @@ func TestDataVerification(t *testing.T) {
 		require.ErrorContains(t, err, "cannot validate claims: expected exactly one EATNonce, got 0")
 	})
 	t.Run("expected tee different", func(t *testing.T) {
-		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",
@@ -486,8 +486,8 @@ func TestDataVerification(t *testing.T) {
 		require.NoError(t, err)
 		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
 
-		v := &TeeVerifier{
-			cfg: &config.TeeAvailabilityCheckConfig{
+		v := &verifier.TeeVerifier{
+			Cfg: &config.TeeAvailabilityCheckConfig{
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
@@ -496,7 +496,7 @@ func TestDataVerification(t *testing.T) {
 		require.ErrorContains(t, err, fmt.Sprintf("expected TEE ID %s, got: %s", common.HexToAddress("0x123"), crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 	t.Run("cannot retrieve address from public key", func(t *testing.T) {
-		teeInfoResponse, _ := testhelper.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, _ := helpers.GetTeeInfoResponse(t, challengeHash)
 		teeInfoResponse.TeeInfo.PublicKey.X = common.HexToHash("0x1")
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
@@ -508,20 +508,20 @@ func TestDataVerification(t *testing.T) {
 		require.NoError(t, err)
 		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
 
-		v := &TeeVerifier{
-			cfg: &config.TeeAvailabilityCheckConfig{
+		v := &verifier.TeeVerifier{
+			Cfg: &config.TeeAvailabilityCheckConfig{
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
 		resp, err := v.DataVerification(teeInfoResponse, common.HexToAddress("0x123"))
 		require.Empty(t, resp)
-		require.ErrorContains(t, err, "cannot retrieve TEE ID from: invalid public key: invalid public key bytes")
+		require.ErrorContains(t, err, "cannot retrieve TEE ID from: invalid public key bytes")
 	})
 }
 
 func TestVerify(t *testing.T) {
 	rootCert, leafKey, x5c := generateTestCertificateChain(t)
-	verIface, err := NewVerifier(&config.TeeAvailabilityCheckConfig{
+	verIface, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
 		RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
@@ -530,10 +530,10 @@ func TestVerify(t *testing.T) {
 		GoogleRootCertificate:             rootCert,
 	})
 	require.NoError(t, err)
-	ver, ok := verIface.(*TeeVerifier)
+	ver, ok := verIface.(*verifier.TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	ver.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
-	t.Run("fetchTeeChallengeResult error", func(t *testing.T) {
+	ver.TeeSamples = make(map[common.Address][]verifiertypes.TeeSampleValue)
+	t.Run("FetchTEEChallengeResult error", func(t *testing.T) {
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadGateway)
@@ -576,12 +576,12 @@ func TestVerify(t *testing.T) {
 			TeeId: teeID,
 			Url:   server.URL,
 		}
-		ver.TeeSamples[teeID] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleValid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}}
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleValid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "indeterminate verifier status")
 		require.Empty(t, resp)
 		// reset samples
-		ver.TeeSamples[teeID] = []teetype.TeePollerSample{}
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{}
 	})
 	t.Run("tee is down", func(t *testing.T) {
 		teeID := common.HexToAddress("0x123")
@@ -596,16 +596,16 @@ func TestVerify(t *testing.T) {
 			TeeId: teeID,
 			Url:   server.URL,
 		}
-		ver.TeeSamples[teeID] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}, {State: teetype.TeePollerSampleInvalid}}
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.NoError(t, err)
-		require.Equal(t, uint8(teetype.DOWN), resp.Status)
+		require.Equal(t, uint8(verifier.DOWN), resp.Status)
 		// reset samples
-		ver.TeeSamples[teeID] = []teetype.TeePollerSample{}
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{}
 	})
 	t.Run("signing policy check fails", func(t *testing.T) {
 		challengeHash := common.HexToHash("123")
-		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
 		teeInfoResponse.TeeInfo.InitialSigningPolicyID = 3000 // invalid signing policy ID
 		teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
 		require.NoError(t, err)
@@ -665,7 +665,7 @@ func TestVerify(t *testing.T) {
 	})
 	t.Run("data verification fails", func(t *testing.T) {
 		challengeHash := common.HexToHash("123")
-		teeInfoResponse, privTEEKey := testhelper.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",

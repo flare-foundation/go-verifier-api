@@ -6,8 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	googlecloud "github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
-	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
@@ -58,14 +57,14 @@ func TestValidateClaims(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.EATNonce = []string{}
 		val, err := verifier.ValidateClaims(&modClaims, teenodetype.TeeInfo{}, true)
-		require.Equal(t, teetype.StatusInfo{}, val)
+		require.Equal(t, verifier.StatusInfo{}, val)
 		require.ErrorContains(t, err, "expected exactly one EATNonce, got 0")
 	})
 	t.Run("EATNonce does not match", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.EATNonce = []string{"123"}
 		val, err := verifier.ValidateClaims(&modClaims, teenodetype.TeeInfo{}, true)
-		require.Equal(t, teetype.StatusInfo{}, val)
+		require.Equal(t, verifier.StatusInfo{}, val)
 		require.ErrorContains(t, err, "EATNonce does not match hash of teeInfo")
 	})
 	t.Run("no supported attributes", func(t *testing.T) {
@@ -79,7 +78,7 @@ func TestValidateClaims(t *testing.T) {
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = []string{}
 		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.NoError(t, err)
-		require.Equal(t, teetype.OBSOLETE, val.Status)
+		require.Equal(t, verifier.OBSOLETE, val.Status)
 	})
 	t.Run("no confidential space", func(t *testing.T) {
 		modClaims := *baseClaims

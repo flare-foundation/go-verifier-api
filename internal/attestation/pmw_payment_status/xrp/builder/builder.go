@@ -6,16 +6,16 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/helper"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/model"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/transaction"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/types"
 )
 
 func BuildPaymentStatusResponse(
 	raw types.RawTransactionData,
 	paymentMsg *payment.ITeePaymentsPaymentInstructionMessage,
-	tx model.DBTransaction,
+	tx db.DBTransaction,
 ) (connector.IPMWPaymentStatusResponseBody, error) {
 	var zero connector.IPMWPaymentStatusResponseBody
 	transactionResult, err := getTransactionStatus(raw.MetaData.TransactionResult)

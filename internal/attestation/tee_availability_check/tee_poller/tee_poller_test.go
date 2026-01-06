@@ -16,10 +16,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	teetype "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/type"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
+	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +37,6 @@ func TestSampleAllTees(t *testing.T) {
 
 		v, ok := tmpV.(*verifier.TeeVerifier)
 		require.True(t, ok, "tmpV should be *TeeVerifier")
-		v.TeeSamples = make(map[common.Address][]teetype.TeePollerSample)
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		return v, ctx, cancel
@@ -45,13 +44,17 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return mockActiveTees(t, []string{"0x1"}, []string{"url"}), nil
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
+			},
 		}
-		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
-			return teetype.TeePollerSampleValid, nil
+		v.TeeMachineRegistryCaller = mock
+		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+			return verifiertypes.TeeSampleValid, nil
 		}
-		sampleAllTees(ctx, v, getTees, fakeValidator)
+		s := NewTeePoller(ctx, v)
+		s.sampleAllTees(ctx, fakeValidator)
 		v.SamplesMu.RLock()
 		defer v.SamplesMu.RUnlock()
 		require.Len(t, v.TeeSamples, 1)
@@ -60,14 +63,18 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("fallback to cache", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		updateActiveTees(mockActiveTees(t, []string{"0x2"}, []string{"url"}))
-		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return teeList{}, errors.New("boom")
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return teeMachinesResult{}, errors.New("boom")
+			},
 		}
-		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
-			return teetype.TeePollerSampleIndeterminate, nil
+		v.TeeMachineRegistryCaller = mock
+		s := NewTeePoller(ctx, v)
+		s.updateActiveTees(mockActiveTees(t, []string{"0x2"}, []string{"url"}))
+		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+			return verifiertypes.TeeSampleIndeterminate, nil
 		}
-		sampleAllTees(ctx, v, getTees, fakeValidator)
+		s.sampleAllTees(ctx, fakeValidator)
 		v.SamplesMu.RLock()
 		defer v.SamplesMu.RUnlock()
 		require.Contains(t, v.TeeSamples, common.HexToAddress("0x2"))
@@ -75,14 +82,18 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("try to fallback to cache (empty cache)", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		updateActiveTees(mockActiveTees(t, []string{}, []string{}))
-		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return teeList{}, errors.New("boom")
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return teeMachinesResult{}, errors.New("boom")
+			},
 		}
-		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
-			return teetype.TeePollerSampleIndeterminate, nil
+		v.TeeMachineRegistryCaller = mock
+		s := NewTeePoller(ctx, v)
+		s.updateActiveTees(mockActiveTees(t, []string{}, []string{}))
+		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+			return verifiertypes.TeeSampleIndeterminate, nil
 		}
-		sampleAllTees(ctx, v, getTees, fakeValidator)
+		s.sampleAllTees(ctx, fakeValidator)
 		v.SamplesMu.RLock()
 		defer v.SamplesMu.RUnlock()
 		require.Empty(t, v.TeeSamples)
@@ -90,45 +101,54 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("truncate old samples", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return mockActiveTees(t, []string{"0x1"}, []string{"url"}), nil
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
+			},
 		}
-		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
-			return teetype.TeePollerSampleValid, nil
+		v.TeeMachineRegistryCaller = mock
+		s := NewTeePoller(ctx, v)
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+			return verifiertypes.TeeSampleValid, nil
 		}
 		// Call multiple times to exceed SamplesToConsider
 		for i := 0; i < verifier.SamplesToConsider+2; i++ {
-			sampleAllTees(ctx, v, getTees, query)
+			s.sampleAllTees(ctx, query)
 		}
 		v.SamplesMu.RLock()
 		defer v.SamplesMu.RUnlock()
 		require.Len(t, v.TeeSamples[common.HexToAddress("0x1")], verifier.SamplesToConsider)
 	})
 	t.Run("query failure does not crash and logs error", func(t *testing.T) {
-		ver, _, cancel := setup()
+		ver, ctx, cancel := setup()
 		defer cancel()
-		getTees := func(ctx context.Context, v *verifier.TeeVerifier) (teeList, error) {
-			return mockActiveTees(t, []string{"0x1"}, []string{"url"}), nil
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
+			},
 		}
-		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (teetype.TeePollerSampleState, error) {
-			return teetype.TeePollerSampleInvalid, errors.New("query failed")
+		ver.TeeMachineRegistryCaller = mock
+		s := NewTeePoller(ctx, ver)
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+			return verifiertypes.TeeSampleInvalid, errors.New("query failed")
 		}
-		sampleAllTees(context.Background(), ver, getTees, query)
+		s.sampleAllTees(context.Background(), query)
 		ver.SamplesMu.RLock()
 		defer ver.SamplesMu.RUnlock()
 		require.Len(t, ver.TeeSamples[common.HexToAddress("0x1")], 1)
-		require.Equal(t, teetype.TeePollerSampleInvalid, ver.TeeSamples[common.HexToAddress("0x1")][0].State)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, ver.TeeSamples[common.HexToAddress("0x1")][0].State)
 	})
 	t.Run("remove inactive TEEs", func(t *testing.T) {
 		active := mockActiveTees(t, []string{"0x1", "0x2"}, []string{"url", "url2"})
 		ver := &verifier.TeeVerifier{
-			TeeSamples: make(map[common.Address][]teetype.TeePollerSample),
+			TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
 		}
-		ver.TeeSamples[common.HexToAddress("0x1")] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleValid}}
-		ver.TeeSamples[common.HexToAddress("0x2")] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleInvalid}}
-		ver.TeeSamples[common.HexToAddress("0x3")] = []teetype.TeePollerSample{{State: teetype.TeePollerSampleIndeterminate}} // inactive
+		ver.TeeSamples[common.HexToAddress("0x1")] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleValid}}
+		ver.TeeSamples[common.HexToAddress("0x2")] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleInvalid}}
+		ver.TeeSamples[common.HexToAddress("0x3")] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleIndeterminate}} // inactive
 
-		filterTeeSamplesToActive(ver, active)
+		s := NewTeePoller(context.Background(), ver)
+		s.filterTeeSamplesToActive(active)
 		ver.SamplesMu.RLock()
 		defer ver.SamplesMu.RUnlock()
 
@@ -139,12 +159,13 @@ func TestSampleAllTees(t *testing.T) {
 	})
 	t.Run("clear all when active list empty", func(t *testing.T) {
 		ver := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]teetype.TeePollerSample{
-				common.HexToAddress("0x1"): {{State: teetype.TeePollerSampleValid}},
-				common.HexToAddress("0x2"): {{State: teetype.TeePollerSampleInvalid}},
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				common.HexToAddress("0x1"): {{State: verifiertypes.TeeSampleValid}},
+				common.HexToAddress("0x2"): {{State: verifiertypes.TeeSampleInvalid}},
 			},
 		}
-		filterTeeSamplesToActive(ver, teeList{})
+		s := NewTeePoller(context.Background(), ver)
+		s.filterTeeSamplesToActive(teeList{})
 		ver.SamplesMu.RLock()
 		defer ver.SamplesMu.RUnlock()
 		require.Empty(t, ver.TeeSamples)
@@ -153,9 +174,10 @@ func TestSampleAllTees(t *testing.T) {
 
 func TestCachedActiveTees(t *testing.T) {
 	expected := mockActiveTees(t, []string{"0xcafe"}, []string{"http://cached"})
-	updateActiveTees(expected)
+	s := NewTeePoller(context.Background(), &verifier.TeeVerifier{})
+	s.updateActiveTees(expected)
 
-	got := getCachedActiveTees()
+	got := s.getCachedActiveTees()
 	require.Equal(t, expected, got)
 }
 
@@ -180,8 +202,9 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 			},
 		}
 		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+		s := NewTeePoller(context.Background(), ver)
 		ctx := context.Background()
-		list, err := getAllActiveTeeMachines(ctx, ver, 1)
+		list, err := s.getAllActiveTeeMachines(ctx, 1)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(list.TeeIDs))
 		require.Equal(t, "http://tee-abc", list.URLs[0])
@@ -193,9 +216,10 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 			},
 		}
 		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+		s := NewTeePoller(context.Background(), ver)
 		ctx := context.Background()
 
-		list, err := getAllActiveTeeMachines(ctx, ver, 1)
+		list, err := s.getAllActiveTeeMachines(ctx, 1)
 		require.ErrorContains(t, err, "contract failed")
 		require.Empty(t, list.TeeIDs)
 	})
@@ -213,9 +237,10 @@ func TestGetAllActiveTeesWithRetry(t *testing.T) {
 		},
 	}
 	ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+	s := NewTeePoller(context.Background(), ver)
 	ctx := context.Background()
 
-	list, err := getAllActiveTeesWithRetry(ctx, ver)
+	list, err := s.getAllActiveTeesWithRetry(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(list.TeeIDs))
 	require.Equal(t, "http://tee-123", list.URLs[0])
@@ -224,11 +249,17 @@ func TestGetAllActiveTeesWithRetry(t *testing.T) {
 
 func TestStartTeePoller_Close(t *testing.T) {
 	ver := &verifier.TeeVerifier{
-		TeeSamples: make(map[common.Address][]teetype.TeePollerSample),
+		TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
+	}
+	ver.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+		getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+			return mockAllActiveTeeMAchines(t, nil, nil), nil
+		},
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	service := StartTeePoller(ctx, ver)
+	service := NewTeePoller(ctx, ver)
+	service.StartTeePoller()
 	require.NotNil(t, service)
 	err := service.Close()
 	require.NoError(t, err)
@@ -254,7 +285,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 10})
 	failedBlock := types.NewBlockWithHeader(&types.Header{Time: now - 300})
 	latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
-	mockClient := &testhelper.MockEthClient{
+	mockClient := &helpers.MockEthClient{
 		BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 			if hash == challengeHash {
 				return challengeBlock, nil
@@ -273,14 +304,14 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
 		require.NoError(t, err)
-		require.Equal(t, teetype.TeePollerSampleValid, sampleState)
+		require.Equal(t, verifiertypes.TeeSampleValid, sampleState)
 	})
 	t.Run("invalid challenge", func(t *testing.T) {
 		server, privTEEKey := makeTeeInfoServer(t, failedChallengeHash, false, false)
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, sampleState)
 		require.ErrorContains(t, err, "challenge too old: 300 seconds old")
 	})
 	t.Run("signing policy fail", func(t *testing.T) {
@@ -288,7 +319,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, sampleState)
 		require.ErrorContains(t, err, fmt.Sprintf("signing policy check failed for TEE %s: failed to validate initial signing policy hash", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 	t.Run("teeInfo fail", func(t *testing.T) {
@@ -296,7 +327,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), ver, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, sampleState)
 		require.ErrorContains(t, err, fmt.Sprintf("cannot fetch TEE info from %s: resource not found (404)", server.URL))
 	})
 	t.Run("data verification fail", func(t *testing.T) {
@@ -312,7 +343,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		require.True(t, ok, "verIface should be *TeeVerifier")
 		// eth client
 		// #nosec G115: only used in test, integer overflow not a concern
-		mockClient := &testhelper.MockEthClient{
+		mockClient := &helpers.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return challengeBlock, nil
 			},
@@ -325,7 +356,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		defer server.Close()
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), verInt, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Equal(t, teetype.TeePollerSampleInvalid, sampleState)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, sampleState)
 		require.ErrorContains(t, err, fmt.Sprintf("data verification failed for TEE %s: cannot validate certificate signature: parsing and verifying: token is malformed: token contains an invalid number of segments", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 }
@@ -372,7 +403,7 @@ func mockActiveTees(t *testing.T, ids []string, urls []string) teeList {
 func makeTeeInfoServer(t *testing.T, challenge common.Hash, failSigningPolicy bool, notFound bool) (*httptest.Server, *ecdsa.PrivateKey) {
 	t.Helper()
 	handler := http.NewServeMux()
-	resp, privKey := testhelper.GetTeeInfoResponse(t, challenge)
+	resp, privKey := helpers.GetTeeInfoResponse(t, challenge)
 	if notFound {
 		handler.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)

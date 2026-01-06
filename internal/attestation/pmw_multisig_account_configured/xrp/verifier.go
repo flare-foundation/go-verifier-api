@@ -2,30 +2,35 @@ package xrpverifier
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	nodetypes "github.com/flare-foundation/tee-node/pkg/types"
 
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
 
-	attestationtypes "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
-	pmwmultisigaccountconfig "github.com/flare-foundation/go-verifier-api/internal/config"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/types"
+	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
 var ErrValidationFailed = errors.New("multisig account validation failed")
 
 type XRPVerifier struct {
-	Config *pmwmultisigaccountconfig.PMWMultisigAccountConfig
+	Config *config.PMWMultisigAccountConfig
 	Client *client.Client
+}
+
+func NewXRPVerifier(cfg *config.PMWMultisigAccountConfig) *XRPVerifier {
+	client := client.NewClient(cfg.RPCURL)
+
+	return &XRPVerifier{Config: cfg, Client: client}
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
@@ -36,12 +41,12 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 	sequence, err := x.validateMultisigConfiguration(accountInfo, req)
 	if err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{
-			Status:   uint8(attestationtypes.PMWMultisigAccountStatusERROR),
+			Status:   uint8(apitypes.PMWMultisigAccountStatusERROR),
 			Sequence: 0,
 		}, nil
 	}
 	return connector.IPMWMultisigAccountConfiguredResponseBody{
-		Status:   uint8(attestationtypes.PMWMultisigAccountStatusOK),
+		Status:   uint8(apitypes.PMWMultisigAccountStatusOK),
 		Sequence: sequence,
 	}, nil
 }
@@ -90,26 +95,12 @@ func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req connec
 }
 
 func XRPAddressFromPubKey(pubkey []byte) (string, error) {
-	const pubKeyLength = 64
-	if len(pubkey) != pubKeyLength {
-		return "", errors.New("invalid public key length")
-	}
-	pk, err := parsePubKey([64]byte(pubkey))
+	pk, err := nodetypes.ParsePubKeyBytes(pubkey)
 	if err != nil {
 		return "", err
 	}
 	compressed := secp256k1.CompressPubkey(pk.X, pk.Y)
 	return address.PubToAddress(hex.EncodeToString(compressed))
-}
-
-func parsePubKey(pubkey [64]byte) (*ecdsa.PublicKey, error) {
-	x := new(big.Int).SetBytes(pubkey[:32])
-	y := new(big.Int).SetBytes(pubkey[32:])
-	check := secp256k1.S256().IsOnCurve(x, y)
-	if !check {
-		return nil, errors.New("invalid public key bytes")
-	}
-	return &ecdsa.PublicKey{Curve: secp256k1.S256(), X: x, Y: y}, nil
 }
 
 func checkAccountFlags(flags types.AccountFlags) error {

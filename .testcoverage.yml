@@ -1,18 +1,17 @@
 profile: coverage.out
 
 threshold:
-  file: 70
-  package: 80
-  total: 95
+    file: 70
+    package: 80
+    total: 95
 
 exclude:
-  paths:
-    - cmd/main.go
-    - internal/api-docs/
-    - internal/api_test/
-    - internal/test_helper/
-    - tmp/scripts/toJWT.go
+    paths:
+        - cmd/main.go
+        - internal/api/docs/
+        - internal/tests/
+        - tmp/scripts/toJWT.go
 
 override:
-  - path: .go$
-    threshold: 0
+    - path: .go$
+      threshold: 0
