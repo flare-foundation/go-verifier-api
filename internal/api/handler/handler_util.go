@@ -7,17 +7,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	types "github.com/flare-foundation/go-verifier-api/internal/api/type"
+	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-func RegisterOp[T any, R any](
+func registerOp[T any, R any](
 	api huma.API,
 	id, method, path string,
 	tags []string,
@@ -39,7 +38,7 @@ func getVerifierAPITag(attestationType connector.AttestationType) []string {
 	return []string{string(attestationType)}
 }
 
-func ValidateSystemAndRequestAttestationNameAndSourceID(config *config.EncodedAndABI, requestAttestationName string, requestSourceID string) error {
+func validateSystemAndRequestAttestationNameAndSourceID(config *config.EncodedAndABI, requestAttestationName string, requestSourceID string) error {
 	if requestAttestationName != config.AttestationTypePair.AttestationTypeEncoded.Hex() || requestSourceID != config.SourceIDPair.SourceIDEncoded.Hex() {
 		var errorMessage = fmt.Errorf(
 			"attestation type and source id combination not supported: (%s, %s). This source supports attestation type '%s' (%s) and source id '%s' (%s)",
@@ -52,7 +51,7 @@ func ValidateSystemAndRequestAttestationNameAndSourceID(config *config.EncodedAn
 	return nil
 }
 
-func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, error) {
+func decodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, error) {
 	var zero T
 	data, err := abiDecodeRequestData[T](requestBody, config.ABIPair.Request)
 	if err != nil {
@@ -61,11 +60,11 @@ func DecodeRequest[T any](requestBody []byte, config *config.EncodedAndABI) (T, 
 	return data, nil
 }
 
-func EncodeRequest[T any](data T, config *config.EncodedAndABI) ([]byte, error) {
+func encodeRequest[T any](data T, config *config.EncodedAndABI) ([]byte, error) {
 	return encodeWithABI(data, config.ABIPair.Request, "request")
 }
 
-func EncodeResponse[T any](data T, config *config.EncodedAndABI) ([]byte, error) {
+func encodeResponse[T any](data T, config *config.EncodedAndABI) ([]byte, error) {
 	return encodeWithABI(data, config.ABIPair.Response, "response")
 }
 
@@ -77,7 +76,7 @@ func encodeWithABI[T any](data T, arg abi.Argument, kind string) ([]byte, error)
 	return encoded, nil
 }
 
-func PrepareRequestBody[T types.InternalConvertible[I], I any](
+func prepareRequestBody[T types.RequestConvertible[I], I any](
 	body types.AttestationRequestData[T],
 	config *config.EncodedAndABI,
 ) (hexutil.Bytes, error) {
@@ -85,7 +84,7 @@ func PrepareRequestBody[T types.InternalConvertible[I], I any](
 	if err != nil {
 		return nil, fmt.Errorf("converting request body to data failed: %w", err)
 	}
-	encodedRequest, err := EncodeRequest(requestData, config)
+	encodedRequest, err := encodeRequest(requestData, config)
 	if err != nil {
 		return nil, err
 	}
@@ -122,37 +121,4 @@ func warnHuma500(message string, err error) error {
 func warnHuma503(message string, err error) error {
 	logger.Warnf("%s: %v", message, err)
 	return huma.Error503ServiceUnavailable(message + ": " + err.Error())
-}
-
-func logPMWMultisigAccountResponse(response connector.IPMWMultisigAccountConfiguredResponseBody) {
-	logger.Debugf("PMWMultisigAccountConfigured result: Status=%d, Sequence=%d",
-		response.Status, response.Sequence)
-}
-
-func logPMWPaymentStatusResponse(response connector.IPMWPaymentStatusResponseBody) {
-	logger.Debugf("PMWPaymentStatus result: Recipient=%s, TokenID=%x, Amount=%v, Fee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
-		response.RecipientAddress,
-		response.TokenId,
-		response.Amount,
-		response.Fee,
-		response.PaymentReference,
-		response.TransactionStatus,
-		response.RevertReason,
-		response.ReceivedAmount,
-		response.TransactionFee,
-		response.TransactionId,
-		response.BlockNumber,
-		response.BlockTimestamp,
-	)
-}
-
-func logTeeAvailabilityCheckResponse(response connector.ITeeAvailabilityCheckResponseBody) {
-	logger.Debugf("TEEAvailabilityCheck result: Status=%d, Timestamp=%d, CodeHash=%x, Platform=%s, InitialSigningPolicyID:%d, LastSigningPolicyID=%d, State=%v",
-		response.Status,
-		response.TeeTimestamp,
-		response.CodeHash,
-		convert.CommonHashToString(response.Platform),
-		response.InitialSigningPolicyId,
-		response.LastSigningPolicyId,
-		response.State)
 }

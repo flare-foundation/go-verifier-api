@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/coreutil"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/helper"
 )
 
 func GenerateInstructionID(opType, sourceID [32]byte, senderAddress string, nonce uint64) (common.Hash, error) {
@@ -17,11 +17,11 @@ func GenerateInstructionID(opType, sourceID [32]byte, senderAddress string, nonc
 		return common.Hash{}, fmt.Errorf("cannot convert PAY to Bytes32: %w", err)
 	}
 	args := abi.Arguments{
-		{Type: coreutil.Bytes32Type}, // opType
-		{Type: coreutil.Bytes32Type}, // PAY
-		{Type: coreutil.Bytes32Type}, // sourceId
-		{Type: coreutil.StringType},  // senderAddress
-		{Type: coreutil.Uint64Type},  // nonce
+		{Type: helper.Bytes32Type}, // opType
+		{Type: helper.Bytes32Type}, // PAY
+		{Type: helper.Bytes32Type}, // sourceId
+		{Type: helper.StringType},  // senderAddress
+		{Type: helper.Uint64Type},  // nonce
 	}
 	packed, err := args.Pack(opType, PAY, sourceID, senderAddress, nonce)
 	if err != nil {

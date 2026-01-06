@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	teeavailabilityconfig "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/config"
-
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -26,7 +24,7 @@ func TestUnsupportedAttestationType(t *testing.T) {
 }
 
 func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
-	teeavailabilityconfig.ResetTeeAvailabilityCheckConfigForTest()
+	config.ClearTeeAvailabilityCheckConfigForTest()
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
@@ -43,14 +41,14 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 }
 
 func TestTEEAvailabilityCheckConfigError(t *testing.T) {
-	teeavailabilityconfig.ResetTeeAvailabilityCheckConfigForTest()
+	config.ClearTeeAvailabilityCheckConfigForTest()
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
 		AttestationType: connector.AvailabilityCheck,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.ErrorContains(t, err, "cannot retrieve config")
+	require.ErrorContains(t, err, "cannot load TeeAvailabilityCheck config")
 	require.Nil(t, closers)
 }
 

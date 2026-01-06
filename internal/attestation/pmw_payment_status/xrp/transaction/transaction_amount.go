@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/helper"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/types"
 )
 
 func FindReceivedAmountForAddress(meta *types.TransactionMetaData, receiver string) (*big.Int, error) {

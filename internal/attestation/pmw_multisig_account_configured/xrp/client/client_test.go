@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +44,7 @@ func TestGetAccountInfo(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			},
-			wantErr: "cannot get account info: max retries reached: request responded with code 500, reason: Internal Server Error",
+			wantErr: "cannot get account info: max retries reached. Last error: request responded with code 500, reason: Internal Server Error",
 		},
 		{
 			name: "bad JSON",
@@ -53,7 +53,7 @@ func TestGetAccountInfo(t *testing.T) {
 				_, err := w.Write([]byte(`{"result": { "status": "success", "account_data": `)) // invalid JSON
 				require.NoError(t, err)
 			},
-			wantErr: "cannot get account info: max retries reached: decoding response:",
+			wantErr: "cannot get account info: max retries reached. Last error: decoding response:",
 		},
 		{
 			name: "non-success status",
@@ -84,6 +84,7 @@ func TestGetAccountInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(tt.handler)
 			defer server.Close()
+			time.Sleep(200 * time.Millisecond)
 
 			client := NewClient(server.URL)
 			ctx := context.Background()

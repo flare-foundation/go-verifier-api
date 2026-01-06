@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOCKER_COMPOSE_FILE="internal/test_helper/docker/docker-compose.yaml"
+DOCKER_COMPOSE_FILE="internal/tests/docker/docker-compose.yaml"
 
 GOBIN=${GOBIN:-$(go env GOPATH)/bin}
 

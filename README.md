@@ -28,7 +28,7 @@ DISABLE_ATTESTATION_CHECK_E2E=false
 
 > **NOTE**: `ALLOW_TEE_DEBUG` and `DISABLE_ATTESTATION_CHECK_E2E` are test/E2E-only flags. In production, you can leave them unset (they default to false).
 
-The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/tee_availability_check/config/assets_. Read more about it [here](./internal/attestation/tee_availability_check/config/assets/README.md).
+The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/config/assets_. Read more about it [here](./internal/config/assets/README.md).
 
 ### `PMWMultisigAccountConfigured` Attestation Type
 Environment variables:
@@ -114,7 +114,7 @@ Minimal headers keep internal communication safe without unnecessary overhead.
 sh gencover.sh
 ```
 The script is located in [gencover.sh](./gencover.sh).
-- Docker services defined in [internal/test_helper/docker/docker-compose.yaml](./internal/test_helper/docker/docker-compose.yaml) will **automatically start**.
+- Docker services defined in [internal/tests/docker/docker-compose.yaml](./internal/tests/docker/docker-compose.yaml) will **automatically start**.
 - All tests (unit + integration) will run.
 - Docker services will **automatically shut down** after all tests complete.
 This is the simplest way to run everything without worrying about Docker manually.
@@ -129,7 +129,7 @@ This is the simplest way to run everything without worrying about Docker manuall
     > Note: These tests include a comment in the test file marking them as Docker-dependent.
     - Start Docker manually:
         ```bash
-        docker compose -f internal/test_helper/docker/docker-compose.yaml up -d
+        docker compose -f internal/tests/docker/docker-compose.yaml up -d
         ```
     - Run the test:
         ```bash
@@ -137,7 +137,7 @@ This is the simplest way to run everything without worrying about Docker manuall
         ```
     - Stop Docker after finishing:
         ```bash
-        docker compose -f internal/test_helper/docker/docker-compose.yaml down
+        docker compose -f internal/tests/docker/docker-compose.yaml down
         ```
 
 ## TODO (to-think-about) list

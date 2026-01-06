@@ -8,7 +8,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/type"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -165,33 +165,6 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 	})
 }
 
-func TestParsePubKey(t *testing.T) {
-	t.Run("valid", func(t *testing.T) {
-		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
-		require.NoError(t, err)
-
-		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
-
-		parsed, err := parsePubKey([64]byte(pubkey))
-		require.NoError(t, err)
-		require.Equal(t, privKey.X, parsed.X)
-		require.Equal(t, privKey.Y, parsed.Y)
-		require.Equal(t, privKey.Curve, parsed.Curve)
-	})
-	t.Run("invalid", func(t *testing.T) {
-		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
-		require.NoError(t, err)
-
-		// Corrupt the public key
-		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
-		pubkey[10] ^= 0xFF
-
-		parsed, err := parsePubKey([64]byte(pubkey))
-		require.ErrorContains(t, err, "invalid public key bytes")
-		require.Nil(t, parsed)
-	})
-}
-
 func TestConvertPubkeyToAddress(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
@@ -211,13 +184,13 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		pubkey[5] ^= 0xFF
 
 		addr, err := XRPAddressFromPubKey(pubkey)
-		require.ErrorContains(t, err, "invalid public key bytes")
+		require.ErrorContains(t, err, "coordinates not on curve")
 		require.Empty(t, addr)
 	})
 	t.Run("wrong length", func(t *testing.T) {
 		pubkey := make([]byte, 63) // invalid length
 		addr, err := XRPAddressFromPubKey(pubkey)
-		require.ErrorContains(t, err, "invalid public key length")
+		require.ErrorContains(t, err, "invalid public key should be 64 bytes long")
 		require.Empty(t, addr)
 	})
 }

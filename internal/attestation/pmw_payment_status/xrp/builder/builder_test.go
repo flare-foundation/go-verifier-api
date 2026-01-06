@@ -9,10 +9,10 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/builder"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/model"
-	types "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/type"
-	testhelper "github.com/flare-foundation/go-verifier-api/internal/test_helper"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/types"
+	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,9 +38,9 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 				},
 			},
 		},
-		MetaData: testhelper.PaymentTransaction0.MetaData,
+		MetaData: helpers.PaymentTransaction0.MetaData,
 	}
-	txFromDB := model.DBTransaction{
+	txFromDB := db.DBTransaction{
 		Hash:        "4818566F359119B16544087CEA17CE2E7152A5BD4B21572C809A9AA5A7DE2B2F",
 		BlockNumber: uint64(10110065),
 		Timestamp:   uint64(1756296242),
@@ -92,7 +92,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.ErrorContains(t, err, "invalid big.Int string: fee")
 	})
 	t.Run("invalid tx hash field", func(t *testing.T) {
-		txFromDB := model.DBTransaction{
+		txFromDB := db.DBTransaction{
 			Hash: "0x1234",
 		}
 		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &paymentMessageInstruction, txFromDB)
@@ -100,7 +100,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.ErrorContains(t, err, "invalid transaction hash 0x1234: invalid length for hex string 0x1234: expected 32 bytes, got 2")
 	})
 	t.Run("no meta data", func(t *testing.T) {
-		val, err := builder.BuildPaymentStatusResponse(testhelper.PaymentTransaction0_error0, &paymentMessageInstruction, txFromDB)
+		val, err := builder.BuildPaymentStatusResponse(helpers.PaymentTransaction0_error0, &paymentMessageInstruction, txFromDB)
 		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "cannot calculate received amount for recipient")
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode for account")
