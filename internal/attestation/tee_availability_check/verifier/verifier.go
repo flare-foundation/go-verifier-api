@@ -286,9 +286,6 @@ func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash c
 	}
 	latestBlock, err := v.EthClient.BlockByNumber(ctx, nil)
 	if err != nil {
-		if errors.Is(err, verifiertypes.ErrInvalidInput) {
-			return verifiertypes.TeeSampleIndeterminate, fmt.Errorf("fetch latest block: %w", err)
-		}
 		return verifiertypes.MapFetchErrorToState("fetch latest block", err)
 	}
 	if latestBlock.Time()-challengeBlock.Time() <= BlockFreshnessInSeconds {
