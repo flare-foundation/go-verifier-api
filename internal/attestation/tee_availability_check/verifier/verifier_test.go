@@ -71,18 +71,18 @@ func TestCheckInfoChallenge(t *testing.T) {
 		require.ErrorContains(t, err, "fetch challenge block: unknown error")
 		require.NotEqual(t, verifiertypes.TeeSampleValid, state)
 	})
-	t.Run("latest block fetch fails with ErrInvalidInput", func(t *testing.T) {
+	t.Run("latest block fetch fails with ErrUnknown", func(t *testing.T) {
 		mockClient := &helpers.MockEthClient{
 			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
 				return types.NewBlockWithHeader(&types.Header{Time: now - 10}), nil
 			},
 			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return nil, verifiertypes.ErrInvalidInput
+				return nil, verifiertypes.ErrUnknown
 			},
 		}
 		v := &verifier.TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.ErrorContains(t, err, "fetch latest block: invalid input")
+		require.ErrorContains(t, err, "fetch latest block: unknown error")
 		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 	})
 	t.Run("latest block fetch fails with other error", func(t *testing.T) {
