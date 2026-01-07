@@ -767,6 +767,7 @@ func generateTestCertificate(
 }
 
 func generateTestCertificateChain(t *testing.T) (*x509.Certificate, *rsa.PrivateKey, []string) {
+	t.Helper()
 	rootCert, rootKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true, nil, nil)
 	intermediateCert, intermediateKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true, rootCert, rootKey)
 	leafCert, leafKey := generateTestCertificate(t, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false, intermediateCert, intermediateKey)
