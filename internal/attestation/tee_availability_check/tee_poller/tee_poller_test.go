@@ -53,7 +53,7 @@ func TestSampleAllTees(t *testing.T) {
 		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleValid, nil
 		}
-		s := NewTeePoller(ctx, v)
+		s := NewTeePoller(v)
 		s.sampleAllTees(ctx, fakeValidator)
 		v.SamplesMu.RLock()
 		defer v.SamplesMu.RUnlock()
@@ -69,7 +69,7 @@ func TestSampleAllTees(t *testing.T) {
 			},
 		}
 		v.TeeMachineRegistryCaller = mock
-		s := NewTeePoller(ctx, v)
+		s := NewTeePoller(v)
 		s.updateActiveTees(mockActiveTees(t, []string{"0x2"}, []string{"url"}))
 		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleIndeterminate, nil
@@ -88,7 +88,7 @@ func TestSampleAllTees(t *testing.T) {
 			},
 		}
 		v.TeeMachineRegistryCaller = mock
-		s := NewTeePoller(ctx, v)
+		s := NewTeePoller(v)
 		s.updateActiveTees(mockActiveTees(t, []string{}, []string{}))
 		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleIndeterminate, nil
@@ -107,7 +107,7 @@ func TestSampleAllTees(t *testing.T) {
 			},
 		}
 		v.TeeMachineRegistryCaller = mock
-		s := NewTeePoller(ctx, v)
+		s := NewTeePoller(v)
 		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleValid, nil
 		}
@@ -120,7 +120,7 @@ func TestSampleAllTees(t *testing.T) {
 		require.Len(t, v.TeeSamples[common.HexToAddress("0x1")], verifier.SamplesToConsider)
 	})
 	t.Run("query failure does not crash and logs error", func(t *testing.T) {
-		ver, ctx, cancel := setup()
+		ver, _, cancel := setup()
 		defer cancel()
 		mock := &mockTeeMachineRegistryCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
@@ -128,7 +128,7 @@ func TestSampleAllTees(t *testing.T) {
 			},
 		}
 		ver.TeeMachineRegistryCaller = mock
-		s := NewTeePoller(ctx, ver)
+		s := NewTeePoller(ver)
 		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleInvalid, errors.New("query failed")
 		}
@@ -147,7 +147,7 @@ func TestSampleAllTees(t *testing.T) {
 		ver.TeeSamples[common.HexToAddress("0x2")] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleInvalid}}
 		ver.TeeSamples[common.HexToAddress("0x3")] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleIndeterminate}} // inactive
 
-		s := NewTeePoller(context.Background(), ver)
+		s := NewTeePoller(ver)
 		s.filterTeeSamplesToActive(active)
 		ver.SamplesMu.RLock()
 		defer ver.SamplesMu.RUnlock()
@@ -164,7 +164,7 @@ func TestSampleAllTees(t *testing.T) {
 				common.HexToAddress("0x2"): {{State: verifiertypes.TeeSampleInvalid}},
 			},
 		}
-		s := NewTeePoller(context.Background(), ver)
+		s := NewTeePoller(ver)
 		s.filterTeeSamplesToActive(teeList{})
 		ver.SamplesMu.RLock()
 		defer ver.SamplesMu.RUnlock()
@@ -174,7 +174,7 @@ func TestSampleAllTees(t *testing.T) {
 
 func TestCachedActiveTees(t *testing.T) {
 	expected := mockActiveTees(t, []string{"0xcafe"}, []string{"http://cached"})
-	s := NewTeePoller(context.Background(), &verifier.TeeVerifier{})
+	s := NewTeePoller(&verifier.TeeVerifier{})
 	s.updateActiveTees(expected)
 
 	got := s.getCachedActiveTees()
@@ -202,7 +202,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 			},
 		}
 		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
-		s := NewTeePoller(context.Background(), ver)
+		s := NewTeePoller(ver)
 		ctx := context.Background()
 		list, err := s.getAllActiveTeeMachines(ctx, 1)
 		require.NoError(t, err)
@@ -216,9 +216,9 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 			},
 		}
 		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
-		s := NewTeePoller(context.Background(), ver)
-		ctx := context.Background()
+		s := NewTeePoller(ver)
 
+		ctx := context.Background()
 		list, err := s.getAllActiveTeeMachines(ctx, 1)
 		require.ErrorContains(t, err, "contract failed")
 		require.Empty(t, list.TeeIDs)
@@ -237,9 +237,9 @@ func TestGetAllActiveTeesWithRetry(t *testing.T) {
 		},
 	}
 	ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
-	s := NewTeePoller(context.Background(), ver)
-	ctx := context.Background()
+	s := NewTeePoller(ver)
 
+	ctx := context.Background()
 	list, err := s.getAllActiveTeesWithRetry(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(list.TeeIDs))
@@ -258,8 +258,8 @@ func TestStartTeePoller_Close(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	service := NewTeePoller(ctx, ver)
-	service.StartTeePoller()
+	service := NewTeePoller(ver)
+	service.StartTeePoller(ctx)
 	require.NotNil(t, service)
 	err := service.Close()
 	require.NoError(t, err)

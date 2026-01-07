@@ -39,8 +39,8 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		}
 		handler.RegisterTeePoolingHandler(api, teeVerifier)
 
-		poller := teepoller.NewTeePoller(ctx, teeVerifier)
-		poller.StartTeePoller()
+		poller := teepoller.NewTeePoller(teeVerifier)
+		poller.StartTeePoller(ctx)
 
 		closers = append(closers, poller, teeVerifier)
 	case connector.PMWPaymentStatus:

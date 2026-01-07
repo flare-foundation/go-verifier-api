@@ -26,7 +26,6 @@ const (
 )
 
 type TeePollerService struct {
-	ctx            context.Context
 	cancel         context.CancelFunc
 	verifier       *verifier.TeeVerifier
 	lastActiveTees teeList
@@ -34,7 +33,9 @@ type TeePollerService struct {
 }
 
 func (s *TeePollerService) Close() error {
-	s.cancel()
+	if s.cancel != nil {
+		s.cancel()
+	}
 	return nil
 }
 
@@ -51,33 +52,35 @@ type task struct {
 	proxyURL string
 }
 
-func NewTeePoller(parentCtx context.Context, teeVerifier *verifier.TeeVerifier) *TeePollerService {
-	ctx, cancel := context.WithCancel(parentCtx)
+func NewTeePoller(teeVerifier *verifier.TeeVerifier) *TeePollerService {
 	return &TeePollerService{
-		ctx:      ctx,
-		cancel:   cancel,
 		verifier: teeVerifier,
 	}
 }
 
-func (s *TeePollerService) StartTeePoller() {
+func (s *TeePollerService) StartTeePoller(parentCtx context.Context) {
 	go func() {
+		ctx, cancel := context.WithCancel(parentCtx)
+		s.cancel = cancel
+		defer cancel()
+
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Errorf("TEE poller panic recovered: %v", r)
 			}
 		}()
+
 		logger.Info("TEE poller started")
 		// Run once immediately, before ticker starts.
-		s.sampleAllTees(s.ctx, queryTeeInfoAndValidate)
+		s.sampleAllTees(ctx, queryTeeInfoAndValidate)
 		ticker := time.NewTicker(verifier.SampleInterval)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				s.sampleAllTees(s.ctx, queryTeeInfoAndValidate)
-			case <-s.ctx.Done():
-				logger.Infof("TEE poller stopped: %v", s.ctx.Err())
+				s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+			case <-ctx.Done():
+				logger.Infof("TEE poller stopped: %v", ctx.Err())
 				return
 			}
 		}
