@@ -7,13 +7,14 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-func RegisterVerificationHandler[S any, T any, U types.RequestConvertible[S], V types.ResponseConvertible[T]](
+func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V types.ResponseConvertible[T]](
 	api huma.API,
 	config *config.EncodedAndABI,
 	verifier attestation.Verifier[S, T],
@@ -98,6 +99,7 @@ func RegisterVerificationHandler[S any, T any, U types.RequestConvertible[S], V 
 			if err != nil {
 				return nil, warnHuma400("Decoding request body to data failed", err)
 			}
+			logRequestBody(requestData)
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
 				if errors.Is(err, teeverifier.ErrIndeterminate) {
@@ -117,4 +119,17 @@ func RegisterVerificationHandler[S any, T any, U types.RequestConvertible[S], V 
 				ResponseBody: encodedResponse,
 			}), nil
 		})
+}
+
+func logRequestBody[T any](requestData T) {
+	switch req := any(requestData).(type) {
+	case connector.ITeeAvailabilityCheckRequestBody:
+		types.LogTeeAvailabilityCheckRequestBody(req)
+	case connector.IPMWMultisigAccountConfiguredRequestBody:
+		types.LogPMWMultisigAccountConfiguredRequestBody(req)
+	case connector.IPMWPaymentStatusRequestBody:
+		types.LogPMWPaymentStatusRequestBody(req)
+	default:
+		logger.Debug("No request logger for this request type")
+	}
 }

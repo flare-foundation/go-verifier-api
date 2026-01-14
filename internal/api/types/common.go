@@ -73,7 +73,6 @@ type RequestConvertible[T any] interface {
 
 // InternalConvertible defines an interface for response that can be converted from internal ones.
 type ResponseConvertible[T any] interface {
-	// New() ExternalConvertible[T]
 	FromInternal(T) ResponseConvertible[T]
 	Log()
 }

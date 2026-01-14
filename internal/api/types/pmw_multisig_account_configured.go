@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -52,4 +53,17 @@ func (s PMWMultisigAccountConfiguredResponseBody) FromInternal(data connector.IP
 func (s PMWMultisigAccountConfiguredResponseBody) Log() {
 	logger.Debugf("PMWMultisigAccountConfigured result: Status=%d, Sequence=%d",
 		s.PMWMultisigAccountStatus, s.Sequence)
+}
+
+func LogPMWMultisigAccountConfiguredRequestBody(req connector.IPMWMultisigAccountConfiguredRequestBody) {
+	logger.Debugf("PMWMultisigAccountConfigured request: AccountAddress=%s, Threshold=%d, PublicKeys=%s",
+		req.AccountAddress, req.Threshold, formatPublicKeys(req.PublicKeys))
+}
+
+func formatPublicKeys(pks [][]byte) string {
+	out := make([]string, len(pks))
+	for i, pk := range pks {
+		out[i] = fmt.Sprintf("%x", pk)
+	}
+	return strings.Join(out, ",")
 }

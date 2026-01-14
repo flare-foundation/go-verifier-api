@@ -73,6 +73,11 @@ func (t TeeAvailabilityCheckResponseBody) Log() {
 		t.State)
 }
 
+func LogTeeAvailabilityCheckRequestBody(req connector.ITeeAvailabilityCheckRequestBody) {
+	logger.Debugf("TeeAvailabilityCheck request: TeeID=%s, TeeProxyID=%s, URL=%s, Challenge=%x, InstructionID=%x",
+		req.TeeId, req.TeeProxyId, req.Url, req.Challenge, req.InstructionId)
+}
+
 type TeeSamplesResponse struct {
 	Samples []verifiertypes.TeeSample `json:"samples"`
 }

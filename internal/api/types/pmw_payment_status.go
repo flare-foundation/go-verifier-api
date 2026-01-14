@@ -3,6 +3,7 @@ package types
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 )
@@ -70,4 +71,9 @@ func (s PMWPaymentStatusResponseBody) Log() {
 		s.BlockNumber,
 		s.BlockTimestamp,
 	)
+}
+
+func LogPMWPaymentStatusRequestBody(req connector.IPMWPaymentStatusRequestBody) {
+	logger.Debugf("PMWPaymentStatus request: OpType=%s, SenderAddress=%s, Nonce=%d, SubNonce=%d",
+		convert.CommonHashToString(req.OpType), req.SenderAddress, req.Nonce, req.SubNonce)
 }
