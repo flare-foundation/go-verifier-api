@@ -289,7 +289,7 @@ func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash c
 		return verifiertypes.MapFetchErrorToState("fetch latest block", err)
 	}
 	now := time.Now().Unix()
-	blockAge := int64(now) - int64(latestBlock.Time())
+	blockAge := now - int64(latestBlock.Time())
 	blockFreshness := int64(120) // seconds
 	if blockAge > blockFreshness {
 		logger.Warnf("Latest block is stale: %d seconds old (%d, %d)", blockAge, latestBlock.NumberU64(), latestBlock.Time())
