@@ -14,16 +14,28 @@ import (
 
 var ErrNotFound = errors.New("resource not found (404)")
 
+var sharedHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxConnsPerHost:     100,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+	},
+}
+
 func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
 	var zero T
-	httpClient := &http.Client{
-		Timeout: fetchTimeout,
-	}
+	// per-request timeout
+	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return zero, fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
-	resp, err := httpClient.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return zero, fmt.Errorf("HTTP request failed for: %w", err)
 	}
