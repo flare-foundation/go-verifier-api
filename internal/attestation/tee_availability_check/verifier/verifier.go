@@ -288,10 +288,16 @@ func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash c
 	if err != nil {
 		return verifiertypes.MapFetchErrorToState("fetch latest block", err)
 	}
+	now := time.Now().Unix()
+	blockAge := int64(now) - int64(latestBlock.Time())
+	blockFreshness := int64(120) // seconds
+	if blockAge > blockFreshness {
+		logger.Warnf("Latest block is stale: %d seconds old (%d, %d)", blockAge, latestBlock.NumberU64(), latestBlock.Time())
+	}
 	if latestBlock.Time()-challengeBlock.Time() <= BlockFreshnessInSeconds {
 		return verifiertypes.TeeSampleValid, nil
 	}
-	return verifiertypes.TeeSampleInvalid, fmt.Errorf("challenge too old: %d seconds old", latestBlock.Time()-challengeBlock.Time())
+	return verifiertypes.TeeSampleInvalid, fmt.Errorf("challenge too old: %d seconds old (challenge: %d, latest: %d)", latestBlock.Time()-challengeBlock.Time(), challengeBlock.NumberU64(), latestBlock.NumberU64())
 }
 
 func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
