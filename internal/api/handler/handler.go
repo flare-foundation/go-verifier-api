@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -10,7 +9,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
-	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -62,9 +60,6 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				if errors.Is(err, teeverifier.ErrIndeterminate) {
-					return nil, warnHuma503("Verification could not be determined", err)
-				}
 				return nil, warnHuma500("Verification failed", err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
@@ -102,9 +97,6 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			logRequestBody(requestData)
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				if errors.Is(err, teeverifier.ErrIndeterminate) {
-					return nil, warnHuma503("Verification could not be determined", err)
-				}
 				return nil, warnHuma500("Verification failed", err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)

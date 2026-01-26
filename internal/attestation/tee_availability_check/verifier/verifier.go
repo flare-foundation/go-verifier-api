@@ -42,9 +42,8 @@ const (
 )
 
 var (
-	ErrIndeterminate = errors.New("indeterminate verifier status")
-	E2ETestPlatform  = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
-	E2ETestCodeHash  = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
+	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
+	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 )
 
 type TeeVerifier struct {
@@ -102,7 +101,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	var zero connector.ITeeAvailabilityCheckResponseBody
 	// Fetch from TEE proxy /action/result/<instructionID>
 	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, fetcher.GetJSON[teenodetypes.ActionResponse])
-	if errors.Is(err, fetcher.ErrNotFound) {
+	if err != nil {
 		// check polled data
 		isDown, infoErr := v.IsTEEInfoDown(req.TeeId)
 		if infoErr != nil { // Not enough data has been polled
@@ -110,12 +109,8 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		}
 		if isDown {
 			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(DOWN)}, nil
-		} else {
-			return zero, fmt.Errorf("%w (TEE=%s, URL=%s, instruction=%x)", ErrIndeterminate, req.TeeId, req.Url, req.InstructionId[:])
 		}
-	}
-	if err != nil {
-		return zero, fmt.Errorf("cannot fetch TEE data for TeeID %s: %w", req.TeeId, err)
+		return zero, fmt.Errorf("cannot fetch TEE data for (TEE=%s, URL=%s, instruction=%x) and determine its status: %w", req.TeeId, req.Url, req.InstructionId[:], err)
 	}
 	// Check corresponding challenge.
 	challengeHex := common.BytesToHash(req.Challenge[:])
