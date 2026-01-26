@@ -111,7 +111,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 		if isDown {
 			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(DOWN)}, nil
 		} else {
-			return zero, ErrIndeterminate
+			return zero, fmt.Errorf("%w (TEE=%s, URL=%s, instruction=%x)", ErrIndeterminate, req.TeeId, req.Url, req.InstructionId[:])
 		}
 	}
 	if err != nil {
