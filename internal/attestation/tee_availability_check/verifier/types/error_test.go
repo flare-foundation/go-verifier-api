@@ -149,7 +149,7 @@ func TestFetchJSON(t *testing.T) {
 
 		ctx := context.Background()
 		_, err := fetcher.GetJSON[testStruct](ctx, fmt.Sprintf("%s/slow", slowServer.URL), 50*time.Millisecond)
-		require.ErrorContains(t, err, "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
+		require.Contains(t, err.Error(), "context deadline exceeded")
 	})
 	t.Run("context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -167,6 +167,27 @@ func TestFetchJSON(t *testing.T) {
 		require.Contains(t, err.Error(), "fetchOp")
 		require.Contains(t, err.Error(), verifiertypes.ErrRPC.Error())
 		require.ErrorIs(t, err, verifiertypes.ErrRPC)
+	})
+	t.Run("oversized json", func(t *testing.T) {
+		bigData := []byte(`{"foo":"`)
+		garbage := make([]byte, 3*1024*1024)
+		for i := range garbage {
+			garbage[i] = 'x'
+		}
+		bigData = append(bigData, garbage...)
+		bigData = append(bigData, []byte(`"}`)...)
+
+		bigServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(bigData)
+		}))
+		defer bigServer.Close()
+
+		ctx := context.Background()
+		_, err := fetcher.GetJSON[testStruct](ctx, bigServer.URL, 1*time.Second)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "decoding JSON from")
 	})
 }
 

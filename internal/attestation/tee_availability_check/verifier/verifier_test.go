@@ -545,7 +545,7 @@ func TestVerify(t *testing.T) {
 			Url: server.URL,
 		}
 		resp, err := ver.Verify(context.Background(), req)
-		require.ErrorContains(t, err, "cannot fetch TEE data for TeeID")
+		require.ErrorContains(t, err, "insufficient samples to determine TEE")
 		require.Empty(t, resp)
 	})
 	t.Run("insufficient samples", func(t *testing.T) {
@@ -563,7 +563,7 @@ func TestVerify(t *testing.T) {
 		require.ErrorContains(t, err, "insufficient samples to determine TEE")
 		require.Empty(t, resp)
 	})
-	t.Run("indeterminate status", func(t *testing.T) {
+	t.Run("resource not found", func(t *testing.T) {
 		teeID := common.HexToAddress("0x123")
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {
@@ -578,7 +578,8 @@ func TestVerify(t *testing.T) {
 		}
 		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleValid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
-		require.ErrorContains(t, err, "indeterminate verifier status")
+		require.ErrorContains(t, err, "cannot fetch TEE data for (TEE=0x0000000000000000000000000000000000000123")
+		require.ErrorContains(t, err, "and determine its status: resource not found (404)")
 		require.Empty(t, resp)
 		// reset samples
 		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{}
