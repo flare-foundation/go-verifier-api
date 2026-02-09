@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"time"
@@ -24,6 +25,8 @@ var sharedHTTPClient = &http.Client{
 		TLSHandshakeTimeout: 10 * time.Second,
 	},
 }
+
+const maxResponseSize = 2 * 1024 * 1024 // 2MB - TODO(urska) - is the limit ok for general use?
 
 func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
 	var zero T
@@ -52,7 +55,8 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	default:
 		return zero, fmt.Errorf("unexpected status code: %d for url %s", resp.StatusCode, url)
 	}
-	err = json.NewDecoder(resp.Body).Decode(&zero)
+	limitReader := io.LimitReader(resp.Body, maxResponseSize)
+	err = json.NewDecoder(limitReader).Decode(&zero)
 	if err != nil {
 		return zero, fmt.Errorf("decoding JSON from %s failed for type %s: %w", url, reflect.TypeOf(zero), err)
 	}
