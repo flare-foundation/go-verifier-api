@@ -67,16 +67,17 @@ func StartServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 
 func ShutdownServer(srv *http.Server, closers []io.Closer) {
 	logger.Info("Shutting down gracefully...")
-	for _, c := range closers {
-		if err := c.Close(); err != nil {
-			logger.Errorf("Error closing service: %v", err)
-		}
-	}
 
 	ctxShutdown, cancel := context.WithTimeout(context.Background(), shutdownAfter)
 	defer cancel()
 	if err := srv.Shutdown(ctxShutdown); err != nil {
 		logger.Errorf("Server forced to shutdown: %v", err)
+	}
+
+	for _, c := range closers {
+		if err := c.Close(); err != nil {
+			logger.Errorf("Error closing service: %v", err)
+		}
 	}
 }
 
