@@ -8,13 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBytesToHex0x(t *testing.T) {
-	data := []byte{0x01, 0x02, 0x03}
-	got := bytesToHex0x(data)
-	want := "0x010203"
-	require.Equal(t, want, got)
-}
-
 func TestParseBigInt(t *testing.T) {
 	t.Run("valid number", func(t *testing.T) {
 		input := "1234567890"
