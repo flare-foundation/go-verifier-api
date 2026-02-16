@@ -77,7 +77,6 @@ type PMWPaymentStatusConfig struct {
 	SourceDatabaseURL        string
 	CchainDatabaseURL        string
 	ParsedTeeInstructionsABI abi.ABI
-	ParsedPaymentABI         abi.ABI
 }
 
 type PMWMultisigAccountConfig struct {

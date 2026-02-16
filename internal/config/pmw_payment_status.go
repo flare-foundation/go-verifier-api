@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 )
 
 var (
@@ -36,16 +35,11 @@ func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse TeeInstructions ABI: %w", err)
 	}
-	parsedPaymentABI, err := abi.JSON(strings.NewReader(payment.PaymentMetaData.ABI))
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse Payment ABI: %w", err)
-	}
 	return &PMWPaymentStatusConfig{
 		EncodedAndABI:            commonConfig,
 		SourceDatabaseURL:        envConfig.SourceDatabaseURL,
 		CchainDatabaseURL:        envConfig.CChainDatabaseURL,
 		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,
-		ParsedPaymentABI:         parsedPaymentABI,
 	}, nil
 }
 
