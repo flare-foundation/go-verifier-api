@@ -34,7 +34,7 @@ import (
 const (
 	fetchInfoTimeout        = 5 * time.Second
 	BlockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
-	chainMaxAttemps         = 1
+	chainMaxAttempts         = 1
 	chainRetryDelay         = 400 * time.Millisecond
 	chainFetchTimeout       = 4 * time.Second
 	SamplesToConsider       = 5               // NOTE: SamplesToConsider and SampleInterval need to be correlated.
@@ -195,11 +195,11 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 	lastSigningCh := make(chan result, 1)
 	// Fetch policies
 	go func() {
-		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID, chainMaxAttemps, chainRetryDelay)
+		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID, chainMaxAttempts, chainRetryDelay)
 		initialSigningCh <- result{hash, state, err}
 	}()
 	go func() {
-		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID, chainMaxAttemps, chainRetryDelay)
+		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID, chainMaxAttempts, chainRetryDelay)
 		lastSigningCh <- result{hash, state, err}
 	}()
 	// Wait for results
