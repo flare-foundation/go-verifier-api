@@ -11,16 +11,16 @@ import (
 )
 
 var (
-	pmyPaymentStatusConfig     *PMWPaymentStatusConfig
-	pmyPaymentStatusConfigOnce sync.Once
-	errPmyPaymentStatusConfig  error
+	pmwPaymentStatusConfig     *PMWPaymentStatusConfig
+	pmwPaymentStatusConfigOnce sync.Once
+	errPmwPaymentStatusConfig  error
 )
 
 func GetPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
-	pmyPaymentStatusConfigOnce.Do(func() {
-		pmyPaymentStatusConfig, errPmyPaymentStatusConfig = LoadPMWPaymentStatusConfig(envConfig)
+	pmwPaymentStatusConfigOnce.Do(func() {
+		pmwPaymentStatusConfig, errPmwPaymentStatusConfig = LoadPMWPaymentStatusConfig(envConfig)
 	})
-	return pmyPaymentStatusConfig, errPmyPaymentStatusConfig
+	return pmwPaymentStatusConfig, errPmwPaymentStatusConfig
 }
 
 func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
@@ -50,7 +50,7 @@ func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, e
 }
 
 func ClearPMWPaymentStatusConfigForTest() {
-	pmyPaymentStatusConfig = nil
-	pmyPaymentStatusConfigOnce = sync.Once{}
-	errPmyPaymentStatusConfig = nil
+	pmwPaymentStatusConfig = nil
+	pmwPaymentStatusConfigOnce = sync.Once{}
+	errPmwPaymentStatusConfig = nil
 }
