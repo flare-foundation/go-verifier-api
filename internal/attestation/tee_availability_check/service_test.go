@@ -1,4 +1,4 @@
-package multisigservice
+package teeavailabilityservice
 
 import (
 	"testing"
