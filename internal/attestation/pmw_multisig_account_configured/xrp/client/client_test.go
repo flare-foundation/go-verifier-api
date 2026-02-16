@@ -84,7 +84,6 @@ func TestGetAccountInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(tt.handler)
 			defer server.Close()
-			time.Sleep(200 * time.Millisecond)
 
 			client := NewClient(server.URL)
 			ctx := context.Background()
