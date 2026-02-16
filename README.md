@@ -12,6 +12,8 @@ PORT=<port_number>
 API_KEYS=<comma_separated_strings>
 ```
 
+> **NOTE**: The `<port_number>` value must be consistent with the `PORT` environment variable throughout the configuration.
+
 ### `TeeAvailabilityCheck` Attestation Type
 Environment variables:
  ```env
@@ -71,8 +73,9 @@ SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 
 4. Access Swagger UI:
     ```
-    http://localhost:3120/api-doc
+    http://localhost:<port_number>/api-doc
     ```
+    Replace `<port_number>` with the value set in your `PORT` environment variable.
 
 ## API Reference
 <b>Base path for all verifier endpoints</b>:
