@@ -249,6 +249,7 @@ func (v *TeeVerifier) GetSigningPolicyHashFromChainWithRetry(
 		finalState verifiertypes.TeeSampleState
 	)
 	_, err := fetcher.Retry(
+		ctx,
 		maxAttempts,
 		delay,
 		func() (struct{}, error) {

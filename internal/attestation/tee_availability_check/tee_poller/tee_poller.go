@@ -59,9 +59,10 @@ func NewTeePoller(teeVerifier *verifier.TeeVerifier) *TeePollerService {
 }
 
 func (s *TeePollerService) StartTeePoller(parentCtx context.Context) {
+	ctx, cancel := context.WithCancel(parentCtx)
+	s.cancel = cancel
+
 	go func() {
-		ctx, cancel := context.WithCancel(parentCtx)
-		s.cancel = cancel
 		defer cancel()
 
 		defer func() {
@@ -215,7 +216,7 @@ func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk
 }
 
 func (s *TeePollerService) getAllActiveTeesWithRetry(ctx context.Context) (teeList, error) {
-	return fetcher.Retry(chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
+	return fetcher.Retry(ctx, chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
 		return s.getAllActiveTeeMachines(ctx, teeMachineChunk)
 	}, nil)
 }

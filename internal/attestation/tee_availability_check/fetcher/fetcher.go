@@ -64,6 +64,7 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 }
 
 func Retry[T any](
+	ctx context.Context,
 	maxAttempts int,
 	delay time.Duration,
 	operation func() (T, error),
@@ -71,6 +72,9 @@ func Retry[T any](
 ) (T, error) {
 	var lastErr error
 	var lastResult T
+	if maxAttempts <= 0 {
+		return lastResult, errors.New("maxAttempts must be at least 1")
+	}
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		result, err := operation()
 		if err == nil {
@@ -83,7 +87,11 @@ func Retry[T any](
 		lastResult = result
 		logger.Warnf("Attempt %d/%d failed: %v", attempt, maxAttempts, err)
 		if attempt < maxAttempts {
-			time.Sleep(delay)
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return lastResult, ctx.Err()
+			}
 		}
 	}
 	return lastResult, lastErr
