@@ -2,5 +2,6 @@
 tmp/
 coverage.out
 
+.claude/
 
 e2e/
