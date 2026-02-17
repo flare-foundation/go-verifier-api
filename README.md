@@ -30,7 +30,7 @@ DISABLE_ATTESTATION_CHECK_E2E=false
 
 > **NOTE**: `ALLOW_TEE_DEBUG` and `DISABLE_ATTESTATION_CHECK_E2E` are test/E2E-only flags. In production, you can leave them unset (they default to false).
 
-The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/attestation/config/assets_. Read more about it [here](./internal/config/assets/README.md).
+The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/config/assets_. Read more about it [here](./internal/config/assets/README.md).
 
 ### `PMWMultisigAccountConfigured` Attestation Type
 Environment variables:

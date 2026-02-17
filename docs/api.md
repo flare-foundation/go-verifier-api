@@ -106,16 +106,16 @@ type AttestationRequest struct {
 ```go
 type TeeAvailabilityCheckRequestBody struct {
 	TeeID         [20]byte
-	ProxyTeeID    [20]byte
+	TeeProxyID    [20]byte
 	URL           string
 	Challenge     [32]byte
-  InstructionId [32]byte
+  InstructionID [32]byte
 }
 ```
 | Field         | Description          |
 |---------------|----------------------|
 | TeeID         | Hex-encoded 20-byte Ethereum address of the TEE
-| ProxyTeeID    | Hex-encoded 20-byte Ethereum address of the TEE Proxy ID
+| TeeProxyID    | Hex-encoded 20-byte Ethereum address of the TEE Proxy ID
 | URL           | TEE proxy endpoint URL
 | Challenge     | Hex-encoded 32-byte challenge
 | InstructionID | Hex-encoded 32-byte instruction ID
@@ -196,7 +196,7 @@ type PMWPaymentStatusRequestBody struct {
 ```go
 type IPMWPaymentStatusResponseBody struct {
 	RecipientAddress  string
-	TokenId 		  [32]byte
+	TokenID 		  [32]byte
 	Amount            *big.Int
 	Fee               *big.Int
 	PaymentReference  [32]byte
@@ -204,7 +204,7 @@ type IPMWPaymentStatusResponseBody struct {
 	RevertReason      string
 	ReceivedAmount    *big.Int
 	TransactionFee    *big.Int
-	TransactionId     [32]byte
+	TransactionID     [32]byte
 	BlockNumber       uint64
 	BlockTimestamp    uint64
 }
@@ -212,7 +212,7 @@ type IPMWPaymentStatusResponseBody struct {
 | Field             | Description          |
 |-------------------|----------------------|
 | RecipientAddress  | Recipient from the payment instruction message
-| TokenId			| Token ID (e.g. address) for the payment, bytes32(0) represents native token
+| TokenID			| Token ID (e.g. address) for the payment, bytes32(0) represents native token
 | Amount            | Amount from the payment instruction message
 | Fee               | Fee from the payment instruction message
 | PaymentReference  | Payment reference from the payment instruction message
@@ -220,7 +220,7 @@ type IPMWPaymentStatusResponseBody struct {
 | RevertReason      | Reason for transaction failure (blockchain-specific)
 | ReceivedAmount    | Actual amount received by the recipient
 | TransactionFee    | Total transaction fee spent
-| TransactionId     | Transaction hash
+| TransactionID     | Transaction hash
 | BlockNumber       | Block number in which the transaction was included
 | BlockTimestamp    | Timestamp of the block containing the transaction
 
