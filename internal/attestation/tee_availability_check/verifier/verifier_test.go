@@ -115,6 +115,26 @@ func TestCheckInfoChallenge(t *testing.T) {
 		require.ErrorContains(t, err, "challenge too old")
 		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 	})
+	t.Run("stale block but valid challenge", func(t *testing.T) {
+		// Latest block is >blockStalenessThreshold (120s) behind wall clock,
+		// triggering the stale warning, but the challenge is fresh relative
+		// to the latest block so validation still passes.
+		staleOffset := uint64(150) // >120s behind wall clock
+		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset - 10})
+		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset})
+		mockClient := &helpers.MockEthClient{
+			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
+				return challengeBlock, nil
+			},
+			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
+				return latestBlock, nil
+			},
+		}
+		v := &verifier.TeeVerifier{EthClient: mockClient}
+		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
+		require.NoError(t, err)
+		require.Equal(t, verifiertypes.TeeSampleValid, state)
+	})
 }
 
 func TestGetSigningPolicyHashFromChain(t *testing.T) {
