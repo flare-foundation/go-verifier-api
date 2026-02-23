@@ -42,7 +42,7 @@ RPC_URL=https://<xrpl>
 
 ### `PMWPaymentStatus` Attestation Type
 You will need to run following indexers:
-(TODO replace with publicly available links.)
+(TODO replace repos links with publicly available links.)
 - [xrp-indexer](https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/tree/add-new-fields?ref_type=heads)
 - [c-chain indexer](https://gitlab.com/flarenetwork/FSP/flare-system-c-chain-indexer) 
 
@@ -146,6 +146,9 @@ This is the simplest way to run everything without worrying about Docker manuall
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
 - How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
+- TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
+- TEEAvailabilityCheck: add url validation and CRL check.
+- Add new attestation type FeeProof (need to define it first).
 
 ### Monitoring
 - When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures.
