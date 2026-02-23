@@ -34,10 +34,10 @@ import (
 const (
 	fetchInfoTimeout        = 5 * time.Second
 	BlockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
-	chainMaxAttempts         = 1
+	chainMaxAttempts        = 1
 	chainRetryDelay         = 400 * time.Millisecond
 	chainFetchTimeout       = 4 * time.Second
-	blockStalenessThreshold = 120 // seconds — warn if latest block is older than this
+	blockStalenessThreshold = 120             // seconds — warn if latest block is older than this
 	SamplesToConsider       = 5               // NOTE: SamplesToConsider and SampleInterval need to be correlated.
 	SampleInterval          = 1 * time.Minute // NOTE: SamplesToConsider and SampleInterval need to be correlated.
 )
@@ -150,9 +150,6 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 }
 
 func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (StatusInfo, error) {
-	// if response.Platform != "google" { //TODO (platform) - add after teeInfo.Platform is defined
-	// 	return StatusInfo{}, fmt.Errorf("platform %s is not supported", response.Platform)
-	// }
 	if v.Cfg.DisableAttestationCheckE2E {
 		platform := E2ETestPlatform
 		codeHash := E2ETestCodeHash
