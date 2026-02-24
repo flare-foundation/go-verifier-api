@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	fetchInfoTimeout        = 5 * time.Second
+	fetchChallengeTimeout   = 4 * time.Second
 	BlockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
 	chainMaxAttempts        = 1
 	chainRetryDelay         = 400 * time.Millisecond
@@ -333,7 +333,7 @@ func FetchTEEChallengeResult(
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
-	actionResp, err := fetchFn(ctx, url, fetchInfoTimeout)
+	actionResp, err := fetchFn(ctx, url, fetchChallengeTimeout)
 	if err != nil {
 		return zero, zeroAdd, err
 	}
