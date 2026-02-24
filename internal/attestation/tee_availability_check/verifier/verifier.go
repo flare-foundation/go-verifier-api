@@ -52,6 +52,7 @@ type TeeVerifier struct {
 	EthClient                EthClient
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
+	ValidateURL              fetcher.URLValidator
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
 }
@@ -88,12 +89,17 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 		client.Close()
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
+	var validator fetcher.URLValidator
+	if !cfg.DisableURLValidation {
+		validator = ValidateExternalURL
+	}
 
 	return &TeeVerifier{
 		Cfg:                      cfg,
 		EthClient:                client,
 		TeeMachineRegistryCaller: teeMachineRegistryCaller,
 		RelayCaller:              relayCaller,
+		ValidateURL:              validator,
 		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}, nil
 }
@@ -101,7 +107,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	var zero connector.ITeeAvailabilityCheckResponseBody
 	// Fetch from TEE proxy /action/result/<instructionID>
-	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, fetcher.GetJSON[teenodetypes.ActionResponse])
+	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.ValidateURL, fetcher.GetJSON[teenodetypes.ActionResponse])
 	if err != nil {
 		// check polled data
 		isDown, infoErr := v.IsTEEInfoDown(req.TeeId)
@@ -328,10 +334,14 @@ func FetchTEEChallengeResult(
 	ctx context.Context,
 	baseURL string,
 	challengeInstructionID common.Hash,
+	validateURL fetcher.URLValidator,
 	fetchFn func(context.Context, string, time.Duration) (teenodetypes.ActionResponse, error),
 ) (teenodetypes.TeeInfoResponse, common.Address, error) {
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
+	if err := fetcher.ValidateBaseURL(ctx, baseURL, validateURL); err != nil {
+		return zero, zeroAdd, err
+	}
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
 	actionResp, err := fetchFn(ctx, url, fetchChallengeTimeout)
 	if err != nil {

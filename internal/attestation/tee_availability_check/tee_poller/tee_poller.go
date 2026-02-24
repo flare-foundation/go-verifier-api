@@ -155,7 +155,7 @@ func (s *TeePollerService) sampleAllTees(
 }
 
 func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
-	infoResponse, err := fetchTEEInfoData(ctx, proxyURL)
+	infoResponse, err := fetchTEEInfoData(ctx, teeVerifier, proxyURL)
 	if err != nil {
 		return verifiertypes.TeeSampleInvalid, fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
 	}
@@ -221,7 +221,10 @@ func (s *TeePollerService) getAllActiveTeesWithRetry(ctx context.Context) (teeLi
 	}, nil)
 }
 
-func fetchTEEInfoData(ctx context.Context, baseURL string) (teenodetype.TeeInfoResponse, error) {
+func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, baseURL string) (teenodetype.TeeInfoResponse, error) {
+	if err := fetcher.ValidateBaseURL(ctx, baseURL, teeVerifier.ValidateURL); err != nil {
+		return teenodetype.TeeInfoResponse{}, err
+	}
 	url := fmt.Sprintf("%s/info", baseURL)
 	return fetcher.GetJSON[teenodetype.TeeInfoResponse](ctx, url, fetchTimeout)
 }

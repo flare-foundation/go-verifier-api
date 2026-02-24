@@ -26,9 +26,10 @@ RPC_URL=https://<flare>
 # Test/E2E-only flags (optional, default to false):
 ALLOW_TEE_DEBUG=false
 DISABLE_ATTESTATION_CHECK_E2E=false
+DISABLE_URL_VALIDATION=false
 ```
 
-> **NOTE**: `ALLOW_TEE_DEBUG` and `DISABLE_ATTESTATION_CHECK_E2E` are test/E2E-only flags. In production, you can leave them unset (they default to false).
+> **NOTE**: `ALLOW_TEE_DEBUG`, `DISABLE_ATTESTATION_CHECK_E2E`, and `DISABLE_URL_VALIDATION` are test/E2E-only flags. In production, you should leave them unset (they default to false).
 
 The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/config/assets_. Read more about it [here](./internal/config/assets/README.md).
 
@@ -147,7 +148,7 @@ This is the simplest way to run everything without worrying about Docker manuall
 - Other `TODO`s inside the code and README.
 - How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
-- TEEAvailabilityCheck: add url validation and CRL check.
+- TEEAvailabilityCheck: add CRL check.
 - Add new attestation type FeeProof (need to define it first).
 
 ### Monitoring

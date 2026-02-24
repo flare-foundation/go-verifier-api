@@ -63,6 +63,21 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	return zero, nil
 }
 
+// URLValidator validates a URL before making an HTTP request.
+type URLValidator func(context.Context, string) error
+
+// ValidateBaseURL applies the given validator to a base URL.
+// Returns nil if validate is nil (no validation configured).
+func ValidateBaseURL(ctx context.Context, baseURL string, validate URLValidator) error {
+	if validate == nil {
+		return nil
+	}
+	if err := validate(ctx, baseURL); err != nil {
+		return fmt.Errorf("invalid URL %q: %w", baseURL, err)
+	}
+	return nil
+}
+
 func Retry[T any](
 	ctx context.Context,
 	maxAttempts int,
