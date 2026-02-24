@@ -5,4 +5,6 @@ coverage.out
 .claude/
 CLAUDE.md
 
+.codex/
+
 e2e/
