@@ -59,14 +59,13 @@ golangci-lint run
 Full Scope of all files in repository for review and audits:
 
 ```
-internal/api/handler/handler_util_test.go
-internal/api/handler/pooling.go
-internal/api/handler/health.go
-internal/api/handler/handler.go
 internal/api/handler/handler_util.go
+internal/api/handler/handler.go
+internal/api/handler/health.go
+internal/api/handler/pooling.go
 internal/api/types/common.go
-internal/api/types/pmw_payment_status.go
 internal/api/types/pmw_multisig_account_configured.go
+internal/api/types/pmw_payment_status.go
 internal/api/types/tee_availability_check.go
 internal/api/loader.go
 internal/api/server.go
@@ -96,8 +95,10 @@ internal/attestation/tee_availability_check/tee_poller/tee_poller.go
 internal/attestation/tee_availability_check/verifier/types/error.go
 internal/attestation/tee_availability_check/verifier/types/samples.go
 internal/attestation/tee_availability_check/verifier/claims.go
+internal/attestation/tee_availability_check/verifier/url_validation.go
 internal/attestation/tee_availability_check/verifier/verifier.go
 internal/attestation/tee_availability_check/service.go
+
 internal/attestation/verifier_interface.go
 
 internal/config/config.go
