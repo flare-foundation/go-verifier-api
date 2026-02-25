@@ -72,5 +72,42 @@ func TestValidateExternalURL(t *testing.T) {
 		})
 		require.ErrorContains(t, err, "cannot resolve hostname")
 	})
+
+	t.Run("rejects IPv6 loopback", func(t *testing.T) {
+		err := validateExternalURL(context.Background(), "http://[::1]", resolverMock{})
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects IPv6 documentation prefix", func(t *testing.T) {
+		err := validateExternalURL(context.Background(), "http://[2001:db8::1]", resolverMock{})
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects IPv6 discard prefix", func(t *testing.T) {
+		err := validateExternalURL(context.Background(), "http://[100::1]", resolverMock{})
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects IPv6 6to4 prefix", func(t *testing.T) {
+		err := validateExternalURL(context.Background(), "http://[2002:c0a8:0101::1]", resolverMock{})
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects IPv6 Teredo prefix", func(t *testing.T) {
+		err := validateExternalURL(context.Background(), "http://[2001::1]", resolverMock{})
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects hostname resolving to blocked IPv6", func(t *testing.T) {
+		err := validateExternalURL(context.Background(), "https://proxy.example", resolverMock{
+			ips: []net.IPAddr{{IP: net.ParseIP("2002:c0a8:0101::1")}},
+		})
+		require.ErrorContains(t, err, "resolves to private/local IP")
+	})
+
+	t.Run("allows public IPv6 literal", func(t *testing.T) {
+		err := validateExternalURL(context.Background(), "http://[2607:f8b0:4004:800::200e]", resolverMock{})
+		require.NoError(t, err)
+	})
 }
 
