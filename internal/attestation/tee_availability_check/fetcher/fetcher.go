@@ -2,10 +2,12 @@ package fetcher
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"time"
@@ -26,9 +28,42 @@ var sharedHTTPClient = &http.Client{
 	},
 }
 
+func cloneTransportConfig() *http.Transport {
+	base, ok := sharedHTTPClient.Transport.(*http.Transport)
+	if !ok {
+		return &http.Transport{}
+	}
+	return &http.Transport{
+		MaxIdleConns:        base.MaxIdleConns,
+		MaxConnsPerHost:     base.MaxConnsPerHost,
+		MaxIdleConnsPerHost: base.MaxIdleConnsPerHost,
+		IdleConnTimeout:     base.IdleConnTimeout,
+		TLSHandshakeTimeout: base.TLSHandshakeTimeout,
+	}
+}
+
 const maxResponseSize = 2 * 1024 * 1024 // 2MB - TODO(urska) - is the limit ok for general use?
 
 func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
+	return getJSONWithClient[T](ctx, url, fetchTimeout, sharedHTTPClient, "")
+}
+
+// GetJSONPinned fetches JSON from url while pinning the connection to dialAddr (host:port).
+// hostHeader is used as the HTTP Host header; serverName is used for TLS SNI.
+func GetJSONPinned[T any](ctx context.Context, url string, fetchTimeout time.Duration, dialAddr, hostHeader, serverName string) (T, error) {
+	transport := cloneTransportConfig()
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		dialer := &net.Dialer{Timeout: 10 * time.Second}
+		return dialer.DialContext(ctx, network, dialAddr)
+	}
+	transport.TLSClientConfig = &tls.Config{ServerName: serverName}
+
+	client := &http.Client{Transport: transport}
+	defer transport.CloseIdleConnections()
+	return getJSONWithClient[T](ctx, url, fetchTimeout, client, hostHeader)
+}
+
+func getJSONWithClient[T any](ctx context.Context, url string, fetchTimeout time.Duration, client *http.Client, hostHeader string) (T, error) {
 	var zero T
 	// per-request timeout
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
@@ -38,9 +73,12 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 	if err != nil {
 		return zero, fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
-	resp, err := sharedHTTPClient.Do(req)
+	if hostHeader != "" {
+		req.Host = hostHeader
+	}
+	resp, err := client.Do(req)
 	if err != nil {
-		return zero, fmt.Errorf("HTTP request failed for: %w", err)
+		return zero, fmt.Errorf("HTTP request failed for %s: %w", url, err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -61,21 +99,6 @@ func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration)
 		return zero, fmt.Errorf("decoding JSON from %s failed for type %s: %w", url, reflect.TypeOf(zero), err)
 	}
 	return zero, nil
-}
-
-// URLValidator validates a URL before making an HTTP request.
-type URLValidator func(context.Context, string) error
-
-// ValidateBaseURL applies the given validator to a base URL.
-// Returns nil if validate is nil (no validation configured).
-func ValidateBaseURL(ctx context.Context, baseURL string, validate URLValidator) error {
-	if validate == nil {
-		return nil
-	}
-	if err := validate(ctx, baseURL); err != nil {
-		return fmt.Errorf("invalid URL %q: %w", baseURL, err)
-	}
-	return nil
 }
 
 func Retry[T any](
