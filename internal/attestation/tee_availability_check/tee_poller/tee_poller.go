@@ -67,7 +67,7 @@ func (s *TeePollerService) StartTeePoller(parentCtx context.Context) {
 
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Errorf("TEE poller panic recovered: %v", r)
+				logger.Errorf("TEE poller recovered from panic: %v", r)
 			}
 		}()
 
@@ -81,7 +81,7 @@ func (s *TeePollerService) StartTeePoller(parentCtx context.Context) {
 			case <-ticker.C:
 				s.sampleAllTees(ctx, queryTeeInfoAndValidate)
 			case <-ctx.Done():
-				logger.Infof("TEE poller stopped: %v", ctx.Err())
+				logger.Infof("TEE poller stopped (%v)", ctx.Err())
 				return
 			}
 		}
@@ -94,10 +94,10 @@ func (s *TeePollerService) sampleAllTees(
 ) {
 	activeTees, err := s.getAllActiveTeesWithRetry(ctx)
 	if err != nil {
-		logger.Warnf("Failed to fetch active TEEs from TeeMachineRegistry, using last cached version: %v", err)
+		logger.Warnf("Active TEE fetch failed; using cached list: %v", err)
 		activeTees = s.getCachedActiveTees()
 		if len(activeTees.TeeIDs) == 0 {
-			logger.Infof("No cached TEEs available, skipping this poll")
+			logger.Infof("No cached TEEs; skipping poll")
 			return
 		}
 	} else {
@@ -114,7 +114,7 @@ func (s *TeePollerService) sampleAllTees(
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					logger.Errorf("Worker panic recovered: %v", r)
+					logger.Errorf("Worker recovered from panic: %v", r)
 				}
 			}()
 			for {
@@ -128,7 +128,7 @@ func (s *TeePollerService) sampleAllTees(
 					proxyURL := s.verifier.FormatProxyURL(t.proxyURL)
 					state, err := queryInfoAndValidate(ctx, s.verifier, proxyURL, t.teeID)
 					if err != nil {
-						logger.Errorf("Failed to validate %s: %v", t.teeID.Hex(), err)
+						logger.Warnf("TEE %s validation failed: %v", t.teeID.Hex(), err)
 					}
 					logger.Debugf("TEE %s state updated to %v", t.teeID.Hex(), state)
 					s.verifier.SamplesMu.Lock()
