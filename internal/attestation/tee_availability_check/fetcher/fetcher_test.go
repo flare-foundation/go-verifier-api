@@ -3,6 +3,9 @@ package fetcher
 import (
 	"context"
 	"errors"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -94,4 +97,28 @@ func TestRetry(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 		require.Equal(t, 1, attempts, "should not retry after context cancellation")
 	})
+}
+
+func TestGetJSONPinnedUsesHostHeader(t *testing.T) {
+	wantHost := "example.com"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != wantHost {
+			http.Error(w, "bad host", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	dialAddr := server.Listener.Addr().String()
+	_, _, err := net.SplitHostPort(dialAddr)
+	require.NoError(t, err)
+
+	url := server.URL + "/"
+	got, err := GetJSONPinned[struct {
+		OK bool `json:"ok"`
+	}](context.Background(), url, 2*time.Second, dialAddr, wantHost, "")
+	require.NoError(t, err)
+	require.True(t, got.OK)
 }

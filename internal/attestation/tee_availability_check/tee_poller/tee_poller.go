@@ -222,10 +222,15 @@ func (s *TeePollerService) getAllActiveTeesWithRetry(ctx context.Context) (teeLi
 }
 
 func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, baseURL string) (teenodetype.TeeInfoResponse, error) {
-	if err := fetcher.ValidateBaseURL(ctx, baseURL, teeVerifier.ValidateURL); err != nil {
-		return teenodetype.TeeInfoResponse{}, err
-	}
 	url := fmt.Sprintf("%s/info", baseURL)
+	if teeVerifier.ValidateURL {
+		resolved, err := verifier.ResolveExternalURL(ctx, baseURL)
+		if err != nil {
+			return teenodetype.TeeInfoResponse{}, err
+		}
+		dialAddr, hostHeader, serverName := verifier.BuildPinnedAddr(resolved)
+		return fetcher.GetJSONPinned[teenodetype.TeeInfoResponse](ctx, url, fetchTimeout, dialAddr, hostHeader, serverName)
+	}
 	return fetcher.GetJSON[teenodetype.TeeInfoResponse](ctx, url, fetchTimeout)
 }
 

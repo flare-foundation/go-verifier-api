@@ -52,7 +52,7 @@ type TeeVerifier struct {
 	EthClient                EthClient
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
-	ValidateURL              fetcher.URLValidator
+	ValidateURL              bool
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
 }
@@ -89,17 +89,12 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 		client.Close()
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
 	}
-	var validator fetcher.URLValidator
-	if !cfg.DisableURLValidation {
-		validator = ValidateExternalURL
-	}
-
 	return &TeeVerifier{
 		Cfg:                      cfg,
 		EthClient:                client,
 		TeeMachineRegistryCaller: teeMachineRegistryCaller,
 		RelayCaller:              relayCaller,
-		ValidateURL:              validator,
+		ValidateURL:              !cfg.DisableURLValidation,
 		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}, nil
 }
@@ -334,16 +329,25 @@ func FetchTEEChallengeResult(
 	ctx context.Context,
 	baseURL string,
 	challengeInstructionID common.Hash,
-	validateURL fetcher.URLValidator,
+	validateURL bool,
 	fetchFn func(context.Context, string, time.Duration) (teenodetypes.ActionResponse, error),
 ) (teenodetypes.TeeInfoResponse, common.Address, error) {
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
-	if err := fetcher.ValidateBaseURL(ctx, baseURL, validateURL); err != nil {
-		return zero, zeroAdd, err
-	}
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
-	actionResp, err := fetchFn(ctx, url, fetchChallengeTimeout)
+	var actionResp teenodetypes.ActionResponse
+	var err error
+	if validateURL {
+		var resolved *ResolvedURL
+		resolved, err = ResolveExternalURL(ctx, baseURL)
+		if err != nil {
+			return zero, zeroAdd, err
+		}
+		dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
+		actionResp, err = fetcher.GetJSONPinned[teenodetypes.ActionResponse](ctx, url, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
+	} else {
+		actionResp, err = fetchFn(ctx, url, fetchChallengeTimeout)
+	}
 	if err != nil {
 		return zero, zeroAdd, err
 	}
