@@ -123,17 +123,39 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	if dataSigner != req.TeeProxyId {
 		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s", req.TeeProxyId.Hex(), dataSigner.Hex())
 	}
-	// Verify info data.
-	statusInfo, err := v.DataVerification(response, req.TeeId)
-	if err != nil {
-		return zero, err
-	}
+	// Run DataVerification and CheckSigningPolicies in parallel (independent after challenge fetch).
 	infoData := response.TeeInfo
-	_, err = v.CheckSigningPolicies(ctx, infoData)
-	if err != nil {
-		return zero, err
+
+	type dataVerResult struct {
+		info StatusInfo
+		err  error
+	}
+	type sigPolicyResult struct {
+		err error
+	}
+	dvCh := make(chan dataVerResult, 1)
+	spCh := make(chan sigPolicyResult, 1)
+
+	go func() {
+		info, err := v.DataVerification(response, req.TeeId)
+		dvCh <- dataVerResult{info, err}
+	}()
+	go func() {
+		_, err := v.CheckSigningPolicies(ctx, infoData)
+		spCh <- sigPolicyResult{err}
+	}()
+
+	dvRes := <-dvCh
+	spRes := <-spCh
+
+	if dvRes.err != nil {
+		return zero, dvRes.err
+	}
+	if spRes.err != nil {
+		return zero, spRes.err
 	}
 
+	statusInfo := dvRes.info
 	return connector.ITeeAvailabilityCheckResponseBody{
 		Status:                 uint8(statusInfo.Status),
 		TeeTimestamp:           infoData.TeeTimestamp,

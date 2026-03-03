@@ -128,9 +128,10 @@ Prevents SSRF by validating the TEE proxy URL before any request is made:
 - **Additional blocked prefixes**: carrier-grade NAT (`100.64.0.0/10`), benchmark testing (`198.18.0.0/15`), documentation (`2001:db8::/32`), discard (`100::/64`), 6to4 (`2002::/16` — can embed private IPv4), Teredo (`2001::/32` — can tunnel private IPv4).
 2. Validate challenge equals request challenge.
 3. Recover proxy signer and match `teeProxyId`.
-4. `DataVerification`: PKI validation + TEE ID + claims.
-5. `CheckSigningPolicies`: validate signing policy hashes against relay contract (2 concurrent RPC calls).
-6. Return status payload (`OK`/`OBSOLETE`/`DOWN`) with metadata.
+4. **In parallel** (both depend only on the challenge response):
+   - a. `DataVerification`: PKI validation + TEE ID + claims.
+   - b. `CheckSigningPolicies`: validate signing policy hashes against relay contract (2 concurrent RPC calls).
+5. Return status payload (`OK`/`OBSOLETE`/`DOWN`) with metadata.
 
 ### JWT attestation token validation (`DataVerification`)
 The attestation token is a JWT signed by Google for Confidential Space TEEs.
@@ -228,6 +229,7 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 TEE-specific fetch/RPC/network errors are internally classified for poller sample state but generally surface as `500` in HTTP verify handlers.
 
 ## 10. Concurrency and State
+- TEE `Verify` runs `DataVerification` and `CheckSigningPolicies` in parallel goroutines after the challenge fetch.
 - `CheckSigningPolicies` fetches initial and last signing policy hashes in parallel goroutines.
 - TEE poller uses worker pool (`defaultWorkerCount=10`) per cycle.
 - Shared TEE sample cache guarded by RW mutex.
