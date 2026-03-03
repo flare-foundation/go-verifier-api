@@ -25,6 +25,7 @@ type ipResolver interface {
 	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
 }
 
+// ResolvedURL holds the validated URL components and a pinned IP for DNS rebinding prevention.
 type ResolvedURL struct {
 	Scheme   string
 	Host     string

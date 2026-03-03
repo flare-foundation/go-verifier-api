@@ -55,7 +55,7 @@ func StartServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 	}
 
 	go func() {
-		logger.Infof("Starting %s verifier server with type %s on: %s ...\n",
+		logger.Infof("Starting %s verifier server with type %s on: %s ...",
 			envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatalf("Server error: %v", err)
@@ -221,7 +221,7 @@ func newSecurityHandler(handler http.Handler) http.Handler {
 
 func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context, next func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
-		// skip /api/health endpoint
+		// Health endpoint is intentionally unauthenticated.
 		if ctx.URL().Path == "/api/health" {
 			next(ctx)
 			return

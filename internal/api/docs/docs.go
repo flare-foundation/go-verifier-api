@@ -26,7 +26,7 @@ func SwaggerIndexHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:")
 	_, err = w.Write(data)
 	if err != nil {
-		logger.Error("Failed to write response: %v", err)
+		logger.Errorf("Failed to write response: %v", err)
 		return
 	}
 }
