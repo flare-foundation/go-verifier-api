@@ -124,7 +124,7 @@ func TestFetchJSON(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		ctx := context.Background()
 		_, err := fetcher.GetJSON[testStruct](ctx, fmt.Sprintf("%s/notfound", server.URL), 50*time.Millisecond)
-		require.ErrorIs(t, err, verifiertypes.ErrNotFound)
+		require.ErrorIs(t, err, fetcher.ErrNotFound)
 	})
 	t.Run("unexpected status code", func(t *testing.T) {
 		ctx := context.Background()

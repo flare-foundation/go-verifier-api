@@ -46,8 +46,9 @@ var (
 	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 
-	ErrInsufficientSamples = errors.New("insufficient samples")
-	ErrTEEDataValidation   = errors.New("TEE data validation failed")
+	ErrInsufficientSamples    = errors.New("insufficient samples")
+	ErrTEEDataValidation      = errors.New("TEE data validation failed")
+	ErrActionResultNotFound   = errors.New("action result not found")
 )
 
 type TeeVerifier struct {
@@ -374,6 +375,9 @@ func FetchTEEChallengeResult(
 		actionResp, err = fetchFn(ctx, url, fetchChallengeTimeout)
 	}
 	if err != nil {
+		if errors.Is(err, fetcher.ErrNotFound) {
+			return zero, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)
+		}
 		return zero, zeroAdd, err
 	}
 	if len(actionResp.Result.Data) == 0 {

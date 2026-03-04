@@ -238,9 +238,9 @@ func TestClassifyVerifyError(t *testing.T) {
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:           "ErrNotFound (fetcher)",
-			err:            fmt.Errorf("fetch failed: %w", fetcher.ErrNotFound),
-			expectedStatus: http.StatusUnprocessableEntity,
+			name:           "ErrActionResultNotFound",
+			err:            fmt.Errorf("action result not ready: %w", verifier.ErrActionResultNotFound),
+			expectedStatus: http.StatusServiceUnavailable,
 		},
 		// 503 — PMW infrastructure errors
 		{

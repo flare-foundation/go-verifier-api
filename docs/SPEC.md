@@ -230,7 +230,6 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
   - requested record not found in database (instruction log or transaction) — `ErrRecordNotFound` (PMWPaymentStatus)
   - TEE data validation failed (challenge/proxy/claims/signing policy hash mismatch) — `ErrTEEDataValidation` (TEE)
   - RPC client-side errors (bad request, method not found) — `ErrInvalidInput` (TEE)
-  - TEE endpoint returned 404 — `ErrNotFound` (TEE)
 - `500 Internal Server Error`:
   - response encoding failures
   - URL validation errors (ambiguous — mix of bad URL and DNS issues) (TEE)
@@ -246,6 +245,7 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
   - context deadline/canceled — `ErrContext` (TEE)
   - unclassified RPC errors (indeterminate → retry) — `ErrUnknown` (TEE)
   - HTTP request or non-OK status from TEE proxy — `ErrHTTPFetch` (TEE)
+  - TEE action/result returned 404 (result not yet available in Redis) — `ErrActionResultNotFound` (TEE)
 
 PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrGetAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`. PMWPaymentStatus verify errors are classified into `422` (`ErrRecordNotFound`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). TEE verify errors are classified into `422` (data validation), `503` (infrastructure/retry), or `500` (URL validation, JSON decode, unexpected errors).
 

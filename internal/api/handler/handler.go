@@ -130,8 +130,6 @@ func classifyVerifyError(err error) error {
 		return warnHuma422("Verification failed", err)
 	case errors.Is(err, verifiertypes.ErrInvalidInput):
 		return warnHuma422("Verification failed", err)
-	case errors.Is(err, fetcher.ErrNotFound):
-		return warnHuma422("Verification failed", err)
 	// 503 — infrastructure errors (retry)
 	case errors.Is(err, client.ErrGetAccountInfo):
 		return warnHuma503("Verification failed", err)
@@ -148,6 +146,8 @@ func classifyVerifyError(err error) error {
 	case errors.Is(err, verifiertypes.ErrUnknown):
 		return warnHuma503("Verification failed", err)
 	case errors.Is(err, fetcher.ErrHTTPFetch):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifier.ErrActionResultNotFound):
 		return warnHuma503("Verification failed", err)
 	// 500 — unexpected/ambiguous errors
 	default:
