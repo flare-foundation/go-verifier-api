@@ -170,7 +170,7 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		privKey, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		require.NoError(t, err)
 
-		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
+		pubkey := paddedPubKey(privKey)
 		addr, err := XRPAddressFromPubKey(pubkey)
 		require.NoError(t, err)
 		require.NotEmpty(t, addr)
@@ -180,7 +180,7 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		require.NoError(t, err)
 
 		// Corrupt the public key
-		pubkey := append(privKey.X.Bytes(), privKey.Y.Bytes()...)
+		pubkey := paddedPubKey(privKey)
 		pubkey[5] ^= 0xFF
 
 		addr, err := XRPAddressFromPubKey(pubkey)
@@ -270,7 +270,7 @@ func createTestAccounts(t *testing.T, n int) []testAccount {
 	for i := 0; i < n; i++ {
 		priv, err := ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
 		require.NoError(t, err)
-		pubkey := append(priv.X.Bytes(), priv.Y.Bytes()...)
+		pubkey := paddedPubKey(priv)
 		address, err := XRPAddressFromPubKey(pubkey)
 		require.NoError(t, err)
 		accounts[i] = testAccount{
@@ -279,4 +279,16 @@ func createTestAccounts(t *testing.T, n int) []testAccount {
 		}
 	}
 	return accounts
+}
+
+// paddedPubKey returns the uncompressed public key as exactly 64 bytes (32 for X + 32 for Y),
+// left-padding each coordinate with zeros. big.Int.Bytes() strips leading zeros, which can
+// produce keys shorter than 64 bytes and cause intermittent test failures.
+func paddedPubKey(priv *ecdsa.PrivateKey) []byte {
+	pubkey := make([]byte, 64)
+	x := priv.X.Bytes()
+	y := priv.Y.Bytes()
+	copy(pubkey[32-len(x):32], x)
+	copy(pubkey[64-len(y):64], y)
+	return pubkey
 }
