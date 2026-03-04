@@ -12,6 +12,9 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -118,14 +121,35 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 
 func classifyVerifyError(err error) error {
 	switch {
+	// 422 — data/validation errors
 	case errors.Is(err, client.ErrRPCNonSuccess):
 		return warnHuma422("Verification failed", err)
 	case errors.Is(err, db.ErrRecordNotFound):
 		return warnHuma422("Verification failed", err)
+	case errors.Is(err, verifier.ErrTEEDataValidation):
+		return warnHuma422("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrInvalidInput):
+		return warnHuma422("Verification failed", err)
+	case errors.Is(err, fetcher.ErrNotFound):
+		return warnHuma422("Verification failed", err)
+	// 503 — infrastructure errors (retry)
 	case errors.Is(err, client.ErrGetAccountInfo):
 		return warnHuma503("Verification failed", err)
 	case errors.Is(err, db.ErrDatabase):
 		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifier.ErrInsufficientSamples):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrNetwork):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrRPC):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrContext):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrUnknown):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, fetcher.ErrHTTPFetch):
+		return warnHuma503("Verification failed", err)
+	// 500 — unexpected/ambiguous errors
 	default:
 		return warnHuma500("Verification failed", err)
 	}
