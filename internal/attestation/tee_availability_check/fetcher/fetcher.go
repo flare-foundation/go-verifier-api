@@ -15,7 +15,10 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
-var ErrNotFound = errors.New("resource not found (404)")
+var (
+	ErrNotFound  = errors.New("resource not found (404)")
+	ErrHTTPFetch = errors.New("HTTP fetch failed")
+)
 
 var sharedHTTPClient = &http.Client{
 	Timeout: 10 * time.Second,
@@ -78,7 +81,7 @@ func getJSONWithClient[T any](ctx context.Context, url string, fetchTimeout time
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return zero, fmt.Errorf("HTTP request failed for %s: %w", url, err)
+		return zero, fmt.Errorf("HTTP request failed for %s: %w: %w", url, err, ErrHTTPFetch)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -91,7 +94,7 @@ func getJSONWithClient[T any](ctx context.Context, url string, fetchTimeout time
 	case http.StatusOK:
 		// proceed
 	default:
-		return zero, fmt.Errorf("unexpected status code: %d for url %s", resp.StatusCode, url)
+		return zero, fmt.Errorf("unexpected status code: %d for url %s: %w", resp.StatusCode, url, ErrHTTPFetch)
 	}
 	limitReader := io.LimitReader(resp.Body, maxResponseSize)
 	err = json.NewDecoder(limitReader).Decode(&zero)

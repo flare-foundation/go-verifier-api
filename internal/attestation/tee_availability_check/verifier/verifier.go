@@ -45,6 +45,9 @@ const (
 var (
 	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
+
+	ErrInsufficientSamples = errors.New("insufficient samples")
+	ErrTEEDataValidation   = errors.New("TEE data validation failed")
 )
 
 type TeeVerifier struct {
@@ -117,11 +120,11 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	// Check corresponding challenge.
 	challengeHex := common.BytesToHash(req.Challenge[:])
 	if response.TeeInfo.Challenge != challengeHex {
-		return zero, fmt.Errorf("challenge does not match: expected %s, got %s", challengeHex.Hex(), response.TeeInfo.Challenge.Hex())
+		return zero, fmt.Errorf("challenge does not match: expected %s, got %s: %w", challengeHex.Hex(), response.TeeInfo.Challenge.Hex(), ErrTEEDataValidation)
 	}
 	// Check proxy signature.
 	if dataSigner != req.TeeProxyId {
-		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s", req.TeeProxyId.Hex(), dataSigner.Hex())
+		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s: %w", req.TeeProxyId.Hex(), dataSigner.Hex(), ErrTEEDataValidation)
 	}
 	// Run DataVerification and CheckSigningPolicies in parallel (independent after challenge fetch).
 	infoData := response.TeeInfo
@@ -149,7 +152,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	spRes := <-spCh
 
 	if dvRes.err != nil {
-		return zero, dvRes.err
+		return zero, fmt.Errorf("%w: %w", ErrTEEDataValidation, dvRes.err)
 	}
 	if spRes.err != nil {
 		return zero, spRes.err
@@ -234,10 +237,10 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 		return lastSigningRes.state, fmt.Errorf("cannot retrieve last signing policy hash for ID %d: %w", teeInfoData.LastSigningPolicyID, lastSigningRes.err)
 	}
 	if initialSigningRes.hash != teeInfoData.InitialSigningPolicyHash {
-		return verifiertypes.TeeSampleInvalid, errors.New("failed to validate initial signing policy hash")
+		return verifiertypes.TeeSampleInvalid, fmt.Errorf("failed to validate initial signing policy hash: %w", ErrTEEDataValidation)
 	}
 	if lastSigningRes.hash != teeInfoData.LastSigningPolicyHash {
-		return verifiertypes.TeeSampleInvalid, errors.New("failed to validate last signing policy hash")
+		return verifiertypes.TeeSampleInvalid, fmt.Errorf("failed to validate last signing policy hash: %w", ErrTEEDataValidation)
 	}
 
 	return verifiertypes.TeeSampleValid, nil
@@ -323,7 +326,7 @@ func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
 	v.SamplesMu.RUnlock()
 
 	if len(samples) < SamplesToConsider {
-		return false, fmt.Errorf("insufficient samples to determine TEE %s status", teeID.Hex())
+		return false, fmt.Errorf("insufficient samples to determine TEE %s status: %w", teeID.Hex(), ErrInsufficientSamples)
 	}
 	for _, sample := range samples {
 		if sample.State == verifiertypes.TeeSampleValid || sample.State == verifiertypes.TeeSampleIndeterminate {
