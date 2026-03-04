@@ -100,7 +100,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
 	t.Run("verify: valid", func(t *testing.T) {
@@ -158,7 +158,40 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
+	})
+}
+
+func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
+	config.ClearPMWMultisigAccountConfiguredConfigForTest()
+	setup := server.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
+		RPCURL: "http://localhost:1", // Unreachable RPC URL to trigger ErrGetAccountInfo.
+	})
+	defer setup.Stop()
+
+	pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
+	reqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
+		PublicKeys:     [][]byte{pubkey1, pubkey2, pubkey3},
+		Threshold:      uint64(1),
+	}
+
+	t.Run("verify: RPC unreachable returns 503", func(t *testing.T) {
+		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
+		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed: cannot get account info")
+	})
+
+	t.Run("prepareResponseBody: RPC unreachable returns 503", func(t *testing.T) {
+		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
+		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
+		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
+		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed: cannot get account info")
 	})
 }
 

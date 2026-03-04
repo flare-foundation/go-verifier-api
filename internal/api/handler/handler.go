@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -9,6 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -60,7 +62,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, warnHuma500("Verification failed", err)
+				return nil, classifyVerifyError(err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
 			if err != nil {
@@ -97,7 +99,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			logRequestBody(requestData)
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, warnHuma500("Verification failed", err)
+				return nil, classifyVerifyError(err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
 			if err != nil {
@@ -111,6 +113,17 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 				ResponseBody: encodedResponse,
 			}), nil
 		})
+}
+
+func classifyVerifyError(err error) error {
+	switch {
+	case errors.Is(err, client.ErrRPCNonSuccess):
+		return warnHuma422("Verification failed", err)
+	case errors.Is(err, client.ErrGetAccountInfo):
+		return warnHuma503("Verification failed", err)
+	default:
+		return warnHuma500("Verification failed", err)
+	}
 }
 
 func logRequestBody[T any](requestData T) {
