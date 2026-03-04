@@ -209,6 +209,32 @@ func loadTestEncodedAndABI(t *testing.T, attestationType connector.AttestationTy
 	return &encodedAndABI
 }
 
+func TestFormatTeeSamples(t *testing.T) {
+	t.Run("empty samples", func(t *testing.T) {
+		v := &verifier.TeeVerifier{
+			TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
+		}
+		samples := formatTeeSamples(v)
+		require.Empty(t, samples)
+	})
+
+	t.Run("with samples", func(t *testing.T) {
+		teeAddr := common.HexToAddress("0x1234")
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeAddr: {
+					{State: verifiertypes.TeeSampleValid},
+					{State: verifiertypes.TeeSampleInvalid},
+				},
+			},
+		}
+		samples := formatTeeSamples(v)
+		require.Len(t, samples, 1)
+		require.Equal(t, teeAddr.Hex(), samples[0].TeeID)
+		require.Len(t, samples[0].Values, 2)
+	})
+}
+
 func TestClassifyVerifyError(t *testing.T) {
 	tests := []struct {
 		name           string

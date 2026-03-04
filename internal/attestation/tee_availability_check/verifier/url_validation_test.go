@@ -109,6 +109,49 @@ func TestResolveExternalURLValidation(t *testing.T) {
 		_, err := resolveExternalURL(context.Background(), "http://[2607:f8b0:4004:800::200e]", resolverMock{})
 		require.NoError(t, err)
 	})
+
+	t.Run("rejects hostname resolving to carrier-grade NAT IP", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "https://proxy.example", resolverMock{
+			ips: []net.IPAddr{{IP: net.ParseIP("100.64.0.1")}},
+		})
+		require.ErrorContains(t, err, "resolves to private/local IP")
+	})
+
+	t.Run("rejects hostname resolving to benchmark testing IP", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "https://proxy.example", resolverMock{
+			ips: []net.IPAddr{{IP: net.ParseIP("198.18.0.1")}},
+		})
+		require.ErrorContains(t, err, "resolves to private/local IP")
+	})
+
+	t.Run("rejects link-local unicast IP", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "http://169.254.1.1", resolverMock{})
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects multicast IP", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "http://224.0.0.1", resolverMock{})
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects hostname resolving to unspecified IP", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "https://proxy.example", resolverMock{
+			ips: []net.IPAddr{{IP: net.ParseIP("0.0.0.0")}},
+		})
+		require.ErrorContains(t, err, "resolves to private/local IP")
+	})
+
+	t.Run("rejects empty host", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "http://", resolverMock{})
+		require.ErrorContains(t, err, "URL host is required")
+	})
+
+	t.Run("rejects hostname resolving to no IPs", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "https://proxy.example", resolverMock{
+			ips: []net.IPAddr{},
+		})
+		require.ErrorContains(t, err, "resolved to no IP addresses")
+	})
 }
 
 func TestResolveExternalURL(t *testing.T) {
@@ -144,6 +187,20 @@ func TestBuildPinnedAddr(t *testing.T) {
 		}
 		dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
 		require.Equal(t, "93.184.216.34:443", dialAddr)
+		require.Equal(t, "example.com", hostHeader)
+		require.Equal(t, "example.com", serverName)
+	})
+
+	t.Run("defaults http port", func(t *testing.T) {
+		resolved := &ResolvedURL{
+			Scheme:   "http",
+			Host:     "example.com",
+			Hostname: "example.com",
+			Port:     "",
+			IP:       net.ParseIP("93.184.216.34"),
+		}
+		dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
+		require.Equal(t, "93.184.216.34:80", dialAddr)
 		require.Equal(t, "example.com", hostHeader)
 		require.Equal(t, "example.com", serverName)
 	})

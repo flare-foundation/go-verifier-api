@@ -118,6 +118,10 @@ func isPrivateOrLocalIP(ip net.IP) bool {
 	if !ok {
 		return true
 	}
+	// net.ParseIP returns 16-byte IPv4-mapped-IPv6 slices for IPv4 addresses.
+	// Unmap normalises these to plain IPv4 so that prefix.Contains and
+	// IsUnspecified work correctly against our IPv4 blocked prefixes.
+	addr = addr.Unmap()
 
 	if addr.IsLoopback() ||
 		addr.IsPrivate() ||
