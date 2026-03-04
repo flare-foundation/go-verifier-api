@@ -11,6 +11,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -119,7 +120,11 @@ func classifyVerifyError(err error) error {
 	switch {
 	case errors.Is(err, client.ErrRPCNonSuccess):
 		return warnHuma422("Verification failed", err)
+	case errors.Is(err, db.ErrRecordNotFound):
+		return warnHuma422("Verification failed", err)
 	case errors.Is(err, client.ErrGetAccountInfo):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, db.ErrDatabase):
 		return warnHuma503("Verification failed", err)
 	default:
 		return warnHuma500("Verification failed", err)

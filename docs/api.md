@@ -31,7 +31,9 @@ Verifies the encoded request body and returns ABI-encoded response.
 |----------------------------|----------------------|
 | 200 OK                     | The request succeeded.
 | 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, or conversion, encoding, or decoding errors).
-| 500 Internal Server Error  | Any other errors, with a description provided in the `detail` field.
+| 422 Unprocessable Entity   | The request is valid but the referenced data does not exist or is invalid (e.g., account not found, record not found).
+| 500 Internal Server Error  | Unexpected server errors, with a description provided in the `detail` field.
+| 503 Service Unavailable    | An upstream dependency (RPC node, database) is unreachable.
 
 
 

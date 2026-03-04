@@ -225,16 +225,19 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
   - decode/encode request conversion issues
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
-- `422 Unprocessable Entity` (PMWMultisig only):
-  - XRP RPC returned non-success status (e.g., account not found)
+- `422 Unprocessable Entity` (PMWMultisig, PMWPaymentStatus):
+  - XRP RPC returned non-success status (e.g., account not found) — `ErrRPCNonSuccess`
+  - requested record not found in database (instruction log or transaction) — `ErrRecordNotFound`
 - `500 Internal Server Error`:
   - response encoding failures
   - TEE verifier failures
+  - PMWPaymentStatus data corruption (ABI decode, JSON unmarshal, malformed transaction data)
   - fallback for unexpected verifier errors (should not occur for PMWMultisig in practice)
-- `503 Service Unavailable` (PMWMultisig only):
-  - XRP RPC network/transport failure (cannot reach XRPL node)
+- `503 Service Unavailable` (PMWMultisig, PMWPaymentStatus):
+  - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrGetAccountInfo`
+  - database infrastructure failure (connection, timeout) — `ErrDatabase`
 
-TEE-specific fetch/RPC/network errors are internally classified for poller sample state but surface as `500` in HTTP verify handlers. PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrGetAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`.
+TEE-specific fetch/RPC/network errors are internally classified for poller sample state but surface as `500` in HTTP verify handlers. PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrGetAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`. PMWPaymentStatus verify errors are classified into `422` (`ErrRecordNotFound`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors).
 
 ## 10. Concurrency and State
 - TEE `Verify` runs `DataVerification` and `CheckSigningPolicies` in parallel goroutines after the challenge fetch.
