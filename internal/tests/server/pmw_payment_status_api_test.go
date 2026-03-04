@@ -111,7 +111,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
 	t.Run("verify: valid", func(t *testing.T) { // Using log (12) in c-chain idx db and transaction 7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA from xrp idx db.
@@ -179,8 +179,8 @@ func TestPMWPaymentStatus(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: cannot fetch log for instruction 0xbfc81d05ef2e4baf3c28b9da65b24c2c5403f943c0692af4c7f6bf7866f0f1ac, eventHash 0xd2b490c6cf441de1940e58ec5d773c37109f3543213cd6992247896744d8c03b: record not found")
 	})
 	t.Run("verify: verification failed - not found in xrp indexer", func(t *testing.T) { // Using fake entry log (19) in c-chain idx db.
 		modifiedReqBody := baseReqBody
@@ -191,8 +191,8 @@ func TestPMWPaymentStatus(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot fetch transaction for source renoX7N3xcss6nbh62tYAhaTH1XG17Arc, nonce 11263155: record not found")
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: cannot fetch transaction for source renoX7N3xcss6nbh62tYAhaTH1XG17Arc, nonce 11263155: record not found")
 	})
 	t.Run("verify: verification failed - cannot decode event data", func(t *testing.T) { // Using fake entry log (20) in c-chain idx db.
 		modifiedReqBody := baseReqBody

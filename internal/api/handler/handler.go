@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -9,6 +10,11 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -60,7 +66,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, warnHuma500("Verification failed", err)
+				return nil, classifyVerifyError(err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
 			if err != nil {
@@ -97,7 +103,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			logRequestBody(requestData)
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, warnHuma500("Verification failed", err)
+				return nil, classifyVerifyError(err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
 			if err != nil {
@@ -111,6 +117,42 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 				ResponseBody: encodedResponse,
 			}), nil
 		})
+}
+
+func classifyVerifyError(err error) error {
+	switch {
+	// 422 — data/validation errors
+	case errors.Is(err, client.ErrRPCNonSuccess):
+		return warnHuma422("Verification failed", err)
+	case errors.Is(err, db.ErrRecordNotFound):
+		return warnHuma422("Verification failed", err)
+	case errors.Is(err, verifier.ErrTEEDataValidation):
+		return warnHuma422("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrInvalidInput):
+		return warnHuma422("Verification failed", err)
+	// 503 — infrastructure errors (retry)
+	case errors.Is(err, client.ErrGetAccountInfo):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, db.ErrDatabase):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifier.ErrInsufficientSamples):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrNetwork):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrRPC):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrContext):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifiertypes.ErrUnknown):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, fetcher.ErrHTTPFetch):
+		return warnHuma503("Verification failed", err)
+	case errors.Is(err, verifier.ErrActionResultNotFound):
+		return warnHuma503("Verification failed", err)
+	// 500 — unexpected/ambiguous errors
+	default:
+		return warnHuma500("Verification failed", err)
+	}
 }
 
 func logRequestBody[T any](requestData T) {

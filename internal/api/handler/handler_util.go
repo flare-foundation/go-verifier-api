@@ -113,7 +113,17 @@ func warnHuma400(message string, err error) error {
 	return huma.Error400BadRequest(message + ": " + err.Error())
 }
 
+func warnHuma422(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error422UnprocessableEntity(message + ": " + err.Error())
+}
+
 func warnHuma500(message string, err error) error {
 	logger.Warnf("%s: %v", message, err)
 	return huma.Error500InternalServerError(message + ": " + err.Error())
+}
+
+func warnHuma503(message string, err error) error {
+	logger.Warnf("%s: %v", message, err)
+	return huma.Error503ServiceUnavailable(message + ": " + err.Error())
 }

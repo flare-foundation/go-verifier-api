@@ -80,7 +80,10 @@ All responses get:
 - `X-Content-Type-Options: nosniff`
 
 ### Important note
-The `verify` and `prepareResponseBody` handlers map verifier failures to HTTP `500` via `warnHuma500`.
+The `verify` and `prepareResponseBody` handlers classify verifier failures via `classifyVerifyError`:
+- `422 Unprocessable Entity` for XRP RPC non-success status (e.g., account not found) — `ErrRPCNonSuccess`.
+- `503 Service Unavailable` for XRP RPC network/transport failures — `ErrGetAccountInfo`.
+- `500 Internal Server Error` for all other verifier errors.
 
 ## 6. Configuration Specification
 ## 6.1 Common required env vars
@@ -149,6 +152,19 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 6. **Platform** — Extracted from `HWModel` claim (e.g. `"GCP_INTEL_TDX"` → 32-byte hash).
 
 **Bypass:** Setting `DISABLE_ATTESTATION_CHECK_E2E=true` skips JWT validation entirely (E2E testing only).
+
+### Verify timeout budget
+The [client](https://gitlab.com/flarenetwork/tee/tee-relay-client/-/blob/main/internal/router/processors/ftdc_verifier.go?ref_type=heads#L50) calls the verifier with a **10s timeout, 3 retries, 2s delay between retries**. The verifier targets a worst-case response time under 8s so the client can retry on transient failures.
+
+| Phase | Timeout | Notes |
+|---|---|---|
+| URL validation (DNS) | 750ms | SSRF prevention, sequential |
+| Challenge fetch | 4s | Main TEE proxy call incl. TLS handshake, sequential |
+| CheckSigningPolicies (chain fetch) | 3s | RPC calls to Flare node, parallel with DataVerification |
+| DataVerification | ~0ms | JWT parsing, no network call in prod, parallel with above |
+| **Worst-case total** | **~7.75s** | |
+
+Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handles retries.
 
 ### Degraded flow when fetch fails
 - Uses poller samples (`SamplesToConsider = 5`) for requested TEE.
@@ -222,11 +238,29 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
   - decode/encode request conversion issues
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
+- `422 Unprocessable Entity`:
+  - XRP RPC returned non-success status (e.g., account not found) — `ErrRPCNonSuccess` (PMWMultisig)
+  - requested record not found in database (instruction log or transaction) — `ErrRecordNotFound` (PMWPaymentStatus)
+  - TEE data validation failed (challenge/proxy/claims/signing policy hash mismatch) — `ErrTEEDataValidation` (TEE)
+  - RPC client-side errors (bad request, method not found) — `ErrInvalidInput` (TEE)
 - `500 Internal Server Error`:
-  - verifier failures
   - response encoding failures
+  - URL validation errors (ambiguous — mix of bad URL and DNS issues) (TEE)
+  - JSON decode errors in fetcher (TEE server returned invalid body) (TEE)
+  - PMWPaymentStatus data corruption (ABI decode, JSON unmarshal, malformed transaction data)
+  - fallback for unexpected verifier errors (should not occur for PMWMultisig in practice)
+- `503 Service Unavailable`:
+  - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrGetAccountInfo` (PMWMultisig)
+  - database infrastructure failure (connection, timeout) — `ErrDatabase` (PMWPaymentStatus)
+  - insufficient poller samples to determine TEE status — `ErrInsufficientSamples` (TEE)
+  - network errors from RPC calls — `ErrNetwork` (TEE)
+  - RPC server-side errors — `ErrRPC` (TEE)
+  - context deadline/canceled — `ErrContext` (TEE)
+  - unclassified RPC errors (indeterminate → retry) — `ErrUnknown` (TEE)
+  - HTTP request or non-OK status from TEE proxy — `ErrHTTPFetch` (TEE)
+  - TEE action/result returned 404 (result not yet available in Redis) — `ErrActionResultNotFound` (TEE)
 
-TEE-specific fetch/RPC/network errors are internally classified for poller sample state but generally surface as `500` in HTTP verify handlers.
+PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrGetAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`. PMWPaymentStatus verify errors are classified into `422` (`ErrRecordNotFound`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). TEE verify errors are classified into `422` (data validation), `503` (infrastructure/retry), or `500` (URL validation, JSON decode, unexpected errors).
 
 ## 10. Concurrency and State
 - TEE `Verify` runs `DataVerification` and `CheckSigningPolicies` in parallel goroutines after the challenge fetch.

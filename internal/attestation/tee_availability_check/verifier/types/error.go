@@ -8,11 +8,9 @@ import (
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
 )
 
 var (
-	ErrNotFound     = fetcher.ErrNotFound
 	ErrNetwork      = errors.New("network error")
 	ErrRPC          = errors.New("rpc error")
 	ErrInvalidInput = errors.New("invalid input")

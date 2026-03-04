@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,13 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/events"
 	"gorm.io/gorm"
+)
+
+var (
+	// ErrRecordNotFound indicates the requested record does not exist in the database.
+	ErrRecordNotFound = errors.New("record not found")
+	// ErrDatabase indicates a database infrastructure failure (connection, timeout, etc.).
+	ErrDatabase = errors.New("database error")
 )
 
 type ChainQuery struct {
@@ -35,7 +43,10 @@ func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, inst
 			removeHexPrefix(instructionID.Hex())).
 		First(&dbLog).Error
 	if err != nil {
-		return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrRecordNotFound)
+		}
+		return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w: %w", instructionID.Hex(), eventHash, ErrDatabase, err)
 	}
 	return events.ConvertDatabaseLogToChainLog(dbLog)
 }
@@ -46,7 +57,10 @@ func (r *DBRepo) GetTransactionBySourceAndSequence(ctx context.Context, query Ch
 		Where("source_address = ? AND sequence = ?", query.SourceAddress, query.Nonce).
 		First(&tx).Error
 	if err != nil {
-		return DBTransaction{}, fmt.Errorf("cannot fetch transaction for source %s, nonce %d: %w", query.SourceAddress, query.Nonce, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return DBTransaction{}, fmt.Errorf("cannot fetch transaction for source %s, nonce %d: %w", query.SourceAddress, query.Nonce, ErrRecordNotFound)
+		}
+		return DBTransaction{}, fmt.Errorf("cannot fetch transaction for source %s, nonce %d: %w: %w", query.SourceAddress, query.Nonce, ErrDatabase, err)
 	}
 	return tx, nil
 }

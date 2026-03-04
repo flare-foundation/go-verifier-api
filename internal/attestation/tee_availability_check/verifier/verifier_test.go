@@ -609,7 +609,7 @@ func TestVerify(t *testing.T) {
 		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleValid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot fetch TEE data for (TEE=0x0000000000000000000000000000000000000123")
-		require.ErrorContains(t, err, "and determine its status: resource not found (404)")
+		require.ErrorContains(t, err, "and determine its status: action result not found: resource not found (404)")
 		require.Empty(t, resp)
 		// reset samples
 		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{}

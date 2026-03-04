@@ -2,12 +2,20 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/types"
+)
+
+var (
+	// ErrRPCNonSuccess indicates the XRP RPC returned a non-success status (e.g. account not found).
+	ErrRPCNonSuccess = errors.New("XRP RPC returned non-success status")
+	// ErrGetAccountInfo indicates a network/transport failure when fetching account info.
+	ErrGetAccountInfo = errors.New("cannot get account info")
 )
 
 const (
@@ -57,10 +65,10 @@ func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.Acc
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get account info: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrGetAccountInfo, err)
 	}
 	if resp.Message.Result.Status != "success" {
-		return nil, fmt.Errorf("XRP RPC returned non-success status for account %s: %s", account, resp.Message.Result.Status)
+		return nil, fmt.Errorf("%w for account %s: %s", ErrRPCNonSuccess, account, resp.Message.Result.Status)
 	}
 
 	return resp.Message, nil

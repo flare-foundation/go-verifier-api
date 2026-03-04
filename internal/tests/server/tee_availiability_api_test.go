@@ -127,7 +127,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, fmt.Sprintf("Verification failed: proxy signer does not match: expected 0x0000000000000000000000000000000000000011, got %s", baseReqBody.TeeProxyId))
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: proxy signer does not match: expected 0x0000000000000000000000000000000000000011, got %s: TEE data validation failed", baseReqBody.TeeProxyId))
 	})
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
@@ -165,7 +165,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, fmt.Sprintf("Verification failed: proxy signer does not match: expected 0x0000000000000000000000000000000000000011, got %s", baseReqBody.TeeProxyId))
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: proxy signer does not match: expected 0x0000000000000000000000000000000000000011, got %s: TEE data validation failed", baseReqBody.TeeProxyId))
 	})
 	t.Run("verify: challenge does not match", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -175,7 +175,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, fmt.Sprintf("Verification failed: challenge does not match: expected 0x0000000000000000000000000000000000000000000000000000000000000011, got %s", contractChallenge))
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: challenge does not match: expected 0x0000000000000000000000000000000000000000000000000000000000000011, got %s: TEE data validation failed", contractChallenge))
 	})
 	t.Run("verify: not enough TEE poller data", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -185,7 +185,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, fmt.Sprintf("Verification failed: insufficient samples to determine TEE %s status", baseReqBody.TeeId))
+		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, fmt.Sprintf("Verification failed: insufficient samples to determine TEE %s status: insufficient samples", baseReqBody.TeeId))
 	})
 	t.Run("verify: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)

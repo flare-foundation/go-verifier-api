@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -10,6 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -198,4 +207,97 @@ func loadTestEncodedAndABI(t *testing.T, attestationType connector.AttestationTy
 	})
 	require.NoError(t, err)
 	return &encodedAndABI
+}
+
+func TestClassifyVerifyError(t *testing.T) {
+	tests := []struct {
+		name           string
+		err            error
+		expectedStatus int
+	}{
+		// 422 — PMW errors
+		{
+			name:           "ErrRPCNonSuccess",
+			err:            fmt.Errorf("rpc non-success: %w", client.ErrRPCNonSuccess),
+			expectedStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:           "ErrRecordNotFound",
+			err:            fmt.Errorf("record not found: %w", db.ErrRecordNotFound),
+			expectedStatus: http.StatusUnprocessableEntity,
+		},
+		// 422 — TEE data validation
+		{
+			name:           "ErrTEEDataValidation",
+			err:            fmt.Errorf("challenge mismatch: %w", verifier.ErrTEEDataValidation),
+			expectedStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:           "ErrInvalidInput",
+			err:            fmt.Errorf("rpc call failed: %w", verifiertypes.ErrInvalidInput),
+			expectedStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:           "ErrActionResultNotFound",
+			err:            fmt.Errorf("action result not ready: %w", verifier.ErrActionResultNotFound),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		// 503 — PMW infrastructure errors
+		{
+			name:           "ErrGetAccountInfo",
+			err:            fmt.Errorf("account info failed: %w", client.ErrGetAccountInfo),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrDatabase",
+			err:            fmt.Errorf("db failed: %w", db.ErrDatabase),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		// 503 — TEE infrastructure errors
+		{
+			name:           "ErrInsufficientSamples",
+			err:            fmt.Errorf("not enough data: %w", verifier.ErrInsufficientSamples),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrNetwork",
+			err:            fmt.Errorf("rpc call failed: %w", verifiertypes.ErrNetwork),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrRPC",
+			err:            fmt.Errorf("rpc call failed: %w", verifiertypes.ErrRPC),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrContext",
+			err:            fmt.Errorf("context error: %w", verifiertypes.ErrContext),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrUnknown",
+			err:            fmt.Errorf("unknown error: %w", verifiertypes.ErrUnknown),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrHTTPFetch",
+			err:            fmt.Errorf("HTTP failed: %w", fetcher.ErrHTTPFetch),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		// 500 — default
+		{
+			name:           "unknown error falls to 500",
+			err:            errors.New("something unexpected"),
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := classifyVerifyError(tt.err)
+			var statusErr huma.StatusError
+			require.ErrorAs(t, result, &statusErr)
+			require.Equal(t, tt.expectedStatus, statusErr.GetStatus())
+		})
+	}
 }
