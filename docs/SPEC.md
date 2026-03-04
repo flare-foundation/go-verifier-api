@@ -153,6 +153,19 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 
 **Bypass:** Setting `DISABLE_ATTESTATION_CHECK_E2E=true` skips JWT validation entirely (E2E testing only).
 
+### Verify timeout budget
+The [client](https://gitlab.com/flarenetwork/tee/tee-relay-client/-/blob/main/internal/router/processors/ftdc_verifier.go?ref_type=heads#L50) calls the verifier with a **10s timeout, 3 retries, 2s delay between retries**. The verifier targets a worst-case response time under 8s so the client can retry on transient failures.
+
+| Phase | Timeout | Notes |
+|---|---|---|
+| URL validation (DNS) | 750ms | SSRF prevention, sequential |
+| Challenge fetch | 4s | Main TEE proxy call incl. TLS handshake, sequential |
+| CheckSigningPolicies (chain fetch) | 3s | RPC calls to Flare node, parallel with DataVerification |
+| DataVerification | ~0ms | JWT parsing, no network call in prod, parallel with above |
+| **Worst-case total** | **~7.75s** | |
+
+Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handles retries.
+
 ### Degraded flow when fetch fails
 - Uses poller samples (`SamplesToConsider = 5`) for requested TEE.
 - If all recent samples are invalid => returns `DOWN`.

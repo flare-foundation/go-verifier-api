@@ -36,7 +36,7 @@ const (
 	BlockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
 	chainMaxAttempts        = 1
 	chainRetryDelay         = 400 * time.Millisecond
-	chainFetchTimeout       = 4 * time.Second
+	chainFetchTimeout       = 3 * time.Second
 	blockStalenessThreshold = 120             // seconds — warn if latest block is older than this
 	SamplesToConsider       = 5               // NOTE: SamplesToConsider and SampleInterval need to be correlated.
 	SampleInterval          = 1 * time.Minute // NOTE: SamplesToConsider and SampleInterval need to be correlated.
