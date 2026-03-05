@@ -28,7 +28,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 		AllowTeeDebug:                     "true",
 		DisableAttestationCheckE2E:        "true",
-		DisableURLValidation:              "true",
+		AllowLocalhost:                    "true",
 	})
 	defer setup.Stop()
 

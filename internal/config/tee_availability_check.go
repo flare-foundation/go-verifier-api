@@ -43,15 +43,15 @@ func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckC
 	}
 	allowTeeDebug := getBoolOrSetFalse(EnvAllowTeeDebug, envConfig.AllowTeeDebug)
 	disableAttestationCheckE2E := getBoolOrSetFalse(EnvDisableAttestationCheckE2E, envConfig.DisableAttestationCheckE2E)
-	disableURLValidation := getBoolOrSetFalse(EnvDisableURLValidation, envConfig.DisableURLValidation)
+	allowLocalhost := getBoolOrSetFalse(EnvAllowLocalhost, envConfig.AllowLocalhost)
 	if allowTeeDebug {
 		logger.Warnf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", EnvAllowTeeDebug)
 	}
 	if disableAttestationCheckE2E {
 		logger.Warnf("%s is enabled. This flag is meant for E2E tests only and should NOT be used in production.", EnvDisableAttestationCheckE2E)
 	}
-	if disableURLValidation {
-		logger.Warnf("%s is enabled. This flag is meant for testing only and should NOT be used in production.", EnvDisableURLValidation)
+	if allowLocalhost {
+		logger.Warnf("%s is enabled. This flag is meant for testing only and should NOT be used in production.", EnvAllowLocalhost)
 	}
 	return &TeeAvailabilityCheckConfig{
 		EncodedAndABI:                     commonConfig,
@@ -59,7 +59,7 @@ func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckC
 		TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
 		AllowTeeDebug:                     allowTeeDebug,
 		DisableAttestationCheckE2E:        disableAttestationCheckE2E,
-		DisableURLValidation:              disableURLValidation,
+		AllowLocalhost:                    allowLocalhost,
 		RPCURL:                            envConfig.RPCURL,
 		GoogleRootCertificate:             googleRootCert,
 	}, nil

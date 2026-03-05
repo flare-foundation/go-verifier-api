@@ -166,7 +166,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
 		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),
 		DisableAttestationCheckE2E:        os.Getenv(config.EnvDisableAttestationCheckE2E),
-		DisableURLValidation:              os.Getenv(config.EnvDisableURLValidation),
+		AllowLocalhost:                    os.Getenv(config.EnvAllowLocalhost),
 		Port:                              port,
 		APIKeys:                           apiKeys,
 		AttestationType:                   attestationType,

@@ -277,7 +277,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	ver.ValidateURL = false
+	ver.AllowLocalhost = true
 	// eth client
 	// #nosec G115: only used in test, integer overflow not a concern
 	now := uint64(time.Now().Unix())
@@ -342,7 +342,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		require.NoError(t, err)
 		verInt, ok := verIfaceInt.(*verifier.TeeVerifier)
 		require.True(t, ok, "verIface should be *TeeVerifier")
-		verInt.ValidateURL = false
+		verInt.AllowLocalhost = true
 		// eth client
 		// #nosec G115: only used in test, integer overflow not a concern
 		mockClient := &helpers.MockEthClient{

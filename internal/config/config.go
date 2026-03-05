@@ -23,7 +23,7 @@ const (
 	EnvSourceID                          = "SOURCE_ID"
 	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
 	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
-	EnvDisableURLValidation              = "DISABLE_URL_VALIDATION"        // Needed only for test deployment. Not mandatory to set. Defaults to false.
+	EnvAllowLocalhost                    = "ALLOW_LOCALHOST"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
 )
 
 type EnvConfig struct {
@@ -34,7 +34,7 @@ type EnvConfig struct {
 	CChainDatabaseURL                 string
 	AllowTeeDebug                     string
 	DisableAttestationCheckE2E        string
-	DisableURLValidation              string
+	AllowLocalhost                    string
 	Port                              string
 	APIKeys                           []string
 	AttestationType                   connector.AttestationType
@@ -70,7 +70,7 @@ type TeeAvailabilityCheckConfig struct {
 	TeeMachineRegistryContractAddress string
 	AllowTeeDebug                     bool
 	DisableAttestationCheckE2E        bool
-	DisableURLValidation              bool
+	AllowLocalhost                    bool
 	RPCURL                            string
 	GoogleRootCertificate             *x509.Certificate
 }
