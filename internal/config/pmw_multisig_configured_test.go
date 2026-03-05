@@ -8,7 +8,7 @@ import (
 )
 
 func TestLoadPMWMultisigAccountConfiguredConfigError(t *testing.T) {
-	t.Run("missing variable", func(t *testing.T) {
+	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := config.EnvConfig{
 			SourceID:        config.SourceTEE,
 			AttestationType: "UnknownType",
@@ -17,7 +17,7 @@ func TestLoadPMWMultisigAccountConfiguredConfigError(t *testing.T) {
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "missing environment variables: RPC_URL")
 	})
-	t.Run("missing variable", func(t *testing.T) {
+	t.Run("invalid attestation type", func(t *testing.T) {
 		envConfig := config.EnvConfig{
 			SourceID:        config.SourceTEE,
 			AttestationType: "UnknownType",

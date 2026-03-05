@@ -73,7 +73,7 @@ func TestValidateClaims(t *testing.T) {
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.ErrorContains(t, err, "ConfidentialSpace component has no supported attributes")
 	})
-	t.Run("no supported attributes", func(t *testing.T) {
+	t.Run("empty supported attributes returns OBSOLETE", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = []string{}
 		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)

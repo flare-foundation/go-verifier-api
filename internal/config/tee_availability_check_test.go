@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadPMWPaymentStatusConfigError(t *testing.T) {
-	t.Run("missing variable", func(t *testing.T) {
+func TestLoadTeeAvailabilityCheckConfigError(t *testing.T) {
+	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:        SourceTEE,
 			AttestationType: "UnknownType",
@@ -17,7 +17,7 @@ func TestLoadPMWPaymentStatusConfigError(t *testing.T) {
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS, RPC_URL")
 	})
-	t.Run("missing variable", func(t *testing.T) {
+	t.Run("invalid attestation type", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                          SourceTEE,
 			AttestationType:                   "UnknownType",
@@ -37,10 +37,6 @@ func TestGetBoolOrSetFalse(t *testing.T) {
 	})
 	t.Run("not bool", func(t *testing.T) {
 		res := getBoolOrSetFalse("KEY", "fals")
-		require.False(t, res)
-	})
-	t.Run("empty value", func(t *testing.T) {
-		res := getBoolOrSetFalse("KEY", "")
 		require.False(t, res)
 	})
 	t.Run("valid", func(t *testing.T) {

@@ -53,12 +53,12 @@ func TestInitMainAndCChainDB(t *testing.T) {
 		RetryDelay:  1 * time.Millisecond,
 		MaxDelay:    2 * time.Millisecond,
 	}
-	t.Run("invalid dsn", func(t *testing.T) {
+	t.Run("invalid source dsn", func(t *testing.T) {
 		db, err := InitSourceDB("invalid_dsn", testOpts)
 		require.ErrorContains(t, err, "failed to open Source DB after 2 attempts: cannot parse `invalid_dsn`: failed to parse")
 		require.Nil(t, db)
 	})
-	t.Run("invalid dsn", func(t *testing.T) {
+	t.Run("invalid cchain dsn", func(t *testing.T) {
 		db, err := InitCChainDB("invalid_dsn", testOpts)
 		require.ErrorContains(t, err, "failed to open CChain DB after 2 attempts: invalid DSN: missing the slash")
 		require.Nil(t, db)
