@@ -56,7 +56,7 @@ type TeeVerifier struct {
 	EthClient                EthClient
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
-	AllowLocalhost           bool
+	ValidateURL              bool
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
 }
@@ -98,7 +98,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 		EthClient:                client,
 		TeeMachineRegistryCaller: teeMachineRegistryCaller,
 		RelayCaller:              relayCaller,
-		AllowLocalhost:           cfg.AllowLocalhost,
+		ValidateURL:              !cfg.DisableURLValidation,
 		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}, nil
 }
@@ -106,7 +106,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	var zero connector.ITeeAvailabilityCheckResponseBody
 	// Fetch from TEE proxy /action/result/<instructionID>
-	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.AllowLocalhost)
+	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.ValidateURL, fetcher.GetJSON[teenodetypes.ActionResponse])
 	if err != nil {
 		// check polled data
 		isDown, infoErr := v.IsTEEInfoDown(req.TeeId)
@@ -355,17 +355,25 @@ func FetchTEEChallengeResult(
 	ctx context.Context,
 	baseURL string,
 	challengeInstructionID common.Hash,
-	allowLoopback bool,
+	validateURL bool,
+	fetchFn func(context.Context, string, time.Duration) (teenodetypes.ActionResponse, error),
 ) (teenodetypes.TeeInfoResponse, common.Address, error) {
 	var zero teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
-	resolved, err := ResolveExternalURL(ctx, baseURL, allowLoopback)
-	if err != nil {
-		return zero, zeroAdd, err
+	var actionResp teenodetypes.ActionResponse
+	var err error
+	if validateURL {
+		var resolved *ResolvedURL
+		resolved, err = ResolveExternalURL(ctx, baseURL)
+		if err != nil {
+			return zero, zeroAdd, err
+		}
+		dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
+		actionResp, err = fetcher.GetJSONPinned[teenodetypes.ActionResponse](ctx, url, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
+	} else {
+		actionResp, err = fetchFn(ctx, url, fetchChallengeTimeout)
 	}
-	dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
-	actionResp, err := fetcher.GetJSONPinned[teenodetypes.ActionResponse](ctx, url, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
 	if err != nil {
 		if errors.Is(err, fetcher.ErrNotFound) {
 			return zero, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)
