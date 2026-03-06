@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 DOCKER_COMPOSE_FILE="internal/tests/docker/docker-compose.yaml"
 
@@ -21,7 +21,7 @@ wait_for_health() {
   echo "Waiting for $service to be healthy..."
   for i in $(seq 1 $retries); do
     status=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose -f "$DOCKER_COMPOSE_FILE" ps -q $service) 2>/dev/null || echo "unknown")
-    if [ "$status" = "healthy" ]; then
+    if [ "$status" == "healthy" ]; then
       echo "$service is healthy"
       return 0
     fi
