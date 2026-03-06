@@ -19,9 +19,9 @@ import (
 func TestBuildPaymentStatusResponse(t *testing.T) {
 	paymentMessageInstruction := payment.ITeePaymentsPaymentInstructionMessage{
 		RecipientAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
-		TokenId:          [32]byte{0},
+		TokenId:          []byte{0},
 		Amount:           big.NewInt(10000000),
-		Fee:              big.NewInt(12),
+		MaxFee:           big.NewInt(12),
 		PaymentReference: [32]byte{0},
 	}
 	rawTransactionData := types.RawTransactionData{
@@ -56,7 +56,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, paymentMessageInstruction.PaymentReference, val.PaymentReference)
 		require.Equal(t, "", val.RevertReason)
 		require.Equal(t, paymentMessageInstruction.Amount, val.ReceivedAmount)
-		require.Equal(t, paymentMessageInstruction.Fee, val.TransactionFee)
+		require.Equal(t, paymentMessageInstruction.MaxFee, val.TransactionFee)
 		require.Equal(t, uint8(types.Success), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
 	})
@@ -73,7 +73,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, paymentMessageInstruction.PaymentReference, val.PaymentReference)
 		require.Equal(t, "tecNO_DST_INSUF_XRP", val.RevertReason)
 		require.Equal(t, paymentMessageInstruction.Amount, val.ReceivedAmount)
-		require.Equal(t, paymentMessageInstruction.Fee, val.TransactionFee)
+		require.Equal(t, paymentMessageInstruction.MaxFee, val.TransactionFee)
 		require.Equal(t, uint8(types.Reverted), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
 	})

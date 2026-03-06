@@ -77,10 +77,10 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.NotEmpty(t, response.ResponseData)
 		// https://testnet.xrpl.org/transactions/7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA
 		require.Equal(t, testRecipientAddress, response.ResponseData.RecipientAddress)
-		require.Equal(t, common.Hash{}, response.ResponseData.TokenID)
+		require.Empty(t, response.ResponseData.TokenID)
 		require.Equal(t, big.NewInt(10_000), response.ResponseData.Amount.ToInt())
 		require.Equal(t, big.NewInt(10_000), response.ResponseData.ReceivedAmount.ToInt())
-		require.Equal(t, big.NewInt(100), response.ResponseData.Fee.ToInt())
+		require.Equal(t, big.NewInt(100), response.ResponseData.MaxFee.ToInt())
 		require.Equal(t, big.NewInt(100), response.ResponseData.TransactionFee.ToInt())
 		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(response.ResponseData.PaymentReference[:]))
 		require.Equal(t, uint8(0), response.ResponseData.TransactionStatus)
@@ -123,10 +123,10 @@ func TestPMWPaymentStatus(t *testing.T) {
 		result := helpers.DecodeResponseBody[connector.IPMWPaymentStatusResponseBody](t, connector.PMWPaymentStatus, response.ResponseBody)
 		// https://testnet.xrpl.org/transactions/7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA
 		require.Equal(t, testRecipientAddress, result.RecipientAddress)
-		require.Equal(t, [32]byte{}, result.TokenId)
+		require.Empty(t, result.TokenId)
 		require.Equal(t, big.NewInt(10_000), result.Amount)
 		require.Equal(t, big.NewInt(10_000), result.ReceivedAmount)
-		require.Equal(t, big.NewInt(100), result.Fee)
+		require.Equal(t, big.NewInt(100), result.MaxFee)
 		require.Equal(t, big.NewInt(100), result.TransactionFee)
 		require.Equal(t, common.Hash{0x00, 0x01}, common.BytesToHash(result.PaymentReference[:]))
 		require.Equal(t, uint8(0), result.TransactionStatus)
@@ -204,7 +204,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode event TeeInstructionsSent: ABI unpack into teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent failed for event \\\"TeeInstructionsSent\\\": abi: cannot marshal in to go type: length insufficient 1344 require 1635")
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode event TeeInstructionsSent: ABI unpack into teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent failed for event \\\"TeeInstructionsSent\\\": abi: cannot marshal in to go type: length insufficient 100 require 128")
 	})
 	t.Run("verify: verification failed - cannot decode event data", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
 		modifiedReqBody := baseReqBody

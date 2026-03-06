@@ -102,7 +102,7 @@ Required:
 Optional test/e2e flags:
 - `ALLOW_TEE_DEBUG` (default false)
 - `DISABLE_ATTESTATION_CHECK_E2E` (default false)
-- `ALLOW_LOCALHOST` (default false)
+- `DISABLE_URL_VALIDATION` (default false)
 
 Also loads embedded Google root certificate:
 - `internal/config/assets/google_confidential_space_root_20340116.crt`
@@ -119,7 +119,7 @@ Required:
 ## 7. Attestation Module Specs
 ## 7.1 TeeAvailabilityCheck
 ### Primary flow (`Verify`)
-1. Validate and resolve proxy URL (SSRF protection + DNS rebinding prevention; when `ALLOW_LOCALHOST` is set, loopback IPs and localhost hostnames are permitted), pin the resolved IP, then fetch challenge result from `{proxyURL}/action/result/{instructionID}` using the pinned connection.
+1. Validate and resolve proxy URL (SSRF protection + DNS rebinding prevention, unless `DISABLE_URL_VALIDATION` is set), pin the resolved IP, then fetch challenge result from `{proxyURL}/action/result/{instructionID}` using the pinned connection.
 
 ### URL validation (`verifier/url_validation.go`)
 Prevents SSRF by validating the TEE proxy URL before any request is made:
@@ -275,7 +275,7 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 - Integration-style tests under `internal/tests/server`.
 - Docker-based fixtures for payment-status dependencies (`internal/tests/docker/docker-compose.yaml`).
 - `gencover.sh` orchestrates coverage + docker lifecycle.
-- TEE availability server tests set `ALLOW_LOCALHOST=true` to allow `httptest` localhost URLs.
+- TEE availability server tests set `DISABLE_URL_VALIDATION=true` to allow `httptest` localhost URLs.
 
 ## 12. Operational Notes and Risks
 - `go.mod` includes local replace:

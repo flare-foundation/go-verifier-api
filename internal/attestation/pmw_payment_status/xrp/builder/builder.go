@@ -42,7 +42,7 @@ func BuildPaymentStatusResponse(
 		RecipientAddress:  paymentMsg.RecipientAddress,
 		TokenId:           paymentMsg.TokenId,
 		Amount:            paymentMsg.Amount,
-		Fee:               paymentMsg.Fee,
+		MaxFee:            paymentMsg.MaxFee,
 		PaymentReference:  paymentMsg.PaymentReference,
 		TransactionStatus: uint8(transactionResult),
 		RevertReason:      revertReason,

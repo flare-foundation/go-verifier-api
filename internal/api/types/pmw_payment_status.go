@@ -25,18 +25,18 @@ func (requestBody PMWPaymentStatusRequestBody) ToInternal() (connector.IPMWPayme
 }
 
 type PMWPaymentStatusResponseBody struct {
-	RecipientAddress  string      `json:"recipientAddress"`
-	TokenID           common.Hash `json:"tokenId"`
-	Amount            hexutil.Big `json:"amount"`
-	Fee               hexutil.Big `json:"fee"`
-	PaymentReference  common.Hash `json:"paymentReference"`
-	TransactionStatus uint8       `json:"transactionStatus"`
-	RevertReason      string      `json:"revertReason"`
-	ReceivedAmount    hexutil.Big `json:"receivedAmount"`
-	TransactionFee    hexutil.Big `json:"transactionFee"`
-	TransactionID     common.Hash `json:"transactionId"`
-	BlockNumber       uint64      `json:"blockNumber"`
-	BlockTimestamp    uint64      `json:"blockTimestamp"`
+	RecipientAddress  string        `json:"recipientAddress"`
+	TokenID           hexutil.Bytes `json:"tokenId"`
+	Amount            hexutil.Big   `json:"amount"`
+	MaxFee            hexutil.Big   `json:"fee"`
+	PaymentReference  common.Hash   `json:"paymentReference"`
+	TransactionStatus uint8         `json:"transactionStatus"`
+	RevertReason      string        `json:"revertReason"`
+	ReceivedAmount    hexutil.Big   `json:"receivedAmount"`
+	TransactionFee    hexutil.Big   `json:"transactionFee"`
+	TransactionID     common.Hash   `json:"transactionId"`
+	BlockNumber       uint64        `json:"blockNumber"`
+	BlockTimestamp    uint64        `json:"blockTimestamp"`
 }
 
 func (s PMWPaymentStatusResponseBody) FromInternal(data connector.IPMWPaymentStatusResponseBody) ResponseConvertible[connector.IPMWPaymentStatusResponseBody] {
@@ -44,7 +44,7 @@ func (s PMWPaymentStatusResponseBody) FromInternal(data connector.IPMWPaymentSta
 		RecipientAddress:  data.RecipientAddress,
 		TokenID:           data.TokenId,
 		Amount:            hexutil.Big(*data.Amount),
-		Fee:               hexutil.Big(*data.Fee),
+		MaxFee:            hexutil.Big(*data.MaxFee),
 		PaymentReference:  data.PaymentReference,
 		TransactionStatus: data.TransactionStatus,
 		RevertReason:      data.RevertReason,
@@ -57,11 +57,11 @@ func (s PMWPaymentStatusResponseBody) FromInternal(data connector.IPMWPaymentSta
 }
 
 func (s PMWPaymentStatusResponseBody) Log() {
-	logger.Debugf("PMWPaymentStatus result: Recipient=%s, TokenID=%x, Amount=%v, Fee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
+	logger.Debugf("PMWPaymentStatus result: Recipient=%s, TokenID=%x, Amount=%v, MaxFee=%v, Reference=%x, Status=%d, Revert=%s, Received=%v, TxFee=%v, TxID=%x, Block=%d, Timestamp=%d",
 		s.RecipientAddress,
 		s.TokenID,
 		s.Amount,
-		s.Fee,
+		s.MaxFee,
 		s.PaymentReference,
 		s.TransactionStatus,
 		s.RevertReason,

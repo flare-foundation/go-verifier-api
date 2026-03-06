@@ -35,9 +35,8 @@ type ResolvedURL struct {
 }
 
 // ResolveExternalURL validates the URL and returns a pinned public IP to prevent DNS rebinding.
-// When allowLoopback is true, loopback IPs (127.0.0.1, ::1) and localhost hostnames are permitted.
-func ResolveExternalURL(ctx context.Context, rawURL string, allowLoopback bool) (*ResolvedURL, error) {
-	return resolveExternalURL(ctx, rawURL, net.DefaultResolver, allowLoopback)
+func ResolveExternalURL(ctx context.Context, rawURL string) (*ResolvedURL, error) {
+	return resolveExternalURL(ctx, rawURL, net.DefaultResolver)
 }
 
 // BuildPinnedAddr returns the dial address and headers needed to pin the connection.
@@ -53,7 +52,7 @@ func BuildPinnedAddr(resolved *ResolvedURL) (dialAddr, hostHeader, serverName st
 	return net.JoinHostPort(resolved.IP.String(), port), resolved.Host, resolved.Hostname
 }
 
-func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver, allowLoopback bool) (*ResolvedURL, error) {
+func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver) (*ResolvedURL, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid URL %q: %w", rawURL, err)
@@ -72,12 +71,12 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver,
 	if host == "" {
 		return nil, fmt.Errorf("URL hostname is required")
 	}
-	if !allowLoopback && (host == "localhost" || strings.HasSuffix(host, ".localhost")) {
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
 		return nil, fmt.Errorf("local hostnames are not allowed: %s", host)
 	}
 
 	if ip := net.ParseIP(host); ip != nil {
-		if isPrivateOrLocalIP(ip, allowLoopback) {
+		if isPrivateOrLocalIP(ip) {
 			return nil, fmt.Errorf("private/local IPs are not allowed: %s", ip.String())
 		}
 		return &ResolvedURL{
@@ -99,7 +98,7 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver,
 		return nil, fmt.Errorf("hostname %q resolved to no IP addresses", host)
 	}
 	for _, ipAddr := range resolvedIPs {
-		if isPrivateOrLocalIP(ipAddr.IP, allowLoopback) {
+		if isPrivateOrLocalIP(ipAddr.IP) {
 			return nil, fmt.Errorf("hostname %q resolves to private/local IP %s", host, ipAddr.IP.String())
 		}
 	}
@@ -114,7 +113,7 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver,
 	}, nil
 }
 
-func isPrivateOrLocalIP(ip net.IP, allowLoopback bool) bool {
+func isPrivateOrLocalIP(ip net.IP) bool {
 	addr, ok := netip.AddrFromSlice(ip)
 	if !ok {
 		return true
@@ -124,10 +123,8 @@ func isPrivateOrLocalIP(ip net.IP, allowLoopback bool) bool {
 	// IsUnspecified work correctly against our IPv4 blocked prefixes.
 	addr = addr.Unmap()
 
-	if addr.IsLoopback() {
-		return !allowLoopback
-	}
-	if addr.IsPrivate() ||
+	if addr.IsLoopback() ||
+		addr.IsPrivate() ||
 		addr.IsLinkLocalUnicast() ||
 		addr.IsLinkLocalMulticast() ||
 		addr.IsMulticast() ||
