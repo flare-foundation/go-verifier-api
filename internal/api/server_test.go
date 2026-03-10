@@ -103,12 +103,14 @@ func TestLoadEnvConfig(t *testing.T) {
 		t.Setenv(config.EnvSourceID, string(config.SourceTEE))
 		loadEnvShouldFail(t)
 		t.Setenv(config.EnvAPIKeys, "key1,key2")
+		t.Setenv(config.EnvAllowPrivateNetworks, "true")
 
 		cfg, err := LoadEnvConfig()
 		require.NoError(t, err)
 		require.Equal(t, "1234", cfg.Port)
 		require.Equal(t, connector.AvailabilityCheck, cfg.AttestationType)
 		require.Equal(t, config.SourceTEE, cfg.SourceID)
+		require.Equal(t, "true", cfg.AllowPrivateNetworks)
 	})
 	t.Run("Env config should fail if attestation type is invalid", func(t *testing.T) {
 		t.Setenv(config.EnvPort, "1234")

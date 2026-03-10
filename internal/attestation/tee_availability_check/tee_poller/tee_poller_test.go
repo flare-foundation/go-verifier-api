@@ -277,7 +277,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	ver.ValidateURL = false
+	ver.AllowPrivateNetworks = true
 	// eth client
 	// #nosec G115: only used in test, integer overflow not a concern
 	now := uint64(time.Now().Unix())
@@ -342,7 +342,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		require.NoError(t, err)
 		verInt, ok := verIfaceInt.(*verifier.TeeVerifier)
 		require.True(t, ok, "verIface should be *TeeVerifier")
-		verInt.ValidateURL = false
+		verInt.AllowPrivateNetworks = true
 		// eth client
 		// #nosec G115: only used in test, integer overflow not a concern
 		mockClient := &helpers.MockEthClient{
@@ -361,6 +361,14 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		require.Equal(t, verifiertypes.TeeSampleInvalid, sampleState)
 		require.ErrorContains(t, err, fmt.Sprintf("data verification failed for TEE %s: cannot validate certificate signature: parsing and verifying: token is malformed: token contains an invalid number of segments", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
+}
+
+func TestQueryTeeInfoAndValidateURLBlocked(t *testing.T) {
+	ver := &verifier.TeeVerifier{AllowPrivateNetworks: false}
+	state, err := queryTeeInfoAndValidate(context.Background(), ver, "http://localhost:6662", common.HexToAddress("0x1"))
+	require.Equal(t, verifiertypes.TeeSampleInvalid, state)
+	require.ErrorContains(t, err, "cannot fetch TEE info from http://localhost:6662")
+	require.ErrorContains(t, err, "local hostnames are not allowed")
 }
 
 type teeMachinesResult = struct {
