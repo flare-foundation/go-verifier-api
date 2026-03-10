@@ -331,9 +331,18 @@ func TestIsTEEInfoDown(t *testing.T) {
 	})
 }
 
+func makeChallengeResultServer(t *testing.T, resp teenodetypes.ActionResponse) *httptest.Server {
+	t.Helper()
+	handler := http.NewServeMux()
+	handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	return httptest.NewServer(handler)
+}
+
 func TestFetchTEEChallengeResult(t *testing.T) {
 	ctx := context.Background()
-	baseURL := "http://8.8.8.8"
 	challengeID := common.HexToHash("0x123")
 	t.Run("success", func(t *testing.T) {
 		validJSON := `{"teeInfo":{"InitialSigningPolicyID":1}}`
@@ -347,93 +356,88 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		signature, err := crypto.Sign(ethHash, privKey)
 		require.NoError(t, err)
 
-		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
-			return teenodetypes.ActionResponse{
-				Result: teenodetypes.ActionResult{
-					Data: data,
-				},
-				ProxySignature: signature,
-			}, nil
-		}
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, false, mockFetchFn)
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result:         teenodetypes.ActionResult{Data: data},
+			ProxySignature: signature,
+		})
+		defer server.Close()
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		require.NoError(t, err)
 		require.NotEqual(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, address, signer)
-		require.NoError(t, err)
 	})
 	t.Run("fetch error", func(t *testing.T) {
-		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
-			return teenodetypes.ActionResponse{}, errors.New("bad request")
-		}
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, false, mockFetchFn)
+		handler := http.NewServeMux()
+		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadGateway)
+		})
+		server := httptest.NewServer(handler)
+		defer server.Close()
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
-		require.ErrorContains(t, err, "bad request")
+		require.Error(t, err)
 	})
 	t.Run("empty data", func(t *testing.T) {
-		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
-			response := teenodetypes.ActionResponse{
-				Result: teenodetypes.ActionResult{
-					Data: hexutil.Bytes{},
-				},
-			}
-			return response, nil
-		}
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, false, mockFetchFn)
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result: teenodetypes.ActionResult{Data: hexutil.Bytes{}},
+		})
+		defer server.Close()
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is empty")
 	})
 	t.Run("invalid JSON data", func(t *testing.T) {
-		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
-			response := teenodetypes.ActionResponse{
-				Result: teenodetypes.ActionResult{
-					Data: hexutil.Bytes([]byte("not-json")),
-				},
-			}
-			return response, nil
-		}
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, false, mockFetchFn)
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result: teenodetypes.ActionResult{Data: hexutil.Bytes([]byte("not-json"))},
+		})
+		defer server.Close()
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
-		require.ErrorContains(t, err, `TEE challenge result data is not valid JSON`)
+		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
 	})
 	t.Run("unmarshal error", func(t *testing.T) {
-		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
-			badJSON := `{"teeInfo":"this-should-be-an-object-not-a-string"}`
-			return teenodetypes.ActionResponse{
-				Result: teenodetypes.ActionResult{
-					Data: hexutil.Bytes([]byte(badJSON)),
-				},
-			}, nil
-		}
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, false, mockFetchFn)
+		badJSON := `{"teeInfo":"this-should-be-an-object-not-a-string"}`
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result: teenodetypes.ActionResult{Data: hexutil.Bytes([]byte(badJSON))},
+		})
+		defer server.Close()
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "unmarshal TEE result")
 	})
 	t.Run("recover signer error", func(t *testing.T) {
-		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
-			validJSON := `{"teeInfo":{"InitialSigningPolicyID":1}}`
-			return teenodetypes.ActionResponse{
-				Result: teenodetypes.ActionResult{
-					Data: hexutil.Bytes([]byte(validJSON)),
-				},
-				ProxySignature: []byte("invalid-signature"),
-			}, nil
-		}
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, baseURL, challengeID, false, mockFetchFn)
+		validJSON := `{"teeInfo":{"InitialSigningPolicyID":1}}`
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result:         teenodetypes.ActionResult{Data: hexutil.Bytes([]byte(validJSON))},
+			ProxySignature: []byte("invalid-signature"),
+		})
+		defer server.Close()
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "recover signer")
 	})
-	t.Run("invalid base URL", func(t *testing.T) {
-		mockFetchFn := func(ctx context.Context, url string, timeout time.Duration) (teenodetypes.ActionResponse, error) {
-			return teenodetypes.ActionResponse{}, nil
-		}
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://127.0.0.1", challengeID, true, mockFetchFn)
+	t.Run("blocks private IP in strict mode", func(t *testing.T) {
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://127.0.0.1", challengeID, false)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+	t.Run("blocks dangerous IP in allow-private mode", func(t *testing.T) {
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://169.254.169.254", challengeID, true)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, "dangerous IPs are not allowed")
+	})
+	t.Run("invalid base URL", func(t *testing.T) {
+		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://", challengeID, true)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, "URL host is required")
 	})
 }
 
@@ -561,23 +565,8 @@ func TestVerify(t *testing.T) {
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	ver.ValidateURL = false
+	ver.AllowPrivateNetworks = true
 	ver.TeeSamples = make(map[common.Address][]verifiertypes.TeeSampleValue)
-	t.Run("FetchTEEChallengeResult error", func(t *testing.T) {
-		handler := http.NewServeMux()
-		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusBadGateway)
-		})
-		server := httptest.NewServer(handler)
-		defer server.Close()
-
-		req := connector.ITeeAvailabilityCheckRequestBody{
-			Url: server.URL,
-		}
-		resp, err := ver.Verify(context.Background(), req)
-		require.ErrorContains(t, err, "insufficient samples to determine TEE")
-		require.Empty(t, resp)
-	})
 	t.Run("insufficient samples", func(t *testing.T) {
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {

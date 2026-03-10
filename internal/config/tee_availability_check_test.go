@@ -4,6 +4,7 @@ import (
 	"encoding/pem"
 	"testing"
 
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +29,60 @@ func TestLoadTeeAvailabilityCheckConfigError(t *testing.T) {
 		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "no ABI struct names defined for attestation type UnknownType")
+	})
+}
+
+func TestLoadTeeAvailabilityCheckConfigSuccess(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		envConfig := EnvConfig{
+			SourceID:                          SourceTEE,
+			AttestationType:                   connector.AvailabilityCheck,
+			RelayContractAddress:              "0x1234",
+			TeeMachineRegistryContractAddress: "0x5678",
+			RPCURL:                            "https://rpc.example.com",
+		}
+		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+		require.False(t, cfg.AllowTeeDebug)
+		require.False(t, cfg.DisableAttestationCheckE2E)
+		require.False(t, cfg.AllowPrivateNetworks)
+		require.Equal(t, "0x1234", cfg.RelayContractAddress)
+		require.Equal(t, "0x5678", cfg.TeeMachineRegistryContractAddress)
+		require.Equal(t, "https://rpc.example.com", cfg.RPCURL)
+		require.NotNil(t, cfg.GoogleRootCertificate)
+	})
+	t.Run("allow private networks enabled", func(t *testing.T) {
+		envConfig := EnvConfig{
+			SourceID:                          SourceTEE,
+			AttestationType:                   connector.AvailabilityCheck,
+			RelayContractAddress:              "0x1234",
+			TeeMachineRegistryContractAddress: "0x5678",
+			RPCURL:                            "https://rpc.example.com",
+			AllowPrivateNetworks:              "true",
+		}
+		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+		require.True(t, cfg.AllowPrivateNetworks)
+	})
+	t.Run("all flags enabled", func(t *testing.T) {
+		envConfig := EnvConfig{
+			SourceID:                          SourceTEE,
+			AttestationType:                   connector.AvailabilityCheck,
+			RelayContractAddress:              "0x1234",
+			TeeMachineRegistryContractAddress: "0x5678",
+			RPCURL:                            "https://rpc.example.com",
+			AllowTeeDebug:                     "true",
+			DisableAttestationCheckE2E:        "true",
+			AllowPrivateNetworks:              "true",
+		}
+		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+		require.True(t, cfg.AllowTeeDebug)
+		require.True(t, cfg.DisableAttestationCheckE2E)
+		require.True(t, cfg.AllowPrivateNetworks)
 	})
 }
 func TestGetBoolOrSetFalse(t *testing.T) {
