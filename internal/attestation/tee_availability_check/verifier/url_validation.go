@@ -35,8 +35,10 @@ type ResolvedURL struct {
 }
 
 // ResolveExternalURL validates the URL and returns a pinned public IP to prevent DNS rebinding.
-func ResolveExternalURL(ctx context.Context, rawURL string) (*ResolvedURL, error) {
-	return resolveExternalURL(ctx, rawURL, net.DefaultResolver)
+// When allowPrivateNetworks is true, private/loopback IPs are permitted but dangerous IPs
+// (link-local, metadata, multicast, unspecified, Teredo, 6to4) are still blocked.
+func ResolveExternalURL(ctx context.Context, rawURL string, allowPrivateNetworks bool) (*ResolvedURL, error) {
+	return resolveExternalURL(ctx, rawURL, net.DefaultResolver, allowPrivateNetworks)
 }
 
 // BuildPinnedAddr returns the dial address and headers needed to pin the connection.
@@ -52,7 +54,7 @@ func BuildPinnedAddr(resolved *ResolvedURL) (dialAddr, hostHeader, serverName st
 	return net.JoinHostPort(resolved.IP.String(), port), resolved.Host, resolved.Hostname
 }
 
-func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver) (*ResolvedURL, error) {
+func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver, allowPrivateNetworks bool) (*ResolvedURL, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid URL %q: %w", rawURL, err)
@@ -71,13 +73,24 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver)
 	if host == "" {
 		return nil, fmt.Errorf("URL hostname is required")
 	}
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		return nil, fmt.Errorf("local hostnames are not allowed: %s", host)
+	if !allowPrivateNetworks {
+		if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+			return nil, fmt.Errorf("local hostnames are not allowed: %s", host)
+		}
+	}
+
+	ipCheckFn := isPrivateOrLocalIP
+	ipLiteralMsg := "private/local IPs are not allowed: %s"
+	ipResolveMsg := "hostname %q resolves to private/local IP %s"
+	if allowPrivateNetworks {
+		ipCheckFn = isDangerousIP
+		ipLiteralMsg = "dangerous IPs are not allowed: %s"
+		ipResolveMsg = "hostname %q resolves to dangerous IP %s"
 	}
 
 	if ip := net.ParseIP(host); ip != nil {
-		if isPrivateOrLocalIP(ip) {
-			return nil, fmt.Errorf("private/local IPs are not allowed: %s", ip.String())
+		if ipCheckFn(ip) {
+			return nil, fmt.Errorf(ipLiteralMsg, ip.String())
 		}
 		return &ResolvedURL{
 			Scheme:   parsedURL.Scheme,
@@ -98,8 +111,8 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver)
 		return nil, fmt.Errorf("hostname %q resolved to no IP addresses", host)
 	}
 	for _, ipAddr := range resolvedIPs {
-		if isPrivateOrLocalIP(ipAddr.IP) {
-			return nil, fmt.Errorf("hostname %q resolves to private/local IP %s", host, ipAddr.IP.String())
+		if ipCheckFn(ipAddr.IP) {
+			return nil, fmt.Errorf(ipResolveMsg, host, ipAddr.IP.String())
 		}
 	}
 
@@ -114,6 +127,17 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver)
 }
 
 func isPrivateOrLocalIP(ip net.IP) bool {
+	if isDangerousIP(ip) {
+		return true
+	}
+	addr, _ := netip.AddrFromSlice(ip) // already validated by isDangerousIP
+	addr = addr.Unmap()
+	return addr.IsLoopback() || addr.IsPrivate()
+}
+
+// isDangerousIP checks only always-blocked IPs: link-local, multicast, unspecified, and blockedIPPrefixes.
+// Unlike isPrivateOrLocalIP, it allows loopback, private (RFC1918), and IPv6 ULA addresses.
+func isDangerousIP(ip net.IP) bool {
 	addr, ok := netip.AddrFromSlice(ip)
 	if !ok {
 		return true
@@ -123,9 +147,7 @@ func isPrivateOrLocalIP(ip net.IP) bool {
 	// IsUnspecified work correctly against our IPv4 blocked prefixes.
 	addr = addr.Unmap()
 
-	if addr.IsLoopback() ||
-		addr.IsPrivate() ||
-		addr.IsLinkLocalUnicast() ||
+	if addr.IsLinkLocalUnicast() ||
 		addr.IsLinkLocalMulticast() ||
 		addr.IsMulticast() ||
 		addr.IsUnspecified() {

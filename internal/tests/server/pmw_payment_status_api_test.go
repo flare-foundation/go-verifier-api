@@ -194,7 +194,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: cannot fetch transaction for source renoX7N3xcss6nbh62tYAhaTH1XG17Arc, nonce 11263155: record not found")
 	})
-	t.Run("verify: verification failed - cannot decode event data", func(t *testing.T) { // Using fake entry log (20) in c-chain idx db.
+	t.Run("verify: verification failed - cannot decode event data (ABI unpack)", func(t *testing.T) { // Using fake entry log (20) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 1
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 1
@@ -206,7 +206,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode event TeeInstructionsSent: ABI unpack into teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent failed for event \\\"TeeInstructionsSent\\\": abi: cannot marshal in to go type: length insufficient 100 require 128")
 	})
-	t.Run("verify: verification failed - cannot decode event data", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
+	t.Run("verify: verification failed - cannot unmarshal XRP transaction", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 2
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 2

@@ -43,15 +43,15 @@ func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckC
 	}
 	allowTeeDebug := getBoolOrSetFalse(EnvAllowTeeDebug, envConfig.AllowTeeDebug)
 	disableAttestationCheckE2E := getBoolOrSetFalse(EnvDisableAttestationCheckE2E, envConfig.DisableAttestationCheckE2E)
-	disableURLValidation := getBoolOrSetFalse(EnvDisableURLValidation, envConfig.DisableURLValidation)
+	allowPrivateNetworks := getBoolOrSetFalse(EnvAllowPrivateNetworks, envConfig.AllowPrivateNetworks)
 	if allowTeeDebug {
 		logger.Warnf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", EnvAllowTeeDebug)
 	}
 	if disableAttestationCheckE2E {
 		logger.Warnf("%s is enabled. This flag is meant for E2E tests only and should NOT be used in production.", EnvDisableAttestationCheckE2E)
 	}
-	if disableURLValidation {
-		logger.Warnf("%s is enabled. This flag is meant for testing only and should NOT be used in production.", EnvDisableURLValidation)
+	if allowPrivateNetworks {
+		logger.Warnf("%s is enabled. This flag is meant for test/E2E environments only and should NOT be used in production. Private/loopback IPs will be allowed but dangerous IPs (link-local, metadata, multicast) are still blocked.", EnvAllowPrivateNetworks)
 	}
 	return &TeeAvailabilityCheckConfig{
 		EncodedAndABI:                     commonConfig,
@@ -59,7 +59,7 @@ func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckC
 		TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
 		AllowTeeDebug:                     allowTeeDebug,
 		DisableAttestationCheckE2E:        disableAttestationCheckE2E,
-		DisableURLValidation:              disableURLValidation,
+		AllowPrivateNetworks:              allowPrivateNetworks,
 		RPCURL:                            envConfig.RPCURL,
 		GoogleRootCertificate:             googleRootCert,
 	}, nil

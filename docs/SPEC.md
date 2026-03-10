@@ -99,10 +99,10 @@ Required:
 - `RELAY_CONTRACT_ADDRESS`
 - `TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS`
 
-Optional test/e2e flags:
+Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false)
 - `DISABLE_ATTESTATION_CHECK_E2E` (default false)
-- `DISABLE_URL_VALIDATION` (default false)
+- `ALLOW_PRIVATE_NETWORKS` (default false) — test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs and preserving DNS pinning. Useful for Docker bridge networking.
 
 Also loads embedded Google root certificate:
 - `internal/config/assets/google_confidential_space_root_20340116.crt`
@@ -119,16 +119,31 @@ Required:
 ## 7. Attestation Module Specs
 ## 7.1 TeeAvailabilityCheck
 ### Primary flow (`Verify`)
-1. Validate and resolve proxy URL (SSRF protection + DNS rebinding prevention, unless `DISABLE_URL_VALIDATION` is set), pin the resolved IP, then fetch challenge result from `{proxyURL}/action/result/{instructionID}` using the pinned connection.
+1. Validate and resolve proxy URL (SSRF protection + DNS rebinding prevention). When `ALLOW_PRIVATE_NETWORKS` is set, private/loopback IPs are allowed but dangerous IPs (link-local, metadata, multicast, Teredo, 6to4) are still blocked. DNS pinning is always active. Pin the resolved IP, then fetch challenge result from `{proxyURL}/action/result/{instructionID}` using the pinned connection.
 
 ### URL validation (`verifier/url_validation.go`)
-Prevents SSRF by validating the TEE proxy URL before any request is made:
-- **Scheme**: only `http` and `https` allowed; no `file://`, `ftp://`, etc.
-- **Userinfo**: rejected (e.g. `http://user:pass@host`).
-- **Hostname**: `localhost` and `*.localhost` blocked.
-- **IP resolution and pinning**: hostname is resolved via DNS (timeout: `750ms`) and **all** resolved IPs are checked — rejected if any resolves to a private/local IP. The first resolved IP is then pinned: the HTTP connection dials the pinned IP directly via a custom `DialContext`, with the original hostname preserved in the HTTP `Host` header and TLS SNI `ServerName`. This prevents DNS rebinding (TOCTOU) where a second DNS lookup between validation and fetch could return a different IP.
-- **Blocked IPs** (via `net/netip` stdlib): loopback, private (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`), link-local unicast/multicast, multicast, unspecified (`0.0.0.0`, `::`).
-- **Additional blocked prefixes**: carrier-grade NAT (`100.64.0.0/10`), benchmark testing (`198.18.0.0/15`), documentation (`2001:db8::/32`), discard (`100::/64`), 6to4 (`2002::/16` — can embed private IPv4), Teredo (`2001::/32` — can tunnel private IPv4).
+Prevents SSRF by validating the TEE proxy URL before any request is made.
+
+**Validation pipeline** (applied in order):
+1. **Scheme**: only `http` and `https` allowed; no `file://`, `ftp://`, etc.
+2. **Userinfo**: rejected (e.g. `http://user:pass@host`).
+3. **Hostname**: `localhost` and `*.localhost` rejected (strict mode only).
+4. **IP check**: if the host is an IP literal, it is checked directly. If it is a hostname, it is resolved via DNS (timeout: `750ms`) and **all** resolved IPs are checked.
+5. **Pinning**: the first resolved IP is pinned — the HTTP connection dials the pinned IP directly via a custom `DialContext`, with the original hostname preserved in the HTTP `Host` header and TLS SNI `ServerName`. This prevents DNS rebinding (TOCTOU) where a second DNS lookup between validation and fetch could return a different IP.
+
+**What each mode blocks:**
+
+| | Strict (default) | `ALLOW_PRIVATE_NETWORKS=true` |
+|---|---|---|
+| `localhost` / `*.localhost` hostnames | Blocked | Allowed |
+| Loopback (`127.0.0.0/8`, `::1`) | Blocked | Allowed |
+| Private (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) | Blocked | Allowed |
+| Link-local, multicast, unspecified (`0.0.0.0`, `::`) | Blocked | Blocked |
+| Carrier-grade NAT (`100.64.0.0/10`) | Blocked | Blocked |
+| Benchmark testing (`198.18.0.0/15`) | Blocked | Blocked |
+| 6to4 (`2002::/16`), Teredo (`2001::/32`) | Blocked | Blocked |
+| Documentation (`2001:db8::/32`), discard (`100::/64`) | Blocked | Blocked |
+| DNS pinning | Active | Active |
 2. Validate challenge equals request challenge.
 3. Recover proxy signer and match `teeProxyId`.
 4. **In parallel** (both depend only on the challenge response):
@@ -175,7 +190,7 @@ Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handl
 ### Poller behavior
 - Runs on startup and every `SampleInterval = 1m`.
 - Gets active TEEs from `TeeMachineRegistry` in chunks.
-- Fetches each `/info` (using pinned connection when URL validation is enabled), validates challenge freshness + claims + signing policies.
+- Fetches each `/info` using a pinned connection, validates challenge freshness + claims + signing policies.
 - Stores rolling recent sample states in memory.
 - Exposes samples on `GET /poller/tees`.
 
@@ -275,7 +290,7 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 - Integration-style tests under `internal/tests/server`.
 - Docker-based fixtures for payment-status dependencies (`internal/tests/docker/docker-compose.yaml`).
 - `gencover.sh` orchestrates coverage + docker lifecycle.
-- TEE availability server tests set `DISABLE_URL_VALIDATION=true` to allow `httptest` localhost URLs.
+- TEE availability server tests set `ALLOW_PRIVATE_NETWORKS=true` to allow `httptest` localhost URLs.
 
 ## 12. Operational Notes and Risks
 - `go.mod` includes local replace:
