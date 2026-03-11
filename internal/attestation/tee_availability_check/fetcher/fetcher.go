@@ -45,7 +45,7 @@ func cloneTransportConfig() *http.Transport {
 	}
 }
 
-const maxResponseSize = 2 * 1024 * 1024 // 2MB - TODO(urska) - is the limit ok for general use?
+const maxResponseSize = 2 * 1024 * 1024 // 2MB
 
 func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
 	return getJSONWithClient[T](ctx, url, fetchTimeout, sharedHTTPClient, "")
