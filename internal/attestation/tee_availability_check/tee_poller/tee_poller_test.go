@@ -273,11 +273,11 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 		AllowTeeDebug:                     true,
 		DisableAttestationCheckE2E:        true,
+		AllowPrivateNetworks:              true,
 	})
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	ver.AllowPrivateNetworks = true
 	// eth client
 	// #nosec G115: only used in test, integer overflow not a concern
 	now := uint64(time.Now().Unix())
@@ -338,11 +338,11 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 			TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 			AllowTeeDebug:                     false,
 			DisableAttestationCheckE2E:        false,
+			AllowPrivateNetworks:              true,
 		})
 		require.NoError(t, err)
 		verInt, ok := verIfaceInt.(*verifier.TeeVerifier)
 		require.True(t, ok, "verIface should be *TeeVerifier")
-		verInt.AllowPrivateNetworks = true
 		// eth client
 		// #nosec G115: only used in test, integer overflow not a concern
 		mockClient := &helpers.MockEthClient{
@@ -364,7 +364,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 }
 
 func TestQueryTeeInfoAndValidateURLBlocked(t *testing.T) {
-	ver := &verifier.TeeVerifier{AllowPrivateNetworks: false}
+	ver := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: false}}
 	state, err := queryTeeInfoAndValidate(context.Background(), ver, "http://localhost:6662", common.HexToAddress("0x1"))
 	require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 	require.ErrorContains(t, err, "cannot fetch TEE info from http://localhost:6662")

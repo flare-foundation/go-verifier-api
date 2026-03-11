@@ -223,7 +223,7 @@ func (s *TeePollerService) getAllActiveTeesWithRetry(ctx context.Context) (teeLi
 
 func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, baseURL string) (teenodetype.TeeInfoResponse, error) {
 	url := fmt.Sprintf("%s/info", baseURL)
-	resolved, err := verifier.ResolveExternalURL(ctx, baseURL, teeVerifier.AllowPrivateNetworks)
+	resolved, err := verifier.ResolveExternalURL(ctx, baseURL, teeVerifier.Cfg.AllowPrivateNetworks)
 	if err != nil {
 		return teenodetype.TeeInfoResponse{}, err
 	}

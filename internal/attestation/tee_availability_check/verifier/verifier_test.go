@@ -560,12 +560,12 @@ func TestVerify(t *testing.T) {
 		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 		AllowTeeDebug:                     false,
 		DisableAttestationCheckE2E:        false,
+		AllowPrivateNetworks:              true,
 		GoogleRootCertificate:             rootCert,
 	})
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	ver.AllowPrivateNetworks = true
 	ver.TeeSamples = make(map[common.Address][]verifiertypes.TeeSampleValue)
 	t.Run("insufficient samples", func(t *testing.T) {
 		handler := http.NewServeMux()

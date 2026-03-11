@@ -56,7 +56,6 @@ type TeeVerifier struct {
 	EthClient                EthClient
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
-	AllowPrivateNetworks     bool
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
 }
@@ -98,7 +97,6 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 		EthClient:                client,
 		TeeMachineRegistryCaller: teeMachineRegistryCaller,
 		RelayCaller:              relayCaller,
-		AllowPrivateNetworks:     cfg.AllowPrivateNetworks,
 		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}, nil
 }
@@ -106,7 +104,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
 	var zero connector.ITeeAvailabilityCheckResponseBody
 	// Fetch from TEE proxy /action/result/<instructionID>
-	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.AllowPrivateNetworks)
+	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.Cfg.AllowPrivateNetworks)
 	if err != nil {
 		// check polled data
 		isDown, infoErr := v.IsTEEInfoDown(req.TeeId)
