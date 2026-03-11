@@ -10,7 +10,7 @@ exclude:
         - cmd/main.go
         - internal/api/docs/
         - internal/tests/
-        - tmp/scripts/toJWT.go
+        - tmp/
 
 override:
     - path: .go$

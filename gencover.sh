@@ -36,8 +36,8 @@ wait_for_health() {
 wait_for_health c-chain-db
 wait_for_health xrp-indexer-db
 
-# Run Go tests
-go test -v -coverpkg=./... -coverprofile=coverage.out ./...
+# Run Go tests (-count=1 disables test caching for accurate coverage)
+go test -count=1 -v -coverpkg=./... -coverprofile=coverage.out ./...
 # go tool cover -html=coverage.out # This opens coverage for each file in the browser.
 
 # Run go-test-coverage
