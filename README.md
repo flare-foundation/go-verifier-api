@@ -98,7 +98,7 @@ Samples are stored in memory. The number of samples is defined by the constant `
 ## Attestation Request Submission
 The process of submitting an attestation requests is as follows:
 
-Attestation requests are triggered via TEE smart contracts. The TEE relay client, which acts as a connector between contracts on Flare's C-chain and TEE clients, listens to `TeeInstructionsSent` events with an `instructionId` that correspond to an attestation request (`FTDC_OP_TYPE` (`"F_FTDC"`) and `PROVE` (`"PROVE"`)). Each attestation request is then placed into a queue and gradually promoted to the designated verifier server. It is advised that each TEE relay client runs its own verifier server.
+Attestation requests are triggered via TEE smart contracts. The TEE relay client, which acts as a connector between contracts on Flare's C-chain and TEE clients, listens to `TeeInstructionsSent` events with an `instructionId` that correspond to an attestation request (`FDC2_OP_TYPE` (`"F_FDC2"`) and `PROVE` (`"PROVE"`)). Each attestation request is then placed into a queue and gradually promoted to the designated verifier server. It is advised that each TEE relay client runs its own verifier server.
 
 ### Rate Limit
 The blockchain itself limits how many attestation requests can be emitted per block, while the queue system enforces a controlled consumption rate for verifier servers. It is also expected that the person deploying the verifier server implements additional rate limiting at other levels.

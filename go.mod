@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/ethereum/go-ethereum v1.16.7
-	github.com/flare-foundation/go-flare-common v1.2.1-0.20260311081006-faf8460ad2dd
+	github.com/flare-foundation/go-flare-common v1.2.1-0.20260312105002-c0e3c9ae661f
 	github.com/flare-foundation/tee-node v0.0.0-00010101000000-000000000000
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0
