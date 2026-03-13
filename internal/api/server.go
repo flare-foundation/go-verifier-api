@@ -191,8 +191,8 @@ func newRouter() chi.Router {
 }
 
 func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
-	cfg := huma.DefaultConfig("FTDC Verifier API", "1.0")
-	cfg.Info.Description = fmt.Sprintf("The Flare TEE Data Connector Verifier API endpoints for %s attestation sourced from %s.", envConfig.AttestationType, envConfig.SourceID)
+	cfg := huma.DefaultConfig("FDC2 Verifier API", "1.0")
+	cfg.Info.Description = fmt.Sprintf("The Flare Data Connector 2 Verifier API endpoints for %s attestation sourced from %s.", envConfig.AttestationType, envConfig.SourceID)
 	cfg.DocsPath = ""
 	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"ApiKeyAuth": {
