@@ -222,6 +222,11 @@ func TestResolveExternalURLAllowPrivateNetworks(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("still blocks AWS EC2 IPv6 metadata", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "http://[fd00:ec2::254]", resolverMock{}, true)
+		require.ErrorContains(t, err, "dangerous IPs are not allowed")
+	})
+
 	t.Run("allows hostname resolving to private IP", func(t *testing.T) {
 		_, err := resolveExternalURL(context.Background(), "https://proxy.internal", resolverMock{
 			ips: []net.IPAddr{{IP: net.ParseIP("192.168.1.10")}},
