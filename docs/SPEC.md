@@ -138,6 +138,7 @@ Prevents SSRF by validating the TEE proxy URL before any request is made.
 | `localhost` / `*.localhost` hostnames | Blocked | Allowed |
 | Loopback (`127.0.0.0/8`, `::1`) | Blocked | Allowed |
 | Private (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) | Blocked | Allowed |
+| Cloud metadata (`fd00:ec2::254`) | Blocked | Blocked |
 | Link-local, multicast, unspecified (`0.0.0.0`, `::`) | Blocked | Blocked |
 | Carrier-grade NAT (`100.64.0.0/10`) | Blocked | Blocked |
 | Benchmark testing (`198.18.0.0/15`) | Blocked | Blocked |

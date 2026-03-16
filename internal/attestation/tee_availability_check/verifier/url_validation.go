@@ -19,6 +19,7 @@ var blockedIPPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("100::/64"),      // discard prefix (RFC 6666)
 	netip.MustParsePrefix("2002::/16"),     // 6to4 (RFC 3056) — can embed private IPv4
 	netip.MustParsePrefix("2001::/32"),     // Teredo (RFC 4380)
+	netip.MustParsePrefix("fd00:ec2::254/128"), // AWS EC2 IPv6 metadata
 }
 
 type ipResolver interface {
