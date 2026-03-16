@@ -27,6 +27,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
+	teeattestation "github.com/flare-foundation/tee-node/pkg/attestation"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/flare-foundation/tee-node/pkg/utils"
 )
@@ -185,6 +186,25 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 			Platform: platform,
 		}, nil
 	}
+
+	// WARNING: MagicPass bypass — accepts TEE nodes running in non-production mode
+	// (settings.Mode != 0) which return "magic_pass" instead of a real attestation token.
+	// This skips ALL attestation validation (PKI, claims, CRL). Any TEE returning this
+	// string will be trusted unconditionally. Do NOT rely on this in production — a
+	// compromised or malicious TEE could return "magic_pass" to bypass verification.
+	// This exists to support hackathon and development environments where real Google
+	// Confidential Space attestation is unavailable.
+	if string(response.Attestation) == teeattestation.MagicPass {
+		platform := E2ETestPlatform
+		codeHash := E2ETestCodeHash
+		logger.Warnf("Attestation token is MagicPass (TEE running in non-production mode). Skipping all attestation validation. Do not use in production. Status %d, Codehash %s, Platform %s", OK, codeHash, platform)
+		return StatusInfo{
+			Status:   OK,
+			CodeHash: codeHash,
+			Platform: platform,
+		}, nil
+	}
+
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 	// Certificate checks - check if we can trust the data in token
