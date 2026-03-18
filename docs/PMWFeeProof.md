@@ -1,4 +1,4 @@
-# FeeProof
+# PMWFeeProof
 
 New attestation type for proper fee accounting for protocols using PMW.
 
@@ -32,11 +32,11 @@ Both `pay` and `reissue` emit `TeeInstructionsSent`, differentiated by command (
 ## Error handling
 - Every nonce in range must have a pay event; missing pay event → error (422).
 - Missing XRP transactions for any nonce in range → error (422, consistent with PMWPaymentStatus `ErrRecordNotFound`).
-- Reissues after `untilTimestamp` are not the verifier's concern. Caller must first use PMWPaymentStatus to confirm `toNonce` is complete, then request FeeProof.
+- Reissues after `untilTimestamp` are not the verifier's concern. Caller must first use PMWPaymentStatus to confirm `toNonce` is complete, then request PMWFeeProof.
 - Follow PMWPaymentStatus pattern: 422 for missing data, 503 for DB failures, 500 for data corruption.
 
 ## Data retention
-- XRP indexer retention is configurable (`history_drop` in indexer config), typically ~2 weeks in production. Callers must request FeeProof within this window or the XRP transactions will no longer be available.
+- XRP indexer retention is configurable (`history_drop` in indexer config), typically ~2 weeks in production. Callers must request PMWFeeProof within this window or the XRP transactions will no longer be available.
 
 ## Nonce range cap
 - Cap `toNonce - fromNonce` to prevent heavy queries (e.g. max 100).
@@ -55,7 +55,7 @@ Both `pay` and `reissue` emit `TeeInstructionsSent`, differentiated by command (
 ### Architecture
 Standalone deployment, same pattern as PMWPaymentStatus (own LoadModule entry, config, service/verifier).
 Reuses same data sources (Postgres source DB + MySQL C-chain index DB), can point to the same instances.
-ABI structs (`IPMWFeeProofRequestBody` / `ResponseBody`) must preexist in `go-flare-common` and in the smart contracts.
+ABI structs (`IPMWPMWFeeProofRequestBody` / `ResponseBody`) must preexist in `go-flare-common` and in the smart contracts.
 
 ### DB query strategy
 - **Pay events**: instruction IDs are deterministic (`keccak(opType, PAY, sourceId, senderAddress, nonce)`). Compute all IDs for the nonce range and batch fetch with a new repo method: `WHERE topic0 = ? AND topic1 = ? AND topic2 IN (?)` (up to ~100 IDs).
