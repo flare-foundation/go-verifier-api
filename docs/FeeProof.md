@@ -35,6 +35,9 @@ Both `pay` and `reissue` emit `TeeInstructionsSent`, differentiated by command (
 - Reissues after `untilTimestamp` are not the verifier's concern. Caller must first use PMWPaymentStatus to confirm `toNonce` is complete, then request FeeProof.
 - Follow PMWPaymentStatus pattern: 422 for missing data, 503 for DB failures, 500 for data corruption.
 
+## Data retention
+- XRP indexer retention is configurable (`history_drop` in indexer config), typically ~2 weeks in production. Callers must request FeeProof within this window or the XRP transactions will no longer be available.
+
 ## Nonce range cap
 - Cap `toNonce - fromNonce` to prevent heavy queries (e.g. max 100).
 - Enforce at handler level (return 400 if exceeded).
@@ -45,6 +48,7 @@ Both `pay` and `reissue` emit `TeeInstructionsSent`, differentiated by command (
 ## Open questions
 - **Nonce range cap value** — suggested ~100, needs benchmarking.
 - **Error messages** — define distinct error messages for: missing pay event for nonce, missing XRP transaction for nonce, nonce range partially indexed. 503 is the only retryable status; 422 errors should include which nonce(s) failed.
+- **Data retention** — XRP indexer holds ~2 weeks of data. Should the verifier validate that the requested range falls within the retention window, or just let it fail with 422 if data is missing?
 
 ## Implementation notes
 
