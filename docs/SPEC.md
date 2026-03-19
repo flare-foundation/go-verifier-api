@@ -148,7 +148,7 @@ Prevents SSRF by validating the TEE proxy URL before any request is made.
 2. Validate challenge equals request challenge.
 3. Recover proxy signer and match `teeProxyId`.
 4. **In parallel** (both depend only on the challenge response):
-   - a. `DataVerification`: PKI validation + TEE ID + claims.
+   - a. `DataVerification`: CRL fetch + PKI validation + TEE ID + claims (see below).
    - b. `CheckSigningPolicies`: validate signing policy hashes against relay contract (2 concurrent RPC calls).
 5. Return status payload (`OK`/`OBSOLETE`/`DOWN`) with metadata.
 
@@ -158,6 +158,7 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 **PKI validation:**
 - Parsed and validated via `googlecloud.ParseAndValidatePKIToken()` using the embedded Google root certificate (`internal/config/assets/google_confidential_space_root_20340116.crt`).
 - Verifies the full certificate chain back to Google's root.
+- Intermediate and leaf certificates are checked against cached CRLs (see CRL revocation checking below).
 
 **Claims validation (`ValidateClaims`):**
 1. **EATNonce** — Exactly one nonce must be present and must equal the hex-encoded hash of the TeeInfo data.
@@ -181,6 +182,39 @@ The [client](https://gitlab.com/flarenetwork/tee/tee-relay-client/-/blob/main/in
 | **Worst-case total** | **~7.75s** | |
 
 Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handles retries.
+
+### CRL revocation checking
+Intermediate and leaf certificates from the x5c chain are checked for revocation using CRLs.
+
+**Responsibilities split:**
+
+`go-flare-common` (validation logic — `pkg/tee/attestation/googlecloud/google_cloud.go`):
+- `ParseAndValidatePKIToken(attestationToken, rootCert, leafCRL, intermediateCRL)` accepts pre-fetched CRLs as separate `*x509.RevocationList` parameters (nil when unavailable).
+- `PKICertificates.Verify()` calls `verifyCRL()` after chain and lifetime checks.
+- `checkCRL(name, cert, crl, issuer)` is called for each cert (leaf checked against intermediate as issuer, intermediate checked against root as issuer):
+  1. If CRL is nil: log warning and skip (distinguishes "no CRL distribution points" vs "CRL not provided").
+  2. Validate CRL time window (`ThisUpdate` ≤ now ≤ `NextUpdate`).
+  3. Verify CRL signature against the issuer cert (`crl.CheckSignatureFrom(issuer)`).
+  4. Reject if the cert's serial number appears in `RevokedCertificateEntries`.
+
+`go-verifier-api` (fetching and caching — `verifier/crl_cache.go`):
+- **Not a poller** — purely request-driven. `CRLCache.GetCRLsForToken()` is called inline during `DataVerification()` with the request `ctx`, before `ParseAndValidatePKIToken`.
+- **Strict (all-or-nothing)**: if all CRL distribution points fail for either cert, verification fails.
+- Parses the attestation token unverified (`ParsePKITokenUnverified`) to extract the x5c certificate chain. Before fetching CRLs, verifies the token's root certificate matches the trusted root (`GoogleRootCertificate`). Then reads `CRLDistributionPoints` from the leaf and intermediate certs.
+- Leaf and intermediate CRL fetches run **in parallel**. For each cert, all distribution points are tried in order; the first successful fetch is used (fallback on fetch/parse/issuer-verification failure).
+- **CRL issuer verification at fetch time**: after parsing, `crl.CheckSignatureFrom(issuer)` is called before caching. A CRL signed by a different CA is rejected and the next distribution point is tried.
+- **Singleflight deduplication**: concurrent requests for the same CRL URL are deduplicated via `singleflight.Group` — only one HTTP fetch per URL, others wait for the result. This avoids redundant fetches when multiple data providers hit the verifier simultaneously.
+- A **CRL cache** (keyed by URL, guarded by `sync.RWMutex`) avoids re-fetching on every verify call. Cached entries are considered fresh when all of: (1) less than `crlMaxCacheTTL` (4 hours) has elapsed since fetch, (2) the CRL's `NextUpdate` is not zero, and (3) `NextUpdate` has not passed. CRLs with a zero `NextUpdate` are always re-fetched. The TTL cap prevents stale cache when a CA publishes a new CRL (e.g. emergency revocation) before the old `NextUpdate`.
+- On cache miss or stale entry, the CRL is fetched inline via `fetcher.GetBytes` (timeout: `2s`). The response is PEM-decoded if PEM-encoded (Google Cloud CRL endpoints return PEM), otherwise treated as raw DER, then parsed with `x509.ParseRevocationList`.
+- Eviction: when the cache reaches `crlMaxEntries` (100), stale entries are purged; if still at capacity, the oldest entry is evicted to enforce the cap.
+- The CRL cache is added to the shutdown closers for graceful cleanup (`CRLCache.Close()` clears the map).
+- Note: Google CA Service only inserts the CRL Distribution Point (CDP) extension when CRL publication is enabled (`publish_crl` per-CA-pool setting); certs issued while CRL publication is disabled may have no CDP, so revocation checking must proceed without a CRL URL. Currently, the intermediate cert has a CDP but the leaf cert does not (no OCSP either). Google does not document or recommend CRL/OCSP checking for Confidential Space — their sample PKI token validation code only covers chain verification, root pinning, and signature checks.
+  Sources:
+  - CA Service CDP/publishing: `https://docs.cloud.google.com/certificate-authority-service/docs/managed-resources`
+  - CA Service CA pool `publish_crl` setting: `https://docs.cloud.google.com/certificate-authority-service/docs/creating-ca-pool`
+  - Confidential Space PKI validation (no CRL/OCSP in samples): `https://codelabs.developers.google.com/confidential-space-pki`
+  - Confidential Space external resources (sample code): `https://docs.cloud.google.com/confidential-computing/confidential-space/docs/connect-external-resources`
+  - Google OCSP deprecation (April 2025): `https://pki.goog/updates/april2025-ocsp-notice.html`
 
 ### Degraded flow when fetch fails
 - Uses poller samples (`SamplesToConsider = 5`) for requested TEE.
@@ -281,9 +315,11 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 ## 10. Concurrency and State
 - TEE `Verify` runs `DataVerification` and `CheckSigningPolicies` in parallel goroutines after the challenge fetch.
 - `CheckSigningPolicies` fetches initial and last signing policy hashes in parallel goroutines.
+- CRL leaf and intermediate fetches run in parallel goroutines within `GetCRLsForToken`.
 - TEE poller uses worker pool (`defaultWorkerCount=10`) per cycle.
 - Shared TEE sample cache guarded by RW mutex.
 - Active TEE list cached and reused when chain query fails.
+- CRL cache uses `sync.RWMutex` (RLock fast path for hits, WLock for inserts/eviction) and `singleflight.Group` to deduplicate concurrent fetches for the same URL.
 - Config loaders use `sync.Once` singletons.
 
 ## 11. Testing Strategy in Repo
@@ -297,6 +333,7 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 - `go.mod` includes local replace:
   - `github.com/flare-foundation/tee-node => ../tee-node`
   - build requires sibling `../tee-node` checkout.
+- `go-flare-common` should point to a commit that includes CRL checks until that change is merged into the `tee` branch.
 - Poller sample cache is in-memory only by design choice (lost on restart).
 - `PMWPaymentStatus` request includes `subNonce`, but current DB query path primarily keys by source address + nonce.
 
@@ -313,4 +350,4 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 ### Shutdown sequence
 1. Receive OS signal.
 2. HTTP graceful shutdown (`10s`).
-3. Close module resources (`DB`, poller, eth client).
+3. Close module resources (`DB`, poller, eth client, CRL cache).
