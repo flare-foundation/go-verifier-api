@@ -8,8 +8,8 @@ XRP only (same as PMWPaymentStatus).
 ## Request
 - `opType` — needed to compute deterministic instruction IDs for event lookup (e.g. `F_XRP`)
 - `senderAddress` — source chain sender address (XRP)
-- `fromNonce`
-- `toNonce`
+- `fromNonce` — inclusive
+- `toNonce` — inclusive
 - `untilTimestamp` — Flare chain block timestamp; defines the cutoff for fetching reissue events
 
 ## Response
