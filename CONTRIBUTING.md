@@ -95,6 +95,7 @@ internal/attestation/tee_availability_check/tee_poller/tee_poller.go
 internal/attestation/tee_availability_check/verifier/types/error.go
 internal/attestation/tee_availability_check/verifier/types/samples.go
 internal/attestation/tee_availability_check/verifier/claims.go
+internal/attestation/tee_availability_check/verifier/crl_cache.go
 internal/attestation/tee_availability_check/verifier/url_validation.go
 internal/attestation/tee_availability_check/verifier/verifier.go
 internal/attestation/tee_availability_check/service.go

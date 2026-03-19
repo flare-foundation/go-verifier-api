@@ -47,6 +47,40 @@ func cloneTransportConfig() *http.Transport {
 
 const maxResponseSize = 2 * 1024 * 1024 // 2MB
 
+// GetBytes fetches the given URL and returns the raw response body as bytes.
+func GetBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
+	}
+	resp, err := sharedHTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP request failed for %s: %w", url, err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warnf("Failed to close response body for %s: %v", url, err)
+		}
+	}()
+	switch resp.StatusCode {
+	case http.StatusNotFound:
+		return nil, ErrNotFound
+	case http.StatusOK:
+		// proceed
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d for url %s", resp.StatusCode, url)
+	}
+	limitReader := io.LimitReader(resp.Body, maxResponseSize)
+	data, err := io.ReadAll(limitReader)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body from %s: %w", url, err)
+	}
+	return data, nil
+}
+
 func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
 	return getJSONWithClient[T](ctx, url, fetchTimeout, sharedHTTPClient, "")
 }

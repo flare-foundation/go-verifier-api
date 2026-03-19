@@ -163,7 +163,7 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	if err != nil {
 		return checkInfoChallenge, err
 	}
-	_, err = teeVerifier.DataVerification(infoResponse, teeID)
+	_, err = teeVerifier.DataVerification(ctx, infoResponse, teeID)
 	if err != nil {
 		return verifiertypes.TeeSampleInvalid, fmt.Errorf("data verification failed for TEE %s: %w", teeID.Hex(), err)
 	}

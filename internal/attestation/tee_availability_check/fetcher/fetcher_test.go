@@ -6,11 +6,72 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestGetBytes(t *testing.T) {
+	ctx := context.Background()
+	t.Run("success", func(t *testing.T) {
+		expected := []byte("hello world")
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(expected)
+		}))
+		defer server.Close()
+
+		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		require.NoError(t, err)
+		require.Equal(t, expected, data)
+	})
+	t.Run("404 returns ErrNotFound", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		require.ErrorIs(t, err, ErrNotFound)
+		require.Nil(t, data)
+	})
+	t.Run("unexpected status code", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		require.ErrorContains(t, err, "unexpected status code: 500")
+		require.Nil(t, data)
+	})
+	t.Run("response truncated at maxResponseSize", func(t *testing.T) {
+		// Serve more than maxResponseSize bytes
+		bigBody := strings.Repeat("x", maxResponseSize+100)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(bigBody))
+		}))
+		defer server.Close()
+
+		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		require.NoError(t, err)
+		require.Len(t, data, maxResponseSize)
+	})
+	t.Run("timeout", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(2 * time.Second)
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		data, err := GetBytes(ctx, server.URL, 100*time.Millisecond)
+		require.Error(t, err)
+		require.Nil(t, data)
+	})
+}
 
 func TestRetry(t *testing.T) {
 	ctx := context.Background()
