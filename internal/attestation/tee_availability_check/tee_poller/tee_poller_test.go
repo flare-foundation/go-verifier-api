@@ -359,7 +359,7 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 		// test
 		sampleState, err := queryTeeInfoAndValidate(context.Background(), verInt, server.URL, crypto.PubkeyToAddress(privTEEKey.PublicKey))
 		require.Equal(t, verifiertypes.TeeSampleInvalid, sampleState)
-		require.ErrorContains(t, err, fmt.Sprintf("data verification failed for TEE %s: cannot validate certificate signature: parsing and verifying: token is malformed: token contains an invalid number of segments", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
+		require.ErrorContains(t, err, fmt.Sprintf("data verification failed for TEE %s: CRL fetch failed: parsing unverified token: could not parse token, token is malformed: token contains an invalid number of segments", crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 }
 

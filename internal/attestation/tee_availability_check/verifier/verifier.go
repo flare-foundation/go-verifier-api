@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -47,9 +48,9 @@ var (
 	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 
-	ErrInsufficientSamples    = errors.New("insufficient samples")
-	ErrTEEDataValidation      = errors.New("TEE data validation failed")
-	ErrActionResultNotFound   = errors.New("action result not found")
+	ErrInsufficientSamples  = errors.New("insufficient samples")
+	ErrTEEDataValidation    = errors.New("TEE data validation failed")
+	ErrActionResultNotFound = errors.New("action result not found")
 )
 
 type TeeVerifier struct {
@@ -57,6 +58,8 @@ type TeeVerifier struct {
 	EthClient                EthClient
 	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
 	RelayCaller              RelayCallerInterface
+	ValidateURL              bool
+	CRLCache                 *CRLCache
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
 }
@@ -98,6 +101,7 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 		EthClient:                client,
 		TeeMachineRegistryCaller: teeMachineRegistryCaller,
 		RelayCaller:              relayCaller,
+		CRLCache:                 NewCRLCache(),
 		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}, nil
 }
@@ -140,7 +144,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	spCh := make(chan sigPolicyResult, 1)
 
 	go func() {
-		info, err := v.DataVerification(response, req.TeeId)
+		info, err := v.DataVerification(ctx, response, req.TeeId)
 		dvCh <- dataVerResult{info, err}
 	}()
 	go func() {
@@ -175,7 +179,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}, nil
 }
 
-func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (StatusInfo, error) {
+func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (StatusInfo, error) {
 	if v.Cfg.DisableAttestationCheckE2E {
 		platform := E2ETestPlatform
 		codeHash := E2ETestCodeHash
@@ -207,8 +211,19 @@ func (v *TeeVerifier) DataVerification(response teenodetypes.TeeInfoResponse, ex
 
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
+
+	// Fetch CRLs for revocation checking (strict: fail verification if CRL fetch fails)
+	var leafCRL, intermediateCRL *x509.RevocationList
+	if v.CRLCache != nil {
+		var crlErr error
+		leafCRL, intermediateCRL, crlErr = v.CRLCache.GetCRLsForToken(ctx, string(attestationToken), v.Cfg.GoogleRootCertificate)
+		if crlErr != nil {
+			return StatusInfo{}, fmt.Errorf("CRL fetch failed: %w", crlErr)
+		}
+	}
+
 	// Certificate checks - check if we can trust the data in token
-	_, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.Cfg.GoogleRootCertificate)
+	_, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.Cfg.GoogleRootCertificate, leafCRL, intermediateCRL)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
 	}
@@ -356,10 +371,15 @@ func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
 }
 
 func (v *TeeVerifier) Close() error {
+	var ethErr error
 	if closer, ok := v.EthClient.(io.Closer); ok {
-		return closer.Close()
+		ethErr = closer.Close()
 	}
-	return nil
+	var crlErr error
+	if v.CRLCache != nil {
+		crlErr = v.CRLCache.Close()
+	}
+	return errors.Join(ethErr, crlErr)
 }
 
 func (v *TeeVerifier) FormatProxyURL(url string) string {
