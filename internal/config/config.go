@@ -82,6 +82,13 @@ type PMWPaymentStatusConfig struct {
 	ParsedTeeInstructionsABI abi.ABI
 }
 
+type PMWFeeProofConfig struct {
+	EncodedAndABI
+	SourceDatabaseURL        string
+	CchainDatabaseURL        string
+	ParsedTeeInstructionsABI abi.ABI
+}
+
 type PMWMultisigAccountConfig struct {
 	EncodedAndABI
 	RPCURL string
@@ -115,6 +122,10 @@ var abiStructNames = map[connector.AttestationType]struct {
 	connector.PMWPaymentStatus: {
 		Request:  "pmwPaymentStatusRequestBodyStruct",
 		Response: "pmwPaymentStatusResponseBodyStruct",
+	},
+	connector.PMWFeeProof: {
+		Request:  "pmwFeeProofRequestBodyStruct",
+		Response: "pmwFeeProofResponseBodyStruct",
 	},
 }
 

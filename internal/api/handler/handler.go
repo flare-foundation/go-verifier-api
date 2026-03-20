@@ -10,6 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
+	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_fee_proof/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
@@ -121,7 +122,14 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 
 func classifyVerifyError(err error) error {
 	switch {
+	// 400 — bad request
+	case errors.Is(err, feeproofxrp.ErrNonceRangeTooLarge):
+		return warnHuma400("Verification failed", err)
 	// 422 — data/validation errors
+	case errors.Is(err, feeproofxrp.ErrMissingPayEvent):
+		return warnHuma422("Verification failed", err)
+	case errors.Is(err, feeproofxrp.ErrMissingTransaction):
+		return warnHuma422("Verification failed", err)
 	case errors.Is(err, client.ErrRPCNonSuccess):
 		return warnHuma422("Verification failed", err)
 	case errors.Is(err, db.ErrRecordNotFound):
@@ -163,6 +171,8 @@ func logRequestBody[T any](requestData T) {
 		types.LogPMWMultisigAccountConfiguredRequestBody(req)
 	case connector.IPMWPaymentStatusRequestBody:
 		types.LogPMWPaymentStatusRequestBody(req)
+	case connector.IPMWFeeProofRequestBody:
+		types.LogPMWFeeProofRequestBody(req)
 	default:
 		logger.Debug("No request logger for this request type")
 	}

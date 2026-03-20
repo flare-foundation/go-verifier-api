@@ -10,6 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/handler"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
+	feeproofservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_fee_proof"
 	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured"
 	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status"
 	teeavailabilityservice "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check"
@@ -64,6 +65,17 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 
 		handler.RegisterVerificationHandler[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody, types.PMWMultisigAccountConfiguredRequestBody, types.PMWMultisigAccountConfiguredResponseBody](api, &config.EncodedAndABI, verifier)
 
+	case connector.PMWFeeProof:
+		service, err := feeproofservice.NewFeeProofService(envConfig)
+		if err != nil {
+			return nil, err
+		}
+		verifier := service.GetVerifier()
+		config := service.GetConfig()
+
+		handler.RegisterVerificationHandler[connector.IPMWFeeProofRequestBody, connector.IPMWFeeProofResponseBody, types.PMWFeeProofRequestBody, types.PMWFeeProofResponseBody](api, &config.EncodedAndABI, verifier)
+
+		closers = append(closers, service)
 	default:
 		return nil, fmt.Errorf("unsupported attestation type: %s", string(envConfig.AttestationType))
 	}

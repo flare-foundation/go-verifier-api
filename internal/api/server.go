@@ -85,6 +85,7 @@ var AttestationTypes = []connector.AttestationType{
 	connector.AvailabilityCheck,
 	connector.PMWPaymentStatus,
 	connector.PMWMultisigAccountConfigured,
+	connector.PMWFeeProof,
 }
 
 var SourceIDs = []config.SourceName{
