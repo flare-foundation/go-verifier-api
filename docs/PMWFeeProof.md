@@ -47,7 +47,6 @@ Both `pay` and `reissue` emit `TeeInstructionsSent`, differentiated by command (
 
 ## Open questions
 - **Nonce range cap value** — suggested ~100, needs benchmarking.
-- **Error messages** — define distinct error messages for: missing pay event for nonce, missing XRP transaction for nonce, nonce range partially indexed. 503 is the only retryable status; 422 errors should include which nonce(s) failed.
 - **Data retention** — XRP indexer holds ~2 weeks of data. Should the verifier validate that the requested range falls within the retention window, or just let it fail with 422 if data is missing?
 
 ## Implementation notes

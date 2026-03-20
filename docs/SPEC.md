@@ -274,6 +274,35 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 - Public keys are parsed and compressed secp256k1.
 - Converted to XRPL address for signer-set comparison.
 
+## 7.4 PMWFeeProof
+Fee reconciliation attestation for PMW protocols. Compares estimated fees (from C-chain events) with actual fees (from XRP transactions) across a nonce range.
+
+### Request
+- `opType`, `senderAddress`, `fromNonce` (inclusive), `toNonce` (inclusive), `untilTimestamp` (Flare block timestamp cutoff for reissues).
+- Nonce range capped at 100 (`MaxNonceRange`). Exceeding returns 400.
+
+### Primary flow (`XRPVerifier.Verify`)
+1. Validate nonce range.
+2. Compute pay instruction IDs for all nonces, batch fetch C-chain events (`topic2 IN (?)`).
+3. For each nonce: verify pay event exists, extract `maxFee`.
+4. For each nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found or `blockTimestamp > untilTimestamp`). Add residual `max(0, reissue_maxFee - pay_maxFee)`.
+5. Sum as `estimatedFee`.
+6. Batch fetch XRP transactions (`sequence IN (?)`), parse `Fee` field, sum as `actualFee`.
+7. Return `{actualFee, estimatedFee}`.
+
+### Error handling
+- Missing pay event for any nonce → 422 (`ErrMissingPayEvent`).
+- Missing XRP transaction for any nonce → 422 (`ErrMissingTransaction`).
+- Nonce range too large → 400 (`ErrNonceRangeTooLarge`).
+- DB infrastructure failure → 503 (via `ErrDatabase`).
+
+### Architecture
+- Standalone deployment, same pattern as PMWPaymentStatus.
+- Reuses same data sources (Postgres source DB + MySQL C-chain index DB).
+- Reuses `DecodeTeeInstructionsSentEventData` from `pmw_payment_status/instruction` (parameterized by `op.Command`).
+- Reuses `GenerateInstructionID` from `pmw_payment_status/instruction` for pay IDs.
+- See `docs/PMWFeeProof.md` for full spec including open questions.
+
 ## 8. ABI/Encoding Contract
 - ABI schema source: connector contract metadata from `go-flare-common`.
 - Each attestation type maps to request/response struct ABI names.

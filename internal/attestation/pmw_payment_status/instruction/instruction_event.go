@@ -23,7 +23,7 @@ func GetTeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 	return event.ID.Hex(), nil
 }
 
-func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
+func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command op.Command) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
 	eventData, err := abiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
 		teeABI,
 		EventNameTeeInstructionsSent,
@@ -33,7 +33,7 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI) (*paymen
 		return nil, fmt.Errorf("cannot decode event %s: %w", EventNameTeeInstructionsSent, err)
 	}
 	var message payment.ITeePaymentsPaymentInstructionMessage
-	err = structs.DecodeTo(payment.MessageArguments[op.Pay], eventData.Message, &message)
+	err = structs.DecodeTo(payment.MessageArguments[command], eventData.Message, &message)
 	if err != nil {
 		return nil, fmt.Errorf("cannot decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
 	}

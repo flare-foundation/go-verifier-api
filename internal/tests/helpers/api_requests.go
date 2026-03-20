@@ -57,6 +57,17 @@ func PMWPaymentStatusRequestBody(t *testing.T, data connector.IPMWPaymentStatusR
 	}
 }
 
+func PMWFeeProofRequestBody(t *testing.T, data connector.IPMWFeeProofRequestBody) types.PMWFeeProofRequestBody {
+	t.Helper()
+	return types.PMWFeeProofRequestBody{
+		OpType:         data.OpType,
+		SenderAddress:  data.SenderAddress,
+		FromNonce:      data.FromNonce,
+		ToNonce:        data.ToNonce,
+		UntilTimestamp: data.UntilTimestamp,
+	}
+}
+
 func toHexutilBytesSlice(t *testing.T, src [][]byte) []hexutil.Bytes {
 	t.Helper()
 	res := make([]hexutil.Bytes, len(src))

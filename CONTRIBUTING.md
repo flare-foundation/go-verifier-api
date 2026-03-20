@@ -77,6 +77,12 @@ internal/attestation/pmw_multisig_account_configured/xrp/verifier.go
 internal/attestation/pmw_multisig_account_configured/service.go
 
 internal/attestation/pmw_payment_status/db/db_transaction.go
+internal/attestation/pmw_fee_proof/db/repo.go
+internal/attestation/pmw_fee_proof/instruction/instruction_id.go
+internal/attestation/pmw_fee_proof/verifier/verifier.go
+internal/attestation/pmw_fee_proof/xrp/verifier.go
+internal/attestation/pmw_fee_proof/service.go
+
 internal/attestation/pmw_payment_status/db/db.go
 internal/attestation/pmw_payment_status/db/repo.go
 internal/attestation/pmw_payment_status/helper/abi.go
@@ -103,6 +109,7 @@ internal/attestation/tee_availability_check/service.go
 internal/attestation/verifier_interface.go
 
 internal/config/config.go
+internal/config/pmw_fee_proof.go
 internal/config/pmw_multisig_configured.go
 internal/config/pmw_payment_status.go
 internal/config/tee_availability_check.go
