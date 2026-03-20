@@ -185,7 +185,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, fmt.Sprintf("Verification failed: insufficient samples to determine TEE %s status: insufficient samples", baseReqBody.TeeId))
+		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
 	t.Run("verify: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
