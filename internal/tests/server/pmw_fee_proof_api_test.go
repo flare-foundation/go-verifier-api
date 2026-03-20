@@ -167,6 +167,60 @@ func TestPMWFeeProof(t *testing.T) {
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: nonce 99999: missing pay event for nonce")
 	})
+	t.Run("verify: missing XRP transaction", func(t *testing.T) { // Log 40: pay event exists but no XRP tx
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.FromNonce = 11263185 // baseNonce + 40
+		modifiedReqBody.ToNonce = 11263185
+		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: nonce 11263185: missing transaction for nonce")
+	})
+	t.Run("verify: cannot decode event data (ABI unpack)", func(t *testing.T) { // Log 41: short data
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.FromNonce = 11263186 // baseNonce + 41
+		modifiedReqBody.ToNonce = 11263186
+		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+	})
+	t.Run("verify: cannot parse XRP transaction fee", func(t *testing.T) { // Log 42: valid event, bad Fee in XRP tx
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.FromNonce = 11263187 // baseNonce + 42
+		modifiedReqBody.ToNonce = 11263187
+		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+	})
+	t.Run("verify: cannot decode event data message", func(t *testing.T) { // Log 43: corrupt message encoding
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.FromNonce = 11263188 // baseNonce + 43
+		modifiedReqBody.ToNonce = 11263188
+		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+	})
+	t.Run("prepareResponseBody: verification failed", func(t *testing.T) {
+		modifiedReqBody := baseReqBody
+		modifiedReqBody.FromNonce = 99999
+		modifiedReqBody.ToNonce = 99999
+		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey) //nolint:bodyclose
+		require.NoError(t, err)
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: nonce 99999: missing pay event for nonce")
+	})
 
 	config.ClearPMWFeeProofConfigForTest()
 }
