@@ -120,10 +120,10 @@ func warnHuma422(message string, err error) error {
 
 func warnHuma500(message string, err error) error {
 	logger.Warnf("%s: %v", message, err)
-	return huma.Error500InternalServerError(message + ": " + err.Error())
+	return huma.Error500InternalServerError(message)
 }
 
 func warnHuma503(message string, err error) error {
 	logger.Warnf("%s: %v", message, err)
-	return huma.Error503ServiceUnavailable(message + ": " + err.Error())
+	return huma.Error503ServiceUnavailable(message)
 }

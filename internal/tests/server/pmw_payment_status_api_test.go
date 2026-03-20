@@ -204,7 +204,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode event TeeInstructionsSent: ABI unpack into teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent failed for event \\\"TeeInstructionsSent\\\": abi: cannot marshal in to go type: length insufficient 100 require 128")
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
 	})
 	t.Run("verify: verification failed - cannot unmarshal XRP transaction", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
 		modifiedReqBody := baseReqBody
@@ -216,7 +216,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot unmarshal XRP transaction response: json: cannot unmarshal string into Go struct field RawTransactionData.CommonFields.Sequence of type uint")
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
 	})
 	t.Run("verify: verification failed - missing transaction result", func(t *testing.T) { // Using fake entry log (22) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c5.
 		modifiedReqBody := baseReqBody
@@ -228,7 +228,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: missing transaction result in raw transaction data")
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
 	})
 	t.Run("verify: verification failed - cannot build payment status response", func(t *testing.T) { // Using fake entry log (23) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c6.
 		modifiedReqBody := baseReqBody
@@ -240,7 +240,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot build payment status response: cannot parse transaction status: transaction result too short: \\\"te\\\"")
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
 	})
 	t.Run("verify: verification failed - cannot decode event data message", func(t *testing.T) { // Using fake entry log (24) in c-chain idx db.
 		modifiedReqBody := baseReqBody
@@ -252,6 +252,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed: cannot decode TeeInstructionsSent message arguments: abi: improperly encoded uint64 value")
+		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
 	})
 }

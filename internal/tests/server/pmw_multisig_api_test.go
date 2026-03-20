@@ -182,7 +182,7 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed: cannot get account info")
+		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
 
 	t.Run("prepareResponseBody: RPC unreachable returns 503", func(t *testing.T) {
@@ -191,7 +191,7 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed: cannot get account info")
+		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
 }
 
