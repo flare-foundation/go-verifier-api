@@ -18,6 +18,7 @@ import (
 	apidocs "github.com/flare-foundation/go-verifier-api/internal/api/docs"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 )
 
@@ -186,6 +187,7 @@ func getEnvOrError(key string) (string, error) {
 
 func newRouter() chi.Router {
 	router := chi.NewRouter()
+	router.Use(middleware.Recoverer)
 	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
 	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
 	return router
