@@ -183,6 +183,7 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 **Bypass (MagicPass):** TEE nodes running in non-production mode (`settings.Mode != 0`) return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts this token, skips all attestation validation (PKI, claims, CRL), and returns `OK` with hardcoded test values for `codeHash` and `platform`. This supports hackathon and development environments. Do not rely on this in production.
 
 ### Verify timeout budget
+//TODO change link when publicly merged
 The [client](https://gitlab.com/flarenetwork/tee/tee-relay-client/-/blob/main/internal/router/processors/ftdc_verifier.go?ref_type=heads#L50) calls the verifier with a **10s timeout, 3 retries, 2s delay between retries**. The verifier targets a worst-case response time under 8s so the client can retry on transient failures.
 
 | Phase | Timeout | Notes |
@@ -307,6 +308,9 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 - Missing XRP transaction for any nonce → 422 (`ErrMissingTransaction`).
 - Nonce range too large → 400 (`ErrNonceRangeTooLarge`).
 - DB infrastructure failure → 503 (via `ErrDatabase`).
+
+### Data retention
+- The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production). Callers must request PMWFeeProof within this retention window; otherwise, the verifier returns 422 for missing transaction data.
 
 ### Architecture
 - Standalone deployment, same pattern as PMWPaymentStatus.

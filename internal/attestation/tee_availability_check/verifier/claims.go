@@ -13,6 +13,7 @@ import (
 
 type AvailabilityCheckStatus uint8
 
+// TODO: change link to publicly available when merged
 // Should match SC https://gitlab.com/flarenetwork/FSP/flare-smart-contracts-v2/-/blob/tee/contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol?ref_type=heads#L12
 const (
 	OK AvailabilityCheckStatus = iota
