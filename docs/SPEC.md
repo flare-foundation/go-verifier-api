@@ -3,10 +3,11 @@
 ## 1. Purpose
 This service verifies attestation requests for Flare FDCv2 workflows and returns ABI-encoded responses.
 
-It supports three attestation types:
+It supports four attestation types:
 - `TeeAvailabilityCheck`
 - `PMWPaymentStatus`
 - `PMWMultisigAccountConfigured`
+- `PMWFeeProof`
 
 At runtime, the process is configured to serve exactly one attestation type + source pair.
 
@@ -44,6 +45,10 @@ At runtime, the process is configured to serve exactly one attestation type + so
 - `PMWMultisigAccountConfigured`:
   - Constructs verifier.
   - Registers endpoints.
+- `PMWFeeProof`:
+  - Constructs service + DB connections + verifier.
+  - Registers endpoints.
+  - Adds service (DB closer) to shutdown closers.
 
 ## 4. Routing and API Surface
 ### Global routes
@@ -89,7 +94,7 @@ The `verify` and `prepareResponseBody` handlers classify verifier failures via `
 ## 6.1 Common required env vars
 - `PORT`
 - `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key)
-- `VERIFIER_TYPE` (`TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`)
+- `VERIFIER_TYPE` (`TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`)
 - `SOURCE_ID` (`TEE`, `XRP`, `testXRP`)
 
 ## 6.2 Attestation-specific env vars
@@ -115,6 +120,11 @@ Required:
 ### PMWMultisigAccountConfigured
 Required:
 - `RPC_URL` (XRPL endpoint)
+
+### PMWFeeProof
+Required:
+- `SOURCE_DATABASE_URL` (Postgres)
+- `CCHAIN_DATABASE_URL` (MySQL)
 
 ## 7. Attestation Module Specs
 ## 7.1 TeeAvailabilityCheck
@@ -168,7 +178,9 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 5. **CodeHash** — Extracted from `SubMods.Container.ImageDigest` (sha256 digest → 32-byte hash).
 6. **Platform** — Extracted from `HWModel` claim (e.g. `"GCP_INTEL_TDX"` → 32-byte hash).
 
-**Bypass:** Setting `DISABLE_ATTESTATION_CHECK_E2E=true` skips JWT validation entirely (E2E testing only).
+**Bypass (E2E):** Setting `DISABLE_ATTESTATION_CHECK_E2E=true` skips JWT validation entirely (E2E testing only).
+
+**Bypass (MagicPass):** TEE nodes running in non-production mode (`settings.Mode != 0`) return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts this token, skips all attestation validation (PKI, claims, CRL), and returns `OK` with hardcoded test values for `codeHash` and `platform`. This supports hackathon and development environments. Do not rely on this in production.
 
 ### Verify timeout budget
 The [client](https://gitlab.com/flarenetwork/tee/tee-relay-client/-/blob/main/internal/router/processors/ftdc_verifier.go?ref_type=heads#L50) calls the verifier with a **10s timeout, 3 retries, 2s delay between retries**. The verifier targets a worst-case response time under 8s so the client can retry on transient failures.
@@ -315,22 +327,25 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
   - attestation/source mismatch
   - invalid request body
   - decode/encode request conversion issues
+  - nonce range too large or invalid — `ErrNonceRangeTooLarge` (PMWFeeProof)
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
 - `422 Unprocessable Entity`:
   - XRP RPC returned non-success status (e.g., account not found) — `ErrRPCNonSuccess` (PMWMultisig)
   - requested record not found in database (instruction log or transaction) — `ErrRecordNotFound` (PMWPaymentStatus)
+  - missing pay event for nonce — `ErrMissingPayEvent` (PMWFeeProof)
+  - missing XRP transaction for nonce — `ErrMissingTransaction` (PMWFeeProof)
   - TEE data validation failed (challenge/proxy/claims/signing policy hash mismatch) — `ErrTEEDataValidation` (TEE)
   - RPC client-side errors (bad request, method not found) — `ErrInvalidInput` (TEE)
 - `500 Internal Server Error`:
   - response encoding failures
   - URL validation errors (ambiguous — mix of bad URL and DNS issues) (TEE)
   - JSON decode errors in fetcher (TEE server returned invalid body) (TEE)
-  - PMWPaymentStatus data corruption (ABI decode, JSON unmarshal, malformed transaction data)
+  - PMWPaymentStatus/PMWFeeProof data corruption (ABI decode, JSON unmarshal, malformed transaction data)
   - fallback for unexpected verifier errors (should not occur for PMWMultisig in practice)
 - `503 Service Unavailable`:
   - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrGetAccountInfo` (PMWMultisig)
-  - database infrastructure failure (connection, timeout) — `ErrDatabase` (PMWPaymentStatus)
+  - database infrastructure failure (connection, timeout) — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
   - insufficient poller samples to determine TEE status — `ErrInsufficientSamples` (TEE)
   - network errors from RPC calls — `ErrNetwork` (TEE)
   - RPC server-side errors — `ErrRPC` (TEE)
@@ -339,7 +354,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
   - HTTP request or non-OK status from TEE proxy — `ErrHTTPFetch` (TEE)
   - TEE action/result returned 404 (result not yet available in Redis) — `ErrActionResultNotFound` (TEE)
 
-PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrGetAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`. PMWPaymentStatus verify errors are classified into `422` (`ErrRecordNotFound`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). TEE verify errors are classified into `422` (data validation), `503` (infrastructure/retry), or `500` (URL validation, JSON decode, unexpected errors).
+PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrGetAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`. PMWPaymentStatus verify errors are classified into `422` (`ErrRecordNotFound`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). PMWFeeProof verify errors are classified into `400` (`ErrNonceRangeTooLarge`), `422` (`ErrMissingPayEvent`, `ErrMissingTransaction`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). TEE verify errors are classified into `422` (data validation), `503` (infrastructure/retry), or `500` (URL validation, JSON decode, unexpected errors).
 
 ## 10. Concurrency and State
 - TEE `Verify` runs `DataVerification` and `CheckSigningPolicies` in parallel goroutines after the challenge fetch.
@@ -362,7 +377,6 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 - `go.mod` includes local replace:
   - `github.com/flare-foundation/tee-node => ../tee-node`
   - build requires sibling `../tee-node` checkout.
-- `go-flare-common` should point to a commit that includes CRL checks until that change is merged into the `tee` branch.
 - Poller sample cache is in-memory only by design choice (lost on restart).
 - `PMWPaymentStatus` request includes `subNonce`, but current DB query path primarily keys by source address + nonce.
 

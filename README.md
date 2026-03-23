@@ -5,7 +5,7 @@
 # Go Verifier API
 
 
-## Prerequisites to Run  Verifier API
+## Prerequisites to Run Verifier API
 Each attestation type requires certain environment variables to be set. The following are common variables needed for all attestation types:
  ```env
 PORT=<port_number>
@@ -52,6 +52,17 @@ You will need to run following indexers:
 Environment variables:
 ```env
 VERIFIER_TYPE=PMWPaymentStatus
+SOURCE_ID=testXRP
+CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
+SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
+```
+
+### `PMWFeeProof` Attestation Type
+Requires the same indexers as `PMWPaymentStatus`.
+
+Environment variables:
+```env
+VERIFIER_TYPE=PMWFeeProof
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
@@ -150,8 +161,6 @@ This is the simplest way to run everything without worrying about Docker manuall
 - Other `TODO`s inside the code and README.
 - How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
-- TEEAvailabilityCheck: add CRL check.
-- Add new attestation type FeeProof (need to define it first).
 
 ### Monitoring
 - When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures.
