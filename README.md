@@ -73,8 +73,6 @@ SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 
 2. Install dependencies:
 
-    Ensure the [tee-node](https://gitlab.com/flarenetwork/tee/tee-node) package is cloned locally. (TODO remove, when tee-node is publicly available.)
-
     ```bash
     go mod tidy
     ```

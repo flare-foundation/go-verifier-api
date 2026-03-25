@@ -378,9 +378,6 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 - TEE availability server tests set `ALLOW_PRIVATE_NETWORKS=true` to allow `httptest` localhost URLs.
 
 ## 12. Operational Notes and Risks
-- `go.mod` includes local replace:
-  - `github.com/flare-foundation/tee-node => ../tee-node`
-  - build requires sibling `../tee-node` checkout.
 - Poller sample cache is in-memory only by design choice (lost on restart).
 - `PMWPaymentStatus` request includes `subNonce`, but current DB query path primarily keys by source address + nonce.
 

@@ -6,7 +6,7 @@ require (
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/ethereum/go-ethereum v1.16.7
 	github.com/flare-foundation/go-flare-common v1.2.1-0.20260319104337-ae6393136a17
-	github.com/flare-foundation/tee-node v0.0.0-00010101000000-000000000000
+	github.com/flare-foundation/tee-node v0.0.0-20260312142127-1843109daeb3
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -18,8 +18,6 @@ require (
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.0
 )
-
-replace github.com/flare-foundation/tee-node => ../tee-node
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
