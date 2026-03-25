@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +26,9 @@ import (
 const (
 	shutdownAfter     = 10 * time.Second
 	readHeaderTimeout = 5 * time.Second
+	readTimeout       = 10 * time.Second
+	writeTimeout      = 30 * time.Second
+	idleTimeout       = 60 * time.Second
 )
 
 func RunServer(envConfig config.EnvConfig) {
@@ -53,6 +57,9 @@ func StartServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 		Addr:              ":" + envConfig.Port,
 		Handler:           newSecurityHandler(router),
 		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
 	go func() {
@@ -231,7 +238,7 @@ func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context,
 		}
 		apiKey := ctx.Header("X-API-KEY")
 		for _, key := range apiKeys {
-			if apiKey == key {
+			if subtle.ConstantTimeCompare([]byte(apiKey), []byte(key)) == 1 {
 				next(ctx)
 				return
 			}
