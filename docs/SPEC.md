@@ -1,7 +1,7 @@
 # Go Verifier API - Codebase Explanation and Technical Specification
 
 ## 1. Purpose
-This service verifies attestation requests for Flare FDCv2 workflows and returns ABI-encoded responses.
+This service verifies attestation requests for Flare FDC2 workflows and returns ABI-encoded responses.
 
 It supports four attestation types:
 - `TeeAvailabilityCheck`
@@ -15,7 +15,7 @@ At runtime, the process is configured to serve exactly one attestation type + so
 - Language: Go (`module github.com/flare-foundation/go-verifier-api`)
 - HTTP stack: `chi` router + `huma` OpenAPI handlers
 - ABI/data primitives: `go-ethereum` + `go-flare-common`
-- Data stores (payment status): PostgreSQL (source DB) + MySQL (C-chain index DB)
+- Data stores (payment status, fee proof): PostgreSQL (source DB) + MySQL (C-chain index DB)
 - Blockchain/RPC dependencies:
   - Flare RPC (`ethclient`) for TEE checks
   - XRPL RPC for multisig checks
@@ -105,8 +105,8 @@ Required:
 - `TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS`
 
 Optional test/E2E flags:
-- `ALLOW_TEE_DEBUG` (default false)
-- `DISABLE_ATTESTATION_CHECK_E2E` (default false)
+- `ALLOW_TEE_DEBUG` (default false) — when enabled, only accepts Google Confidential Space TEEs running in debug mode (`dbgstat != "disabled-since-boot"`) and rejects production TEEs. Intended for development/testing with debug TEE images.
+- `DISABLE_ATTESTATION_CHECK_E2E` (default false) — when enabled, skips all JWT attestation validation (PKI, claims, CRL) in both the verify flow and the poller, returning hardcoded OK with test values. Intended for E2E tests without real Google attestation.
 - `ALLOW_PRIVATE_NETWORKS` (default false) — test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs and preserving DNS pinning. Useful for Docker bridge networking.
 
 Also loads embedded Google root certificate:
@@ -257,7 +257,7 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 4. Decode tee instruction message payload.
 5. Query source DB transaction by `(source_address, sequence=nonce)`.
 6. Parse raw source-chain transaction JSON.
-7. Build FDCv2 response:
+7. Build FDC2 response:
    - recipient/token/amount/fee/reference from instruction message
    - status/revert reason from raw tx result
    - received amount for recipient
@@ -312,12 +312,9 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 ### Data retention
 - The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production). Callers must request PMWFeeProof within this retention window; otherwise, the verifier returns 422 for missing transaction data.
 
-### Architecture
-- Standalone deployment, same pattern as PMWPaymentStatus.
-- Reuses same data sources (Postgres source DB + MySQL C-chain index DB).
-- Reuses `DecodeTeeInstructionsSentEventData` from `pmw_payment_status/instruction` (parameterized by `op.Command`).
-- Reuses `GenerateInstructionID` from `pmw_payment_status/instruction` for pay IDs.
-- See `docs/PMWFeeProof.md` for full spec including open questions.
+### Data stores
+- Source DB: transactions table (Postgres)
+- C-chain DB: logs table (MySQL)
 
 ## 8. ABI/Encoding Contract
 - ABI schema source: connector contract metadata from `go-flare-common`.
@@ -379,7 +376,7 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 
 ## 12. Operational Notes and Risks
 - Poller sample cache is in-memory only by design choice (lost on restart).
-- `PMWPaymentStatus` request includes `subNonce`, but current DB query path primarily keys by source address + nonce.
+- `PMWPaymentStatus` request includes `subNonce`, but current DB query path primarily keys by source address + nonce. XRP does not use batch payments, so each nonce maps to exactly one transaction. SubNonce filtering will be needed when UTXO chains are supported.
 
 ## 13. Minimal Runtime Sequences
 ### Start sequence
