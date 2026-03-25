@@ -54,7 +54,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Parse transaction response JSON into structured data
-	rawTransactionData, err := x.parseRawTransactionData(dbTransaction.Response)
+	rawTransactionData, err := x.parseRawTransactionData(req.SenderAddress, req.Nonce, dbTransaction.Response)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
@@ -66,11 +66,11 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	return resp, nil
 }
 
-func (x *XRPVerifier) parseRawTransactionData(response string) (types.RawTransactionData, error) {
+func (x *XRPVerifier) parseRawTransactionData(sender string, nonce uint64, response string) (types.RawTransactionData, error) {
 	var rawTransactionData types.RawTransactionData
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
-		logger.Errorf("Cannot unmarshal XRP transaction response: %v, response: %s", err, response)
+		logger.Errorf("Cannot unmarshal XRP transaction response for %s with nonce %d: %v", sender, nonce, err)
 		return rawTransactionData, fmt.Errorf("cannot unmarshal XRP transaction response: %w", err)
 	}
 	if rawTransactionData.MetaData.TransactionResult == "" {
