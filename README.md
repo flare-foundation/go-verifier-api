@@ -154,6 +154,14 @@ This is the simplest way to run everything without worrying about Docker manuall
         docker compose -f internal/tests/docker/docker-compose.yaml down
         ```
 
+3. Running fuzz tests
+
+    Fuzz tests run their seed corpus as regular tests during `go test` and `gencover.sh`. To run actual fuzzing with random inputs:
+    ```bash
+    go test ./internal/attestation/tee_availability_check/verifier/ -fuzz FuzzResolveExternalURL -fuzztime 60s
+    ```
+    Available fuzz targets: `FuzzResolveExternalURL`, `FuzzGetOrFetchCRL`, `FuzzGetCRLsForToken`, `FuzzFetchTEEChallengeResult`.
+
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
 - How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
