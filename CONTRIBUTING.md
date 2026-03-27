@@ -64,6 +64,7 @@ internal/api/handler/handler.go
 internal/api/handler/health.go
 internal/api/handler/pooling.go
 internal/api/types/common.go
+internal/api/types/pmw_fee_proof.go
 internal/api/types/pmw_multisig_account_configured.go
 internal/api/types/pmw_payment_status.go
 internal/api/types/tee_availability_check.go
