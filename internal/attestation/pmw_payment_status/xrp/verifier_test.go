@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -134,6 +135,64 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 			SubNonce:      nonce,
 		},
 	}
+}
+
+func TestVerifyConcurrentErrors(t *testing.T) {
+	t.Run("missing log under concurrency", func(t *testing.T) {
+		teeABI := testABI(t)
+		xrpDB := newTestDB(t, "conc_nolog_xrp", &paymentdb.DBTransaction{})
+		cChainDB := newTestDB(t, "conc_nolog_cchain", &database.Log{})
+
+		v := &XRPVerifier{
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Config: &config.PMWPaymentStatusConfig{
+				ParsedTeeInstructionsABI: teeABI,
+				EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
+			},
+		}
+		req := connector.IPMWPaymentStatusRequestBody{
+			OpType: common.HexToHash("0xAA"), SenderAddress: "rSender", Nonce: 999,
+		}
+
+		const concurrency = 50
+		type callResult struct{ err error }
+		results := make([]callResult, concurrency)
+		var wg sync.WaitGroup
+		wg.Add(concurrency)
+		for i := 0; i < concurrency; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				_, err := v.Verify(context.Background(), req)
+				results[idx] = callResult{err: err}
+			}(i)
+		}
+		wg.Wait()
+
+		for i, r := range results {
+			require.ErrorContains(t, r.err, "record not found", "caller %d", i)
+		}
+	})
+
+	t.Run("malformed JSON under concurrency", func(t *testing.T) {
+		f := setupVerifyFixture(t, "conc_badjson", "not-json-at-all")
+		const concurrency = 50
+		type callResult struct{ err error }
+		results := make([]callResult, concurrency)
+		var wg sync.WaitGroup
+		wg.Add(concurrency)
+		for i := 0; i < concurrency; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				_, err := f.verifier.Verify(context.Background(), f.req)
+				results[idx] = callResult{err: err}
+			}(i)
+		}
+		wg.Wait()
+
+		for i, r := range results {
+			require.ErrorContains(t, r.err, "cannot unmarshal XRP transaction response", "caller %d", i)
+		}
+	})
 }
 
 const successTxResponse = `{"Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"1000"}}`

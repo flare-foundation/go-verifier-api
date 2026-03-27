@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -167,5 +168,70 @@ func TestVerifyFeeProof(t *testing.T) {
 			UntilTimestamp: 1800000000,
 		})
 		require.ErrorContains(t, err, "cannot parse fee")
+	})
+}
+
+func TestVerifyFeeProofConcurrentErrors(t *testing.T) {
+	t.Run("missing pay event under concurrency", func(t *testing.T) {
+		// Seed only nonce 100, request 100-101.
+		f := setupFeeProofFixture(t, "fp_conc_nopay",
+			[]uint64{100},
+			[]int64{50},
+			[]string{"10"},
+		)
+		const concurrency = 50
+		type callResult struct{ err error }
+		results := make([]callResult, concurrency)
+		var wg sync.WaitGroup
+		wg.Add(concurrency)
+		for i := 0; i < concurrency; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+					OpType:         f.opType,
+					SenderAddress:  "rSender",
+					FromNonce:      100,
+					ToNonce:        101, // nonce 101 missing
+					UntilTimestamp: 1800000000,
+				})
+				results[idx] = callResult{err: err}
+			}(i)
+		}
+		wg.Wait()
+
+		for i, r := range results {
+			require.ErrorIs(t, r.err, ErrMissingPayEvent, "caller %d", i)
+		}
+	})
+
+	t.Run("malformed tx fee under concurrency", func(t *testing.T) {
+		f := setupFeeProofFixture(t, "fp_conc_badfee",
+			[]uint64{100},
+			[]int64{50},
+			[]string{"not-a-number"},
+		)
+		const concurrency = 50
+		type callResult struct{ err error }
+		results := make([]callResult, concurrency)
+		var wg sync.WaitGroup
+		wg.Add(concurrency)
+		for i := 0; i < concurrency; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+					OpType:         f.opType,
+					SenderAddress:  "rSender",
+					FromNonce:      100,
+					ToNonce:        100,
+					UntilTimestamp: 1800000000,
+				})
+				results[idx] = callResult{err: err}
+			}(i)
+		}
+		wg.Wait()
+
+		for i, r := range results {
+			require.ErrorContains(t, r.err, "cannot parse fee", "caller %d", i)
+		}
 	})
 }
