@@ -162,6 +162,26 @@ This is the simplest way to run everything without worrying about Docker manuall
     ```
     Available fuzz targets: `FuzzResolveExternalURL`, `FuzzGetOrFetchCRL`, `FuzzGetCRLsForToken`, `FuzzFetchTEEChallengeResult`.
 
+4. Running load tests
+
+    Load tests are gated behind the `load` build tag and don't run during normal `go test` or `gencover.sh`:
+    ```bash
+    go test -tags load -run TestLoad -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/pmw_multisig_account_configured/xrp/ ./internal/attestation/pmw_payment_status/db/ ./internal/attestation/pmw_fee_proof/db/
+    ```
+
+### Load testing strategy
+
+Because each attestation type runs as its own server, load tests should cover each server to catch endpoint-specific latency issues, memory/goroutine growth, dependency bottlenecks, and timeout behavior under slow upstreams.
+
+**TeeAvailabilityCheck** is the most deeply tested (CRL cache concurrency, singleflight dedup, failure/retry behavior, mixed URL isolation).
+
+For each additional attestation type (`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`), the following profiles are recommended:
+
+1. Steady expected-rate test — simulate normal request volume
+2. Concurrency ramp test — increase concurrent requests to find the breaking point
+3. Slow dependency test — inject latency into DB/RPC to verify timeout isolation
+4. Stability run (15-30 minutes) — monitor memory and goroutine growth under sustained load
+
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
 - How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
