@@ -190,6 +190,8 @@ For each additional attestation type (`PMWPaymentStatus`, `PMWMultisigAccountCon
 3. Slow dependency test — inject latency into DB/RPC to verify timeout isolation
 4. Stability run (15-30 minutes) — monitor memory and goroutine growth under sustained load
 
+For detailed results and findings, see [docs/load-and-stress-tests.md](docs/load-and-stress-tests.md).
+
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
 - How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
