@@ -166,7 +166,7 @@ This is the simplest way to run everything without worrying about Docker manuall
 
     Load tests are gated behind the `load` build tag and don't run during normal `go test` or `gencover.sh`:
     ```bash
-    go test -tags load -run TestLoad -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/ ./internal/attestation/pmw_multisig_account_configured/xrp/ ./internal/attestation/pmw_payment_status/db/ ./internal/attestation/pmw_fee_proof/db/
+    go test -tags load -run TestLoad -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/ ./internal/attestation/pmw_multisig_account_configured/xrp/ ./internal/attestation/pmw_payment_status/db/ ./internal/attestation/pmw_payment_status/xrp/ ./internal/attestation/pmw_fee_proof/db/ ./internal/attestation/pmw_fee_proof/xrp/
     ```
 
 ### Load testing strategy

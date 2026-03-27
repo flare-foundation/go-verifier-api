@@ -52,7 +52,7 @@ func makeTeeList(count int) (teeList, []common.Address) {
 // TestLoadPollerSingleCycleCompletion verifies that a single poll cycle
 // completes within a reasonable time for varying numbers of TEEs.
 func TestLoadPollerSingleCycleCompletion(t *testing.T) {
-	for _, teeCount := range []int{10, 50, 100} {
+	for _, teeCount := range []int{10, 50, 100, 200, 500} {
 		t.Run(fmt.Sprintf("%d_TEEs", teeCount), func(t *testing.T) {
 			activeTees, _ := makeTeeList(teeCount)
 
@@ -111,11 +111,11 @@ func TestLoadPollerSingleCycleCompletion(t *testing.T) {
 // TestLoadPollerSlowTEEsDoNotStallCycle verifies that slow/unhealthy TEEs
 // don't disproportionately stall the cycle for healthy TEEs.
 func TestLoadPollerSlowTEEsDoNotStallCycle(t *testing.T) {
-	activeTees, ids := makeTeeList(20)
+	activeTees, ids := makeTeeList(100)
 
-	// Make 5 out of 20 TEEs slow (2 seconds each).
+	// Make 25 out of 100 TEEs slow (2 seconds each).
 	slowIDs := make(map[common.Address]time.Duration)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 25; i++ {
 		slowIDs[ids[i]] = 2 * time.Second
 	}
 
@@ -148,9 +148,9 @@ func TestLoadPollerSlowTEEsDoNotStallCycle(t *testing.T) {
 	poller.sampleAllTees(context.Background(), validate)
 	elapsed := time.Since(start)
 
-	// With 10 workers and 5 slow TEEs (2s each), the cycle should complete
-	// in roughly 2s (slow TEEs run in parallel), not 10s (if sequential).
-	maxExpected := 5 * time.Second
+	// With 10 workers and 25 slow TEEs (2s each), the cycle should complete
+	// in roughly 6s (3 batches of ~8-9 slow TEEs at 2s), not 50s (if sequential).
+	maxExpected := 10 * time.Second
 	if elapsed > maxExpected {
 		t.Fatalf("cycle took %v, expected under %v — slow TEEs may be stalling the pool", elapsed, maxExpected)
 	}
@@ -170,21 +170,21 @@ func TestLoadPollerSlowTEEsDoNotStallCycle(t *testing.T) {
 	}
 	v.SamplesMu.RUnlock()
 
-	if validCount != 15 {
-		t.Fatalf("expected 15 valid samples, got %d", validCount)
+	if validCount != 75 {
+		t.Fatalf("expected 75 valid samples, got %d", validCount)
 	}
-	if invalidCount != 5 {
-		t.Fatalf("expected 5 invalid samples, got %d", invalidCount)
+	if invalidCount != 25 {
+		t.Fatalf("expected 25 invalid samples, got %d", invalidCount)
 	}
 
-	t.Logf("20 TEEs (5 slow): cycle=%v, valid=%d, invalid=%d", elapsed, validCount, invalidCount)
+	t.Logf("100 TEEs (25 slow): cycle=%v, valid=%d, invalid=%d", elapsed, validCount, invalidCount)
 }
 
 // TestLoadPollerRepeatedCyclesStability runs multiple poll cycles and verifies
 // goroutine count and sample-map size stay stable.
 func TestLoadPollerRepeatedCyclesStability(t *testing.T) {
 	const (
-		teeCount = 30
+		teeCount = 100
 		cycles   = 20
 	)
 

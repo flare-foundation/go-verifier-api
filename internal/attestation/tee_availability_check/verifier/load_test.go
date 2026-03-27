@@ -65,7 +65,7 @@ func TestLoadCRLCacheConcurrentBurst(t *testing.T) {
 	}
 
 	const (
-		burstSize = 12
+		burstSize = 100
 		rounds    = 50
 		numURLs   = 3
 	)
@@ -151,7 +151,7 @@ func TestLoadCRLCacheFailedFetchNeverCached(t *testing.T) {
 	}
 
 	const url = "http://example.com/crl"
-	const goroutines = 12
+	const goroutines = 100
 
 	// Wave 1: first fetch fails, all concurrent callers share the error.
 	type callResult struct {
@@ -236,7 +236,7 @@ func TestLoadCRLCacheWrongIssuerNeverShared(t *testing.T) {
 		},
 	}
 
-	const goroutines = 12
+	const goroutines = 100
 	type callResult struct {
 		crl *x509.RevocationList
 		err error
@@ -287,7 +287,7 @@ func TestLoadCRLCacheMixedURLs(t *testing.T) {
 		},
 	}
 
-	const goroutinesPerURL = 12
+	const goroutinesPerURL = 100
 	urls := []string{"http://example.com/crl-a", "http://example.com/crl-b", "http://example.com/crl-c"}
 
 	type callResult struct {

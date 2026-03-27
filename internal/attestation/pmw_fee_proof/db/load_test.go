@@ -56,7 +56,7 @@ func TestLoadFeeProofDBBatchFetch(t *testing.T) {
 	repo := NewDBRepo(xrpDB, nil)
 
 	const (
-		concurrency = 12
+		concurrency = 100
 		rounds      = 20
 	)
 
@@ -135,7 +135,7 @@ func TestLoadFeeProofDBBatchFetchInstructionLogs(t *testing.T) {
 	repo := NewDBRepo(nil, cChainDB)
 
 	const (
-		concurrency = 12
+		concurrency = 100
 		rounds      = 20
 	)
 
@@ -191,7 +191,7 @@ func TestLoadFeeProofDBClosedConnection(t *testing.T) {
 
 	repo := NewDBRepo(xrpDB, nil)
 
-	const concurrency = 12
+	const concurrency = 100
 	type callResult struct {
 		err error
 	}

@@ -48,7 +48,7 @@ func TestLoadMultisigConcurrentVerify(t *testing.T) {
 		[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey, testAccounts[2].PubKey}, 2)
 
 	const (
-		concurrency = 12
+		concurrency = 100
 		rounds      = 20
 	)
 

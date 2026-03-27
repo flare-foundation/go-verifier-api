@@ -66,7 +66,7 @@ func TestLoadPaymentStatusDBConcurrentReads(t *testing.T) {
 	repo := NewDBRepo(xrpDB, cChainDB)
 
 	const (
-		concurrency = 12
+		concurrency = 100
 		rounds      = 30
 	)
 
@@ -117,7 +117,7 @@ func TestLoadPaymentStatusDBMissingRecord(t *testing.T) {
 	xrpDB := newSharedMemoryDB(t, "load_missing", &DBTransaction{})
 	repo := NewDBRepo(xrpDB, nil)
 
-	const concurrency = 12
+	const concurrency = 100
 	type callResult struct {
 		err error
 	}
@@ -152,7 +152,7 @@ func TestLoadPaymentStatusDBClosedConnection(t *testing.T) {
 	closedDB := newClosedDB(t)
 	repo := NewDBRepo(closedDB, nil)
 
-	const concurrency = 12
+	const concurrency = 100
 	type callResult struct {
 		err error
 	}
