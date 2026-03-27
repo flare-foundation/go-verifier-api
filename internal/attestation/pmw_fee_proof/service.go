@@ -7,8 +7,8 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
-	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
 	feeproofverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_fee_proof/verifier"
+	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
 )

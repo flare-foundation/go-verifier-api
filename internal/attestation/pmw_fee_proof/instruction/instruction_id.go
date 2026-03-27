@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	paymentinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/helper"
+	paymentinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/instruction"
 )
 
 // GeneratePayInstructionID delegates to PMWPaymentStatus's GenerateInstructionID — same encoding.

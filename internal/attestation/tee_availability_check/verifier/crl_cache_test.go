@@ -32,9 +32,9 @@ func createTestCRL(t *testing.T, issuer *x509.Certificate, issuerKey *rsa.Privat
 		})
 	}
 	template := &x509.RevocationList{
-		Number:                big.NewInt(1),
-		ThisUpdate:            time.Now().Add(-time.Hour),
-		NextUpdate:            nextUpdate,
+		Number:                    big.NewInt(1),
+		ThisUpdate:                time.Now().Add(-time.Hour),
+		NextUpdate:                nextUpdate,
 		RevokedCertificateEntries: revoked,
 	}
 	crlBytes, err := x509.CreateRevocationList(rand.Reader, template, issuer, issuerKey)

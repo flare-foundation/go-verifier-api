@@ -137,7 +137,7 @@ func setupFeeProofFixture(t *testing.T, dbName string, nonces []uint64, maxFees 
 
 	cfg := &config.PMWFeeProofConfig{
 		ParsedTeeInstructionsABI: teeABI,
-		EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 
 	return feeProofFixture{

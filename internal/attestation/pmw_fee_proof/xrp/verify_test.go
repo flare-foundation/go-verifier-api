@@ -25,7 +25,7 @@ func TestVerifyFeeProof(t *testing.T) {
 	t.Run("single nonce success", func(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_single",
 			[]uint64{100},
-			[]int64{50},  // maxFee
+			[]int64{50},    // maxFee
 			[]string{"12"}, // txFee
 		)
 		resp, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
@@ -43,7 +43,7 @@ func TestVerifyFeeProof(t *testing.T) {
 	t.Run("multiple nonces sum correctly", func(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_multi",
 			[]uint64{100, 101, 102},
-			[]int64{50, 60, 70},       // maxFees
+			[]int64{50, 60, 70},        // maxFees
 			[]string{"10", "15", "20"}, // txFees
 		)
 		resp, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
@@ -115,7 +115,7 @@ func TestVerifyFeeProof(t *testing.T) {
 
 		cfg := &config.PMWFeeProofConfig{
 			ParsedTeeInstructionsABI: teeABI,
-			EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+			EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 		}
 		v := &XRPVerifier{
 			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB),

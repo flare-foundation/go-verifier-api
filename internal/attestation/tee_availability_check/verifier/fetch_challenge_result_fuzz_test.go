@@ -41,7 +41,7 @@ func FuzzFetchTEEChallengeResult(f *testing.F) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		state.mu.RLock()
 		resp := teenodetypes.ActionResponse{
-			Result: teenodetypes.ActionResult{Data: hexutil.Bytes(append([]byte(nil), state.data...))},
+			Result:         teenodetypes.ActionResult{Data: hexutil.Bytes(append([]byte(nil), state.data...))},
 			ProxySignature: append([]byte(nil), state.sig...),
 		}
 		state.mu.RUnlock()

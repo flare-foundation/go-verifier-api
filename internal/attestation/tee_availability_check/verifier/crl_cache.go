@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	crlFetchTimeout  = 2 * time.Second
-	crlMaxEntries    = 100
-	crlMaxCacheTTL   = 4 * time.Hour
+	crlFetchTimeout = 2 * time.Second
+	crlMaxEntries   = 100
+	crlMaxCacheTTL  = 4 * time.Hour
 )
 
 // crlEntry holds a cached CRL and the time it was fetched.

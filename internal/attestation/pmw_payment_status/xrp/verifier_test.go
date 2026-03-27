@@ -77,7 +77,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 	sourceID := common.HexToHash("0x1")
 	cfg := &config.PMWPaymentStatusConfig{
 		ParsedTeeInstructionsABI: teeABI,
-		EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 
 	opType := common.HexToHash("0xAA")
@@ -147,7 +147,7 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
+				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
 			},
 		}
 		req := connector.IPMWPaymentStatusRequestBody{
@@ -231,7 +231,7 @@ func TestVerify(t *testing.T) {
 			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
+				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
 			},
 		}
 		req := connector.IPMWPaymentStatusRequestBody{
@@ -284,7 +284,7 @@ func TestVerify(t *testing.T) {
 			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 			},
 		}
 		req := connector.IPMWPaymentStatusRequestBody{
@@ -324,7 +324,7 @@ func TestVerify(t *testing.T) {
 			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 			},
 		}
 		req := connector.IPMWPaymentStatusRequestBody{

@@ -92,7 +92,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 	sourceID := common.HexToHash("0x1")
 	cfg := &config.PMWFeeProofConfig{
 		ParsedTeeInstructionsABI: teeABI,
-		EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 
 	v := &XRPVerifier{

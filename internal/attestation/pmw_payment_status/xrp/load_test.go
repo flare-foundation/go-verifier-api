@@ -64,13 +64,13 @@ func encodePaymentEventData(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymen
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
 		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{}, // TeeMachines
-		[32]byte{},                                              // OpType
-		[32]byte{},                                              // OpCommand
-		msgBytes,                                                // Message
-		[]common.Address{},                                      // Cosigners
-		uint64(0),                                               // CosignersThreshold
-		common.Address{},                                        // ClaimBackAddress
-		big.NewInt(0),                                           // Fee
+		[32]byte{},         // OpType
+		[32]byte{},         // OpCommand
+		msgBytes,           // Message
+		[]common.Address{}, // Cosigners
+		uint64(0),          // CosignersThreshold
+		common.Address{},   // ClaimBackAddress
+		big.NewInt(0),      // Fee
 	)
 	if err != nil {
 		t.Fatalf("cannot pack event data: %v", err)
@@ -151,7 +151,7 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 	sourceID := common.HexToHash("0x1")
 	cfg := &config.PMWPaymentStatusConfig{
 		ParsedTeeInstructionsABI: teeABI,
-		EncodedAndABI:           config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 
 	v := &XRPVerifier{
