@@ -166,14 +166,14 @@ This is the simplest way to run everything without worrying about Docker manuall
 
     Load tests are gated behind the `load` build tag and don't run during normal `go test` or `gencover.sh`:
     ```bash
-    go test -tags load -run TestLoad -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/pmw_multisig_account_configured/xrp/ ./internal/attestation/pmw_payment_status/db/ ./internal/attestation/pmw_fee_proof/db/
+    go test -tags load -run TestLoad -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/ ./internal/attestation/pmw_multisig_account_configured/xrp/ ./internal/attestation/pmw_payment_status/db/ ./internal/attestation/pmw_fee_proof/db/
     ```
 
 ### Load testing strategy
 
 Because each attestation type runs as its own server, load tests should cover each server to catch endpoint-specific latency issues, memory/goroutine growth, dependency bottlenecks, and timeout behavior under slow upstreams.
 
-**TeeAvailabilityCheck** is the most deeply tested (CRL cache concurrency, singleflight dedup, failure/retry behavior, mixed URL isolation).
+**TeeAvailabilityCheck** is the most deeply tested (CRL cache concurrency, singleflight dedup, failure/retry behavior, mixed URL isolation, poller cycle timing, slow-TEE isolation, goroutine/sample-map stability).
 
 For each additional attestation type (`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`), the following profiles are recommended:
 
