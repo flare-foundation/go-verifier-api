@@ -243,6 +243,7 @@ func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context,
 				return
 			}
 		}
+		logger.Warnf("Unauthorized request: path=%s, remote=%s", ctx.URL().Path, ctx.RemoteAddr())
 		if err := huma.WriteErr(api, ctx, http.StatusUnauthorized, "Unauthorized"); err != nil {
 			logger.Error(err)
 		}
