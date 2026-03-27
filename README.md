@@ -175,22 +175,8 @@ This is the simplest way to run everything without worrying about Docker manuall
     ```bash
     go test -tags stress -run TestStress -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/
     ```
-    Tests include: concurrency ramp (100-1000), slow upstream isolation, and sustained 30s runs with heap/goroutine monitoring.
 
-### Load testing strategy
-
-Because each attestation type runs as its own server, load tests should cover each server to catch endpoint-specific latency issues, memory/goroutine growth, dependency bottlenecks, and timeout behavior under slow upstreams.
-
-**TeeAvailabilityCheck** is the most deeply tested (CRL cache concurrency, singleflight dedup, failure/retry behavior, mixed URL isolation, poller cycle timing, slow-TEE isolation, goroutine/sample-map stability).
-
-For each additional attestation type (`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`), the following profiles are recommended:
-
-1. Steady expected-rate test — simulate normal request volume
-2. Concurrency ramp test — increase concurrent requests to find the breaking point
-3. Slow dependency test — inject latency into DB/RPC to verify timeout isolation
-4. Stability run (15-30 minutes) — monitor memory and goroutine growth under sustained load
-
-For detailed results and findings, see [docs/load-and-stress-tests.md](docs/load-and-stress-tests.md).
+    For detailed results, findings, and test parameters, see [docs/load-and-stress-tests.md](docs/load-and-stress-tests.md).
 
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
