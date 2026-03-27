@@ -169,6 +169,14 @@ This is the simplest way to run everything without worrying about Docker manuall
     go test -tags load -run TestLoad -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/ ./internal/attestation/pmw_multisig_account_configured/xrp/ ./internal/attestation/pmw_payment_status/db/ ./internal/attestation/pmw_payment_status/xrp/ ./internal/attestation/pmw_fee_proof/db/ ./internal/attestation/pmw_fee_proof/xrp/
     ```
 
+5. Running stress tests
+
+    Stress tests are gated behind the `stress` build tag. They take longer (~70s) and push beyond normal load:
+    ```bash
+    go test -tags stress -run TestStress -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/
+    ```
+    Tests include: concurrency ramp (100-1000), slow upstream isolation, and sustained 30s runs with heap/goroutine monitoring.
+
 ### Load testing strategy
 
 Because each attestation type runs as its own server, load tests should cover each server to catch endpoint-specific latency issues, memory/goroutine growth, dependency bottlenecks, and timeout behavior under slow upstreams.
