@@ -10,7 +10,7 @@ COPY . .
 RUN go build -o ./go-verifier-api cmd/main.go
 RUN git rev-parse HEAD > COMMIT_HASH
 
-FROM debian:latest AS execution
+FROM debian:12-slim AS execution
 
 RUN apt-get update && apt-get install -y curl
 
