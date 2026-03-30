@@ -259,7 +259,7 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 7. Build FDC2 response:
    - recipient/token/amount/fee/reference from instruction message
    - status/revert reason from raw tx result
-   - received amount for recipient
+   - received amount for recipient — calculated from `AffectedNodes` balance changes regardless of transaction status (typically 0 for reverted transactions, but computed from on-chain data rather than hardcoded)
    - tx hash, fee, block number, timestamp from DB/tx data
 
 ### Data stores

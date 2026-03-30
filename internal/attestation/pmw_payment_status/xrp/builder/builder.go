@@ -30,6 +30,11 @@ func BuildPaymentStatusResponse(
 	if err != nil {
 		return zero, fmt.Errorf("invalid transaction hash %s: %w", tx.Hash, err)
 	}
+	// NOTE: receivedAmount is calculated from AffectedNodes regardless of transaction status.
+	// For reverted XRP transactions (tec-class results), this is typically 0 since the recipient's
+	// balance is unchanged. We intentionally calculate rather than hardcode 0 on revert, because
+	// it reports what actually happened on-chain and would self-correct if an edge case ever
+	// modifies the recipient's balance on a non-tesSUCCESS result.
 	receivedAmount, err := transaction.FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
 	if err != nil {
 		return zero, fmt.Errorf("cannot calculate received amount for recipient %s: %w", paymentMsg.RecipientAddress, err)
