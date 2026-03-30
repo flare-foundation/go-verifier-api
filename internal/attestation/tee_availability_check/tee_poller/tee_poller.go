@@ -101,6 +101,9 @@ func (s *TeePollerService) sampleAllTees(
 			return
 		}
 	} else {
+		if !s.activeTeesEqual(activeTees) {
+			logger.Infof("TEE poller active TEEs changed: count=%d, IDs=%v", len(activeTees.TeeIDs), activeTees.TeeIDs)
+		}
 		s.updateActiveTees(activeTees)
 		s.filterTeeSamplesToActive(activeTees)
 	}
@@ -126,13 +129,28 @@ func (s *TeePollerService) sampleAllTees(
 						return
 					}
 					proxyURL := s.verifier.FormatProxyURL(t.proxyURL)
-					state, err := queryInfoAndValidate(ctx, s.verifier, proxyURL, t.teeID)
-					if err != nil {
-						logger.Warnf("TEE %s validation failed: %v", t.teeID.Hex(), err)
-					}
-					logger.Debugf("TEE %s state updated to %v", t.teeID.Hex(), state)
+					state, validationErr := queryInfoAndValidate(ctx, s.verifier, proxyURL, t.teeID)
+
+					// Update samples under lock, capture flags for logging outside lock.
+					var isFirst, stateChanged bool
+					var prevState verifiertypes.TeeSampleState
+					var consecutiveFailures int
 					s.verifier.SamplesMu.Lock()
 					samples := s.verifier.TeeSamples[t.teeID]
+					isFirst = len(samples) == 0
+					if !isFirst {
+						prevState = samples[len(samples)-1].State
+						stateChanged = prevState != state
+						if validationErr != nil {
+							for i := len(samples) - 1; i >= 0; i-- {
+								if samples[i].State != verifiertypes.TeeSampleValid {
+									consecutiveFailures++
+								} else {
+									break
+								}
+							}
+						}
+					}
 					sample := verifiertypes.TeeSampleValue{Timestamp: time.Now().UTC(), State: state}
 					samples = append(samples, sample)
 					if len(samples) > verifier.SamplesToConsider {
@@ -140,6 +158,22 @@ func (s *TeePollerService) sampleAllTees(
 					}
 					s.verifier.TeeSamples[t.teeID] = samples
 					s.verifier.SamplesMu.Unlock()
+
+					// Log outside lock to avoid blocking workers on I/O.
+					if isFirst {
+						logger.Debugf("TEE %s first sample: %v", t.teeID.Hex(), state)
+						if validationErr != nil {
+							logger.Warnf("TEE %s validation failed: %v", t.teeID.Hex(), validationErr)
+						}
+					} else if stateChanged {
+						logger.Infof("TEE %s state changed: %v → %v", t.teeID.Hex(), prevState, state)
+						if validationErr != nil {
+							logger.Warnf("TEE %s validation failed: %v", t.teeID.Hex(), validationErr)
+						}
+					} else if validationErr != nil && consecutiveFailures > 0 && consecutiveFailures%verifier.SamplesToConsider == 0 {
+						// Periodic reminder for persistent failures (every SamplesToConsider cycles).
+						logger.Warnf("TEE %s still failing (%d consecutive): %v", t.teeID.Hex(), consecutiveFailures+1, validationErr)
+					}
 				}
 			}
 		}()
@@ -150,8 +184,22 @@ func (s *TeePollerService) sampleAllTees(
 	close(taskCh)
 	wg.Wait()
 	s.verifier.SamplesMu.RLock()
-	logger.Debugf("TEE poller samples snapshot: %v", s.verifier.TeeSamples)
+	var validCount, invalidCount, indeterminateCount int
+	for _, samples := range s.verifier.TeeSamples {
+		if len(samples) > 0 {
+			switch samples[len(samples)-1].State {
+			case verifiertypes.TeeSampleValid:
+				validCount++
+			case verifiertypes.TeeSampleInvalid:
+				invalidCount++
+			case verifiertypes.TeeSampleIndeterminate:
+				indeterminateCount++
+			}
+		}
+	}
 	s.verifier.SamplesMu.RUnlock()
+	logger.Debugf("TEE poller cycle complete: total=%d, valid=%d, invalid=%d, indeterminate=%d",
+		len(activeTees.TeeIDs), validCount, invalidCount, indeterminateCount)
 }
 
 func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
@@ -210,8 +258,6 @@ func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk
 		URLs:   allURLs,
 	}
 
-	logger.Debugf("TEE poller retrieved active TEEs: %v", activeTees)
-
 	return activeTees, nil
 }
 
@@ -241,6 +287,20 @@ func (s *TeePollerService) getCachedActiveTees() teeList {
 	s.teesMu.RLock()
 	defer s.teesMu.RUnlock()
 	return s.lastActiveTees
+}
+
+func (s *TeePollerService) activeTeesEqual(newTees teeList) bool {
+	s.teesMu.RLock()
+	defer s.teesMu.RUnlock()
+	if len(s.lastActiveTees.TeeIDs) != len(newTees.TeeIDs) {
+		return false
+	}
+	for i, id := range s.lastActiveTees.TeeIDs {
+		if id != newTees.TeeIDs[i] || s.lastActiveTees.URLs[i] != newTees.URLs[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *TeePollerService) filterTeeSamplesToActive(activeTees teeList) {
