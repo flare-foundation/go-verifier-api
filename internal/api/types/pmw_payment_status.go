@@ -28,7 +28,7 @@ type PMWPaymentStatusResponseBody struct {
 	RecipientAddress  string        `json:"recipientAddress"`
 	TokenID           hexutil.Bytes `json:"tokenId"`
 	Amount            hexutil.Big   `json:"amount"`
-	MaxFee            hexutil.Big   `json:"fee"`
+	MaxFee            hexutil.Big   `json:"maxFee"`
 	PaymentReference  common.Hash   `json:"paymentReference"`
 	TransactionStatus uint8         `json:"transactionStatus"`
 	RevertReason      string        `json:"revertReason"`
