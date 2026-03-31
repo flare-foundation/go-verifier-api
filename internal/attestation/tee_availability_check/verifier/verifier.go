@@ -62,6 +62,7 @@ type TeeVerifier struct {
 	CRLCache                 *CRLCache
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
+	magicPassLogged          sync.Map // tracks TEE IDs that have already logged a MagicPass warning
 }
 
 type EthClient interface {
@@ -144,7 +145,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	spCh := make(chan sigPolicyResult, 1)
 
 	go func() {
-		info, err := v.DataVerification(ctx, response, req.TeeId)
+		info, err := v.DataVerification(ctx, response, req.TeeId, false)
 		dvCh <- dataVerResult{info, err}
 	}()
 	go func() {
@@ -179,7 +180,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}, nil
 }
 
-func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (StatusInfo, error) {
+func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetypes.TeeInfoResponse, expectedTeeID common.Address, pollerContext bool) (StatusInfo, error) {
 	if v.Cfg.DisableAttestationCheckE2E {
 		platform := E2ETestPlatform
 		codeHash := E2ETestCodeHash
@@ -201,13 +202,22 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	if string(response.Attestation) == teeattestation.MagicPass {
 		platform := E2ETestPlatform
 		codeHash := E2ETestCodeHash
-		logger.Warnf("Attestation token is MagicPass (TEE running in non-production mode). Skipping all attestation validation. Do not use in production. Status %d, Codehash %s, Platform %s", OK, codeHash, platform)
+		if pollerContext {
+			if _, alreadyLogged := v.magicPassLogged.LoadOrStore(expectedTeeID, true); !alreadyLogged {
+				logger.Warnf("TEE %s: MagicPass bypass active (non-production mode). Skipping all attestation validation. Do not use in production.", expectedTeeID.Hex())
+			}
+		} else {
+			logger.Warnf("TEE %s: MagicPass bypass active (non-production mode). Skipping all attestation validation. Do not use in production.", expectedTeeID.Hex())
+		}
 		return StatusInfo{
 			Status:   OK,
 			CodeHash: codeHash,
 			Platform: platform,
 		}, nil
 	}
+
+	// TEE returned a real attestation — clear MagicPass tracking so it re-logs if it switches back.
+	v.magicPassLogged.Delete(expectedTeeID)
 
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
@@ -368,6 +378,12 @@ func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// ClearMagicPassLogged removes the MagicPass log tracking for a TEE,
+// allowing the warning to fire again if the TEE returns MagicPass in the future.
+func (v *TeeVerifier) ClearMagicPassLogged(teeID common.Address) {
+	v.magicPassLogged.Delete(teeID)
 }
 
 func (v *TeeVerifier) Close() error {

@@ -102,7 +102,11 @@ func (s *TeePollerService) sampleAllTees(
 		}
 	} else {
 		if !s.activeTeesEqual(activeTees) {
-			logger.Infof("TEE poller active TEEs changed: count=%d, IDs=%v", len(activeTees.TeeIDs), activeTees.TeeIDs)
+			teeEntries := make([]string, len(activeTees.TeeIDs))
+			for i, id := range activeTees.TeeIDs {
+				teeEntries[i] = fmt.Sprintf("%s (%s)", id.Hex(), activeTees.URLs[i])
+			}
+			logger.Infof("TEE poller active TEEs changed: count=%d, TEEs=%v", len(activeTees.TeeIDs), teeEntries)
 		}
 		s.updateActiveTees(activeTees)
 		s.filterTeeSamplesToActive(activeTees)
@@ -185,7 +189,7 @@ func (s *TeePollerService) sampleAllTees(
 		}
 	}
 	s.verifier.SamplesMu.RUnlock()
-	logger.Debugf("TEE poller cycle complete: total=%d, valid=%d, invalid=%d, indeterminate=%d",
+	logger.Infof("TEE poller cycle complete: total=%d, valid=%d, invalid=%d, indeterminate=%d",
 		len(activeTees.TeeIDs), validCount, invalidCount, indeterminateCount)
 }
 
@@ -198,7 +202,7 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	if err != nil {
 		return checkInfoChallenge, err
 	}
-	_, err = teeVerifier.DataVerification(ctx, infoResponse, teeID)
+	_, err = teeVerifier.DataVerification(ctx, infoResponse, teeID, true)
 	if err != nil {
 		return verifiertypes.TeeSampleInvalid, fmt.Errorf("data verification failed for TEE %s: %w", teeID.Hex(), err)
 	}
@@ -303,6 +307,7 @@ func (s *TeePollerService) filterTeeSamplesToActive(activeTees teeList) {
 	for teeID := range s.verifier.TeeSamples {
 		if _, ok := activeSet[teeID]; !ok {
 			delete(s.verifier.TeeSamples, teeID)
+			s.verifier.ClearMagicPassLogged(teeID)
 			removedCount++
 		}
 	}

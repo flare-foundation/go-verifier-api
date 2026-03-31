@@ -33,6 +33,6 @@ func TestDataVerification_CRLFetchFailure(t *testing.T) {
 		Attestation: hexutil.Bytes([]byte(signedToken)),
 	}
 
-	_, err := v.DataVerification(context.Background(), resp, common.Address{})
+	_, err := v.DataVerification(context.Background(), resp, common.Address{}, false)
 	require.ErrorContains(t, err, "CRL fetch failed")
 }

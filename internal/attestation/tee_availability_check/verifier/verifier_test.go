@@ -444,9 +444,24 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 func TestDataVerification(t *testing.T) {
 	rootCert, leafKey, x5c := generateTestCertificateChain(t)
 	challengeHash := common.HexToHash("123")
+	t.Run("MagicPass poller context logs once", func(t *testing.T) {
+		v := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{}}
+		teeID := common.HexToAddress("0x1234")
+		resp := teenodetypes.TeeInfoResponse{
+			Attestation: []byte("magic_pass"),
+		}
+		// First call: should log.
+		res, err := v.DataVerification(context.Background(), resp, teeID, true)
+		require.NoError(t, err)
+		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
+		// Second call: should not log (already tracked).
+		res, err = v.DataVerification(context.Background(), resp, teeID, true)
+		require.NoError(t, err)
+		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
+	})
 	t.Run("DisableAttestationCheckE2E", func(t *testing.T) {
 		v := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}
-		res, err := v.DataVerification(context.Background(), teenodetypes.TeeInfoResponse{}, common.Address{})
+		res, err := v.DataVerification(context.Background(), teenodetypes.TeeInfoResponse{}, common.Address{}, false)
 		require.NoError(t, err)
 		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
 		require.Equal(t, verifier.E2ETestPlatform, res.Platform)
@@ -480,7 +495,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey), false)
 		require.NoError(t, err)
 		require.Equal(t, verifier.OK, resp.Status)
 		require.Equal(t, verifier.E2ETestCodeHash, resp.CodeHash)
@@ -503,7 +518,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey), false)
 		require.Empty(t, resp)
 		require.ErrorContains(t, err, "cannot validate claims: expected exactly one EATNonce, got 0")
 	})
@@ -524,7 +539,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"))
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"), false)
 		require.Empty(t, resp)
 		require.ErrorContains(t, err, fmt.Sprintf("expected TEE ID %s, got: %s", common.HexToAddress("0x123"), crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
@@ -546,7 +561,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"))
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"), false)
 		require.Empty(t, resp)
 		require.ErrorContains(t, err, "cannot retrieve TEE ID from: invalid public key bytes")
 	})
