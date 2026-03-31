@@ -197,6 +197,8 @@ func newRouter() chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.Recoverer)
 	router.Use(requestSizeLimiter(maxRequestBodySize))
+	// Swagger UI is intentionally unauthenticated for internal use.
+	// If the service is exposed beyond the intended network, consider gating behind auth.
 	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
 	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
 	return router
