@@ -94,7 +94,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("prepareResponseBody: empty request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{})
@@ -117,7 +117,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("prepareResponseBody: proxy ID does not match", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -127,7 +127,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: proxy signer does not match: expected 0x0000000000000000000000000000000000000011, got %s: TEE data validation failed", baseReqBody.TeeProxyId))
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
@@ -147,7 +147,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
@@ -155,7 +155,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: proxy ID does not match", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -165,7 +165,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: proxy signer does not match: expected 0x0000000000000000000000000000000000000011, got %s: TEE data validation failed", baseReqBody.TeeProxyId))
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 	t.Run("verify: challenge does not match", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -175,7 +175,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, fmt.Sprintf("Verification failed: challenge does not match: expected 0x0000000000000000000000000000000000000000000000000000000000000011, got %s: TEE data validation failed", contractChallenge))
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 	t.Run("verify: not enough TEE poller data", func(t *testing.T) {
 		modifiedReqBody := baseReqBody

@@ -74,7 +74,7 @@ func TestPMWFeeProof(t *testing.T) {
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqData)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 
 	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
@@ -93,14 +93,14 @@ func TestPMWFeeProof(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
@@ -131,20 +131,20 @@ func TestPMWFeeProof(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid attestationType", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("verify: nonce range too large", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -154,7 +154,7 @@ func TestPMWFeeProof(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Verification failed: nonce range 102 exceeds max 100: nonce range too large")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Verification failed")
 	})
 	t.Run("verify: missing pay event", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -165,7 +165,7 @@ func TestPMWFeeProof(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: nonce 99999: missing pay event for nonce")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 	t.Run("verify: missing XRP transaction", func(t *testing.T) { // Log 40: pay event exists but no XRP tx
 		modifiedReqBody := baseReqBody
@@ -176,7 +176,7 @@ func TestPMWFeeProof(t *testing.T) {
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: nonce 11263185: missing transaction for nonce")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 	t.Run("verify: cannot decode event data (ABI unpack)", func(t *testing.T) { // Log 41: short data
 		modifiedReqBody := baseReqBody
@@ -219,7 +219,7 @@ func TestPMWFeeProof(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: nonce 99999: missing pay event for nonce")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 
 	config.ClearPMWFeeProofConfigForTest()

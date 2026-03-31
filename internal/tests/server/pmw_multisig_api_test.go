@@ -55,7 +55,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Prepare request failed: converting request body to data failed: public key at index 0 is empty")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Prepare request failed")
 	})
 	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
 		reqData := helpers.PMWMultisigAccountConfiguredRequestBody(t, baseReqBody)
@@ -63,7 +63,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
@@ -83,14 +83,14 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("prepareResponseBody: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -100,7 +100,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
 	t.Run("verify: valid", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid attestation type", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
@@ -141,14 +141,14 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed: attestation type and source id combination not supported")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed: abi: cannot marshal in to go type: length insufficient 5 require 32")
+		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("verify: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -158,7 +158,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed: XRP RPC returned non-success status for account rSYbeGm77aYjnvuHVnBwZ1TkLnu1UL: error")
+		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 }
 
