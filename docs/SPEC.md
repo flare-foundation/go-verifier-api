@@ -84,6 +84,18 @@ All responses get:
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
 
+### Request body size limit
+- All incoming request bodies are limited to 1 MB (`maxRequestBodySize`). Requests exceeding this limit are rejected before processing.
+
+### Error response sanitization
+- `400` and `422` responses return only the generic error message (e.g. "Verification failed") without internal error details.
+- `500` and `503` responses return only the generic message. Full error details are logged server-side with a request ID for correlation.
+
+### Request ID correlation
+- Each handler request (prepareRequestBody, prepareResponseBody, verify) is assigned a unique request ID.
+- The request ID is included in all server-side log entries for that request (WARN, DEBUG) but is never returned in HTTP response bodies.
+- Unauthorized request rejections log the path and remote address.
+
 ### Important note
 The `verify` and `prepareResponseBody` handlers classify verifier failures via `classifyVerifyError`:
 - `422 Unprocessable Entity` for XRP RPC non-success status (e.g., account not found) — `ErrRPCNonSuccess`.
