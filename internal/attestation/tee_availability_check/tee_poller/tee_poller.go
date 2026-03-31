@@ -134,22 +134,12 @@ func (s *TeePollerService) sampleAllTees(
 					// Update samples under lock, capture flags for logging outside lock.
 					var isFirst, stateChanged bool
 					var prevState verifiertypes.TeeSampleState
-					var consecutiveFailures int
 					s.verifier.SamplesMu.Lock()
 					samples := s.verifier.TeeSamples[t.teeID]
 					isFirst = len(samples) == 0
 					if !isFirst {
 						prevState = samples[len(samples)-1].State
 						stateChanged = prevState != state
-						if validationErr != nil {
-							for i := len(samples) - 1; i >= 0; i-- {
-								if samples[i].State != verifiertypes.TeeSampleValid {
-									consecutiveFailures++
-								} else {
-									break
-								}
-							}
-						}
 					}
 					sample := verifiertypes.TeeSampleValue{Timestamp: time.Now().UTC(), State: state}
 					samples = append(samples, sample)
@@ -170,9 +160,6 @@ func (s *TeePollerService) sampleAllTees(
 						if validationErr != nil {
 							logger.Warnf("TEE %s validation failed: %v", t.teeID.Hex(), validationErr)
 						}
-					} else if validationErr != nil && consecutiveFailures > 0 && consecutiveFailures%verifier.SamplesToConsider == 0 {
-						// Periodic reminder for persistent failures (every SamplesToConsider cycles).
-						logger.Warnf("TEE %s still failing (%d consecutive): %v", t.teeID.Hex(), consecutiveFailures+1, validationErr)
 					}
 				}
 			}
