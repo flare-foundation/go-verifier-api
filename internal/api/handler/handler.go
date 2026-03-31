@@ -3,7 +3,9 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -36,13 +38,14 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequestData[U]
 		}) (*types.Response[types.AttestationRequestEncoded], error) {
+			reqID := generateRequestID()
 			err := validateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, warnHuma400("Request validation failed", err)
+				return nil, warnHuma400(reqID, "Request validation failed", err)
 			}
 			encodedRequest, err := prepareRequestBody(request.Body, config)
 			if err != nil {
-				return nil, warnHuma400("Prepare request failed", err)
+				return nil, warnHuma400(reqID, "Prepare request failed", err)
 			}
 			return types.NewResponse(types.AttestationRequestEncoded{
 				RequestBody: encodedRequest,
@@ -57,21 +60,22 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponseData[types.ResponseConvertible[T]]], error) {
+			reqID := generateRequestID()
 			err := validateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, warnHuma400("Request validation failed", err)
+				return nil, warnHuma400(reqID, "Request validation failed", err)
 			}
 			requestData, err := decodeRequest[S](request.Body.RequestBody, config)
 			if err != nil {
-				return nil, warnHuma400("Decoding request body to data failed", err)
+				return nil, warnHuma400(reqID, "Decoding request body to data failed", err)
 			}
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, classifyVerifyError(err)
+				return nil, classifyVerifyError(reqID, err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
 			if err != nil {
-				return nil, warnHuma500("Encoding data to response body failed", err)
+				return nil, warnHuma500(reqID, "Encoding data to response body failed", err)
 			}
 
 			var v V
@@ -92,27 +96,29 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponse], error) {
-			logger.Debugf("Received request for %s", string(attType))
+			reqID := generateRequestID()
+			logger.Debugf("[%s] Received verify request for %s", reqID, string(attType))
 			err := validateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
-				return nil, warnHuma400("Request validation failed", err)
+				return nil, warnHuma400(reqID, "Request validation failed", err)
 			}
 			requestData, err := decodeRequest[S](request.Body.RequestBody, config)
 			if err != nil {
-				return nil, warnHuma400("Decoding request body to data failed", err)
+				return nil, warnHuma400(reqID, "Decoding request body to data failed", err)
 			}
 			logRequestBody(requestData)
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
-				return nil, classifyVerifyError(err)
+				return nil, classifyVerifyError(reqID, err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
 			if err != nil {
-				return nil, warnHuma500("Encoding data to response body failed", err)
+				return nil, warnHuma500(reqID, "Encoding data to response body failed", err)
 			}
 			var v V
 			responseDataExternal := v.FromInternal(responseData)
 			responseDataExternal.Log()
+			logger.Debugf("[%s] Verification completed for %s", reqID, string(attType))
 
 			return types.NewResponse(types.AttestationResponse{
 				ResponseBody: encodedResponse,
@@ -120,47 +126,41 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		})
 }
 
-func classifyVerifyError(err error) error {
+func classifyVerifyError(reqID string, err error) error {
+	msg := "Verification failed"
 	switch {
 	// 400 — bad request
 	case errors.Is(err, feeproofxrp.ErrNonceRangeTooLarge):
-		return warnHuma400("Verification failed", err)
+		return warnHuma400(reqID, msg, err)
 	// 422 — data/validation errors
-	case errors.Is(err, feeproofxrp.ErrMissingPayEvent):
-		return warnHuma422("Verification failed", err)
-	case errors.Is(err, feeproofxrp.ErrMissingTransaction):
-		return warnHuma422("Verification failed", err)
-	case errors.Is(err, client.ErrRPCNonSuccess):
-		return warnHuma422("Verification failed", err)
-	case errors.Is(err, db.ErrRecordNotFound):
-		return warnHuma422("Verification failed", err)
-	case errors.Is(err, verifier.ErrTEEDataValidation):
-		return warnHuma422("Verification failed", err)
-	case errors.Is(err, verifiertypes.ErrInvalidInput):
-		return warnHuma422("Verification failed", err)
+	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
+		errors.Is(err, feeproofxrp.ErrMissingTransaction),
+		errors.Is(err, client.ErrRPCNonSuccess),
+		errors.Is(err, db.ErrRecordNotFound),
+		errors.Is(err, verifier.ErrTEEDataValidation),
+		errors.Is(err, verifiertypes.ErrInvalidInput):
+		return warnHuma422(reqID, msg, err)
 	// 503 — infrastructure errors (retry)
-	case errors.Is(err, client.ErrGetAccountInfo):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, db.ErrDatabase):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, verifier.ErrInsufficientSamples):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, verifiertypes.ErrNetwork):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, verifiertypes.ErrRPC):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, verifiertypes.ErrContext):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, verifiertypes.ErrUnknown):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, fetcher.ErrHTTPFetch):
-		return warnHuma503("Verification failed", err)
-	case errors.Is(err, verifier.ErrActionResultNotFound):
-		return warnHuma503("Verification failed", err)
+	case errors.Is(err, client.ErrGetAccountInfo),
+		errors.Is(err, db.ErrDatabase),
+		errors.Is(err, verifier.ErrInsufficientSamples),
+		errors.Is(err, verifiertypes.ErrNetwork),
+		errors.Is(err, verifiertypes.ErrRPC),
+		errors.Is(err, verifiertypes.ErrContext),
+		errors.Is(err, verifiertypes.ErrUnknown),
+		errors.Is(err, fetcher.ErrHTTPFetch),
+		errors.Is(err, verifier.ErrActionResultNotFound):
+		return warnHuma503(reqID, msg, err)
 	// 500 — unexpected/ambiguous errors
 	default:
-		return warnHuma500("Verification failed", err)
+		return warnHuma500(reqID, msg, err)
 	}
+}
+
+var reqIDCounter uint64
+
+func generateRequestID() string {
+	return fmt.Sprintf("%08x", atomic.AddUint64(&reqIDCounter, 1))
 }
 
 func logRequestBody[T any](requestData T) {

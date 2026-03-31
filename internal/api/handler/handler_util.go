@@ -108,22 +108,27 @@ func abiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error
 	return decode, nil
 }
 
-func warnHuma400(message string, err error) error {
-	logger.Warnf("%s: %v", message, err)
+func logWarn(reqID, message string, err error) {
+	logger.Warnf("[%s] %s: %v", reqID, message, err)
+}
+
+func warnHuma400(reqID, message string, err error) error {
+	logWarn(reqID, message, err)
 	return huma.Error400BadRequest(message + ": " + err.Error())
 }
 
-func warnHuma422(message string, err error) error {
-	logger.Warnf("%s: %v", message, err)
+func warnHuma422(reqID, message string, err error) error {
+	logWarn(reqID, message, err)
 	return huma.Error422UnprocessableEntity(message + ": " + err.Error())
 }
 
-func warnHuma500(message string, err error) error {
-	logger.Warnf("%s: %v", message, err)
+func warnHuma500(reqID, message string, err error) error {
+	logWarn(reqID, message, err)
 	return huma.Error500InternalServerError(message)
 }
 
-func warnHuma503(message string, err error) error {
-	logger.Warnf("%s: %v", message, err)
+func warnHuma503(reqID, message string, err error) error {
+	logWarn(reqID, message, err)
 	return huma.Error503ServiceUnavailable(message)
 }
+

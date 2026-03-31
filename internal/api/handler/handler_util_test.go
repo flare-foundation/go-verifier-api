@@ -320,10 +320,19 @@ func TestClassifyVerifyError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := classifyVerifyError(tt.err)
+			result := classifyVerifyError("", tt.err)
 			var statusErr huma.StatusError
 			require.ErrorAs(t, result, &statusErr)
 			require.Equal(t, tt.expectedStatus, statusErr.GetStatus())
 		})
+		t.Run(tt.name+" with reqID", func(t *testing.T) {
+			result := classifyVerifyError("test1234", tt.err)
+			var statusErr huma.StatusError
+			require.ErrorAs(t, result, &statusErr)
+			require.Equal(t, tt.expectedStatus, statusErr.GetStatus())
+			// reqID must not leak into the HTTP response body.
+			require.NotContains(t, statusErr.Error(), "test1234")
+		})
 	}
 }
+
