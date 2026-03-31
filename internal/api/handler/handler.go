@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -96,8 +97,9 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
 		}) (*types.Response[types.AttestationResponse], error) {
+			started := time.Now()
 			reqID := generateRequestID()
-			logger.Debugf("[%s] Received verify request for %s", reqID, string(attType))
+			logger.Infof("[%s] Verify request started attestation=%s", reqID, string(attType))
 			err := validateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
 			if err != nil {
 				return nil, warnHuma400(reqID, "Request validation failed", err)
@@ -109,6 +111,8 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			logRequestBody(requestData)
 			responseData, err := verifier.Verify(ctx, requestData)
 			if err != nil {
+				logger.Warnf("[%s] Verify request failed attestation=%s duration_ms=%d: %v",
+					reqID, string(attType), time.Since(started).Milliseconds(), err)
 				return nil, classifyVerifyError(reqID, err)
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
@@ -118,7 +122,8 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			var v V
 			responseDataExternal := v.FromInternal(responseData)
 			responseDataExternal.Log()
-			logger.Debugf("[%s] Verification completed for %s", reqID, string(attType))
+			logger.Infof("[%s] Verify request finished attestation=%s status=success duration_ms=%d",
+				reqID, string(attType), time.Since(started).Milliseconds())
 
 			return types.NewResponse(types.AttestationResponse{
 				ResponseBody: encodedResponse,
