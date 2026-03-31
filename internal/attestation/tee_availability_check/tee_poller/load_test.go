@@ -279,3 +279,148 @@ func TestLoadPollerRepeatedCyclesStability(t *testing.T) {
 	t.Logf("Stability: %d cycles × %d TEEs, goroutine growth=%d, max samples/TEE=%d, total validate calls=%d, cycle min=%v max=%v",
 		cycles, teeCount, goroutineGrowth, maxSamples, totalCalls, minCycle, maxCycle)
 }
+
+// TestLoadPollerExtensionFilteringWorstCase tests the poller with extension filtering
+// under worst-case conditions (all non-ext0 TEEs slow at fetch timeout).
+func TestLoadPollerExtensionFilteringWorstCase(t *testing.T) {
+	tests := []struct {
+		name           string
+		ext0Count      int
+		extraAvailable int
+		cap            int
+		ext0Slow       bool
+		maxCycleTime   time.Duration
+	}{
+		{
+			name:           "cap=50, ext0 healthy, extras slow",
+			ext0Count:      3,
+			extraAvailable: 100,
+			cap:            50,
+			ext0Slow:       false,
+			maxCycleTime:   30 * time.Second, // 47 slow / 10 workers = 5 batches × 5s = 25s
+		},
+		{
+			name:           "cap=100, all slow",
+			ext0Count:      3,
+			extraAvailable: 200,
+			cap:            100,
+			ext0Slow:       true,
+			maxCycleTime:   55 * time.Second, // 100 slow / 10 workers = 10 batches × 5s = 50s
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ext0IDs := make([]string, tc.ext0Count)
+			ext0URLs := make([]string, tc.ext0Count)
+			for i := 0; i < tc.ext0Count; i++ {
+				ext0IDs[i] = fmt.Sprintf("0x%040d", i+1)
+				ext0URLs[i] = fmt.Sprintf("http://ext0-%d.example.com", i)
+			}
+
+			allIDs := make([]string, tc.ext0Count+tc.extraAvailable)
+			allURLs := make([]string, tc.ext0Count+tc.extraAvailable)
+			copy(allIDs, ext0IDs)
+			copy(allURLs, ext0URLs)
+			for i := 0; i < tc.extraAvailable; i++ {
+				allIDs[tc.ext0Count+i] = fmt.Sprintf("0x%040d", tc.ext0Count+i+1)
+				allURLs[tc.ext0Count+i] = fmt.Sprintf("http://slow-%d.example.com", i)
+			}
+
+			ext0Set := make(map[common.Address]bool)
+			for _, id := range ext0IDs {
+				ext0Set[common.HexToAddress(id)] = true
+			}
+
+			v := &verifier.TeeVerifier{
+				Cfg: &config.TeeAvailabilityCheckConfig{
+					AllowPrivateNetworks: true,
+					MaxPolledTees:        tc.cap,
+				},
+				TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
+				TeeMachineRegistryCaller: &mockTeeMachineRegistryCaller{
+					getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
+						return mockExtensionTees(t, ext0IDs, ext0URLs), nil
+					},
+					getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+						s := int(start.Int64())
+						e := int(end.Int64())
+						if s >= len(allIDs) {
+							return teeMachinesResult{TotalLength: big.NewInt(int64(len(allIDs)))}, nil
+						}
+						if e > len(allIDs) {
+							e = len(allIDs)
+						}
+						return teeMachinesResult{
+							TeeIds: func() []common.Address {
+								addrs := make([]common.Address, e-s)
+								for i, id := range allIDs[s:e] {
+									addrs[i] = common.HexToAddress(id)
+								}
+								return addrs
+							}(),
+							Urls:        allURLs[s:e],
+							TotalLength: big.NewInt(int64(len(allIDs))),
+						}, nil
+					},
+				},
+			}
+
+			validate := func(ctx context.Context, ver *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+				if !tc.ext0Slow && ext0Set[teeID] {
+					select {
+					case <-time.After(10 * time.Millisecond):
+						return verifiertypes.TeeSampleValid, nil
+					case <-ctx.Done():
+						return verifiertypes.TeeSampleIndeterminate, ctx.Err()
+					}
+				}
+				select {
+				case <-time.After(5 * time.Second):
+					return verifiertypes.TeeSampleInvalid, fmt.Errorf("timeout")
+				case <-ctx.Done():
+					return verifiertypes.TeeSampleIndeterminate, ctx.Err()
+				}
+			}
+
+			poller := NewTeePoller(v)
+			start := time.Now()
+			poller.sampleAllTees(context.Background(), validate)
+			elapsed := time.Since(start)
+
+			v.SamplesMu.RLock()
+			totalSampled := len(v.TeeSamples)
+			validCount := 0
+			invalidCount := 0
+			for _, samples := range v.TeeSamples {
+				if len(samples) > 0 {
+					switch samples[len(samples)-1].State {
+					case verifiertypes.TeeSampleValid:
+						validCount++
+					case verifiertypes.TeeSampleInvalid:
+						invalidCount++
+					}
+				}
+			}
+			v.SamplesMu.RUnlock()
+
+			expectedTotal := tc.cap
+			if tc.ext0Count > tc.cap {
+				expectedTotal = tc.ext0Count
+			}
+
+			t.Logf("%s: cycle=%v, total=%d, valid=%d, invalid=%d",
+				tc.name, elapsed, totalSampled, validCount, invalidCount)
+
+			if totalSampled != expectedTotal {
+				t.Errorf("expected %d total, got %d", expectedTotal, totalSampled)
+			}
+			if elapsed > tc.maxCycleTime {
+				t.Errorf("cycle %v exceeds target %v", elapsed, tc.maxCycleTime)
+			}
+			if elapsed > time.Minute {
+				t.Fatalf("cycle %v exceeds 1-minute polling interval", elapsed)
+			}
+		})
+	}
+}

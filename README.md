@@ -27,6 +27,9 @@ RPC_URL=https://<flare>
 ALLOW_TEE_DEBUG=false
 DISABLE_ATTESTATION_CHECK_E2E=false
 ALLOW_PRIVATE_NETWORKS=false
+
+# Poller configuration (optional):
+MAX_POLLED_TEES=0  # Extension 0 TEEs are always polled. 0 = extension 0 only (default). >0 = also poll extra TEEs from other extensions, up to this total.
 ```
 
 > **NOTE**: `ALLOW_TEE_DEBUG`, `DISABLE_ATTESTATION_CHECK_E2E`, and `ALLOW_PRIVATE_NETWORKS` are test/E2E-only flags. In production, you should leave them unset (they default to false). `ALLOW_PRIVATE_NETWORKS` permits private/loopback IPs (e.g. Docker bridge `172.17.0.1`) while still blocking dangerous IPs (link-local/metadata, multicast, Teredo, 6to4) and preserving DNS pinning.

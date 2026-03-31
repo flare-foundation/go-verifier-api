@@ -1,12 +1,14 @@
 # Poller Extension Filtering
 
+## Status: Implemented
+
 ## Problem
 As extensions and machines multiply (especially in development), the verifier polls all active TEE machines regardless of extension. This can overload the poller.
 
-## Agreed Approach
+## Implementation
 1. Call `getActiveTeeMachines(0)` — extension 0 machines are **always** polled (mandatory, guaranteed DOWN proof capability).
-2. Call `getAllActiveTeeMachines` — from the remaining machines (not in extension 0), poll up to a configurable cap.
-3. Add `MAX_POLLED_MACHINES` env var — if extension 0 has 10 machines and cap is 50, up to 40 extra machines from other extensions are polled. Extension 0 machines are never capped.
+2. If `MAX_POLLED_TEES > 0`, call `getAllActiveTeeMachines` — from the remaining machines (not in extension 0), poll up to the cap.
+3. `MAX_POLLED_TEES` env var — default 0 (extension 0 only). If set to e.g. 50 and extension 0 has 10 machines, up to 40 extra machines from other extensions are polled. Extension 0 machines are never capped.
 
 ## Contract Support
 - `getActiveTeeMachines(uint256 _extensionId)` already exists in `ITeeMachineRegistry` — returns machines for a specific extension (no pagination).

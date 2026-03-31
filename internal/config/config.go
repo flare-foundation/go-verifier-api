@@ -24,6 +24,7 @@ const (
 	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
 	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
 	EnvAllowPrivateNetworks              = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
+	EnvMaxPolledTees                     = "MAX_POLLED_TEES"               // Maximum total TEEs to poll. Extension 0 TEEs are always polled regardless of this value. 0 = extension 0 only (default). >0 = also poll extra TEEs from other extensions, up to this total.
 )
 
 type EnvConfig struct {
@@ -35,6 +36,7 @@ type EnvConfig struct {
 	AllowTeeDebug                     string
 	DisableAttestationCheckE2E        string
 	AllowPrivateNetworks              string
+	MaxPolledTees                     string
 	Port                              string
 	APIKeys                           []string
 	AttestationType                   connector.AttestationType
@@ -71,6 +73,7 @@ type TeeAvailabilityCheckConfig struct {
 	AllowTeeDebug                     bool
 	DisableAttestationCheckE2E        bool
 	AllowPrivateNetworks              bool
+	MaxPolledTees                     int
 	RPCURL                            string
 	GoogleRootCertificate             *x509.Certificate
 }

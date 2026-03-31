@@ -92,7 +92,7 @@ func (s *TeePollerService) sampleAllTees(
 	ctx context.Context,
 	queryInfoAndValidate func(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error),
 ) {
-	activeTees, err := s.getAllActiveTeesWithRetry(ctx)
+	activeTees, err := s.buildPollingList(ctx)
 	if err != nil {
 		logger.Warnf("Active TEE fetch failed; using cached list: %v", err)
 		activeTees = s.getCachedActiveTees()
@@ -217,6 +217,76 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 type teeList struct {
 	TeeIDs []common.Address
 	URLs   []string
+}
+
+// buildPollingList fetches extension 0 TEEs (always polled) and optionally
+// fills up to MaxPolledTees with remaining TEEs from other extensions.
+func (s *TeePollerService) buildPollingList(ctx context.Context) (teeList, error) {
+	// Always fetch extension 0 TEEs.
+	ext0Tees, err := s.getExtensionTeesWithRetry(ctx, 0)
+	if err != nil {
+		return teeList{}, fmt.Errorf("fetching extension 0 TEEs: %w", err)
+	}
+
+	cap := s.verifier.Cfg.MaxPolledTees
+	if cap <= 0 || cap <= len(ext0Tees.TeeIDs) {
+		// Cap disabled (0) or extension 0 already meets/exceeds cap — poll only extension 0.
+		return ext0Tees, nil
+	}
+
+	// Fetch all active TEEs and add non-extension-0 ones up to the cap.
+	allTees, err := s.getAllActiveTeesWithRetry(ctx)
+	if err != nil {
+		// Fall back to extension 0 only.
+		logger.Warnf("Failed to fetch all active TEEs, polling extension 0 only: %v", err)
+		return ext0Tees, nil
+	}
+
+	// Build a set of extension 0 IDs for fast lookup.
+	ext0Set := make(map[common.Address]struct{}, len(ext0Tees.TeeIDs))
+	for _, id := range ext0Tees.TeeIDs {
+		ext0Set[id] = struct{}{}
+	}
+
+	// Start with extension 0 TEEs, then add others up to the cap.
+	result := teeList{
+		TeeIDs: append([]common.Address{}, ext0Tees.TeeIDs...),
+		URLs:   append([]string{}, ext0Tees.URLs...),
+	}
+	remaining := cap - len(result.TeeIDs)
+	for i, id := range allTees.TeeIDs {
+		if remaining <= 0 {
+			break
+		}
+		if _, isExt0 := ext0Set[id]; !isExt0 {
+			result.TeeIDs = append(result.TeeIDs, id)
+			result.URLs = append(result.URLs, allTees.URLs[i])
+			remaining--
+		}
+	}
+
+	return result, nil
+}
+
+func (s *TeePollerService) getExtensionTees(ctx context.Context, extensionID int64) (teeList, error) {
+	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	callOpts := &bind.CallOpts{Context: ctx}
+
+	tees, err := s.verifier.TeeMachineRegistryCaller.GetActiveTeeMachines(callOpts, big.NewInt(extensionID))
+	if err != nil {
+		return teeList{}, fmt.Errorf("getActiveTeeMachines(extensionId=%d) failed: %w", extensionID, err)
+	}
+	return teeList{
+		TeeIDs: tees.TeeIds,
+		URLs:   tees.Urls,
+	}, nil
+}
+
+func (s *TeePollerService) getExtensionTeesWithRetry(ctx context.Context, extensionID int64) (teeList, error) {
+	return fetcher.Retry(ctx, chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
+		return s.getExtensionTees(ctx, extensionID)
+	}, nil)
 }
 
 func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk int64) (teeList, error) {

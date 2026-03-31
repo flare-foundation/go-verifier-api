@@ -120,6 +120,7 @@ Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false) — when enabled, only accepts Google Confidential Space TEEs running in debug mode (`dbgstat != "disabled-since-boot"`) and rejects production TEEs. Intended for development/testing with debug TEE images.
 - `DISABLE_ATTESTATION_CHECK_E2E` (default false) — when enabled, skips all JWT attestation validation (PKI, claims, CRL) in both the verify flow and the poller, returning hardcoded OK with test values. Intended for E2E tests without real Google attestation.
 - `ALLOW_PRIVATE_NETWORKS` (default false) — test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs and preserving DNS pinning. Useful for Docker bridge networking.
+- `MAX_POLLED_TEES` (default 0) — controls how many TEEs the poller monitors. Extension 0 TEEs are always polled regardless of this cap. When 0 (default), only extension 0 is polled. When >0, the poller also includes TEEs from other extensions up to this limit.
 
 Also loads embedded Google root certificate:
 - `internal/config/assets/google_confidential_space_root_20340116.crt`
@@ -248,7 +249,7 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 
 ### Poller behavior
 - Runs on startup and every `SampleInterval = 1m`.
-- Gets active TEEs from `TeeMachineRegistry` in chunks.
+- Fetches extension 0 TEEs via `getActiveTeeMachines(0)` (always polled). If `MAX_POLLED_TEES > 0`, also fetches remaining TEEs via `getAllActiveTeeMachines` and includes non-extension-0 TEEs up to the cap.
 - Fetches each `/info` using a pinned connection, validates challenge freshness + claims + signing policies.
 - Stores rolling recent sample states in memory.
 - Exposes samples on `GET /poller/tees`.

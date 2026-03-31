@@ -376,14 +376,34 @@ type teeMachinesResult = struct {
 	Urls        []string
 	TotalLength *big.Int
 }
+type extensionTeesResult = struct {
+	TeeIds []common.Address
+	Urls   []string
+}
+
 type mockTeeMachineRegistryCaller struct {
-	getAllActiveFunc func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error)
+	getAllActiveFunc   func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error)
+	getActiveByExtFunc func(opts *bind.CallOpts, extensionId *big.Int) (extensionTeesResult, error)
 }
 
 func (m *mockTeeMachineRegistryCaller) GetAllActiveTeeMachines(
 	opts *bind.CallOpts, start, end *big.Int,
 ) (teeMachinesResult, error) {
 	return m.getAllActiveFunc(opts, start, end)
+}
+
+func (m *mockTeeMachineRegistryCaller) GetActiveTeeMachines(
+	opts *bind.CallOpts, extensionId *big.Int,
+) (extensionTeesResult, error) {
+	if m.getActiveByExtFunc != nil {
+		return m.getActiveByExtFunc(opts, extensionId)
+	}
+	// Default: return same as getAllActive (all TEEs are extension 0).
+	result, err := m.getAllActiveFunc(opts, big.NewInt(0), big.NewInt(1000))
+	if err != nil {
+		return extensionTeesResult{}, err
+	}
+	return extensionTeesResult{TeeIds: result.TeeIds, Urls: result.Urls}, nil
 }
 func mockAllActiveTeeMAchines(t *testing.T, ids []string, urls []string) teeMachinesResult {
 	t.Helper()
@@ -408,6 +428,141 @@ func mockActiveTees(t *testing.T, ids []string, urls []string) teeList {
 		TeeIDs: addresses,
 		URLs:   urls,
 	}
+}
+
+func mockExtensionTees(t *testing.T, ids []string, urls []string) extensionTeesResult {
+	t.Helper()
+	addresses := make([]common.Address, len(ids))
+	for i, id := range ids {
+		addresses[i] = common.HexToAddress(id)
+	}
+	return extensionTeesResult{TeeIds: addresses, Urls: urls}
+}
+
+func TestBuildPollingList(t *testing.T) {
+	setup := func(maxPolled int) *verifier.TeeVerifier {
+		return &verifier.TeeVerifier{
+			Cfg: &config.TeeAvailabilityCheckConfig{
+				AllowPrivateNetworks: true,
+				MaxPolledTees:        maxPolled,
+			},
+			TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
+		}
+	}
+
+	t.Run("cap=0 returns extension 0 only", func(t *testing.T) {
+		v := setup(0)
+		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
+				require.Equal(t, int64(0), extID.Int64())
+				return mockExtensionTees(t, []string{"0x1", "0x2"}, []string{"url1", "url2"}), nil
+			},
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				t.Fatal("getAllActiveTeeMachines should not be called when cap=0")
+				return teeMachinesResult{}, nil
+			},
+		}
+		s := NewTeePoller(v)
+		list, err := s.buildPollingList(context.Background())
+		require.NoError(t, err)
+		require.Len(t, list.TeeIDs, 2)
+	})
+
+	t.Run("cap fills with non-ext0 TEEs", func(t *testing.T) {
+		v := setup(5)
+		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
+				return mockExtensionTees(t, []string{"0x1", "0x2"}, []string{"url1", "url2"}), nil
+			},
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				// Returns ext0 + 4 more TEEs.
+				return mockAllActiveTeeMAchines(t,
+					[]string{"0x1", "0x2", "0x3", "0x4", "0x5", "0x6"},
+					[]string{"url1", "url2", "url3", "url4", "url5", "url6"},
+				), nil
+			},
+		}
+		s := NewTeePoller(v)
+		list, err := s.buildPollingList(context.Background())
+		require.NoError(t, err)
+		// ext0 (2) + 3 more to reach cap of 5.
+		require.Len(t, list.TeeIDs, 5)
+		// First two should be extension 0.
+		require.Equal(t, common.HexToAddress("0x1"), list.TeeIDs[0])
+		require.Equal(t, common.HexToAddress("0x2"), list.TeeIDs[1])
+	})
+
+	t.Run("ext0 exceeds cap — all ext0 still polled", func(t *testing.T) {
+		v := setup(2)
+		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
+				return mockExtensionTees(t, []string{"0x1", "0x2", "0x3"}, []string{"url1", "url2", "url3"}), nil
+			},
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				t.Fatal("getAllActiveTeeMachines should not be called when ext0 exceeds cap")
+				return teeMachinesResult{}, nil
+			},
+		}
+		s := NewTeePoller(v)
+		list, err := s.buildPollingList(context.Background())
+		require.NoError(t, err)
+		// All 3 ext0 TEEs polled despite cap=2.
+		require.Len(t, list.TeeIDs, 3)
+	})
+
+	t.Run("getAllActive fails — falls back to ext0 only", func(t *testing.T) {
+		v := setup(10)
+		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
+				return mockExtensionTees(t, []string{"0x1"}, []string{"url1"}), nil
+			},
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return teeMachinesResult{}, errors.New("RPC error")
+			},
+		}
+		s := NewTeePoller(v)
+		list, err := s.buildPollingList(context.Background())
+		require.NoError(t, err)
+		// Falls back to ext0 only.
+		require.Len(t, list.TeeIDs, 1)
+		require.Equal(t, common.HexToAddress("0x1"), list.TeeIDs[0])
+	})
+
+	t.Run("ext0 fetch fails — returns error", func(t *testing.T) {
+		v := setup(0)
+		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
+				return extensionTeesResult{}, errors.New("RPC error")
+			},
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return teeMachinesResult{}, nil
+			},
+		}
+		s := NewTeePoller(v)
+		_, err := s.buildPollingList(context.Background())
+		require.ErrorContains(t, err, "fetching extension 0 TEEs")
+	})
+
+	t.Run("no duplicates from ext0 in extra TEEs", func(t *testing.T) {
+		v := setup(10)
+		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
+				return mockExtensionTees(t, []string{"0x1", "0x2"}, []string{"url1", "url2"}), nil
+			},
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				// Same IDs as ext0 + one new.
+				return mockAllActiveTeeMAchines(t,
+					[]string{"0x1", "0x2", "0x3"},
+					[]string{"url1", "url2", "url3"},
+				), nil
+			},
+		}
+		s := NewTeePoller(v)
+		list, err := s.buildPollingList(context.Background())
+		require.NoError(t, err)
+		// 2 from ext0 + 1 new = 3, no duplicates.
+		require.Len(t, list.TeeIDs, 3)
+	})
 }
 
 func makeTeeInfoServer(t *testing.T, challenge common.Hash, failSigningPolicy bool, notFound bool) (*httptest.Server, *ecdsa.PrivateKey) {

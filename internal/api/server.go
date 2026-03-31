@@ -177,6 +177,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),
 		DisableAttestationCheckE2E:        os.Getenv(config.EnvDisableAttestationCheckE2E),
 		AllowPrivateNetworks:              os.Getenv(config.EnvAllowPrivateNetworks),
+		MaxPolledTees:                     os.Getenv(config.EnvMaxPolledTees),
 		Port:                              port,
 		APIKeys:                           apiKeys,
 		AttestationType:                   attestationType,

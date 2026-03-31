@@ -80,6 +80,10 @@ type TeeMachineRegistryCallerInterface interface {
 		Urls        []string
 		TotalLength *big.Int
 	}, error)
+	GetActiveTeeMachines(opts *bind.CallOpts, extensionId *big.Int) (struct {
+		TeeIds []common.Address
+		Urls   []string
+	}, error)
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
