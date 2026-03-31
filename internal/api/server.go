@@ -24,11 +24,12 @@ import (
 )
 
 const (
-	shutdownAfter     = 10 * time.Second
-	readHeaderTimeout = 5 * time.Second
-	readTimeout       = 10 * time.Second
-	writeTimeout      = 30 * time.Second
-	idleTimeout       = 60 * time.Second
+	shutdownAfter      = 10 * time.Second
+	readHeaderTimeout  = 5 * time.Second
+	readTimeout        = 10 * time.Second
+	writeTimeout       = 30 * time.Second
+	idleTimeout        = 60 * time.Second
+	maxRequestBodySize = 1 << 20 // 1 MB
 )
 
 func RunServer(envConfig config.EnvConfig) {
@@ -195,9 +196,19 @@ func getEnvOrError(key string) (string, error) {
 func newRouter() chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.Recoverer)
+	router.Use(requestSizeLimiter(maxRequestBodySize))
 	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
 	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
 	return router
+}
+
+func requestSizeLimiter(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {

@@ -114,12 +114,12 @@ func logWarn(reqID, message string, err error) {
 
 func warnHuma400(reqID, message string, err error) error {
 	logWarn(reqID, message, err)
-	return huma.Error400BadRequest(message + ": " + err.Error())
+	return huma.Error400BadRequest(message)
 }
 
 func warnHuma422(reqID, message string, err error) error {
 	logWarn(reqID, message, err)
-	return huma.Error422UnprocessableEntity(message + ": " + err.Error())
+	return huma.Error422UnprocessableEntity(message)
 }
 
 func warnHuma500(reqID, message string, err error) error {
