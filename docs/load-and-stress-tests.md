@@ -85,7 +85,7 @@ Package-level and component-level tests that verify the verifier's behavior unde
 
 1. **CRL cache scales well** — 1000 concurrent unique URLs at p99=22ms with zero errors. Singleflight prevents duplicate fetches for the same URL. Slow upstreams don't cause collateral slowdown.
 
-2. **Poller has a scaling limit with slow TEEs** — with 10 workers, many slow TEEs saturate the pool. 500 TEEs with 200 slow @ 4s exceeds the 1-minute interval. This motivates the planned extension filtering (poll only extension 0 machines, cap the rest). See `TODO.md`.
+2. **Poller has a scaling limit with slow TEEs** — with 10 workers, many slow TEEs saturate the pool. 500 TEEs with 200 slow @ 4s exceeds the 1-minute interval. This is mitigated by extension filtering (`MAX_POLLED_TEES`) which caps the total polled machines.
 
 3. **All verifier paths handle concurrency correctly** — no races, panics, or inconsistent results under 100 concurrent requests across all attestation types.
 
@@ -101,6 +101,65 @@ Package-level and component-level tests that verify the verifier's behavior unde
 | Error rate (healthy paths) | 0 | Correctness under load |
 | Poller cycle (all healthy) | < 1 minute | Must complete within polling interval |
 
+## PMWFeeProof Benchmark (Postgres + MySQL)
+
+Docker-dependent benchmarks that measure `Verify` latency and scaling with real Postgres (XRP indexer) and MySQL (C-chain indexer) databases. Gated behind the `docker_bench` build tag.
+
+### Sequential (single client)
+
+50 iterations per nonce count. Data seeded into real DB tables, cleaned up after.
+
+| Nonces | Avg (ms) | Med (ms) | Min (ms) | Max (ms) | P95 (ms) | Per-nonce (ms) |
+|--------|----------|----------|----------|----------|----------|----------------|
+| 1 | 1.35 | 1.34 | 0.97 | 2.27 | 1.55 | 1.346 |
+| 10 | 8.15 | 8.11 | 6.84 | 10.23 | 9.44 | 0.815 |
+| 50 | 33.11 | 33.00 | 28.84 | 48.07 | 37.12 | 0.662 |
+| 100 | 67.62 | 65.36 | 56.58 | 150.37 | 76.50 | 0.676 |
+| 200 | 135.06 | 126.05 | 106.46 | 274.26 | 168.45 | 0.675 |
+| 300 | 193.92 | 184.52 | 165.90 | 277.25 | 237.40 | 0.646 |
+| 500 | 310.07 | 305.32 | 289.04 | 372.49 | 332.30 | 0.620 |
+| 750 | 472.65 | 476.75 | 435.15 | 538.02 | 506.17 | 0.630 |
+| 1000 | 632.31 | 623.40 | 577.47 | 815.96 | 711.05 | 0.632 |
+
+Per-nonce cost at 100: 0.676 ms. Per-nonce cost at 1000: 0.632 ms. **Scaling factor: 0.94x — perfectly linear.**
+
+### Concurrent (multiple clients)
+
+30 iterations per scenario. Connection pool: 50 max open, 25 idle.
+
+| Nonces | Conc | Avg (ms) | Med (ms) | P95 (ms) | Max (ms) | Req/s |
+|--------|------|----------|----------|----------|----------|-------|
+| 100 | 1 | 62.0 | 61.0 | 65.5 | 75.7 | 16.1 |
+| 100 | 5 | 122.6 | 122.6 | 134.6 | 167.2 | 40.8 |
+| 100 | 10 | 160.0 | 158.3 | 180.4 | 197.5 | 62.5 |
+| 100 | 20 | 212.5 | 206.5 | 249.7 | 256.7 | 94.1 |
+| 200 | 1 | 121.5 | 120.9 | 129.1 | 139.3 | 8.2 |
+| 200 | 5 | 232.7 | 230.1 | 249.2 | 291.9 | 21.5 |
+| 200 | 10 | 310.2 | 310.0 | 325.1 | 342.3 | 32.2 |
+| 200 | 20 | 425.5 | 425.2 | 458.2 | 481.9 | 47.0 |
+| 300 | 1 | 187.1 | 185.5 | 197.8 | 220.5 | 5.3 |
+| 300 | 5 | 347.9 | 347.7 | 381.0 | 410.1 | 14.4 |
+| 300 | 10 | 459.9 | 456.4 | 487.6 | 520.9 | 21.7 |
+| 300 | 20 | 657.3 | 641.9 | 744.5 | 1027.7 | 30.4 |
+| 500 | 1 | 306.6 | 305.4 | 320.2 | 332.3 | 3.3 |
+| 500 | 5 | 580.2 | 581.2 | 601.5 | 634.0 | 8.6 |
+| 500 | 10 | 762.5 | 762.9 | 796.7 | 812.0 | 13.1 |
+| 500 | 20 | 1091.6 | 1081.6 | 1223.3 | 1358.7 | 18.3 |
+
+Concurrency slowdown (1→20 clients):
+- 100 nonces: 3.43x (62ms → 213ms)
+- 200 nonces: 3.50x (122ms → 426ms)
+- 300 nonces: 3.51x (187ms → 657ms)
+- 500 nonces: 3.56x (307ms → 1092ms)
+
+### Decision
+
+`MaxNonceRange` set to **200** based on these results:
+- Sequential: 135ms avg at 200 nonces — well within request budget.
+- Concurrent at 20 clients: 426ms avg, 458ms p95 — acceptable.
+- 300 nonces at 20 concurrent hits ~750ms p95 — borderline.
+- Growth is linear (per-nonce cost stable), so the limit is about total latency budget, not algorithmic scaling.
+
 ## Running
 
 ```bash
@@ -109,4 +168,10 @@ go test -tags load -run TestLoad -v ./internal/attestation/...
 
 # Stress tests (~70s)
 go test -tags stress -run TestStress -v ./internal/attestation/teeavailabilitycheck/...
+
+# PMWFeeProof benchmarks (requires Docker)
+docker compose -f internal/tests/docker/docker-compose.yaml up -d --wait
+go test -tags docker_bench -run TestBenchmarkFeeProofPostgres -v ./internal/attestation/pmwfeeproof/xrp/
+go test -tags docker_bench -run TestBenchmarkFeeProofConcurrent -v ./internal/attestation/pmwfeeproof/xrp/
+docker compose -f internal/tests/docker/docker-compose.yaml down
 ```
