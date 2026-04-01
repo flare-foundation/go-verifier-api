@@ -193,7 +193,6 @@ This is the simplest way to run everything without worrying about Docker manuall
 
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
-- How often should we query GetAllActiveTeeMachines? At the moment, each poll also retrieves GetAllActiveTeeMachines.
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
 - PMWFeeProof: Benchmark and adjust `MaxNonceRange` (currently 100).
 - PMWFeeProof: Should the verifier validate that the requested nonce range falls within the XRP indexer data retention window (~2 weeks), or just let it fail with 422 if data is missing?
