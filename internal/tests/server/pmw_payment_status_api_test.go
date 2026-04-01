@@ -60,7 +60,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqData := helpers.PMWPaymentStatusRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -90,7 +90,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
@@ -98,7 +98,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -108,7 +108,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
@@ -136,14 +136,14 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: missing api-key", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "") //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "") //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnauthorized, "Unauthorized")
 	})
 	t.Run("verify: wrong api-key", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "wrong api key") //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "wrong api key") //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnauthorized, "Unauthorized")
 	})
@@ -151,7 +151,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -159,14 +159,14 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
@@ -176,7 +176,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
@@ -188,7 +188,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
@@ -200,7 +200,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
@@ -212,7 +212,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
@@ -224,7 +224,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
@@ -236,7 +236,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
@@ -248,7 +248,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")

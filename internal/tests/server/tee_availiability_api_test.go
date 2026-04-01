@@ -91,7 +91,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqData := helpers.TeeAvailabilityCheckRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x12345"), reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -99,14 +99,14 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("prepareResponseBody: empty request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte{})
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "requestBody cannot be empty")
 	})
@@ -114,7 +114,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -124,7 +124,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
@@ -144,7 +144,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
@@ -152,7 +152,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -162,7 +162,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
@@ -172,7 +172,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
@@ -182,7 +182,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})

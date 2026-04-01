@@ -52,7 +52,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqData := helpers.PMWMultisigAccountConfiguredRequestBody(t, modifiedReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Prepare request failed")
 	})
@@ -60,7 +60,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqData := helpers.PMWMultisigAccountConfiguredRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqData)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -80,14 +80,14 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
@@ -97,7 +97,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
@@ -130,7 +130,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -138,14 +138,14 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, [32]byte{0xFF}, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
@@ -155,7 +155,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
@@ -179,7 +179,7 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/verify", request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/verify", request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
@@ -188,7 +188,7 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})

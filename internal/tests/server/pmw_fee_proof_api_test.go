@@ -71,7 +71,7 @@ func TestPMWFeeProof(t *testing.T) {
 	t.Run("prepareRequestBody: invalid sourceID", func(t *testing.T) {
 		reqData := helpers.PMWFeeProofRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqData)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -90,14 +90,14 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
@@ -115,33 +115,33 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("verify: missing api-key", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "") //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "") //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnauthorized, "Unauthorized")
 	})
 	t.Run("verify: wrong api-key", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "wrong api key") //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, "wrong api key") //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnauthorized, "Unauthorized")
 	})
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid attestationType", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
@@ -151,7 +151,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 102 // 102 nonces > MaxNonceRange
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Verification failed")
 	})
@@ -161,7 +161,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 99999
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
@@ -172,7 +172,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 11263185
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
@@ -183,7 +183,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 11263186
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
@@ -194,7 +194,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 11263187
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
@@ -205,7 +205,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 11263188
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
@@ -216,7 +216,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 99999
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
