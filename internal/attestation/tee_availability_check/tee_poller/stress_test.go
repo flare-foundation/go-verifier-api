@@ -4,6 +4,7 @@ package teepoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"runtime"
@@ -115,7 +116,7 @@ func TestStressPollerSlowUpstreamIsolation(t *testing.T) {
 		if slowSet[teeID] {
 			select {
 			case <-time.After(3 * time.Second):
-				return verifiertypes.TeeSampleInvalid, fmt.Errorf("slow TEE")
+				return verifiertypes.TeeSampleInvalid, errors.New("slow TEE")
 			case <-ctx.Done():
 				return verifiertypes.TeeSampleIndeterminate, ctx.Err()
 			}

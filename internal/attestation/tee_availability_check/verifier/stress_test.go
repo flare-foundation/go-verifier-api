@@ -5,6 +5,7 @@ package verifier
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"runtime"
 	"sort"
@@ -91,7 +92,7 @@ func TestStressCRLCacheSlowUpstream(t *testing.T) {
 			if strings.HasPrefix(url, "http://slow.example.com/") {
 				select {
 				case <-time.After(5 * time.Second):
-					return nil, fmt.Errorf("slow upstream timeout")
+					return nil, errors.New("slow upstream timeout")
 				case <-ctx.Done():
 					return nil, ctx.Err()
 				}

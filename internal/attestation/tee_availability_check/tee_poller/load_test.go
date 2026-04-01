@@ -4,6 +4,7 @@ package teepoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"runtime"
@@ -377,7 +378,7 @@ func TestLoadPollerExtensionFilteringWorstCase(t *testing.T) {
 				}
 				select {
 				case <-time.After(5 * time.Second):
-					return verifiertypes.TeeSampleInvalid, fmt.Errorf("timeout")
+					return verifiertypes.TeeSampleInvalid, errors.New("timeout")
 				case <-ctx.Done():
 					return verifiertypes.TeeSampleIndeterminate, ctx.Err()
 				}

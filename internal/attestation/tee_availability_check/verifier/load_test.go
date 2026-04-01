@@ -5,6 +5,7 @@ package verifier
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -144,7 +145,7 @@ func TestLoadCRLCacheFailedFetchNeverCached(t *testing.T) {
 			n := atomic.AddInt64(&callCount, 1)
 			time.Sleep(10 * time.Millisecond)
 			if n == 1 {
-				return nil, fmt.Errorf("transient error")
+				return nil, errors.New("transient error")
 			}
 			return validCRLBytes, nil
 		},
