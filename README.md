@@ -206,7 +206,6 @@ This is the simplest way to run everything without worrying about Docker manuall
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
-- PMWFeeProof: Should the verifier validate that the requested nonce range falls within the XRP indexer data retention window (~2 weeks), or just let it fail with 422 if data is missing?
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
 
 ### Monitoring
