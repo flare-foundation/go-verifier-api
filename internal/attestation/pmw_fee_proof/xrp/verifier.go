@@ -61,7 +61,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWFeeProofRequ
 	nonceCount := int(req.ToNonce - req.FromNonce + 1)
 	nonces := make([]uint64, nonceCount)
 	payIDs := make([]common.Hash, nonceCount)
-	for i := 0; i < nonceCount; i++ {
+	for i := range nonceCount {
 		nonce := req.FromNonce + uint64(i)
 		nonces[i] = nonce
 		id, err := instruction.GeneratePayInstructionID(req.OpType, sourceID, req.SenderAddress, nonce)
@@ -178,7 +178,7 @@ func parseTxFee(response string) (*big.Int, error) {
 		return nil, fmt.Errorf("cannot unmarshal transaction response: %w", err)
 	}
 	if raw.Fee == "" {
-		return nil, fmt.Errorf("missing Fee in transaction response")
+		return nil, errors.New("missing Fee in transaction response")
 	}
 	fee, ok := new(big.Int).SetString(raw.Fee, 10)
 	if !ok {

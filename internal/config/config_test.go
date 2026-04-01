@@ -87,9 +87,7 @@ func TestLoadEncodedAndABI(t *testing.T) {
 		"InvalidRequestABI":         {"req", "availabilityCheckResponseBodyStruct"},
 		"InvalidResponseABI":        {"availabilityCheckRequestBodyStruct", "res"},
 	}
-	for k, v := range testCases {
-		abiStructNames[k] = v
-	}
+	maps.Copy(abiStructNames, testCases)
 
 	type args struct {
 		envConfig EnvConfig

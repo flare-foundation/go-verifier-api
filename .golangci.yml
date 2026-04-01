@@ -16,11 +16,17 @@ linters:
     - exhaustive
     - exptostd
     - forcetypeassert
+    - godoclint
     - misspell
+    - modernize
     - nolintlint
-    - unconvert
-    - whitespace
+    - perfsprint
+    - prealloc
+    - predeclared
     - thelper
+    - unconvert
+    - unparam
+    - whitespace
 
   settings:
     exhaustive:

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func doRequest(t *testing.T, method, url, apiKey string, payload interface{}) (*http.Response, error) {
+func doRequest(t *testing.T, method, url, apiKey string, payload any) (*http.Response, error) {
 	t.Helper()
 	var body io.Reader
 	if payload != nil {
@@ -34,7 +34,7 @@ func doRequest(t *testing.T, method, url, apiKey string, payload interface{}) (*
 	return http.DefaultClient.Do(req)
 }
 
-func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, error) {
+func Post[T any](t *testing.T, url string, data any, apiKey string) (T, error) {
 	t.Helper()
 	var empty T
 	resp, err := doRequest(t, http.MethodPost, url, apiKey, data)
@@ -61,7 +61,7 @@ func Post[T any](t *testing.T, url string, data interface{}, apiKey string) (T, 
 	return result, err
 }
 
-func PostWithoutMarshalling(t *testing.T, url string, data interface{}, apiKey string) (*http.Response, error) {
+func PostWithoutMarshalling(t *testing.T, url string, data any, apiKey string) (*http.Response, error) {
 	t.Helper()
 	return doRequest(t, http.MethodPost, url, apiKey, data)
 }

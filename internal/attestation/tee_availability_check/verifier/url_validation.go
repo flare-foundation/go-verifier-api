@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -64,15 +65,15 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver,
 		return nil, fmt.Errorf("unsupported URL scheme %q: only http and https are allowed", parsedURL.Scheme)
 	}
 	if parsedURL.Host == "" {
-		return nil, fmt.Errorf("URL host is required")
+		return nil, errors.New("URL host is required")
 	}
 	if parsedURL.User != nil {
-		return nil, fmt.Errorf("URL userinfo is not allowed")
+		return nil, errors.New("URL userinfo is not allowed")
 	}
 
 	host := strings.TrimSuffix(strings.ToLower(parsedURL.Hostname()), ".")
 	if host == "" {
-		return nil, fmt.Errorf("URL hostname is required")
+		return nil, errors.New("URL hostname is required")
 	}
 	if !allowPrivateNetworks {
 		if host == "localhost" || strings.HasSuffix(host, ".localhost") {

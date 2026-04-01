@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"testing"
@@ -41,7 +40,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		Nonce:         nonce,
 		SubNonce:      nonce,
 	}
-	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
+	desiredURL := setup.URL + "/prepareRequestBody"
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
 		reqData := helpers.PMWPaymentStatusRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
@@ -66,7 +65,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 
-	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
+	desiredURL = setup.URL + "/prepareResponseBody"
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -113,7 +112,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
-	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
+	desiredURL = setup.URL + "/verify"
 	t.Run("verify: valid", func(t *testing.T) { // Using log (12) in c-chain idx db and transaction 7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA from xrp idx db.
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)

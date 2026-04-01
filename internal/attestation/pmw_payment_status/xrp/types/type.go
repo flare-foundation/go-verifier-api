@@ -30,25 +30,25 @@ type AffectedNode struct {
 }
 
 type CreatedNode struct {
-	LedgerEntryType string                 `json:"LedgerEntryType"`
-	LedgerIndex     string                 `json:"LedgerIndex"`
-	NewFields       map[string]interface{} `json:"NewFields"`
+	LedgerEntryType string         `json:"LedgerEntryType"`
+	LedgerIndex     string         `json:"LedgerIndex"`
+	NewFields       map[string]any `json:"NewFields"`
 }
 
 type DeletedNode struct {
-	LedgerEntryType string                 `json:"LedgerEntryType"`
-	LedgerIndex     string                 `json:"LedgerIndex"`
-	FinalFields     map[string]interface{} `json:"FinalFields"`
-	PreviousFields  map[string]interface{} `json:"PreviousFields,omitempty"`
+	LedgerEntryType string         `json:"LedgerEntryType"`
+	LedgerIndex     string         `json:"LedgerIndex"`
+	FinalFields     map[string]any `json:"FinalFields"`
+	PreviousFields  map[string]any `json:"PreviousFields,omitempty"`
 }
 
 type ModifiedNode struct {
-	LedgerEntryType   string                 `json:"LedgerEntryType"`
-	LedgerIndex       string                 `json:"LedgerIndex"`
-	FinalFields       map[string]interface{} `json:"FinalFields"`
-	PreviousFields    map[string]interface{} `json:"PreviousFields"`
-	PreviousTxnID     string                 `json:"PreviousTxnID,omitempty"`
-	PreviousTxnLgrSeq uint64                 `json:"PreviousTxnLgrSeq,omitempty"`
+	LedgerEntryType   string         `json:"LedgerEntryType"`
+	LedgerIndex       string         `json:"LedgerIndex"`
+	FinalFields       map[string]any `json:"FinalFields"`
+	PreviousFields    map[string]any `json:"PreviousFields"`
+	PreviousTxnID     string         `json:"PreviousTxnID,omitempty"`
+	PreviousTxnLgrSeq uint64         `json:"PreviousTxnLgrSeq,omitempty"`
 }
 
 type AddressAmount struct {

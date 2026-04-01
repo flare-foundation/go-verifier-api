@@ -3,6 +3,7 @@ package xrpverifier
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -74,7 +75,7 @@ func (x *XRPVerifier) parseRawTransactionData(sender string, nonce uint64, respo
 		return rawTransactionData, fmt.Errorf("cannot unmarshal XRP transaction response: %w", err)
 	}
 	if rawTransactionData.MetaData.TransactionResult == "" {
-		return rawTransactionData, fmt.Errorf("missing transaction result in raw transaction data")
+		return rawTransactionData, errors.New("missing transaction result in raw transaction data")
 	}
 	return rawTransactionData, nil
 }

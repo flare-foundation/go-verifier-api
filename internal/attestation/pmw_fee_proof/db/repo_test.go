@@ -20,7 +20,7 @@ func newClosedDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func newMemoryDB(t *testing.T, migrate ...interface{}) *gorm.DB {
+func newMemoryDB(t *testing.T, migrate ...any) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)

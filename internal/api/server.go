@@ -127,7 +127,7 @@ func getAPIKeys() ([]string, error) {
 		return nil, fmt.Errorf("%s must be set", config.EnvAPIKeys)
 	}
 	var apiKeys []string
-	for _, key := range strings.Split(raw, ",") {
+	for key := range strings.SplitSeq(raw, ",") {
 		trimmed := strings.TrimSpace(key)
 		if trimmed != "" {
 			apiKeys = append(apiKeys, trimmed)

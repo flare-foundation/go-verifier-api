@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -63,7 +64,7 @@ func LogPMWMultisigAccountConfiguredRequestBody(req connector.IPMWMultisigAccoun
 func formatPublicKeys(pks [][]byte) string {
 	out := make([]string, len(pks))
 	for i, pk := range pks {
-		out[i] = fmt.Sprintf("%x", pk)
+		out[i] = hex.EncodeToString(pk)
 	}
 	return strings.Join(out, ",")
 }

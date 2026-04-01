@@ -21,7 +21,7 @@ var PaymentTransaction0 = types.RawTransactionData{
 				CreatedNode: &types.CreatedNode{
 					LedgerEntryType: "AccountRoot",
 					LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-					NewFields: map[string]interface{}{
+					NewFields: map[string]any{
 						"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 						"Balance": "10000000",
 					},
@@ -30,11 +30,11 @@ var PaymentTransaction0 = types.RawTransactionData{
 				ModifiedNode: &types.ModifiedNode{
 					LedgerEntryType: "AccountRoot",
 					LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-					FinalFields: map[string]interface{}{
+					FinalFields: map[string]any{
 						"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 						"Balance": "1922391830527342",
 					},
-					PreviousFields: map[string]interface{}{
+					PreviousFields: map[string]any{
 						"Balance": "1922391840527354",
 					},
 				},
@@ -49,7 +49,7 @@ var TransactionMeta0_error0 = types.TransactionMetaData{
 			CreatedNode: &types.CreatedNode{
 				LedgerEntryType: "AccountRoot",
 				LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-				NewFields: map[string]interface{}{
+				NewFields: map[string]any{
 					"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 					"Balance": "10000000",
 				},
@@ -58,11 +58,11 @@ var TransactionMeta0_error0 = types.TransactionMetaData{
 			ModifiedNode: &types.ModifiedNode{
 				LedgerEntryType: "AccountRoot",
 				LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-				FinalFields: map[string]interface{}{
+				FinalFields: map[string]any{
 					"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 					"Balance": "balance",
 				},
-				PreviousFields: map[string]interface{}{
+				PreviousFields: map[string]any{
 					"Balance": "1922391840527354",
 				},
 			},
@@ -83,7 +83,7 @@ var PaymentTransaction0_error0 = types.RawTransactionData{
 				CreatedNode: &types.CreatedNode{
 					LedgerEntryType: "AccountRoot",
 					LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-					NewFields: map[string]interface{}{
+					NewFields: map[string]any{
 						"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 						"Balance": "balance",
 					},
@@ -92,11 +92,11 @@ var PaymentTransaction0_error0 = types.RawTransactionData{
 				ModifiedNode: &types.ModifiedNode{
 					LedgerEntryType: "AccountRoot",
 					LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-					FinalFields: map[string]interface{}{
+					FinalFields: map[string]any{
 						"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 						"Balance": "balance",
 					},
-					PreviousFields: map[string]interface{}{
+					PreviousFields: map[string]any{
 						"Balance": "1922391840527354",
 					},
 				},
@@ -112,11 +112,11 @@ var TransactionMeta1 = types.TransactionMetaData{
 			ModifiedNode: &types.ModifiedNode{
 				LedgerEntryType: "AccountRoot",
 				LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-				FinalFields: map[string]interface{}{
+				FinalFields: map[string]any{
 					"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 					"Balance": "9989876",
 				},
-				PreviousFields: map[string]interface{}{
+				PreviousFields: map[string]any{
 					"Balance": "9999976",
 				},
 			},
@@ -125,11 +125,11 @@ var TransactionMeta1 = types.TransactionMetaData{
 			ModifiedNode: &types.ModifiedNode{
 				LedgerEntryType: "AccountRoot",
 				LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-				FinalFields: map[string]interface{}{
+				FinalFields: map[string]any{
 					"Account": "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G",
 					"Balance": "190310000",
 				},
-				PreviousFields: map[string]interface{}{
+				PreviousFields: map[string]any{
 					"Balance": "190300000",
 				},
 			},
@@ -151,7 +151,7 @@ var AccountRootTx = types.RawTransactionData{
 		AffectedNodes: []types.AffectedNode{
 			{
 				ModifiedNode: &types.ModifiedNode{
-					FinalFields: map[string]interface{}{
+					FinalFields: map[string]any{
 						"Account":    "rw93HsrEYDtcMxEu4RQhFvH9pXH1TnCZu4",
 						"Balance":    "99999988",
 						"Flags":      0,
@@ -160,7 +160,7 @@ var AccountRootTx = types.RawTransactionData{
 					},
 					LedgerEntryType: "AccountRoot",
 					LedgerIndex:     "E7F60ED41F22C2C0F00E7BA7E1E32267383664AA870FA34303C12070DA42C16F",
-					PreviousFields: map[string]interface{}{
+					PreviousFields: map[string]any{
 						"Balance":  "100000000",
 						"Sequence": sequenceAccountRootTx,
 					},

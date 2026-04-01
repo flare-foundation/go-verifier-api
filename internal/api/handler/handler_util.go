@@ -131,4 +131,3 @@ func warnHuma503(reqID, message string, err error) error {
 	logWarn(reqID, message, err)
 	return huma.Error503ServiceUnavailable(message)
 }
-

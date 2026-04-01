@@ -184,7 +184,7 @@ func TestVerifyFeeProofConcurrentErrors(t *testing.T) {
 		results := make([]callResult, concurrency)
 		var wg sync.WaitGroup
 		wg.Add(concurrency)
-		for i := 0; i < concurrency; i++ {
+		for i := range concurrency {
 			go func(idx int) {
 				defer wg.Done()
 				_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
@@ -215,7 +215,7 @@ func TestVerifyFeeProofConcurrentErrors(t *testing.T) {
 		results := make([]callResult, concurrency)
 		var wg sync.WaitGroup
 		wg.Add(concurrency)
-		for i := 0; i < concurrency; i++ {
+		for i := range concurrency {
 			go func(idx int) {
 				defer wg.Done()
 				_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{

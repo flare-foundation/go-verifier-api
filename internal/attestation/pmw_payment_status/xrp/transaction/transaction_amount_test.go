@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetStringField(t *testing.T) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"key1": "val1",
 		"key2": 1234,
 	}
@@ -87,7 +87,7 @@ func TestExtractModifiedNode(t *testing.T) {
 		var node = &types.ModifiedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-			FinalFields: map[string]interface{}{
+			FinalFields: map[string]any{
 				"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 				"Balance": "1922391830527342",
 			},
@@ -100,11 +100,11 @@ func TestExtractModifiedNode(t *testing.T) {
 		var node = &types.ModifiedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-			FinalFields: map[string]interface{}{
+			FinalFields: map[string]any{
 				"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 				"Balance": "1922391830527342",
 			},
-			PreviousFields: map[string]interface{}{},
+			PreviousFields: map[string]any{},
 		}
 		val, err := extractFromModifiedNode(node)
 		require.Nil(t, val)
@@ -114,7 +114,7 @@ func TestExtractModifiedNode(t *testing.T) {
 		var node = &types.ModifiedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-			FinalFields: map[string]interface{}{
+			FinalFields: map[string]any{
 				"Balance": "1922391830527342",
 			},
 		}
@@ -126,7 +126,7 @@ func TestExtractModifiedNode(t *testing.T) {
 		var node = &types.ModifiedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-			FinalFields: map[string]interface{}{
+			FinalFields: map[string]any{
 				"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 			},
 		}
@@ -138,11 +138,11 @@ func TestExtractModifiedNode(t *testing.T) {
 		var node = &types.ModifiedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-			FinalFields: map[string]interface{}{
+			FinalFields: map[string]any{
 				"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 				"Balance": "balance",
 			},
-			PreviousFields: map[string]interface{}{
+			PreviousFields: map[string]any{
 				"Balance": "1922391840527354",
 			},
 		}
@@ -154,11 +154,11 @@ func TestExtractModifiedNode(t *testing.T) {
 		var node = &types.ModifiedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "31CCE9D28412FF973E9AB6D0FA219BACF19687D9A2456A0C2ABC3280E9D47E37",
-			FinalFields: map[string]interface{}{
+			FinalFields: map[string]any{
 				"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
 				"Balance": "1922391830527342",
 			},
-			PreviousFields: map[string]interface{}{
+			PreviousFields: map[string]any{
 				"Balance": "balance",
 			},
 		}
@@ -190,7 +190,7 @@ func TestExtractCreatedNode(t *testing.T) {
 		node := &types.CreatedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-			NewFields: map[string]interface{}{
+			NewFields: map[string]any{
 				"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 			},
 		}
@@ -202,7 +202,7 @@ func TestExtractCreatedNode(t *testing.T) {
 		node := &types.CreatedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-			NewFields: map[string]interface{}{
+			NewFields: map[string]any{
 				"Balance": "10000000",
 			},
 		}
@@ -214,7 +214,7 @@ func TestExtractCreatedNode(t *testing.T) {
 		node := &types.CreatedNode{
 			LedgerEntryType: "AccountRoot",
 			LedgerIndex:     "367AEF9941B4693008A3D0680776743E94527F4066FABAAA0C62FBC91F5E56B9",
-			NewFields: map[string]interface{}{
+			NewFields: map[string]any{
 				"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 				"Balance": "balance",
 			},

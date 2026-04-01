@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -23,7 +24,7 @@ func FindReceivedAmountForAddress(meta *types.TransactionMetaData, receiver stri
 
 func GetReceivedAmount(meta *types.TransactionMetaData) ([]types.AddressAmount, error) {
 	if meta == nil {
-		return nil, fmt.Errorf("transaction meta is not available, thus received amounts cannot be calculated")
+		return nil, errors.New("transaction meta is not available, thus received amounts cannot be calculated")
 	}
 	var received []types.AddressAmount
 
@@ -107,7 +108,7 @@ func extractFromCreatedNode(created *types.CreatedNode) (*types.AddressAmount, e
 	}, nil
 }
 
-func getStringField(m map[string]interface{}, key string) (string, bool) {
+func getStringField(m map[string]any, key string) (string, bool) {
 	val, ok := m[key]
 	if !ok {
 		return "", false

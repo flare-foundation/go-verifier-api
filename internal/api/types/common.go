@@ -1,7 +1,7 @@
 package types
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,7 +13,7 @@ type HealthCheckResponse struct {
 	Healthy bool `json:"healthy"`
 }
 
-// Main API types.
+// AttestationRequest is the main attestation request type.
 type AttestationRequest struct {
 	AttestationType common.Hash   `json:"attestationType" validate:"required" example:"0x504d574..."`
 	SourceID        common.Hash   `json:"sourceId" validate:"required" example:"0x7465..."`
@@ -23,7 +23,7 @@ type AttestationRequest struct {
 // Resolve adds extra validation beyond struct tags, ensuring RequestBody has data.
 func (req AttestationRequest) Resolve(ctx huma.Context) []error {
 	if len(req.RequestBody) == 0 {
-		return []error{fmt.Errorf("requestBody cannot be empty")}
+		return []error{errors.New("requestBody cannot be empty")}
 	}
 	return nil
 }
@@ -32,7 +32,7 @@ type AttestationResponse struct {
 	ResponseBody hexutil.Bytes `json:"responseBody" example:"0x0000abcd..."`
 }
 
-// Helper API types.
+// AttestationRequestData is a generic request type with decoded request data.
 type AttestationRequestData[T any] struct {
 	AttestationType common.Hash `json:"attestationType" validate:"required" example:"0x504d574..."`
 	SourceID        common.Hash `json:"sourceId" validate:"required" example:"0x7465..."`
@@ -71,7 +71,7 @@ type RequestConvertible[T any] interface {
 	ToInternal() (T, error)
 }
 
-// InternalConvertible defines an interface for response that can be converted from internal ones.
+// ResponseConvertible defines an interface for response that can be converted from internal ones.
 type ResponseConvertible[T any] interface {
 	FromInternal(T) ResponseConvertible[T]
 	Log()

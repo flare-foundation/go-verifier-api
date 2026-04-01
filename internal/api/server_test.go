@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -74,8 +73,8 @@ func TestGetEnvOrError(t *testing.T) {
 		wantValue string
 		wantError string
 	}{
-		{"unset", "", "", fmt.Sprintf("%s must be set", testKey)},
-		{"empty string", "   ", "", fmt.Sprintf("%s must be set", testKey)},
+		{"unset", "", "", testKey + " must be set"},
+		{"empty string", "   ", "", testKey + " must be set"},
 		{"valid value", "value", "value", ""},
 	}
 	for _, tt := range tests {

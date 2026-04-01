@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
@@ -37,7 +38,7 @@ func ValidateClaims(claims *googlecloud.GoogleTeeClaims, teeInfoData teenodetype
 	}
 	// match with eat_nonce
 	if claims.EATNonce[0] != hex.EncodeToString(teeInfoBytes) {
-		return StatusInfo{}, fmt.Errorf("EATNonce does not match hash of teeInfo")
+		return StatusInfo{}, errors.New("EATNonce does not match hash of teeInfo")
 	}
 	// Check if running in production. Allow debug mode only if ALLOW_TEE_DEBUG is enabled.
 	if allowDebugMode {
@@ -55,17 +56,10 @@ func ValidateClaims(claims *googlecloud.GoogleTeeClaims, teeInfoData teenodetype
 		if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
 			return StatusInfo{}, errors.New("ConfidentialSpace component has no supported attributes")
 		}
-		foundIsStable := false
-		for _, att := range claims.SubMods.ConfidentialSpace.SupportAttributes {
-			if att == "STABLE" {
-				foundIsStable = true
-				break
-			}
-		}
-		if !foundIsStable {
-			statusInfo.Status = OBSOLETE
-		} else {
+		if slices.Contains(claims.SubMods.ConfidentialSpace.SupportAttributes, "STABLE") {
 			statusInfo.Status = OK
+		} else {
+			statusInfo.Status = OBSOLETE
 		}
 	}
 	// Check the OS is Confidential Space

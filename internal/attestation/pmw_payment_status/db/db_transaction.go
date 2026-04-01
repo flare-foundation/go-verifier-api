@@ -1,7 +1,7 @@
 package db
 
+// DBTransaction represents an XRP transaction record from the indexer database.
 // TODO: import when merged in xrp-indexer
-// From https://gitlab.com/flarenetwork/fdc/verifier-xrp-indexer/-/blob/add-new-fields/internal/xrp/entities.go?ref_type=heads#L10
 type DBTransaction struct {
 	Hash                string `gorm:"primaryKey;type:varchar(64)"`
 	BlockNumber         uint64 `gorm:"index"`

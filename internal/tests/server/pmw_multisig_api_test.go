@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -31,7 +30,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		PublicKeys:     pubKeys,
 		Threshold:      mSigThr,
 	}
-	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
+	desiredURL := setup.URL + "/prepareRequestBody"
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
 		reqData := helpers.PMWMultisigAccountConfiguredRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
@@ -65,7 +64,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
-	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
+	desiredURL = setup.URL + "/prepareResponseBody"
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -102,7 +101,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
-	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
+	desiredURL = setup.URL + "/verify"
 	t.Run("verify: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -180,7 +179,7 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/verify", setup.URL), request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/verify", request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
@@ -189,7 +188,7 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})

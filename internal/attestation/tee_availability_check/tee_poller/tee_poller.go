@@ -115,10 +115,8 @@ func (s *TeePollerService) sampleAllTees(
 	taskCh := make(chan task, len(activeTees.TeeIDs))
 	var wg sync.WaitGroup
 	workers := min(defaultWorkerCount, len(activeTees.TeeIDs))
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range workers {
+		wg.Go(func() {
 			defer func() {
 				if r := recover(); r != nil {
 					logger.Errorf("Worker recovered from panic: %v", r)
@@ -167,7 +165,7 @@ func (s *TeePollerService) sampleAllTees(
 					}
 				}
 			}
-		}()
+		})
 	}
 	for i, teeID := range activeTees.TeeIDs {
 		taskCh <- task{teeID: teeID, proxyURL: activeTees.URLs[i]}
@@ -228,8 +226,8 @@ func (s *TeePollerService) buildPollingList(ctx context.Context) (teeList, error
 		return teeList{}, fmt.Errorf("fetching extension 0 TEEs: %w", err)
 	}
 
-	cap := s.verifier.Cfg.MaxPolledTees
-	if cap <= 0 || cap <= len(ext0Tees.TeeIDs) {
+	maxTees := s.verifier.Cfg.MaxPolledTees
+	if maxTees <= 0 || maxTees <= len(ext0Tees.TeeIDs) {
 		// Cap disabled (0) or extension 0 already meets/exceeds cap — poll only extension 0.
 		return ext0Tees, nil
 	}
@@ -253,7 +251,7 @@ func (s *TeePollerService) buildPollingList(ctx context.Context) (teeList, error
 		TeeIDs: append([]common.Address{}, ext0Tees.TeeIDs...),
 		URLs:   append([]string{}, ext0Tees.URLs...),
 	}
-	remaining := cap - len(result.TeeIDs)
+	remaining := maxTees - len(result.TeeIDs)
 	for i, id := range allTees.TeeIDs {
 		if remaining <= 0 {
 			break
@@ -329,7 +327,7 @@ func (s *TeePollerService) getAllActiveTeesWithRetry(ctx context.Context) (teeLi
 }
 
 func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, baseURL string) (teenodetype.TeeInfoResponse, error) {
-	url := fmt.Sprintf("%s/info", baseURL)
+	url := baseURL + "/info"
 	resolved, err := verifier.ResolveExternalURL(ctx, baseURL, teeVerifier.Cfg.AllowPrivateNetworks)
 	if err != nil {
 		return teenodetype.TeeInfoResponse{}, err

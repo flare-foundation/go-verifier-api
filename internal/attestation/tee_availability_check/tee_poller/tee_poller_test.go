@@ -112,7 +112,7 @@ func TestSampleAllTees(t *testing.T) {
 			return verifiertypes.TeeSampleValid, nil
 		}
 		// Call multiple times to exceed SamplesToConsider
-		for i := 0; i < verifier.SamplesToConsider+2; i++ {
+		for range verifier.SamplesToConsider + 2 {
 			s.sampleAllTees(ctx, query)
 		}
 		v.SamplesMu.RLock()

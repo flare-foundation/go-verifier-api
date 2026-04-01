@@ -55,11 +55,11 @@ func (c *CRLCache) GetCRLsForToken(ctx context.Context, attestationToken string,
 
 	x5cs, ok := token.Header["x5c"]
 	if !ok {
-		return nil, nil, fmt.Errorf("x5c header missing from token")
+		return nil, nil, errors.New("x5c header missing from token")
 	}
 	x5cHeaders, ok := x5cs.([]any)
 	if !ok {
-		return nil, nil, fmt.Errorf("x5c header is not a slice")
+		return nil, nil, errors.New("x5c header is not a slice")
 	}
 
 	certs, err := googlecloud.ExtractCertificatesFromX5CHeader(x5cHeaders)
@@ -68,7 +68,7 @@ func (c *CRLCache) GetCRLsForToken(ctx context.Context, attestationToken string,
 	}
 
 	if expectedRoot != nil && !expectedRoot.Equal(certs.Root) {
-		return nil, nil, fmt.Errorf("token root certificate does not match trusted root")
+		return nil, nil, errors.New("token root certificate does not match trusted root")
 	}
 
 	type crlResult struct {
@@ -184,7 +184,11 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 	if err != nil {
 		return nil, err
 	}
-	return result.(*x509.RevocationList), nil
+	crl, ok := result.(*x509.RevocationList)
+	if !ok {
+		return nil, fmt.Errorf("unexpected singleflight result type: %T", result)
+	}
+	return crl, nil
 }
 
 // isEntryStale returns true if the entry has exceeded crlMaxCacheTTL or the CRL's NextUpdate has passed.

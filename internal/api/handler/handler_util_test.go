@@ -33,7 +33,7 @@ var (
 )
 
 func TestPrepareRequestBody(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
+	encodedAndABI := loadTestEncodedAndABI(t)
 	attBody := connector.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     testPublicKeys,
@@ -66,7 +66,7 @@ func TestPrepareRequestBody(t *testing.T) {
 }
 
 func TestResolve(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
+	encodedAndABI := loadTestEncodedAndABI(t)
 	attBodyInvalid := connector.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     [][]byte{}, // empty slice triggers "min=1" validation
@@ -125,7 +125,7 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 }
 
 func TestDecodeRequest(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
+	encodedAndABI := loadTestEncodedAndABI(t)
 	baseReqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     testPublicKeys,
@@ -150,7 +150,7 @@ func TestDecodeRequest(t *testing.T) {
 }
 
 func TestEncodeResponse(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
+	encodedAndABI := loadTestEncodedAndABI(t)
 	t.Run("valid", func(t *testing.T) {
 		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(types.PMWMultisigAccountStatusOK),
@@ -174,7 +174,7 @@ func TestEncodeResponse(t *testing.T) {
 }
 
 func TestEncodeRequest(t *testing.T) {
-	encodedAndABI := loadTestEncodedAndABI(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP)
+	encodedAndABI := loadTestEncodedAndABI(t)
 	t.Run("valid", func(t *testing.T) {
 		req := connector.IPMWMultisigAccountConfiguredRequestBody{
 			AccountAddress: testAccountAddress,
@@ -198,12 +198,13 @@ func TestEncodeRequest(t *testing.T) {
 	})
 }
 
-func loadTestEncodedAndABI(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) *config.EncodedAndABI {
+func loadTestEncodedAndABI(t *testing.T) *config.EncodedAndABI {
 	t.Helper()
+	attestationType := connector.PMWMultisigAccountConfigured
 	encodedAndABI, err := config.LoadEncodedAndABI(config.EnvConfig{
 		APIKeys:         nil,
 		AttestationType: attestationType,
-		SourceID:        sourceID,
+		SourceID:        config.SourceTestXRP,
 	})
 	require.NoError(t, err)
 	return &encodedAndABI
@@ -335,4 +336,3 @@ func TestClassifyVerifyError(t *testing.T) {
 		})
 	}
 }
-

@@ -431,7 +431,7 @@ func FetchTEEChallengeResult(
 		return zero, zeroAdd, err
 	}
 	if len(actionResp.Result.Data) == 0 {
-		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is empty")
+		return zero, zeroAdd, errors.New("TEE challenge result data is empty")
 	}
 	if !json.Valid(actionResp.Result.Data) {
 		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON: %q", actionResp.Result.Data)

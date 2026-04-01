@@ -30,8 +30,8 @@ type Client struct {
 }
 
 type request struct {
-	Method string        `json:"method"`
-	Params []interface{} `json:"params"`
+	Method string `json:"method"`
+	Params []any  `json:"params"`
 }
 
 func NewClient(url string) *Client {
@@ -41,8 +41,8 @@ func NewClient(url string) *Client {
 func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.AccountInfoResponse, error) {
 	req := request{
 		Method: "account_info",
-		Params: []interface{}{
-			map[string]interface{}{
+		Params: []any{
+			map[string]any{
 				"account":      account,
 				"ledger_index": "validated",
 				"signer_lists": true,

@@ -2,7 +2,6 @@ package server_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -39,7 +38,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	teeInfo, privTEEKey := helpers.GetTeeInfoResponse(t, contractChallenge)
 	// Set up a temporary HTTP server
 	handler := http.NewServeMux()
-	handler.HandleFunc(fmt.Sprintf("/action/result/%s", instructionId.Hex()[2:]), func(w http.ResponseWriter, r *http.Request) {
+	handler.HandleFunc("/action/result/"+instructionId.Hex()[2:], func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 
@@ -72,7 +71,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		Challenge:     contractChallenge,
 		InstructionId: instructionId,
 	}
-	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
+	desiredURL := setup.URL + "/prepareRequestBody"
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
 		reqData := helpers.TeeAvailabilityCheckRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
@@ -96,7 +95,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
-	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
+	desiredURL = setup.URL + "/prepareResponseBody"
 	t.Run("prepareResponseBody: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -141,7 +140,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.Equal(t, verifier.E2ETestCodeHash[:], response.ResponseData.CodeHash[:])
 		require.Equal(t, verifier.E2ETestPlatform[:], response.ResponseData.Platform[:])
 	})
-	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
+	desiredURL = setup.URL + "/verify"
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -201,7 +200,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.Equal(t, verifier.E2ETestPlatform[:], result.Platform[:])
 	})
 	t.Run("polledTees", func(t *testing.T) {
-		resp, err := helpers.Get(t, fmt.Sprintf("http://localhost:%s/poller/tees", setup.Port), setup.APIKey)
+		resp, err := helpers.Get(t, "http://localhost:"+setup.Port+"/poller/tees", setup.APIKey)
 		require.NoError(t, err)
 		require.NotEmpty(t, resp)
 

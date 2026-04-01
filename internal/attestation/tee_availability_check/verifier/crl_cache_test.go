@@ -22,9 +22,11 @@ import (
 )
 
 // createTestCRL creates a signed CRL issued by the given CA with the specified nextUpdate.
+//
+//nolint:unparam // test helper designed to accept revoked serials
 func createTestCRL(t *testing.T, issuer *x509.Certificate, issuerKey *rsa.PrivateKey, nextUpdate time.Time, revokedSerials ...*big.Int) []byte {
 	t.Helper()
-	var revoked []x509.RevocationListEntry
+	revoked := make([]x509.RevocationListEntry, 0, len(revokedSerials))
 	for _, serial := range revokedSerials {
 		revoked = append(revoked, x509.RevocationListEntry{
 			SerialNumber:   serial,
@@ -271,7 +273,7 @@ func TestGetOrFetchCRL(t *testing.T) {
 		const goroutines = 10
 		var wg sync.WaitGroup
 		wg.Add(goroutines)
-		for i := 0; i < goroutines; i++ {
+		for range goroutines {
 			go func() {
 				defer wg.Done()
 				crl, err := cache.getOrFetchCRL(context.Background(), "http://example.com/crl", caCert)
@@ -299,7 +301,7 @@ func TestGetOrFetchCRL(t *testing.T) {
 
 		oldestURL := "http://example.com/oldest.crl"
 		now := time.Now()
-		for i := 0; i < crlMaxEntries-1; i++ {
+		for i := range crlMaxEntries - 1 {
 			url := "http://example.com/crl/" + strconv.Itoa(i)
 			fetchedAt := now.Add(time.Duration(i) * time.Minute)
 			cache.entries[url] = &crlEntry{

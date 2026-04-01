@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	_ "embed"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -102,7 +103,7 @@ func LoadGoogleRootCert() (*x509.Certificate, error) {
 func loadGoogleRootCertFromBytes(data []byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(data)
 	if block == nil {
-		return nil, fmt.Errorf("cannot decode embedded Google root certificate: invalid PEM format")
+		return nil, errors.New("cannot decode embedded Google root certificate: invalid PEM format")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {

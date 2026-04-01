@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"testing"
@@ -53,7 +52,7 @@ func TestPMWFeeProof(t *testing.T) {
 	expectedEstimatedFee := big.NewInt(600)
 	expectedActualFee := big.NewInt(37)
 
-	desiredURL := fmt.Sprintf("%s/prepareRequestBody", setup.URL)
+	desiredURL := setup.URL + "/prepareRequestBody"
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
 		reqData := helpers.PMWFeeProofRequestBody(t, baseReqBody)
 		request := helpers.CreateAttestationRequestData(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqData)
@@ -77,7 +76,7 @@ func TestPMWFeeProof(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 
-	desiredURL = fmt.Sprintf("%s/prepareResponseBody", setup.URL)
+	desiredURL = setup.URL + "/prepareResponseBody"
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -103,7 +102,7 @@ func TestPMWFeeProof(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 
-	desiredURL = fmt.Sprintf("%s/verify", setup.URL)
+	desiredURL = setup.URL + "/verify"
 	t.Run("verify: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -217,7 +216,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.ToNonce = 99999
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, fmt.Sprintf("%s/prepareResponseBody", setup.URL), request, setup.APIKey) //nolint:bodyclose
+		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
