@@ -146,7 +146,7 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, verifiertypes.ErrInvalidInput):
 		return warnHuma422(reqID, msg, err)
 	// 503 — infrastructure errors (retry)
-	case errors.Is(err, client.ErrGetAccountInfo),
+	case errors.Is(err, client.ErrFetchAccountInfo),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, verifier.ErrInsufficientSamples),
 		errors.Is(err, verifiertypes.ErrNetwork),

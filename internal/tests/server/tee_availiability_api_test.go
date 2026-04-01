@@ -35,7 +35,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	instructionId := common.HexToHash("0x234234234")
 	privProxyKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
-	teeInfo, privTEEKey := helpers.GetTeeInfoResponse(t, contractChallenge)
+	teeInfo, privTEEKey := helpers.TeeInfoResponse(t, contractChallenge)
 	// Set up a temporary HTTP server
 	handler := http.NewServeMux()
 	handler.HandleFunc("/action/result/"+instructionId.Hex()[2:], func(w http.ResponseWriter, r *http.Request) {

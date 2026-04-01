@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetAccountInfo(t *testing.T) {
+func TestFetchAccountInfo(t *testing.T) {
 	expected := types.AccountInfoResponse{
 		Result: types.AccountInfoResult{
 			Status: "success",
@@ -91,7 +91,7 @@ func TestGetAccountInfo(t *testing.T) {
 				ctx = tt.ctx()
 			}
 
-			resp, err := client.GetAccountInfo(ctx, "rEXAMPLE")
+			resp, err := client.FetchAccountInfo(ctx, "rEXAMPLE")
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)

@@ -47,8 +47,8 @@ func cloneTransportConfig() *http.Transport {
 
 const maxResponseSize = 2 * 1024 * 1024 // 2MB
 
-// GetBytes fetches the given URL and returns the raw response body as bytes.
-func GetBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]byte, error) {
+// FetchBytes fetches the given URL and returns the raw response body as bytes.
+func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 
@@ -81,13 +81,13 @@ func GetBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]by
 	return data, nil
 }
 
-func GetJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
+func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
 	return getJSONWithClient[T](ctx, url, fetchTimeout, sharedHTTPClient, "")
 }
 
-// GetJSONPinned fetches JSON from url while pinning the connection to dialAddr (host:port).
+// FetchJSONPinned fetches JSON from url while pinning the connection to dialAddr (host:port).
 // hostHeader is used as the HTTP Host header; serverName is used for TLS SNI.
-func GetJSONPinned[T any](ctx context.Context, url string, fetchTimeout time.Duration, dialAddr, hostHeader, serverName string) (T, error) {
+func FetchJSONPinned[T any](ctx context.Context, url string, fetchTimeout time.Duration, dialAddr, hostHeader, serverName string) (T, error) {
 	transport := cloneTransportConfig()
 	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		dialer := &net.Dialer{Timeout: 10 * time.Second}

@@ -24,7 +24,7 @@ type PaymentService struct {
 }
 
 func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
-	cfg, err := config.GetPMWPaymentStatusConfig(envConfig)
+	cfg, err := config.LoadPMWPaymentStatusConfig(envConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load PMWPaymentStatus config: %w", err)
 	}
@@ -37,7 +37,7 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 		_ = db.CloseDB(dataBase)
 		return nil, fmt.Errorf("cannot connect to CChain DB: %w", err)
 	}
-	verifierImpl, err := pmwpaymentstatusverifier.GetVerifier(cfg, dataBase, cchainDB)
+	verifierImpl, err := pmwpaymentstatusverifier.NewVerifier(cfg, dataBase, cchainDB)
 	if err != nil {
 		_ = db.CloseDB(dataBase)
 		_ = db.CloseDB(cchainDB)
@@ -46,14 +46,14 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 	return &PaymentService{verifier: verifierImpl, config: cfg, db: dataBase, cdb: cchainDB}, nil
 }
 
-func (s *PaymentService) GetVerifier() attestation.Verifier[
+func (s *PaymentService) Verifier() attestation.Verifier[
 	connector.IPMWPaymentStatusRequestBody,
 	connector.IPMWPaymentStatusResponseBody,
 ] {
 	return s.verifier
 }
 
-func (s *PaymentService) GetConfig() *config.PMWPaymentStatusConfig {
+func (s *PaymentService) Config() *config.PMWPaymentStatusConfig {
 	return s.config
 }
 

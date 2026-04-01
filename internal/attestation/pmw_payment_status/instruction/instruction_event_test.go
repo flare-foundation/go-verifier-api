@@ -44,10 +44,10 @@ func encodeTestEvent(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPayme
 	return data
 }
 
-func TestGetTeeInstructionsSentEventSignature(t *testing.T) {
+func TestTeeInstructionsSentEventSignature(t *testing.T) {
 	t.Run("valid ABI returns event hash", func(t *testing.T) {
 		teeABI := loadTestABI(t)
-		hash, err := instruction.GetTeeInstructionsSentEventSignature(teeABI)
+		hash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
 		require.NotEmpty(t, hash)
 		require.True(t, strings.HasPrefix(hash, "0x"), "expected hex prefix")
@@ -55,7 +55,7 @@ func TestGetTeeInstructionsSentEventSignature(t *testing.T) {
 
 	t.Run("empty ABI returns error", func(t *testing.T) {
 		emptyABI := abi.ABI{}
-		_, err := instruction.GetTeeInstructionsSentEventSignature(emptyABI)
+		_, err := instruction.TeeInstructionsSentEventSignature(emptyABI)
 		require.ErrorContains(t, err, "ABI does not contain event")
 	})
 }

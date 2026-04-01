@@ -87,7 +87,7 @@ func TestVerifyFeeProof(t *testing.T) {
 		// Seed only the pay event, no transaction.
 		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, "rSender", nonce)
 		require.NoError(t, err)
-		eventHash, err := teeinstruction.GetTeeInstructionsSentEventSignature(teeABI)
+		eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
 
 		msg := payment.ITeePaymentsPaymentInstructionMessage{

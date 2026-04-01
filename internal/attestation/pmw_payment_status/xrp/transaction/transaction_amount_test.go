@@ -29,11 +29,11 @@ func TestGetStringField(t *testing.T) {
 	})
 }
 
-func TestGetReceivedAmount(t *testing.T) {
+func TestReceivedAmount(t *testing.T) {
 	t.Run("amount received 1", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000000)
 		expectedReceiver := "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
-		val, err := GetReceivedAmount(&helpers.PaymentTransaction0.MetaData)
+		val, err := ReceivedAmount(&helpers.PaymentTransaction0.MetaData)
 		require.NoError(t, err)
 		require.NotNil(t, val)
 		require.Equal(t, expectedAmount, val[0].Amount)
@@ -42,24 +42,24 @@ func TestGetReceivedAmount(t *testing.T) {
 	t.Run("amount received 2", func(t *testing.T) {
 		expectedAmount := big.NewInt(10000)
 		expectedReceiver := "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G"
-		val, err := GetReceivedAmount(&helpers.TransactionMeta1)
+		val, err := ReceivedAmount(&helpers.TransactionMeta1)
 		require.NoError(t, err)
 		require.NotNil(t, val)
 		require.Equal(t, expectedAmount, val[0].Amount)
 		require.Equal(t, expectedReceiver, val[0].Address)
 	})
 	t.Run("expect error", func(t *testing.T) {
-		val, err := GetReceivedAmount(nil)
+		val, err := ReceivedAmount(nil)
 		require.ErrorContains(t, err, "transaction meta is not available, thus received amounts cannot be calculated")
 		require.Nil(t, val)
 	})
 	t.Run("expect error 2", func(t *testing.T) {
-		val, err := GetReceivedAmount(&helpers.TransactionMeta0_error0)
+		val, err := ReceivedAmount(&helpers.TransactionMeta0_error0)
 		require.ErrorContains(t, err, "invalid final balance format")
 		require.Nil(t, val)
 	})
 	t.Run("expect error 3", func(t *testing.T) {
-		val, err := GetReceivedAmount(&helpers.PaymentTransaction0_error0.MetaData)
+		val, err := ReceivedAmount(&helpers.PaymentTransaction0_error0.MetaData)
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode")
 		require.Nil(t, val)
 	})

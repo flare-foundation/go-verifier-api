@@ -164,7 +164,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 	config.ClearPMWMultisigAccountConfiguredConfigForTest()
 	setup := server.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
-		RPCURL: "http://localhost:1", // Unreachable RPC URL to trigger ErrGetAccountInfo.
+		RPCURL: "http://localhost:1", // Unreachable RPC URL to trigger ErrFetchAccountInfo.
 	})
 	defer setup.Stop()
 

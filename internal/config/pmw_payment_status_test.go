@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadPMWPaymentStatusConfigError(t *testing.T) {
+func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := config.EnvConfig{
 			SourceID:        config.SourceTEE,
 			AttestationType: "UnknownType",
 		}
-		cfg, err := config.LoadPMWPaymentStatusConfig(envConfig)
+		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
 	})
@@ -24,7 +24,7 @@ func TestLoadPMWPaymentStatusConfigError(t *testing.T) {
 			SourceDatabaseURL: "URL",
 			CChainDatabaseURL: "URL",
 		}
-		cfg, err := config.LoadPMWPaymentStatusConfig(envConfig)
+		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "no ABI struct names defined for attestation type UnknownType")
 	})

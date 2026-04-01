@@ -10,7 +10,7 @@ import (
 )
 
 func FindReceivedAmountForAddress(meta *types.TransactionMetaData, receiver string) (*big.Int, error) {
-	receivedAmounts, err := GetReceivedAmount(meta)
+	receivedAmounts, err := ReceivedAmount(meta)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func FindReceivedAmountForAddress(meta *types.TransactionMetaData, receiver stri
 	return big.NewInt(0), nil
 }
 
-func GetReceivedAmount(meta *types.TransactionMetaData) ([]types.AddressAmount, error) {
+func ReceivedAmount(meta *types.TransactionMetaData) ([]types.AddressAmount, error) {
 	if meta == nil {
 		return nil, errors.New("transaction meta is not available, thus received amounts cannot be calculated")
 	}

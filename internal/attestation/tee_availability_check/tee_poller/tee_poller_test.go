@@ -568,7 +568,7 @@ func TestBuildPollingList(t *testing.T) {
 func makeTeeInfoServer(t *testing.T, challenge common.Hash, failSigningPolicy bool, notFound bool) (*httptest.Server, *ecdsa.PrivateKey) {
 	t.Helper()
 	handler := http.NewServeMux()
-	resp, privKey := helpers.GetTeeInfoResponse(t, challenge)
+	resp, privKey := helpers.TeeInfoResponse(t, challenge)
 	if notFound {
 		handler.HandleFunc("/info", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)

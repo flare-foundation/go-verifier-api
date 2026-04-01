@@ -87,7 +87,7 @@ func TestLoadPaymentStatusDBConcurrentReads(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				start := time.Now()
-				_, err := repo.GetTransactionBySourceAndSequence(context.Background(),
+				_, err := repo.FetchTransactionBySourceAndSequence(context.Background(),
 					ChainQuery{SourceAddress: "rSender", Nonce: 42})
 				elapsed := time.Since(start)
 				results[idx] = callResult{err: err, elapsed: elapsed}
@@ -129,7 +129,7 @@ func TestLoadPaymentStatusDBMissingRecord(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		go func(idx int) {
 			defer wg.Done()
-			_, err := repo.GetTransactionBySourceAndSequence(context.Background(),
+			_, err := repo.FetchTransactionBySourceAndSequence(context.Background(),
 				ChainQuery{SourceAddress: "nonexistent", Nonce: 999})
 			results[idx] = callResult{err: err}
 		}(i)
@@ -164,7 +164,7 @@ func TestLoadPaymentStatusDBClosedConnection(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		go func(idx int) {
 			defer wg.Done()
-			_, err := repo.GetTransactionBySourceAndSequence(context.Background(),
+			_, err := repo.FetchTransactionBySourceAndSequence(context.Background(),
 				ChainQuery{SourceAddress: "addr", Nonce: 1})
 			results[idx] = callResult{err: err}
 		}(i)

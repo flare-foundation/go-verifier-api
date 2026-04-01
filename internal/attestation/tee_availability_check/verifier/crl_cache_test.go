@@ -322,7 +322,7 @@ func TestGetOrFetchCRL(t *testing.T) {
 	})
 }
 
-func TestGetCRLsForToken(t *testing.T) {
+func TestFetchCRLsForToken(t *testing.T) {
 	t.Run("full flow with CRL distribution points", func(t *testing.T) {
 		leafCRLURL := "http://example.com/leaf.crl"
 		intermediateCRLURL := "http://example.com/intermediate.crl"
@@ -350,7 +350,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.NoError(t, err)
 		require.NotNil(t, leafCRL)
 		require.NotNil(t, intermediateCRL)
@@ -367,7 +367,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.NoError(t, err)
 		require.Nil(t, leafCRL)
 		require.Nil(t, intermediateCRL)
@@ -386,7 +386,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.ErrorContains(t, err, "fetching leaf CRL failed for all distribution points")
 		require.Nil(t, leafCRL)
 		require.Nil(t, intermediateCRL)
@@ -405,7 +405,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.ErrorContains(t, err, "fetching intermediate CRL failed for all distribution points")
 		require.Nil(t, leafCRL)
 		require.Nil(t, intermediateCRL)
@@ -424,7 +424,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.Error(t, err)
 		// Either leaf or intermediate error is returned (leaf checked first)
 		errMsg := err.Error()
@@ -465,7 +465,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.NoError(t, err)
 		require.NotNil(t, leafCRL)
 		require.NotNil(t, intermediateCRL)
@@ -496,7 +496,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.NoError(t, err)
 		require.NotNil(t, leafCRL)
 		require.Nil(t, intermediateCRL)
@@ -515,7 +515,7 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), signedToken, nil)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
 		require.ErrorContains(t, err, "fetching leaf CRL failed for all distribution points")
 		require.ErrorContains(t, err, "http://example.com/a.crl")
 		require.ErrorContains(t, err, "http://example.com/c.crl")
@@ -535,13 +535,13 @@ func TestGetCRLsForToken(t *testing.T) {
 			},
 		}
 
-		_, _, err := cache.GetCRLsForToken(context.Background(), signedToken, wrongRoot)
+		_, _, err := cache.FetchCRLsForToken(context.Background(), signedToken, wrongRoot)
 		require.ErrorContains(t, err, "token root certificate does not match trusted root")
 	})
 
 	t.Run("invalid token", func(t *testing.T) {
 		cache := NewCRLCache()
-		_, _, err := cache.GetCRLsForToken(context.Background(), "not-a-jwt", nil)
+		_, _, err := cache.FetchCRLsForToken(context.Background(), "not-a-jwt", nil)
 		require.ErrorContains(t, err, "parsing unverified token")
 	})
 }

@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadPMWMultisigAccountConfiguredConfigError(t *testing.T) {
+func TestBuildPMWMultisigAccountConfiguredConfigError(t *testing.T) {
 	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := config.EnvConfig{
 			SourceID:        config.SourceTEE,
 			AttestationType: "UnknownType",
 		}
-		cfg, err := config.LoadPMWMultisigAccountConfiguredConfig(envConfig)
+		cfg, err := config.BuildPMWMultisigAccountConfiguredConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "missing environment variables: RPC_URL")
 	})
@@ -23,7 +23,7 @@ func TestLoadPMWMultisigAccountConfiguredConfigError(t *testing.T) {
 			AttestationType: "UnknownType",
 			RPCURL:          "URL",
 		}
-		cfg, err := config.LoadPMWMultisigAccountConfiguredConfig(envConfig)
+		cfg, err := config.BuildPMWMultisigAccountConfiguredConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "no ABI struct names defined for attestation type UnknownType")
 	})

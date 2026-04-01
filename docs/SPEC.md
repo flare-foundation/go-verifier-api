@@ -99,7 +99,7 @@ All responses get:
 ### Important note
 The `verify` and `prepareResponseBody` handlers classify verifier failures via `classifyVerifyError`:
 - `422 Unprocessable Entity` for XRP RPC non-success status (e.g., account not found) — `ErrRPCNonSuccess`.
-- `503 Service Unavailable` for XRP RPC network/transport failures — `ErrGetAccountInfo`.
+- `503 Service Unavailable` for XRP RPC network/transport failures — `ErrFetchAccountInfo`.
 - `500 Internal Server Error` for all other verifier errors.
 
 ## 6. Configuration Specification
@@ -230,7 +230,7 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 - **CRL issuer verification at fetch time**: after parsing, `crl.CheckSignatureFrom(issuer)` is called before caching. A CRL signed by a different CA is rejected and the next distribution point is tried.
 - **Singleflight deduplication**: concurrent requests for the same CRL URL are deduplicated via `singleflight.Group` — only one HTTP fetch per URL, others wait for the result. This avoids redundant fetches when multiple data providers hit the verifier simultaneously.
 - A **CRL cache** (keyed by URL, guarded by `sync.RWMutex`) avoids re-fetching on every verify call. Cached entries are considered fresh when all of: (1) less than `crlMaxCacheTTL` (4 hours) has elapsed since fetch, (2) the CRL's `NextUpdate` is not zero, and (3) `NextUpdate` has not passed. CRLs with a zero `NextUpdate` are always re-fetched. The TTL cap prevents stale cache when a CA publishes a new CRL (e.g. emergency revocation) before the old `NextUpdate`.
-- On cache miss or stale entry, the CRL is fetched inline via `fetcher.GetBytes` (timeout: `2s`). The response is PEM-decoded if PEM-encoded (Google Cloud CRL endpoints return PEM), otherwise treated as raw DER, then parsed with `x509.ParseRevocationList`.
+- On cache miss or stale entry, the CRL is fetched inline via `fetcher.FetchBytes` (timeout: `2s`). The response is PEM-decoded if PEM-encoded (Google Cloud CRL endpoints return PEM), otherwise treated as raw DER, then parsed with `x509.ParseRevocationList`.
 - Eviction: when the cache reaches `crlMaxEntries` (100), stale entries are purged; if still at capacity, the oldest entry is evicted to enforce the cap.
 - The CRL cache is added to the shutdown closers for graceful cleanup (`CRLCache.Close()` clears the map).
 - Note: Google CA Service only inserts the CRL Distribution Point (CDP) extension when CRL publication is enabled (`publish_crl` per-CA-pool setting); certs issued while CRL publication is disabled may have no CDP, so revocation checking must proceed without a CRL URL. Currently, the intermediate cert has a CDP but the leaf cert does not (no OCSP either). Google does not document or recommend CRL/OCSP checking for Confidential Space — their sample PKI token validation code only covers chain verification, root pinning, and signature checks.
@@ -357,7 +357,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
   - PMWPaymentStatus/PMWFeeProof data corruption (ABI decode, JSON unmarshal, malformed transaction data)
   - fallback for unexpected verifier errors (should not occur for PMWMultisig in practice)
 - `503 Service Unavailable`:
-  - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrGetAccountInfo` (PMWMultisig)
+  - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrFetchAccountInfo` (PMWMultisig)
   - database infrastructure failure (connection, timeout) — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
   - insufficient poller samples to determine TEE status — `ErrInsufficientSamples` (TEE)
   - network errors from RPC calls — `ErrNetwork` (TEE)
@@ -367,7 +367,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
   - HTTP request or non-OK status from TEE proxy — `ErrHTTPFetch` (TEE)
   - TEE action/result returned 404 (result not yet available in Redis) — `ErrActionResultNotFound` (TEE)
 
-PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrGetAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`. PMWPaymentStatus verify errors are classified into `422` (`ErrRecordNotFound`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). PMWFeeProof verify errors are classified into `400` (`ErrNonceRangeTooLarge`), `422` (`ErrMissingPayEvent`, `ErrMissingTransaction`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). TEE verify errors are classified into `422` (data validation), `503` (infrastructure/retry), or `500` (URL validation, JSON decode, unexpected errors).
+PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503` (`ErrFetchAccountInfo`); the `500` default branch exists as a defensive fallback but is not reachable under normal operation. Note that PMWMultisig validation failures (wrong signers, wrong flags, etc.) do not return an HTTP error — they return a `200` response with `status=ERROR`. PMWPaymentStatus verify errors are classified into `422` (`ErrRecordNotFound`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). PMWFeeProof verify errors are classified into `400` (`ErrNonceRangeTooLarge`), `422` (`ErrMissingPayEvent`, `ErrMissingTransaction`), `503` (`ErrDatabase`), or `500` (data corruption/unexpected errors). TEE verify errors are classified into `422` (data validation), `503` (infrastructure/retry), or `500` (URL validation, JSON decode, unexpected errors).
 
 ## 10. Concurrency and State
 - TEE `Verify` runs `DataVerification` and `CheckSigningPolicies` in parallel goroutines after the challenge fetch.

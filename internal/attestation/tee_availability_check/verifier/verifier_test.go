@@ -137,7 +137,7 @@ func TestCheckInfoChallenge(t *testing.T) {
 	})
 }
 
-func TestGetSigningPolicyHashFromChain(t *testing.T) {
+func TestFetchSigningPolicyHashFromChain(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &verifier.TeeVerifier{
@@ -147,7 +147,7 @@ func TestGetSigningPolicyHashFromChain(t *testing.T) {
 		var hashBytes [32]byte
 		copy(hashBytes[:], expectedHash.Bytes())
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(42)).Return(hashBytes, nil)
-		hash, _, err := v.GetSigningPolicyHashFromChain(context.Background(), 42)
+		hash, _, err := v.FetchSigningPolicyHashFromChain(context.Background(), 42)
 		require.NoError(t, err)
 		require.Equal(t, expectedHash, hash)
 		mockRelay.AssertExpectations(t)
@@ -158,13 +158,13 @@ func TestGetSigningPolicyHashFromChain(t *testing.T) {
 			RelayCaller: mockRelay,
 		}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
-		_, _, err := v.GetSigningPolicyHashFromChain(context.Background(), 99)
+		_, _, err := v.FetchSigningPolicyHashFromChain(context.Background(), 99)
 		require.ErrorContains(t, err, "ToSigningPolicyHash: unknown error")
 		mockRelay.AssertExpectations(t)
 	})
 }
 
-func TestGetSigningPolicyHashFromChainWithRetry(t *testing.T) {
+func TestFetchSigningPolicyHashFromChainWithRetry(t *testing.T) {
 	expectedHash := common.HexToHash("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 	var hashBytes [32]byte
 	copy(hashBytes[:], expectedHash.Bytes())
@@ -175,7 +175,7 @@ func TestGetSigningPolicyHashFromChainWithRetry(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(42)).Return(hashBytes, nil)
-		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(context.Background(), 42, maxAttempts, delay)
+		hash, state, err := v.FetchSigningPolicyHashFromChainWithRetry(context.Background(), 42, maxAttempts, delay)
 		require.NoError(t, err)
 		require.Equal(t, verifiertypes.TeeSampleValid, state)
 		require.Equal(t, expectedHash, hash)
@@ -195,7 +195,7 @@ func TestGetSigningPolicyHashFromChainWithRetry(t *testing.T) {
 					mockRelay.ExpectedCalls[0].ReturnArguments = mock.Arguments{hashBytes, nil}
 				}
 			})
-		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(context.Background(), 43, maxAttempts, delay)
+		hash, state, err := v.FetchSigningPolicyHashFromChainWithRetry(context.Background(), 43, maxAttempts, delay)
 		require.NoError(t, err)
 		require.Equal(t, verifiertypes.TeeSampleValid, state)
 		require.Equal(t, expectedHash, hash)
@@ -206,8 +206,8 @@ func TestGetSigningPolicyHashFromChainWithRetry(t *testing.T) {
 		mockRelay := &MockRelayCaller{}
 		v := &verifier.TeeVerifier{RelayCaller: mockRelay}
 		mockRelay.On("ToSigningPolicyHash", mock.Anything, big.NewInt(99)).Return([32]byte{}, errors.New("rpc error"))
-		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(context.Background(), 99, maxAttempts, delay)
-		require.ErrorContains(t, err, "getSigningPolicyHashFromChainWithRetry failed after 2 attempts: ToSigningPolicyHash: unknown error")
+		hash, state, err := v.FetchSigningPolicyHashFromChainWithRetry(context.Background(), 99, maxAttempts, delay)
+		require.ErrorContains(t, err, "fetchSigningPolicyHashFromChainWithRetry failed after 2 attempts: ToSigningPolicyHash: unknown error")
 		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 		require.Equal(t, common.Hash{}, hash)
 		mockRelay.AssertExpectations(t)
@@ -467,7 +467,7 @@ func TestDataVerification(t *testing.T) {
 		require.Equal(t, verifier.E2ETestPlatform, res.Platform)
 	})
 	t.Run("success", func(t *testing.T) {
-		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
 		teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
 		require.NoError(t, err)
 		baseClaims := &googlecloud.GoogleTeeClaims{
@@ -502,7 +502,7 @@ func TestDataVerification(t *testing.T) {
 		require.Equal(t, verifier.E2ETestPlatform, resp.Platform)
 	})
 	t.Run("invalid claims", func(t *testing.T) {
-		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",
@@ -523,7 +523,7 @@ func TestDataVerification(t *testing.T) {
 		require.ErrorContains(t, err, "cannot validate claims: expected exactly one EATNonce, got 0")
 	})
 	t.Run("expected tee different", func(t *testing.T) {
-		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",
@@ -544,7 +544,7 @@ func TestDataVerification(t *testing.T) {
 		require.ErrorContains(t, err, fmt.Sprintf("expected TEE ID %s, got: %s", common.HexToAddress("0x123"), crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
 	t.Run("cannot retrieve address from public key", func(t *testing.T) {
-		teeInfoResponse, _ := helpers.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, _ := helpers.TeeInfoResponse(t, challengeHash)
 		teeInfoResponse.TeeInfo.PublicKey.X = common.HexToHash("0x1")
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
@@ -640,7 +640,7 @@ func TestVerify(t *testing.T) {
 	})
 	t.Run("signing policy check fails", func(t *testing.T) {
 		challengeHash := common.HexToHash("123")
-		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
 		teeInfoResponse.TeeInfo.InitialSigningPolicyID = 3000 // invalid signing policy ID
 		teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
 		require.NoError(t, err)
@@ -700,7 +700,7 @@ func TestVerify(t *testing.T) {
 	})
 	t.Run("data verification fails", func(t *testing.T) {
 		challengeHash := common.HexToHash("123")
-		teeInfoResponse, privTEEKey := helpers.GetTeeInfoResponse(t, challengeHash)
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
 		baseClaims := &googlecloud.GoogleTeeClaims{
 			HWModel: "GCP_INTEL_TDX",
 			SWName:  "CONFIDENTIAL_SPACE",

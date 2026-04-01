@@ -24,7 +24,7 @@ type FeeProofService struct {
 }
 
 func NewFeeProofService(envConfig config.EnvConfig) (*FeeProofService, error) {
-	cfg, err := config.GetPMWFeeProofConfig(envConfig)
+	cfg, err := config.LoadPMWFeeProofConfig(envConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load PMWFeeProof config: %w", err)
 	}
@@ -37,7 +37,7 @@ func NewFeeProofService(envConfig config.EnvConfig) (*FeeProofService, error) {
 		_ = paymentdb.CloseDB(dataBase)
 		return nil, fmt.Errorf("cannot connect to CChain DB: %w", err)
 	}
-	verifierImpl, err := feeproofverifier.GetVerifier(cfg, dataBase, cchainDB)
+	verifierImpl, err := feeproofverifier.NewVerifier(cfg, dataBase, cchainDB)
 	if err != nil {
 		_ = paymentdb.CloseDB(dataBase)
 		_ = paymentdb.CloseDB(cchainDB)
@@ -46,14 +46,14 @@ func NewFeeProofService(envConfig config.EnvConfig) (*FeeProofService, error) {
 	return &FeeProofService{verifier: verifierImpl, config: cfg, db: dataBase, cdb: cchainDB}, nil
 }
 
-func (s *FeeProofService) GetVerifier() attestation.Verifier[
+func (s *FeeProofService) Verifier() attestation.Verifier[
 	connector.IPMWFeeProofRequestBody,
 	connector.IPMWFeeProofResponseBody,
 ] {
 	return s.verifier
 }
 
-func (s *FeeProofService) GetConfig() *config.PMWFeeProofConfig {
+func (s *FeeProofService) Config() *config.PMWFeeProofConfig {
 	return s.config
 }
 

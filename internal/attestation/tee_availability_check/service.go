@@ -15,7 +15,7 @@ type TeeAvailabilityService struct {
 }
 
 func NewTeeAvailabilityService(envConfig config.EnvConfig) (*TeeAvailabilityService, error) {
-	cfg, err := config.GetTeeAvailabilityCheckConfig(envConfig)
+	cfg, err := config.LoadTeeAvailabilityCheckConfig(envConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load TeeAvailabilityCheck config: %w", err)
 	}
@@ -27,13 +27,13 @@ func NewTeeAvailabilityService(envConfig config.EnvConfig) (*TeeAvailabilityServ
 	return &TeeAvailabilityService{verifier: verifier, config: cfg}, nil
 }
 
-func (s *TeeAvailabilityService) GetVerifier() attestation.Verifier[
+func (s *TeeAvailabilityService) Verifier() attestation.Verifier[
 	connector.ITeeAvailabilityCheckRequestBody,
 	connector.ITeeAvailabilityCheckResponseBody,
 ] {
 	return s.verifier
 }
 
-func (s *TeeAvailabilityService) GetConfig() *config.TeeAvailabilityCheckConfig {
+func (s *TeeAvailabilityService) Config() *config.TeeAvailabilityCheckConfig {
 	return s.config
 }

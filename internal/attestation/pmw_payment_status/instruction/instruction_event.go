@@ -15,7 +15,7 @@ import (
 
 const EventNameTeeInstructionsSent = "TeeInstructionsSent"
 
-func GetTeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
+func TeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 	event, exists := abiDef.Events[EventNameTeeInstructionsSent]
 	if !exists {
 		return "", fmt.Errorf("ABI does not contain event %s", EventNameTeeInstructionsSent)

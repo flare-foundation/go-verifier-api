@@ -271,8 +271,8 @@ func TestClassifyVerifyError(t *testing.T) {
 		},
 		// 503 — PMW infrastructure errors
 		{
-			name:           "ErrGetAccountInfo",
-			err:            fmt.Errorf("account info failed: %w", client.ErrGetAccountInfo),
+			name:           "ErrFetchAccountInfo",
+			err:            fmt.Errorf("account info failed: %w", client.ErrFetchAccountInfo),
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{

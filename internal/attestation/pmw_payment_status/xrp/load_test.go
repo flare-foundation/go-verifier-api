@@ -159,7 +159,7 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 		Config: cfg,
 	}
 
-	eventHash, err := instruction.GetTeeInstructionsSentEventSignature(teeABI)
+	eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 	if err != nil {
 		t.Fatal(err)
 	}

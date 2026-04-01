@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadTeeAvailabilityCheckConfigError(t *testing.T) {
+func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:        SourceTEE,
 			AttestationType: "UnknownType",
 		}
-		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS, RPC_URL")
 	})
@@ -26,13 +26,13 @@ func TestLoadTeeAvailabilityCheckConfigError(t *testing.T) {
 			TeeMachineRegistryContractAddress: "URL",
 			RPCURL:                            "URL",
 		}
-		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "no ABI struct names defined for attestation type UnknownType")
 	})
 }
 
-func TestLoadTeeAvailabilityCheckConfigSuccess(t *testing.T) {
+func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                          SourceTEE,
@@ -41,7 +41,7 @@ func TestLoadTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			TeeMachineRegistryContractAddress: "0x5678",
 			RPCURL:                            "https://rpc.example.com",
 		}
-		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 		require.False(t, cfg.AllowTeeDebug)
@@ -61,7 +61,7 @@ func TestLoadTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			RPCURL:                            "https://rpc.example.com",
 			AllowPrivateNetworks:              "true",
 		}
-		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 		require.True(t, cfg.AllowPrivateNetworks)
@@ -77,7 +77,7 @@ func TestLoadTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			DisableAttestationCheckE2E:        "true",
 			AllowPrivateNetworks:              "true",
 		}
-		cfg, err := LoadTeeAvailabilityCheckConfig(envConfig)
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 		require.True(t, cfg.AllowTeeDebug)

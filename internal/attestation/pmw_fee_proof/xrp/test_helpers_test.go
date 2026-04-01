@@ -87,7 +87,7 @@ func setupFeeProofFixture(t *testing.T, dbName string, nonces []uint64, maxFees 
 	opType := common.HexToHash("0xAA")
 	senderAddress := "rSender"
 
-	eventHash, err := teeinstruction.GetTeeInstructionsSentEventSignature(teeABI)
+	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,14 +18,14 @@ var (
 	errTeeAvailabilityCheckConfig  error
 )
 
-func GetTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckConfig, error) {
+func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckConfig, error) {
 	teeAvailabilityCheckConfigOnce.Do(func() {
-		teeAvailabilityCheckConfig, errTeeAvailabilityCheckConfig = LoadTeeAvailabilityCheckConfig(envConfig)
+		teeAvailabilityCheckConfig, errTeeAvailabilityCheckConfig = BuildTeeAvailabilityCheckConfig(envConfig)
 	})
 	return teeAvailabilityCheckConfig, errTeeAvailabilityCheckConfig
 }
 
-func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckConfig, error) {
+func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckConfig, error) {
 	err := CheckMissingFields(envConfig, []string{
 		EnvRelayContractAddress,
 		EnvTeeMachineRegistryContractAddress,

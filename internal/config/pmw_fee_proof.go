@@ -15,14 +15,14 @@ var (
 	errPmwFeeProofConfig  error
 )
 
-func GetPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
+func LoadPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 	pmwFeeProofConfigOnce.Do(func() {
-		pmwFeeProofConfig, errPmwFeeProofConfig = LoadPMWFeeProofConfig(envConfig)
+		pmwFeeProofConfig, errPmwFeeProofConfig = BuildPMWFeeProofConfig(envConfig)
 	})
 	return pmwFeeProofConfig, errPmwFeeProofConfig
 }
 
-func LoadPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
+func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL})
 	if err != nil {
 		return nil, err

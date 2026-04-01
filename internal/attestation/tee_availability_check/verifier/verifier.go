@@ -230,7 +230,7 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	var leafCRL, intermediateCRL *x509.RevocationList
 	if v.CRLCache != nil {
 		var crlErr error
-		leafCRL, intermediateCRL, crlErr = v.CRLCache.GetCRLsForToken(ctx, string(attestationToken), v.Cfg.GoogleRootCertificate)
+		leafCRL, intermediateCRL, crlErr = v.CRLCache.FetchCRLsForToken(ctx, string(attestationToken), v.Cfg.GoogleRootCertificate)
 		if crlErr != nil {
 			return StatusInfo{}, fmt.Errorf("CRL fetch failed: %w", crlErr)
 		}
@@ -267,11 +267,11 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 	lastSigningCh := make(chan result, 1)
 	// Fetch policies
 	go func() {
-		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID, chainMaxAttempts, chainRetryDelay)
+		hash, state, err := v.FetchSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID, chainMaxAttempts, chainRetryDelay)
 		initialSigningCh <- result{hash, state, err}
 	}()
 	go func() {
-		hash, state, err := v.GetSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID, chainMaxAttempts, chainRetryDelay)
+		hash, state, err := v.FetchSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID, chainMaxAttempts, chainRetryDelay)
 		lastSigningCh <- result{hash, state, err}
 	}()
 	// Wait for results
@@ -294,7 +294,7 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 	return verifiertypes.TeeSampleValid, nil
 }
 
-func (v *TeeVerifier) GetSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, verifiertypes.TeeSampleState, error) {
+func (v *TeeVerifier) FetchSigningPolicyHashFromChain(ctx context.Context, signingPolicyID uint32) (common.Hash, verifiertypes.TeeSampleState, error) {
 	ctx, cancel := context.WithTimeout(ctx, chainFetchTimeout)
 	defer cancel()
 	callOpts := &bind.CallOpts{
@@ -310,7 +310,7 @@ func (v *TeeVerifier) GetSigningPolicyHashFromChain(ctx context.Context, signing
 	return common.Hash(signingPolicyHashBytes), verifiertypes.TeeSampleValid, nil
 }
 
-func (v *TeeVerifier) GetSigningPolicyHashFromChainWithRetry(
+func (v *TeeVerifier) FetchSigningPolicyHashFromChainWithRetry(
 	ctx context.Context,
 	signingPolicyID uint32,
 	maxAttempts int,
@@ -325,7 +325,7 @@ func (v *TeeVerifier) GetSigningPolicyHashFromChainWithRetry(
 		maxAttempts,
 		delay,
 		func() (struct{}, error) {
-			h, state, err := v.GetSigningPolicyHashFromChain(ctx, signingPolicyID)
+			h, state, err := v.FetchSigningPolicyHashFromChain(ctx, signingPolicyID)
 			if err != nil {
 				finalState = state
 				return struct{}{}, err
@@ -340,7 +340,7 @@ func (v *TeeVerifier) GetSigningPolicyHashFromChainWithRetry(
 	)
 	if err != nil {
 		return common.Hash{}, finalState, fmt.Errorf(
-			"getSigningPolicyHashFromChainWithRetry failed after %d attempts: %w",
+			"fetchSigningPolicyHashFromChainWithRetry failed after %d attempts: %w",
 			maxAttempts, err,
 		)
 	}
@@ -423,7 +423,7 @@ func FetchTEEChallengeResult(
 		return zero, zeroAdd, err
 	}
 	dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
-	actionResp, err := fetcher.GetJSONPinned[teenodetypes.ActionResponse](ctx, url, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
+	actionResp, err := fetcher.FetchJSONPinned[teenodetypes.ActionResponse](ctx, url, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
 	if err != nil {
 		if errors.Is(err, fetcher.ErrNotFound) {
 			return zero, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)

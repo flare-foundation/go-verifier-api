@@ -15,14 +15,14 @@ var (
 	errPmwPaymentStatusConfig  error
 )
 
-func GetPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
+func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
 	pmwPaymentStatusConfigOnce.Do(func() {
-		pmwPaymentStatusConfig, errPmwPaymentStatusConfig = LoadPMWPaymentStatusConfig(envConfig)
+		pmwPaymentStatusConfig, errPmwPaymentStatusConfig = BuildPMWPaymentStatusConfig(envConfig)
 	})
 	return pmwPaymentStatusConfig, errPmwPaymentStatusConfig
 }
 
-func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
+func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
 	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL})
 	if err != nil {
 		return nil, err

@@ -116,23 +116,23 @@ func TestFetchJSON(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		ctx := context.Background()
-		result, err := fetcher.GetJSON[testStruct](ctx, server.URL+"/ok", 50*time.Millisecond)
+		result, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/ok", 50*time.Millisecond)
 		require.NoError(t, err)
 		require.Equal(t, testStruct{Foo: "hello", Bar: 42}, result)
 	})
 	t.Run("not found", func(t *testing.T) {
 		ctx := context.Background()
-		_, err := fetcher.GetJSON[testStruct](ctx, server.URL+"/notfound", 50*time.Millisecond)
+		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/notfound", 50*time.Millisecond)
 		require.ErrorIs(t, err, fetcher.ErrNotFound)
 	})
 	t.Run("unexpected status code", func(t *testing.T) {
 		ctx := context.Background()
-		_, err := fetcher.GetJSON[testStruct](ctx, server.URL+"/unexpected", 50*time.Millisecond)
+		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/unexpected", 50*time.Millisecond)
 		require.ErrorContains(t, err, "unexpected status code")
 	})
 	t.Run("bad json", func(t *testing.T) {
 		ctx := context.Background()
-		_, err := fetcher.GetJSON[testStruct](ctx, server.URL+"/badjson", 50*time.Millisecond)
+		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/badjson", 50*time.Millisecond)
 		require.ErrorContains(t, err, "decoding JSON from http://127.0.0.1")
 		require.ErrorContains(t, err, "failed for type types_test.testStruct")
 	})
@@ -147,18 +147,18 @@ func TestFetchJSON(t *testing.T) {
 		defer slowServer.Close()
 
 		ctx := context.Background()
-		_, err := fetcher.GetJSON[testStruct](ctx, slowServer.URL+"/slow", 50*time.Millisecond)
+		_, err := fetcher.FetchJSON[testStruct](ctx, slowServer.URL+"/slow", 50*time.Millisecond)
 		require.Contains(t, err.Error(), "context deadline exceeded")
 	})
 	t.Run("context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err := fetcher.GetJSON[testStruct](ctx, server.URL+"/ok", 50*time.Millisecond)
+		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/ok", 50*time.Millisecond)
 		require.ErrorContains(t, err, "context canceled")
 	})
 	t.Run("malformed URL causes request creation failure", func(t *testing.T) {
 		ctx := context.Background()
-		_, err := fetcher.GetJSON[testStruct](ctx, "http://%41:8080", 50*time.Millisecond)
+		_, err := fetcher.FetchJSON[testStruct](ctx, "http://%41:8080", 50*time.Millisecond)
 		require.ErrorContains(t, err, "failed to create HTTP request")
 	})
 	t.Run("FetchError methods", func(t *testing.T) {
@@ -183,7 +183,7 @@ func TestFetchJSON(t *testing.T) {
 		defer bigServer.Close()
 
 		ctx := context.Background()
-		_, err := fetcher.GetJSON[testStruct](ctx, bigServer.URL, 1*time.Second)
+		_, err := fetcher.FetchJSON[testStruct](ctx, bigServer.URL, 1*time.Second)
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decoding JSON from")

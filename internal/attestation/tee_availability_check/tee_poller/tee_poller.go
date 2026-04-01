@@ -333,7 +333,7 @@ func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, ba
 		return teenodetype.TeeInfoResponse{}, err
 	}
 	dialAddr, hostHeader, serverName := verifier.BuildPinnedAddr(resolved)
-	return fetcher.GetJSONPinned[teenodetype.TeeInfoResponse](ctx, url, fetchTimeout, dialAddr, hostHeader, serverName)
+	return fetcher.FetchJSONPinned[teenodetype.TeeInfoResponse](ctx, url, fetchTimeout, dialAddr, hostHeader, serverName)
 }
 
 func (s *TeePollerService) updateActiveTees(teelist teeList) {

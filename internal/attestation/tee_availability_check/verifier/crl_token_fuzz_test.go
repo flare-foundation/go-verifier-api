@@ -15,7 +15,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func FuzzGetCRLsForToken(f *testing.F) {
+func FuzzFetchCRLsForToken(f *testing.F) {
 	const (
 		leafCRLURL         = "http://example.com/leaf.crl"
 		intermediateCRLURL = "http://example.com/intermediate.crl"
@@ -97,7 +97,7 @@ func FuzzGetCRLsForToken(f *testing.F) {
 			expectedRoot = wrongRoot
 		}
 
-		leafCRL, intermediateCRL, err := cache.GetCRLsForToken(context.Background(), token, expectedRoot)
+		leafCRL, intermediateCRL, err := cache.FetchCRLsForToken(context.Background(), token, expectedRoot)
 		if err != nil {
 			if leafCRL != nil || intermediateCRL != nil {
 				t.Fatal("failed token parsing returned non-nil CRLs")

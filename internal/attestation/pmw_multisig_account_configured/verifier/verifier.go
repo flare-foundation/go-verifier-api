@@ -25,7 +25,7 @@ var registry = map[string]VerifierConstructor{
 	string(config.SourceTestXRP): xrpConstructor,
 }
 
-func GetVerifier(cfg *config.PMWMultisigAccountConfig) (
+func NewVerifier(cfg *config.PMWMultisigAccountConfig) (
 	attestation.Verifier[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
 	sourceIDStr := string(cfg.SourceIDPair.SourceID)

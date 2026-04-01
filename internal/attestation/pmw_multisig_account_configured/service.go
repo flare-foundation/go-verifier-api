@@ -18,24 +18,24 @@ type MultisigService struct {
 }
 
 func NewMultisigService(envConfig config.EnvConfig) (*MultisigService, error) {
-	cfg, err := config.GetPMWMultisigAccountConfiguredConfig(envConfig)
+	cfg, err := config.LoadPMWMultisigAccountConfiguredConfig(envConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load PMWMultisigAccountConfigured config: %w", err)
 	}
-	verifierImpl, err := pmwmultisigaccountverifier.GetVerifier(cfg)
+	verifierImpl, err := pmwmultisigaccountverifier.NewVerifier(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize PMWMultisigAccountConfigured verifier: %w", err)
 	}
 	return &MultisigService{verifier: verifierImpl, config: cfg}, nil
 }
 
-func (s *MultisigService) GetVerifier() attestation.Verifier[
+func (s *MultisigService) Verifier() attestation.Verifier[
 	connector.IPMWMultisigAccountConfiguredRequestBody,
 	connector.IPMWMultisigAccountConfiguredResponseBody,
 ] {
 	return s.verifier
 }
 
-func (s *MultisigService) GetConfig() *config.PMWMultisigAccountConfig {
+func (s *MultisigService) Config() *config.PMWMultisigAccountConfig {
 	return s.config
 }

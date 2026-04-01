@@ -25,9 +25,9 @@ func TestFetchInstructionLog_DatabaseError(t *testing.T) {
 	require.ErrorContains(t, err, "cannot fetch log for instruction")
 }
 
-func TestGetTransactionBySourceAndSequence_DatabaseError(t *testing.T) {
+func TestFetchTransactionBySourceAndSequence_DatabaseError(t *testing.T) {
 	repo := NewDBRepo(newClosedDB(t), nil)
-	_, err := repo.GetTransactionBySourceAndSequence(context.Background(), ChainQuery{SourceAddress: "addr", Nonce: 1})
+	_, err := repo.FetchTransactionBySourceAndSequence(context.Background(), ChainQuery{SourceAddress: "addr", Nonce: 1})
 	require.ErrorIs(t, err, ErrDatabase)
 	require.ErrorContains(t, err, "cannot fetch transaction for source")
 }

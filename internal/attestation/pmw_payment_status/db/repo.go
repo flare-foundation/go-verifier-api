@@ -51,7 +51,7 @@ func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, inst
 	return events.ConvertDatabaseLogToChainLog(dbLog)
 }
 
-func (r *DBRepo) GetTransactionBySourceAndSequence(ctx context.Context, query ChainQuery) (DBTransaction, error) {
+func (r *DBRepo) FetchTransactionBySourceAndSequence(ctx context.Context, query ChainQuery) (DBTransaction, error) {
 	var tx DBTransaction
 	err := r.db.WithContext(ctx).
 		Where("source_address = ? AND sequence = ?", query.SourceAddress, query.Nonce).

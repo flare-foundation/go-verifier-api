@@ -36,18 +36,18 @@ type CRLCache struct {
 	fetchFn func(ctx context.Context, url string, timeout time.Duration) ([]byte, error)
 }
 
-// NewCRLCache creates a CRLCache that uses fetcher.GetBytes for HTTP fetches.
+// NewCRLCache creates a CRLCache that uses fetcher.FetchBytes for HTTP fetches.
 func NewCRLCache() *CRLCache {
 	return &CRLCache{
 		entries: make(map[string]*crlEntry),
-		fetchFn: fetcher.GetBytes,
+		fetchFn: fetcher.FetchBytes,
 	}
 }
 
-// GetCRLsForToken parses the attestation token without verification to extract
+// FetchCRLsForToken parses the attestation token without verification to extract
 // x5c certificates, then fetches/caches CRLs for the leaf and intermediate certificates.
 // The expectedRoot is the trusted root certificate — the token's root must match before CRLs are fetched.
-func (c *CRLCache) GetCRLsForToken(ctx context.Context, attestationToken string, expectedRoot *x509.Certificate) (leafCRL, intermediateCRL *x509.RevocationList, err error) {
+func (c *CRLCache) FetchCRLsForToken(ctx context.Context, attestationToken string, expectedRoot *x509.Certificate) (leafCRL, intermediateCRL *x509.RevocationList, err error) {
 	token, _, err := googlecloud.ParsePKITokenUnverified(attestationToken)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing unverified token: %w", err)

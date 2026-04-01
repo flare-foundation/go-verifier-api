@@ -23,8 +23,8 @@ func TestNewPaymentService(t *testing.T) {
 		service, err := NewPaymentService(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, service)
-		require.NotNil(t, service.GetVerifier())
-		require.NotNil(t, service.GetConfig())
+		require.NotNil(t, service.Verifier())
+		require.NotNil(t, service.Config())
 	})
 	t.Run("missing fields in env config", func(t *testing.T) {
 		config.ClearPMWPaymentStatusConfigForTest()

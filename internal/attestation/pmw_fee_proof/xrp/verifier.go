@@ -50,7 +50,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWFeeProofRequ
 		return zero, fmt.Errorf("nonce range %d exceeds max %d: %w", req.ToNonce-req.FromNonce+1, MaxNonceRange, ErrNonceRangeTooLarge)
 	}
 
-	eventHash, err := teeinstruction.GetTeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
+	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
 	if err != nil {
 		return zero, err
 	}

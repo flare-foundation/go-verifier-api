@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetBytes(t *testing.T) {
+func TestFetchBytes(t *testing.T) {
 	ctx := context.Background()
 	t.Run("success", func(t *testing.T) {
 		expected := []byte("hello world")
@@ -23,7 +23,7 @@ func TestGetBytes(t *testing.T) {
 		}))
 		defer server.Close()
 
-		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
 		require.NoError(t, err)
 		require.Equal(t, expected, data)
 	})
@@ -33,7 +33,7 @@ func TestGetBytes(t *testing.T) {
 		}))
 		defer server.Close()
 
-		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
 		require.ErrorIs(t, err, ErrNotFound)
 		require.Nil(t, data)
 	})
@@ -43,7 +43,7 @@ func TestGetBytes(t *testing.T) {
 		}))
 		defer server.Close()
 
-		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
 		require.ErrorContains(t, err, "unexpected status code: 500")
 		require.Nil(t, data)
 	})
@@ -56,7 +56,7 @@ func TestGetBytes(t *testing.T) {
 		}))
 		defer server.Close()
 
-		data, err := GetBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
 		require.NoError(t, err)
 		require.Len(t, data, maxResponseSize)
 	})
@@ -67,7 +67,7 @@ func TestGetBytes(t *testing.T) {
 		}))
 		defer server.Close()
 
-		data, err := GetBytes(ctx, server.URL, 100*time.Millisecond)
+		data, err := FetchBytes(ctx, server.URL, 100*time.Millisecond)
 		require.Error(t, err)
 		require.Nil(t, data)
 	})
@@ -160,7 +160,7 @@ func TestRetry(t *testing.T) {
 	})
 }
 
-func TestGetJSONPinnedUsesHostHeader(t *testing.T) {
+func TestFetchJSONPinnedUsesHostHeader(t *testing.T) {
 	wantHost := "example.com"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != wantHost {
@@ -177,7 +177,7 @@ func TestGetJSONPinnedUsesHostHeader(t *testing.T) {
 	require.NoError(t, err)
 
 	url := server.URL + "/"
-	got, err := GetJSONPinned[struct {
+	got, err := FetchJSONPinned[struct {
 		OK bool `json:"ok"`
 	}](context.Background(), url, 2*time.Second, dialAddr, wantHost, "")
 	require.NoError(t, err)

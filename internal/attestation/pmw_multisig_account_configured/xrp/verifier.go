@@ -34,7 +34,7 @@ func NewXRPVerifier(cfg *config.PMWMultisigAccountConfig) *XRPVerifier {
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
-	accountInfo, err := x.Client.GetAccountInfo(ctx, req.AccountAddress)
+	accountInfo, err := x.Client.FetchAccountInfo(ctx, req.AccountAddress)
 	if err != nil {
 		return connector.IPMWMultisigAccountConfiguredResponseBody{}, err
 	}

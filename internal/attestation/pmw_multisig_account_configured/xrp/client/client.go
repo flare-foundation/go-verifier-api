@@ -14,8 +14,8 @@ import (
 var (
 	// ErrRPCNonSuccess indicates the XRP RPC returned a non-success status (e.g. account not found).
 	ErrRPCNonSuccess = errors.New("XRP RPC returned non-success status")
-	// ErrGetAccountInfo indicates a network/transport failure when fetching account info.
-	ErrGetAccountInfo = errors.New("cannot get account info")
+	// ErrFetchAccountInfo indicates a network/transport failure when fetching account info.
+	ErrFetchAccountInfo = errors.New("cannot get account info")
 )
 
 const (
@@ -38,7 +38,7 @@ func NewClient(url string) *Client {
 	return &Client{url: url}
 }
 
-func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.AccountInfoResponse, error) {
+func (c *Client) FetchAccountInfo(ctx context.Context, account string) (*types.AccountInfoResponse, error) {
 	req := request{
 		Method: "account_info",
 		Params: []any{
@@ -65,7 +65,7 @@ func (c *Client) GetAccountInfo(ctx context.Context, account string) (*types.Acc
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrGetAccountInfo, err)
+		return nil, fmt.Errorf("%w: %w", ErrFetchAccountInfo, err)
 	}
 	if resp.Message.Result.Status != "success" {
 		return nil, fmt.Errorf("%w for account %s: %s", ErrRPCNonSuccess, account, resp.Message.Result.Status)

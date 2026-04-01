@@ -28,8 +28,8 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		if err != nil {
 			return nil, err
 		}
-		verifier := service.GetVerifier()
-		config := service.GetConfig()
+		verifier := service.Verifier()
+		config := service.Config()
 
 		handler.RegisterVerificationHandler[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody, types.TeeAvailabilityCheckRequestBody, types.TeeAvailabilityCheckResponseBody](api, &config.EncodedAndABI, verifier)
 
@@ -49,8 +49,8 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		if err != nil {
 			return nil, err
 		}
-		verifier := service.GetVerifier()
-		config := service.GetConfig()
+		verifier := service.Verifier()
+		config := service.Config()
 
 		handler.RegisterVerificationHandler[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody, types.PMWPaymentStatusRequestBody, types.PMWPaymentStatusResponseBody](api, &config.EncodedAndABI, verifier)
 
@@ -60,8 +60,8 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		if err != nil {
 			return nil, err
 		}
-		verifier := service.GetVerifier()
-		config := service.GetConfig()
+		verifier := service.Verifier()
+		config := service.Config()
 
 		handler.RegisterVerificationHandler[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody, types.PMWMultisigAccountConfiguredRequestBody, types.PMWMultisigAccountConfiguredResponseBody](api, &config.EncodedAndABI, verifier)
 
@@ -70,8 +70,8 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		if err != nil {
 			return nil, err
 		}
-		verifier := service.GetVerifier()
-		config := service.GetConfig()
+		verifier := service.Verifier()
+		config := service.Config()
 
 		handler.RegisterVerificationHandler[connector.IPMWFeeProofRequestBody, connector.IPMWFeeProofResponseBody, types.PMWFeeProofRequestBody, types.PMWFeeProofResponseBody](api, &config.EncodedAndABI, verifier)
 

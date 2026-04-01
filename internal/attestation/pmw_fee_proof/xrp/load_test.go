@@ -100,7 +100,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 		Config: cfg,
 	}
 
-	eventHash, err := teeinstruction.GetTeeInstructionsSentEventSignature(teeABI)
+	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -87,7 +87,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 	instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
 	require.NoError(t, err)
 
-	eventHash, err := instruction.GetTeeInstructionsSentEventSignature(teeABI)
+	eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 	require.NoError(t, err)
 
 	msg := payment.ITeePaymentsPaymentInstructionMessage{
@@ -255,7 +255,7 @@ func TestVerify(t *testing.T) {
 
 		instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
 		require.NoError(t, err)
-		eventHash, err := instruction.GetTeeInstructionsSentEventSignature(teeABI)
+		eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
 
 		msg := payment.ITeePaymentsPaymentInstructionMessage{
@@ -306,7 +306,7 @@ func TestVerify(t *testing.T) {
 
 		instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
 		require.NoError(t, err)
-		eventHash, err := instruction.GetTeeInstructionsSentEventSignature(teeABI)
+		eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
 
 		// Seed a log with garbage event data.

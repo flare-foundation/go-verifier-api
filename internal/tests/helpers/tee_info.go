@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func GetTeeInfoResponse(t *testing.T, chainChallenge common.Hash) (teenodetypes.TeeInfoResponse, *ecdsa.PrivateKey) {
+func TeeInfoResponse(t *testing.T, chainChallenge common.Hash) (teenodetypes.TeeInfoResponse, *ecdsa.PrivateKey) {
 	t.Helper()
 	privTEEKey, err := crypto.GenerateKey()
 	require.NoError(t, err)

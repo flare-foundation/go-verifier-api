@@ -36,7 +36,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction ID: %w", err)
 	}
 	// Event log
-	eventHash, err := teeinstruction.GetTeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
+	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
@@ -50,7 +50,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
-	dbTransaction, err := x.Repo.GetTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
+	dbTransaction, err := x.Repo.FetchTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}

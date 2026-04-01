@@ -29,7 +29,7 @@ var registry = map[string]VerifierConstructor{
 	string(config.SourceTestXRP): xrpConstructor,
 }
 
-func GetVerifier(
+func NewVerifier(
 	cfg *config.PMWPaymentStatusConfig,
 	db, cChainDB *gorm.DB,
 ) (
