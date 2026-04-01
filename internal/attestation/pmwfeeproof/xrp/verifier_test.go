@@ -65,7 +65,7 @@ func TestNonceRangeValidation(t *testing.T) {
 	t.Run("range exceeds max", func(t *testing.T) {
 		_, err := v.Verify(t.Context(), connector.IPMWFeeProofRequestBody{
 			FromNonce: 1,
-			ToNonce:   1 + MaxNonceRange, // 101 nonces
+			ToNonce:   1 + MaxNonceRange, // MaxNonceRange + 1 nonces
 		})
 		require.ErrorIs(t, err, ErrNonceRangeTooLarge)
 		require.ErrorContains(t, err, "exceeds max")

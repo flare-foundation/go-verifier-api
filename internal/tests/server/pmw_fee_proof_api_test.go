@@ -10,6 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
+	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/server"
@@ -148,7 +149,7 @@ func TestPMWFeeProof(t *testing.T) {
 	t.Run("verify: nonce range too large", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 1
-		modifiedReqBody.ToNonce = 102 // 102 nonces > MaxNonceRange
+		modifiedReqBody.ToNonce = xrpverifier.MaxNonceRange + 1 // exceeds MaxNonceRange
 		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
