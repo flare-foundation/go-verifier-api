@@ -381,6 +381,8 @@ type extensionTeesResult = struct {
 	Urls   []string
 }
 
+var _ verifier.TeeMachineRegistryCallerInterface = (*mockTeeMachineRegistryCaller)(nil)
+
 type mockTeeMachineRegistryCaller struct {
 	getAllActiveFunc   func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error)
 	getActiveByExtFunc func(opts *bind.CallOpts, extensionId *big.Int) (extensionTeesResult, error)

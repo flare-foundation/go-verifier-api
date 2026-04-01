@@ -747,6 +747,8 @@ func TestVerify(t *testing.T) {
 	})
 }
 
+var _ verifier.RelayCallerInterface = (*MockRelayCaller)(nil)
+
 type MockRelayCaller struct {
 	mock.Mock
 }

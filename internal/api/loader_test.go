@@ -74,6 +74,8 @@ func TestPMWMultisigAccountConfiguredServiceError(t *testing.T) {
 	require.Nil(t, closers)
 }
 
+var _ huma.Adapter = (*mockAdapter)(nil)
+
 type mockAdapter struct{}
 
 func (mockAdapter) Handle(op *huma.Operation, handler func(ctx huma.Context)) {}

@@ -6,7 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 )
+
+var _ verifier.EthClient = (*MockEthClient)(nil)
 
 type MockEthClient struct {
 	BlockByHashFn   func(ctx context.Context, hash common.Hash) (*types.Block, error)
