@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const MaxNonceRange = 100 // TODO: benchmark and adjust
+var MaxNonceRange uint64 = 200
 
 var (
 	ErrNonceRangeTooLarge = errors.New("nonce range too large")

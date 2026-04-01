@@ -173,16 +173,28 @@ This is the simplest way to run everything without worrying about Docker manuall
     ```bash
     go test ./internal/attestation/teeavailabilitycheck/verifier/ -fuzz FuzzResolveExternalURL -fuzztime 60s
     ```
-    Available fuzz targets: `FuzzResolveExternalURL`, `FuzzGetOrFetchCRL`, `FuzzGetCRLsForToken`, `FuzzFetchTEEChallengeResult`.
+    Available fuzz targets: `FuzzResolveExternalURL`, `FuzzGetOrFetchCRL`, `FuzzFetchCRLsForToken`, `FuzzFetchTEEChallengeResult`.
 
-4. Running load tests
+4. Running benchmarks
+
+    Benchmark tests measure PMWFeeProof performance scaling with real Postgres + MySQL. They require Docker and are gated behind the `docker_bench` build tag:
+    ```bash
+    docker compose -f internal/tests/docker/docker-compose.yaml up -d
+    # Sequential benchmark (single client, varying nonce ranges):
+    go test -tags docker_bench -run TestBenchmarkFeeProofPostgres -v ./internal/attestation/pmwfeeproof/xrp/
+    # Concurrent benchmark (multiple clients, varying nonce ranges):
+    go test -tags docker_bench -run TestBenchmarkFeeProofConcurrent -v ./internal/attestation/pmwfeeproof/xrp/
+    docker compose -f internal/tests/docker/docker-compose.yaml down
+    ```
+
+5. Running load tests
 
     Load tests are gated behind the `load` build tag and don't run during normal `go test` or `gencover.sh`:
     ```bash
     go test -tags load -run TestLoad -v ./internal/attestation/teeavailabilitycheck/verifier/ ./internal/attestation/teeavailabilitycheck/teepoller/ ./internal/attestation/pmwmultisigconfigured/xrp/ ./internal/attestation/pmwpaymentstatus/db/ ./internal/attestation/pmwpaymentstatus/xrp/ ./internal/attestation/pmwfeeproof/db/ ./internal/attestation/pmwfeeproof/xrp/
     ```
 
-5. Running stress tests
+6. Running stress tests
 
     Stress tests are gated behind the `stress` build tag. They take longer (~70s) and push beyond normal load:
     ```bash
@@ -194,7 +206,6 @@ This is the simplest way to run everything without worrying about Docker manuall
 ## TODO (to-think-about) list
 - Other `TODO`s inside the code and README.
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
-- PMWFeeProof: Benchmark and adjust `MaxNonceRange` (currently 100).
 - PMWFeeProof: Should the verifier validate that the requested nonce range falls within the XRP indexer data retention window (~2 weeks), or just let it fail with 422 if data is missing?
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
 

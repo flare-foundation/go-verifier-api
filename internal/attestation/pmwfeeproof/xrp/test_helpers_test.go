@@ -23,36 +23,36 @@ import (
 	"gorm.io/gorm"
 )
 
-func testSharedDB(t *testing.T, name string, models ...any) *gorm.DB {
-	t.Helper()
+func testSharedDB(tb testing.TB, name string, models ...any) *gorm.DB {
+	tb.Helper()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", name)
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	for _, m := range models {
 		if err := db.AutoMigrate(m); err != nil {
-			t.Fatal(err)
+			tb.Fatal(err)
 		}
 	}
 	return db
 }
 
-func testTeeABI(t *testing.T) abi.ABI {
-	t.Helper()
+func testTeeABI(tb testing.TB) abi.ABI {
+	tb.Helper()
 	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	return parsed
 }
 
-func testEncodeEvent(t *testing.T, teeABI abi.ABI, command op.Command, msg payment.ITeePaymentsPaymentInstructionMessage) []byte {
-	t.Helper()
+func testEncodeEvent(tb testing.TB, teeABI abi.ABI, command op.Command, msg payment.ITeePaymentsPaymentInstructionMessage) []byte {
+	tb.Helper()
 	msgArg := payment.MessageArguments[command]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	if err != nil {
-		t.Fatalf("cannot encode message: %v", err)
+		tb.Fatalf("cannot encode message: %v", err)
 	}
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
@@ -62,7 +62,7 @@ func testEncodeEvent(t *testing.T, teeABI abi.ABI, command op.Command, msg payme
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),
 	)
 	if err != nil {
-		t.Fatalf("cannot pack event data: %v", err)
+		tb.Fatalf("cannot pack event data: %v", err)
 	}
 	return data
 }
@@ -77,11 +77,11 @@ type feeProofFixture struct {
 	sourceID common.Hash
 }
 
-func setupFeeProofFixture(t *testing.T, dbName string, nonces []uint64, maxFees []int64, txFees []string) feeProofFixture {
-	t.Helper()
-	teeABI := testTeeABI(t)
-	xrpDB := testSharedDB(t, dbName+"_xrp", &paymentdb.DBTransaction{})
-	cChainDB := testSharedDB(t, dbName+"_cchain", &database.Log{})
+func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees []int64, txFees []string) feeProofFixture {
+	tb.Helper()
+	teeABI := testTeeABI(tb)
+	xrpDB := testSharedDB(tb, dbName+"_xrp", &paymentdb.DBTransaction{})
+	cChainDB := testSharedDB(tb, dbName+"_cchain", &database.Log{})
 
 	sourceID := common.HexToHash("0x1")
 	opType := common.HexToHash("0xAA")
@@ -89,13 +89,13 @@ func setupFeeProofFixture(t *testing.T, dbName string, nonces []uint64, maxFees 
 
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 
 	for i, nonce := range nonces {
 		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, senderAddress, nonce)
 		if err != nil {
-			t.Fatal(err)
+			tb.Fatal(err)
 		}
 
 		msg := payment.ITeePaymentsPaymentInstructionMessage{
@@ -107,7 +107,7 @@ func setupFeeProofFixture(t *testing.T, dbName string, nonces []uint64, maxFees 
 			Nonce:         nonce,
 			SubNonce:      nonce,
 		}
-		eventData := testEncodeEvent(t, teeABI, op.Pay, msg)
+		eventData := testEncodeEvent(tb, teeABI, op.Pay, msg)
 
 		if err := cChainDB.Create(&database.Log{
 			Topic0:          trimHex(eventHash),
@@ -120,7 +120,7 @@ func setupFeeProofFixture(t *testing.T, dbName string, nonces []uint64, maxFees 
 			Timestamp:       1700000000,
 			BlockNumber:     100,
 		}).Error; err != nil {
-			t.Fatal(err)
+			tb.Fatal(err)
 		}
 
 		if err := xrpDB.Create(&paymentdb.DBTransaction{
@@ -131,7 +131,7 @@ func setupFeeProofFixture(t *testing.T, dbName string, nonces []uint64, maxFees 
 			SourceAddress: senderAddress,
 			Sequence:      nonce,
 		}).Error; err != nil {
-			t.Fatal(err)
+			tb.Fatal(err)
 		}
 	}
 

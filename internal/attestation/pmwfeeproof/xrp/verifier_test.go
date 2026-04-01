@@ -73,7 +73,7 @@ func TestNonceRangeValidation(t *testing.T) {
 
 	t.Run("range at max boundary", func(t *testing.T) {
 		// Exactly MaxNonceRange should not trigger ErrNonceRangeTooLarge.
-		count := uint64(MaxNonceRange)
+		count := MaxNonceRange
 		require.True(t, count-0+1 > MaxNonceRange, "sanity: MaxNonceRange+1 exceeds max")
 		require.False(t, count-1+1 > MaxNonceRange, "sanity: MaxNonceRange does not exceed max")
 	})

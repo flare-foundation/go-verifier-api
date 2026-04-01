@@ -304,7 +304,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 
 ### Request
 - `opType`, `senderAddress`, `fromNonce` (inclusive), `toNonce` (inclusive), `untilTimestamp` (Flare block timestamp cutoff for reissues).
-- Nonce range capped at 100 (`MaxNonceRange`). Exceeding returns 400.
+- Nonce range capped at 200 (`MaxNonceRange`). Exceeding returns 400.
 
 ### Primary flow (`XRPVerifier.Verify`)
 1. Validate nonce range.
