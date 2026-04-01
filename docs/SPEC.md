@@ -390,6 +390,10 @@ PMWMultisig verify errors are classified into `422` (`ErrRPCNonSuccess`) or `503
 - Poller sample cache is in-memory only by design choice (lost on restart).
 - `PMWPaymentStatus` request includes `subNonce`, but current DB query path primarily keys by source address + nonce. XRP does not use batch payments, so each nonce maps to exactly one transaction. SubNonce filtering will be needed when UTXO chains are supported.
 
+### Accepted risks
+- **MagicPass bypass** (`verifier.go`): TEE nodes in non-production mode return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts it and skips all attestation validation. This is gated by the TEE node's `settings.Mode` — the verifier itself has no toggle. Compensating control: production TEE nodes never set `Mode != 0`. See [section 7.1](#71-teeavailabilitycheck) for details.
+- **Unauthenticated Swagger UI** (`/api-doc`): The OpenAPI documentation endpoint is intentionally exempt from API key auth to allow internal developers and auditors to browse the API. Compensating control: the service is deployed behind internal infrastructure and not exposed to the public internet. No sensitive data is served on this endpoint.
+
 ## 13. Minimal Runtime Sequences
 ### Start sequence
 1. Load env.
