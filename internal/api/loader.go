@@ -10,12 +10,12 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/handler"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
-	feeproofservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_fee_proof"
-	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured"
-	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status"
-	teeavailabilityservice "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check"
-	teepoller "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/tee_poller"
-	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	feeproofservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof"
+	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured"
+	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus"
+	teeavailabilityservice "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck"
+	teepoller "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/teepoller"
+	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 

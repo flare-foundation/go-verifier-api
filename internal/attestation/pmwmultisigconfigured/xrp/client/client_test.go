@@ -1,0 +1,106 @@
+package client
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/types"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFetchAccountInfo(t *testing.T) {
+	expected := types.AccountInfoResponse{
+		Result: types.AccountInfoResult{
+			Status: "success",
+			AccountData: types.AccountData{
+				Account: "rEXAMPLE",
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		handler     http.HandlerFunc
+		wantErr     string
+		wantAccount string
+		ctx         func() context.Context
+	}{
+		{
+			name: "success",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, http.MethodPost, r.Method)
+				w.Header().Set("Content-Type", "application/json")
+				err := json.NewEncoder(w).Encode(expected)
+				require.NoError(t, err)
+			},
+			wantAccount: "rEXAMPLE",
+		},
+		{
+			name: "error response",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			},
+			wantErr: "cannot get account info: all attempts failed. Last error: request responded with code 500, reason: Internal Server Error",
+		},
+		{
+			name: "bad JSON",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, err := w.Write([]byte(`{"result": { "status": "success", "account_data": `)) // invalid JSON
+				require.NoError(t, err)
+			},
+			wantErr: "cannot get account info: all attempts failed. Last error: decoding response:",
+		},
+		{
+			name: "non-success status",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				resp := types.AccountInfoResponse{
+					Result: types.AccountInfoResult{Status: "error"},
+				}
+				err := json.NewEncoder(w).Encode(resp)
+				require.NoError(t, err)
+			},
+			wantErr: "XRP RPC returned non-success status",
+		},
+		{
+			name: "context timeout",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				time.Sleep(100 * time.Millisecond)
+			},
+			wantErr: "context deadline exceeded",
+			ctx: func() context.Context {
+				c, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+				defer cancel()
+				return c
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(tt.handler)
+			defer server.Close()
+
+			client := NewClient(server.URL)
+			ctx := context.Background()
+			if tt.ctx != nil {
+				ctx = tt.ctx()
+			}
+
+			resp, err := client.FetchAccountInfo(ctx, "rEXAMPLE")
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				require.Nil(t, resp)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantAccount, resp.Result.AccountData.Account)
+		})
+	}
+}

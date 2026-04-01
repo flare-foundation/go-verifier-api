@@ -2,7 +2,7 @@ package helpers
 
 import (
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/xrp/types"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/types"
 )
 
 const sequenceTx0 = 10110067

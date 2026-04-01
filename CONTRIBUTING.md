@@ -71,41 +71,41 @@ internal/api/types/tee_availability_check.go
 internal/api/loader.go
 internal/api/server.go
 
-internal/attestation/pmw_multisig_account_configured/verifier/verifier.go
-internal/attestation/pmw_multisig_account_configured/xrp/client/client.go
-internal/attestation/pmw_multisig_account_configured/xrp/types/type.go
-internal/attestation/pmw_multisig_account_configured/xrp/verifier.go
-internal/attestation/pmw_multisig_account_configured/service.go
+internal/attestation/pmwmultisigconfigured/verifier/verifier.go
+internal/attestation/pmwmultisigconfigured/xrp/client/client.go
+internal/attestation/pmwmultisigconfigured/xrp/types/type.go
+internal/attestation/pmwmultisigconfigured/xrp/verifier.go
+internal/attestation/pmwmultisigconfigured/service.go
 
-internal/attestation/pmw_payment_status/db/db_transaction.go
-internal/attestation/pmw_fee_proof/db/repo.go
-internal/attestation/pmw_fee_proof/instruction/instruction_id.go
-internal/attestation/pmw_fee_proof/verifier/verifier.go
-internal/attestation/pmw_fee_proof/xrp/verifier.go
-internal/attestation/pmw_fee_proof/service.go
+internal/attestation/pmwpaymentstatus/db/db_transaction.go
+internal/attestation/pmwfeeproof/db/repo.go
+internal/attestation/pmwfeeproof/instruction/instruction_id.go
+internal/attestation/pmwfeeproof/verifier/verifier.go
+internal/attestation/pmwfeeproof/xrp/verifier.go
+internal/attestation/pmwfeeproof/service.go
 
-internal/attestation/pmw_payment_status/db/db.go
-internal/attestation/pmw_payment_status/db/repo.go
-internal/attestation/pmw_payment_status/helper/abi.go
-internal/attestation/pmw_payment_status/helper/convert.go
-internal/attestation/pmw_payment_status/instruction/instruction_event.go
-internal/attestation/pmw_payment_status/instruction/instruction_id.go
-internal/attestation/pmw_payment_status/verifier/verifier.go
-internal/attestation/pmw_payment_status/xrp/builder/builder.go
-internal/attestation/pmw_payment_status/xrp/transaction/transaction_amount.go
-internal/attestation/pmw_payment_status/xrp/types/type.go
-internal/attestation/pmw_payment_status/xrp/verifier.go
-internal/attestation/pmw_payment_status/service.go
+internal/attestation/pmwpaymentstatus/db/db.go
+internal/attestation/pmwpaymentstatus/db/repo.go
+internal/attestation/pmwpaymentstatus/helper/abi.go
+internal/attestation/pmwpaymentstatus/helper/convert.go
+internal/attestation/pmwpaymentstatus/instruction/instruction_event.go
+internal/attestation/pmwpaymentstatus/instruction/instruction_id.go
+internal/attestation/pmwpaymentstatus/verifier/verifier.go
+internal/attestation/pmwpaymentstatus/xrp/builder/builder.go
+internal/attestation/pmwpaymentstatus/xrp/transaction/transaction_amount.go
+internal/attestation/pmwpaymentstatus/xrp/types/type.go
+internal/attestation/pmwpaymentstatus/xrp/verifier.go
+internal/attestation/pmwpaymentstatus/service.go
 
-internal/attestation/tee_availability_check/fetcher/fetcher.go
-internal/attestation/tee_availability_check/tee_poller/tee_poller.go
-internal/attestation/tee_availability_check/verifier/types/error.go
-internal/attestation/tee_availability_check/verifier/types/samples.go
-internal/attestation/tee_availability_check/verifier/claims.go
-internal/attestation/tee_availability_check/verifier/crl_cache.go
-internal/attestation/tee_availability_check/verifier/url_validation.go
-internal/attestation/tee_availability_check/verifier/verifier.go
-internal/attestation/tee_availability_check/service.go
+internal/attestation/teeavailabilitycheck/fetcher/fetcher.go
+internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go
+internal/attestation/teeavailabilitycheck/verifier/types/error.go
+internal/attestation/teeavailabilitycheck/verifier/types/samples.go
+internal/attestation/teeavailabilitycheck/verifier/claims.go
+internal/attestation/teeavailabilitycheck/verifier/crl_cache.go
+internal/attestation/teeavailabilitycheck/verifier/url_validation.go
+internal/attestation/teeavailabilitycheck/verifier/verifier.go
+internal/attestation/teeavailabilitycheck/service.go
 
 internal/attestation/verifier_interface.go
 

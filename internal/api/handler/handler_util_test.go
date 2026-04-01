@@ -14,11 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
-	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
+	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"

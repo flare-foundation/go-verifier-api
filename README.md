@@ -102,11 +102,11 @@ SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
 ## TEE Poller
-The `TeeAvailabilityCheck` attestation type initiates a process called [`tee_poller`](internal/attestation/tee_availability_check/tee_poller/tee_poller.go). The purpose of the `tee_poller` is to continuously ping all available TEEs (retrieved from the `TeeMachineRegistry` smart contract), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
+The `TeeAvailabilityCheck` attestation type initiates a process called [`teepoller`](internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go). The purpose of the `teepoller` is to continuously ping all available TEEs (retrieved from the `TeeMachineRegistry` smart contract), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
 
 Samples retrieved by the poller can be VALID, INVALID or INDETERMINATE (the latter case occurs when the check fails due to verifier fault, e.g. being unable to connect to RPC).
 
-Samples are stored in memory. The number of samples is defined by the constant `SamplesToConsider`, which is closely related to the constant `SampleInterval`, determining the polling interval. See [verifier file](internal/attestation/tee_availability_check/verifier/verifier.go) for reference.
+Samples are stored in memory. The number of samples is defined by the constant `SamplesToConsider`, which is closely related to the constant `SampleInterval`, determining the polling interval. See [verifier file](internal/attestation/teeavailabilitycheck/verifier/verifier.go) for reference.
 
 ## Attestation Request Submission
 The process of submitting an attestation requests is as follows:
@@ -161,7 +161,7 @@ This is the simplest way to run everything without worrying about Docker manuall
 
     Fuzz tests run their seed corpus as regular tests during `go test` and `gencover.sh`. To run actual fuzzing with random inputs:
     ```bash
-    go test ./internal/attestation/tee_availability_check/verifier/ -fuzz FuzzResolveExternalURL -fuzztime 60s
+    go test ./internal/attestation/teeavailabilitycheck/verifier/ -fuzz FuzzResolveExternalURL -fuzztime 60s
     ```
     Available fuzz targets: `FuzzResolveExternalURL`, `FuzzGetOrFetchCRL`, `FuzzGetCRLsForToken`, `FuzzFetchTEEChallengeResult`.
 
@@ -169,14 +169,14 @@ This is the simplest way to run everything without worrying about Docker manuall
 
     Load tests are gated behind the `load` build tag and don't run during normal `go test` or `gencover.sh`:
     ```bash
-    go test -tags load -run TestLoad -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/ ./internal/attestation/pmw_multisig_account_configured/xrp/ ./internal/attestation/pmw_payment_status/db/ ./internal/attestation/pmw_payment_status/xrp/ ./internal/attestation/pmw_fee_proof/db/ ./internal/attestation/pmw_fee_proof/xrp/
+    go test -tags load -run TestLoad -v ./internal/attestation/teeavailabilitycheck/verifier/ ./internal/attestation/teeavailabilitycheck/teepoller/ ./internal/attestation/pmwmultisigconfigured/xrp/ ./internal/attestation/pmwpaymentstatus/db/ ./internal/attestation/pmwpaymentstatus/xrp/ ./internal/attestation/pmwfeeproof/db/ ./internal/attestation/pmwfeeproof/xrp/
     ```
 
 5. Running stress tests
 
     Stress tests are gated behind the `stress` build tag. They take longer (~70s) and push beyond normal load:
     ```bash
-    go test -tags stress -run TestStress -v ./internal/attestation/tee_availability_check/verifier/ ./internal/attestation/tee_availability_check/tee_poller/
+    go test -tags stress -run TestStress -v ./internal/attestation/teeavailabilitycheck/verifier/ ./internal/attestation/teeavailabilitycheck/teepoller/
     ```
 
     For detailed results, findings, and test parameters, see [docs/load-and-stress-tests.md](docs/load-and-stress-tests.md).

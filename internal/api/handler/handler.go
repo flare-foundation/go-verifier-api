@@ -13,12 +13,12 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
-	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_fee_proof/xrp"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_multisig_account_configured/xrp/client"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmw_payment_status/db"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/fetcher"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
-	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier/types"
+	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
+	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 

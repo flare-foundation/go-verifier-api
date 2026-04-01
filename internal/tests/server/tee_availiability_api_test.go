@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/tee_availability_check/verifier"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/server"
