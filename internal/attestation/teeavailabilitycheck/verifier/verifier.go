@@ -434,7 +434,11 @@ func FetchTEEChallengeResult(
 		return zero, zeroAdd, errors.New("TEE challenge result data is empty")
 	}
 	if !json.Valid(actionResp.Result.Data) {
-		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON: %q", actionResp.Result.Data)
+		preview := actionResp.Result.Data
+		if len(preview) > 128 {
+			preview = preview[:128]
+		}
+		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON (len=%d, preview=%q)", len(actionResp.Result.Data), preview)
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse
