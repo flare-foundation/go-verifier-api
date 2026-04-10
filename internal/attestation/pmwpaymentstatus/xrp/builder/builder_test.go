@@ -98,6 +98,13 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, uint8(types.Reverted), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
 	})
+	t.Run("non-payment transaction type rejected", func(t *testing.T) {
+		modRawTransactionData := rawTransactionData
+		modRawTransactionData.TransactionType = "AccountSet"
+		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
+		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorContains(t, err, `expected Payment transaction, got "AccountSet"`)
+	})
 	t.Run("invalid transaction status", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
 		modRawTransactionData.MetaData.TransactionResult = "te"

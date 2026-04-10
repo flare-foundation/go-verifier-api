@@ -18,6 +18,9 @@ func BuildPaymentStatusResponse(
 	tx db.DBTransaction,
 ) (connector.IPMWPaymentStatusResponseBody, error) {
 	var zero connector.IPMWPaymentStatusResponseBody
+	if raw.TransactionType != "Payment" {
+		return zero, fmt.Errorf("expected Payment transaction, got %q", raw.TransactionType)
+	}
 	transactionResult, err := getTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
 		return zero, fmt.Errorf("cannot parse transaction status: %w", err)
