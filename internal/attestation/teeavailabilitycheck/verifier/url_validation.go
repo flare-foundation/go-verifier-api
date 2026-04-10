@@ -14,12 +14,14 @@ import (
 const dnsLookupTimeout = 750 * time.Millisecond
 
 var blockedIPPrefixes = []netip.Prefix{
+	netip.MustParsePrefix("0.0.0.0/8"),         // "this network" (RFC 791) — non-routable
 	netip.MustParsePrefix("100.64.0.0/10"),     // carrier-grade NAT
 	netip.MustParsePrefix("198.18.0.0/15"),     // benchmark testing
 	netip.MustParsePrefix("2001:db8::/32"),     // documentation (RFC 3849)
 	netip.MustParsePrefix("100::/64"),          // discard prefix (RFC 6666)
 	netip.MustParsePrefix("2002::/16"),         // 6to4 (RFC 3056) — can embed private IPv4
 	netip.MustParsePrefix("2001::/32"),         // Teredo (RFC 4380)
+	netip.MustParsePrefix("64:ff9b::/96"),      // NAT64 well-known prefix (RFC 6052) — maps to IPv4
 	netip.MustParsePrefix("fd00:ec2::254/128"), // AWS EC2 IPv6 metadata
 }
 
