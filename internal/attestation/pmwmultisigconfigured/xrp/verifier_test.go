@@ -105,6 +105,20 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "o signer list for account")
 	})
+	t.Run("duplicate pubkeys hide extra signer", func(t *testing.T) {
+		// Request has [A, B, A] (duplicate), on-chain has [A, B, C].
+		// Before fix, len check passed (3==3) and duplicate A was checked twice.
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey, testAccounts[0].PubKey},
+			2,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address, testAccounts[2].Address}, []uint16{1, 1, 1}, 2)
+		flags := accountFlags(t, true, false, false, false)
+		accountInfo := makeAccountInfo(t, signerList, flags, "")
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
+	})
 	t.Run("MasterKey enabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,

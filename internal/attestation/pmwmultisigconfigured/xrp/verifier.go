@@ -73,20 +73,20 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 }
 
 func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
-	expectedAccounts := make([]string, len(req.PublicKeys))
-	for i, pk := range req.PublicKeys {
+	expectedAccounts := make(map[string]struct{}, len(req.PublicKeys))
+	for _, pk := range req.PublicKeys {
 		addrStr, err := XRPAddressFromPubKey(pk)
 		if err != nil {
 			logger.Warnf("Failed to convert public key %s to address: %v", hex.EncodeToString(pk), err)
 			return false
 		}
-		expectedAccounts[i] = addrStr
+		expectedAccounts[addrStr] = struct{}{}
 	}
 	actualAccounts := signerList.AccountsMap()
 	if len(actualAccounts) != len(expectedAccounts) {
 		return false
 	}
-	for _, acc := range expectedAccounts {
+	for acc := range expectedAccounts {
 		weight, found := actualAccounts[acc]
 		if !found || weight != 1 {
 			return false
