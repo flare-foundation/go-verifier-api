@@ -272,7 +272,7 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 7. Build FDC2 response:
    - recipient/token/amount/fee/reference from instruction message
    - status/revert reason from raw tx result
-   - received amount for recipient — calculated from `AffectedNodes` balance changes regardless of transaction status (typically 0 for reverted transactions, but computed from on-chain data rather than hardcoded). The recipient address is normalized from X-address to classic format before matching, since XRPL metadata always uses classic addresses.
+   - received amount for recipient — calculated from `AffectedNodes` `AccountRoot` balance changes regardless of transaction status (typically 0 for reverted transactions, but computed from on-chain data rather than hardcoded). This only covers native XRP transfers; issued-currency (IOU) payments that modify trust lines (`RippleState`) are not supported. The recipient address is normalized from X-address to classic format before matching, since XRPL metadata always uses classic addresses.
    - tx hash, fee, block number, timestamp from DB/tx data
 
 ### Data stores
