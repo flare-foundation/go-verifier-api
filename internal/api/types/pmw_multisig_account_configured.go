@@ -1,9 +1,7 @@
 package types
 
 import (
-	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -16,7 +14,12 @@ type PMWMultisigAccountConfiguredRequestBody struct {
 	Threshold      uint64          `json:"threshold" validate:"gte=1" example:"3"`
 }
 
+const maxPublicKeys = 32 // XRPL SignerList maximum: https://xrpl.org/docs/references/protocol/transactions/types/signerlistset
+
 func (requestBody PMWMultisigAccountConfiguredRequestBody) ToInternal() (connector.IPMWMultisigAccountConfiguredRequestBody, error) {
+	if len(requestBody.PublicKeys) > maxPublicKeys {
+		return connector.IPMWMultisigAccountConfiguredRequestBody{}, fmt.Errorf("too many public keys: %d (max %d)", len(requestBody.PublicKeys), maxPublicKeys)
+	}
 	publicKeys := make([][]byte, len(requestBody.PublicKeys))
 	for i, pk := range requestBody.PublicKeys {
 		if len(pk) == 0 {
@@ -57,14 +60,7 @@ func (s PMWMultisigAccountConfiguredResponseBody) Log() {
 }
 
 func LogPMWMultisigAccountConfiguredRequestBody(req connector.IPMWMultisigAccountConfiguredRequestBody) {
-	logger.Debugf("PMWMultisigAccountConfigured request: AccountAddress=%s, Threshold=%d, PublicKeys=%s",
-		req.AccountAddress, req.Threshold, formatPublicKeys(req.PublicKeys))
+	logger.Debugf("PMWMultisigAccountConfigured request: AccountAddress=%s, Threshold=%d, PublicKeys=%d keys",
+		req.AccountAddress, req.Threshold, len(req.PublicKeys))
 }
 
-func formatPublicKeys(pks [][]byte) string {
-	out := make([]string, len(pks))
-	for i, pk := range pks {
-		out[i] = hex.EncodeToString(pk)
-	}
-	return strings.Join(out, ",")
-}
