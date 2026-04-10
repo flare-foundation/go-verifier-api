@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	addresscodec "github.com/Peersyst/xrpl-go/address-codec"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
@@ -59,6 +60,26 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, paymentMessageInstruction.MaxFee, val.TransactionFee)
 		require.Equal(t, uint8(types.Success), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
+	})
+	t.Run("success with X-address recipient", func(t *testing.T) {
+		// Convert the classic recipient to an X-address to verify normalization in the builder.
+		xAddr, err := addresscodec.ClassicAddressToXAddress("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK", 0, false, false)
+		require.NoError(t, err)
+
+		xAddrInstruction := payment.ITeePaymentsPaymentInstructionMessage{
+			RecipientAddress: xAddr,
+			TokenId:          []byte{0},
+			Amount:           big.NewInt(10000000),
+			MaxFee:           big.NewInt(12),
+			PaymentReference: [32]byte{0},
+		}
+		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &xAddrInstruction, txFromDB)
+		require.NoError(t, err)
+		// RecipientAddress in response should be the original X-address from the instruction.
+		require.Equal(t, xAddr, val.RecipientAddress)
+		// ReceivedAmount must match — the normalization converts X-address to classic for metadata lookup.
+		require.Equal(t, paymentMessageInstruction.Amount, val.ReceivedAmount)
+		require.Equal(t, uint8(types.Success), val.TransactionStatus)
 	})
 	t.Run("success - different status", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
