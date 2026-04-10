@@ -54,10 +54,11 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
-	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
+	signerLists := accountInfo.Result.ResolveSignerLists()
+	if len(signerLists) == 0 {
 		return 0, fmt.Errorf("no signer list for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
-	signersValid := x.validateSignerList(accountInfo.Result.AccountData.SignerLists[0], req)
+	signersValid := x.validateSignerList(signerLists[0], req)
 	if !signersValid {
 		return 0, fmt.Errorf("signer list invalid for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}

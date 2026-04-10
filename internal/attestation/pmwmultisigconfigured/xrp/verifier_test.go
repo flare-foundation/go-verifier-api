@@ -32,6 +32,19 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, seq, sequence)
 	})
+	t.Run("success with v2/Clio response layout", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			2,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 2)
+		flags := accountFlags(t, true, false, false, false)
+		accountInfo := makeAccountInfoV2(t, signerList, flags, "")
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		require.NoError(t, err)
+		require.Equal(t, seq, sequence)
+	})
 	t.Run("wrong signer weights", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,
@@ -234,6 +247,24 @@ func makeAccountInfo(t *testing.T, signerLists []types.SignerList, flags types.A
 				SignerLists: signerLists,
 			},
 			AccountFlags: flags,
+			Status:       "success",
+		},
+	}
+}
+
+// makeAccountInfoV2 builds a response with signer_lists at the result level (API v2/Clio layout).
+func makeAccountInfoV2(t *testing.T, signerLists []types.SignerList, flags types.AccountFlags, regularKey string,
+) *types.AccountInfoResponse {
+	t.Helper()
+	return &types.AccountInfoResponse{
+		Result: types.AccountInfoResult{
+			AccountData: types.AccountData{
+				Account:    "rTestAccount",
+				Sequence:   sequence,
+				RegularKey: regularKey,
+			},
+			AccountFlags: flags,
+			SignerLists:  signerLists,
 			Status:       "success",
 		},
 	}

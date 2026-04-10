@@ -285,15 +285,16 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 ## 7.3 PMWMultisigAccountConfigured
 ### Primary flow (`XRPVerifier.Verify`)
 1. Call XRPL `account_info` with `ledger_index=validated`, `signer_lists=true`.
-2. Validate account signer list exists and matches provided pubkeys + threshold.
-3. Validate account flags:
+2. Resolve signer lists from the response. XRPL API v1 (rippled) returns `signer_lists` inside `account_data`; API v2 and Clio return it at the `result` level. Both layouts are supported.
+3. Validate account signer list exists and matches provided pubkeys + threshold.
+4. Validate account flags:
    - master key disabled
    - deposit auth disabled
    - destination tag requirement disabled
    - incoming XRP disallow disabled
-4. Validate no regular key set.
-5. Return `{status=OK, sequence}` on success.
-6. Return `{status=ERROR, sequence=0}` on validation failure.
+5. Validate no regular key set.
+6. Return `{status=OK, sequence}` on success.
+7. Return `{status=ERROR, sequence=0}` on validation failure.
 
 ### Public key handling
 - Public keys are parsed and compressed secp256k1.
