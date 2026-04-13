@@ -298,6 +298,11 @@ func (s *TeePollerService) getExtensionTeesWithRetry(ctx context.Context, extens
 }
 
 func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk int64) (teeList, error) {
+	// Pin pagination to a single block so index-based (start, end) reads produce a
+	// consistent snapshot even when the registry changes between pages. Best-effort:
+	// if the block number cannot be fetched, proceed with unpinned pagination.
+	pinnedBlock := s.fetchPinnedBlockNumber(ctx)
+
 	var allTeeIDs []common.Address
 	var allURLs []string
 	start := big.NewInt(0)
@@ -306,7 +311,7 @@ func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk
 		// Allocate a fresh fetchTimeout budget per page so cumulative pagination
 		// latency does not exhaust a single shared deadline.
 		pageCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
-		callOpts := &bind.CallOpts{Context: pageCtx}
+		callOpts := &bind.CallOpts{Context: pageCtx, BlockNumber: pinnedBlock}
 		tees, err := s.verifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
 		cancel()
 		if err != nil {
@@ -336,6 +341,23 @@ func (s *TeePollerService) getAllActiveTeesWithRetry(ctx context.Context) (teeLi
 	return fetcher.Retry(ctx, chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
 		return s.getAllActiveTeeMachines(ctx, teeMachineChunk)
 	}, nil)
+}
+
+// fetchPinnedBlockNumber returns the latest block number for pinning paginated reads
+// to a consistent snapshot. Returns nil (meaning "latest" per page) if the EthClient is
+// not configured or the call fails; in that case pagination proceeds unpinned.
+func (s *TeePollerService) fetchPinnedBlockNumber(ctx context.Context) *big.Int {
+	if s.verifier.EthClient == nil {
+		return nil
+	}
+	blockCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	block, err := s.verifier.EthClient.BlockByNumber(blockCtx, nil)
+	if err != nil {
+		logger.Debugf("Could not pin paginated reads to a block (falling back to unpinned): %v", err)
+		return nil
+	}
+	return new(big.Int).Set(block.Number())
 }
 
 func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, baseURL string) (teenodetype.TeeInfoResponse, error) {

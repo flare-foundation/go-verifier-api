@@ -241,6 +241,59 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 		require.ErrorContains(t, err, "contract failed")
 		require.Empty(t, list.TeeIDs)
 	})
+	t.Run("pins all pages to the same block when EthClient is configured", func(t *testing.T) {
+		pinnedBlockNumber := big.NewInt(12345)
+		mockClient := &helpers.MockEthClient{
+			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
+				return types.NewBlockWithHeader(&types.Header{Number: pinnedBlockNumber}), nil
+			},
+		}
+		seen := []*big.Int{}
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				seen = append(seen, opts.BlockNumber)
+				// Return enough entries to trigger a second page.
+				if start.Int64() == 0 {
+					return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"u1"}), nil
+				}
+				return mockAllActiveTeeMAchines(t, []string{}, []string{}), nil
+			},
+		}
+		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock, EthClient: mockClient}
+		s := NewTeePoller(ver)
+
+		_, err := s.getAllActiveTeeMachines(context.Background(), 1)
+		require.NoError(t, err)
+		require.NotEmpty(t, seen)
+		for i, bn := range seen {
+			require.NotNil(t, bn, "page %d was not pinned to a block", i)
+			require.Zero(t, bn.Cmp(pinnedBlockNumber), "page %d pinned to %s, want %s", i, bn, pinnedBlockNumber)
+		}
+	})
+	t.Run("falls back to unpinned pagination when BlockByNumber fails", func(t *testing.T) {
+		mockClient := &helpers.MockEthClient{
+			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
+				return nil, errors.New("eth client unavailable")
+			},
+		}
+		seen := []*big.Int{}
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				seen = append(seen, opts.BlockNumber)
+				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"u1"}), nil
+			},
+		}
+		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock, EthClient: mockClient}
+		s := NewTeePoller(ver)
+
+		list, err := s.getAllActiveTeeMachines(context.Background(), 100)
+		require.NoError(t, err)
+		require.Len(t, list.TeeIDs, 1)
+		require.NotEmpty(t, seen)
+		for i, bn := range seen {
+			require.Nil(t, bn, "page %d was pinned to %s but should have fallen back to nil (unpinned)", i, bn)
+		}
+	})
 	t.Run("mismatched TeeIds and Urls lengths are rejected", func(t *testing.T) {
 		mock := &mockTeeMachineRegistryCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
