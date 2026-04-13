@@ -81,10 +81,6 @@ func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]
 	return data, nil
 }
 
-func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
-	return getJSONWithClient[T](ctx, url, fetchTimeout, sharedHTTPClient, "")
-}
-
 // FetchJSONPinned fetches JSON from url while pinning the connection to dialAddr (host:port).
 // hostHeader is used as the HTTP Host header; serverName is used for TLS SNI.
 func FetchJSONPinned[T any](ctx context.Context, url string, fetchTimeout time.Duration, dialAddr, hostHeader, serverName string) (T, error) {
