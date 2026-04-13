@@ -35,20 +35,29 @@ func NewDBRepo(db, cChainDb *gorm.DB) *DBRepo {
 }
 
 func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, instructionID common.Hash) (*types.Log, error) {
-	var dbLog database.Log
+	// The contract emits TeeInstructionsSent exactly once per instruction, and nonces are
+	// monotonic per account, so (topic0, topic1, topic2) is expected to be unique. Fetch up
+	// to two matches ordered by canonical chain position so a hypothetical indexer
+	// duplicate surfaces as an explicit error instead of a silently arbitrary pick.
+	var dbLogs []database.Log
 	err := r.cChainDb.WithContext(ctx).
 		Where("topic0 = ? AND topic1 = ? AND topic2 = ?",
 			removeHexPrefix(eventHash),
 			removeHexPrefix(common.HexToHash("").String()), // Only checking for extensionID = 0.
 			removeHexPrefix(instructionID.Hex())).
-		First(&dbLog).Error
+		Order("block_number ASC, log_index ASC").
+		Limit(2).
+		Find(&dbLogs).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrRecordNotFound)
-		}
 		return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w: %w", instructionID.Hex(), eventHash, ErrDatabase, err)
 	}
-	return events.ConvertDatabaseLogToChainLog(dbLog)
+	if len(dbLogs) == 0 {
+		return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrRecordNotFound)
+	}
+	if len(dbLogs) > 1 {
+		return nil, fmt.Errorf("duplicate logs for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrDatabase)
+	}
+	return events.ConvertDatabaseLogToChainLog(dbLogs[0])
 }
 
 func (r *DBRepo) FetchTransactionBySourceAndSequence(ctx context.Context, query ChainQuery) (DBTransaction, error) {

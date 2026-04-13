@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -65,25 +64,33 @@ type InstructionLogResult struct {
 }
 
 // FetchInstructionLog fetches a single instruction log. Used for iterative reissue lookups.
+// The contract emits TeeInstructionsSent exactly once per instruction, so (topic0, topic1, topic2)
+// is expected to be unique. Fetch up to two matches and surface a duplicate as an explicit error
+// instead of silently selecting one arbitrarily.
 func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, instructionID common.Hash) (*InstructionLogResult, error) {
-	var dbLog database.Log
+	var dbLogs []database.Log
 	err := r.cChainDb.WithContext(ctx).
 		Where("topic0 = ? AND topic1 = ? AND topic2 = ?",
 			removeHexPrefix(eventHash),
 			removeHexPrefix(common.HexToHash("").String()),
 			removeHexPrefix(instructionID.Hex())).
-		First(&dbLog).Error
+		Order("block_number ASC, log_index ASC").
+		Limit(2).
+		Find(&dbLogs).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, paymentdb.ErrRecordNotFound)
-		}
 		return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w: %w", instructionID.Hex(), eventHash, paymentdb.ErrDatabase, err)
 	}
-	chainLog, err := events.ConvertDatabaseLogToChainLog(dbLog)
+	if len(dbLogs) == 0 {
+		return nil, fmt.Errorf("cannot fetch log for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, paymentdb.ErrRecordNotFound)
+	}
+	if len(dbLogs) > 1 {
+		return nil, fmt.Errorf("duplicate logs for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, paymentdb.ErrDatabase)
+	}
+	chainLog, err := events.ConvertDatabaseLogToChainLog(dbLogs[0])
 	if err != nil {
 		return nil, err
 	}
-	return &InstructionLogResult{Log: chainLog, BlockTimestamp: dbLog.Timestamp}, nil
+	return &InstructionLogResult{Log: chainLog, BlockTimestamp: dbLogs[0].Timestamp}, nil
 }
 
 // FetchTransactionsBySourceAndSequences fetches XRP transactions for multiple nonces in a single query.
