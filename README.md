@@ -81,7 +81,7 @@ SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 ```
 
 ## How to Set Up and Run Verifier
-1. Fill in the `.env` file or set environment variables according to the attestation type.
+1. Fill in the `.env` file (for local development) or set environment variables directly (for production). To load the `.env` file at startup set `LOAD_DOTENV=true` in your shell before running the binary — `.env` loading is opt-in so production deployments are not sensitive to filesystem contents.
 
 2. Install dependencies:
 
@@ -94,6 +94,11 @@ SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
     ```bash
     go run ./cmd/main.go
     ```
+    For local development with a `.env` file, set `LOAD_DOTENV=true` so the binary loads it at startup:
+    ```bash
+    LOAD_DOTENV=true go run ./cmd/main.go
+    ```
+    In production, leave `LOAD_DOTENV` unset and inject environment variables via the container runtime.
 
 4. Access Swagger UI:
     ```
