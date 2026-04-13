@@ -163,8 +163,10 @@ Prevents SSRF by validating the TEE proxy URL before any request is made.
 | Private (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) | Blocked | Allowed |
 | Cloud metadata (`fd00:ec2::254`) | Blocked | Blocked |
 | Link-local, multicast, unspecified (`0.0.0.0`, `::`) | Blocked | Blocked |
+| "This network" (`0.0.0.0/8`) | Blocked | Blocked |
 | Carrier-grade NAT (`100.64.0.0/10`) | Blocked | Blocked |
 | Benchmark testing (`198.18.0.0/15`) | Blocked | Blocked |
+| NAT64 (`64:ff9b::/96`) | Blocked | Blocked |
 | 6to4 (`2002::/16`), Teredo (`2001::/32`) | Blocked | Blocked |
 | Documentation (`2001:db8::/32`), discard (`100::/64`) | Blocked | Blocked |
 | DNS pinning | Active | Active |
@@ -268,7 +270,7 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 3. Fetch matching event log from C-chain index DB (`topic0`, `topic1=0`, `topic2=instructionID`).
 4. Decode tee instruction message payload.
 5. Query source DB transaction by `(source_address, sequence=nonce)`.
-6. Parse raw source-chain transaction JSON.
+6. Parse raw source-chain transaction JSON. Reject if `TransactionType != "Payment"` — non-payment transactions at the same `(sourceAddress, sequence)` (e.g. `AccountSet`, `TrustSet`) cannot produce a payment status attestation.
 7. Build FDC2 response:
    - recipient/token/amount/fee/reference from instruction message
    - status/revert reason from raw tx result
@@ -283,10 +285,15 @@ Intermediate and leaf certificates from the x5c chain are checked for revocation
 - Service owns 2 DB connections and closes both on shutdown.
 
 ## 7.3 PMWMultisigAccountConfigured
+
+### Request validation
+- `publicKeys` array is capped at 32 entries (XRPL `SignerList` protocol maximum). Requests exceeding this return 400.
+- Empty entries in `publicKeys` are rejected with 400.
+
 ### Primary flow (`XRPVerifier.Verify`)
 1. Call XRPL `account_info` with `ledger_index=validated`, `signer_lists=true`.
 2. Resolve signer lists from the response. XRPL API v1 (rippled) returns `signer_lists` inside `account_data`; API v2 and Clio return it at the `result` level. Both layouts are supported.
-3. Validate account signer list exists and matches provided pubkeys + threshold.
+3. Validate account signer list exists and matches provided pubkeys + threshold. Comparison is set-based — duplicate `publicKeys` entries cannot mask extra on-chain signers.
 4. Validate account flags:
    - master key disabled
    - deposit auth disabled
