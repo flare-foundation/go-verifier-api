@@ -196,13 +196,15 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	if err != nil {
 		return verifiertypes.TeeSampleInvalid, fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
 	}
-	checkInfoChallenge, err := teeVerifier.CheckInfoChallengeIsValid(ctx, infoResponse.TeeInfo.Challenge)
-	if err != nil {
-		return checkInfoChallenge, err
-	}
+	// Authenticate the TEE response (PKI + claims) before performing any chain RPC calls,
+	// so a hostile proxy cannot force freshness-check RPC work with attacker-chosen data.
 	_, err = teeVerifier.DataVerification(ctx, infoResponse, teeID, true)
 	if err != nil {
 		return verifiertypes.TeeSampleInvalid, fmt.Errorf("data verification failed for TEE %s: %w", teeID.Hex(), err)
+	}
+	checkInfoChallenge, err := teeVerifier.CheckInfoChallengeIsValid(ctx, infoResponse.TeeInfo.Challenge)
+	if err != nil {
+		return checkInfoChallenge, err
 	}
 	infoData := infoResponse.TeeInfo
 	state, err := teeVerifier.CheckSigningPolicies(ctx, infoData)
