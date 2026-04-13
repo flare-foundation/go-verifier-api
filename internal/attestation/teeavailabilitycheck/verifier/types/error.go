@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -25,6 +26,11 @@ func MapFetchErrorToState(op string, err error) (TeeSampleState, error) {
 	// Context issues
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return TeeSampleIndeterminate, wrapErr(ErrContext)
+	}
+	// Deterministic "not found" from go-ethereum (e.g. BlockByHash of a nonexistent block)
+	// indicates invalid input, not a transport problem.
+	if errors.Is(err, ethereum.NotFound) {
+		return TeeSampleInvalid, wrapErr(ErrInvalidInput)
 	}
 	// HTTP layer (non-200 responses)
 	var httpErr rpc.HTTPError

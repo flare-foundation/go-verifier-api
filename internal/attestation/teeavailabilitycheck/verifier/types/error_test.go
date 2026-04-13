@@ -3,9 +3,11 @@ package types_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/stretchr/testify/require"
@@ -20,6 +22,17 @@ func TestMapFetchErrorToState(t *testing.T) {
 		st, err = verifiertypes.MapFetchErrorToState("op2", context.Canceled)
 		require.Equal(t, verifiertypes.TeeSampleIndeterminate, st)
 		requireFetchError(t, err, "op2", verifiertypes.ErrContext)
+	})
+	t.Run("ethereum not found is invalid input", func(t *testing.T) {
+		st, err := verifiertypes.MapFetchErrorToState("fetch block", ethereum.NotFound)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, st)
+		requireFetchError(t, err, "fetch block", verifiertypes.ErrInvalidInput)
+
+		// Wrapped not-found also classifies as invalid.
+		wrapped := fmt.Errorf("chain call failed: %w", ethereum.NotFound)
+		st, err = verifiertypes.MapFetchErrorToState("fetch block", wrapped)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, st)
+		requireFetchError(t, err, "fetch block", verifiertypes.ErrInvalidInput)
 	})
 	t.Run("HTTP error", func(t *testing.T) {
 		// Simulate HTTP 400 (BadRequest)
