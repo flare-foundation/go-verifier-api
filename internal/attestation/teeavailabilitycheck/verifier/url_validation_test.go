@@ -299,6 +299,15 @@ func TestIsDangerousIP(t *testing.T) {
 		require.True(t, isDangerousIP(nil))
 		require.True(t, isDangerousIP(net.IP{}))
 	})
+	t.Run("0.0.0.0/8 is blocked", func(t *testing.T) {
+		require.True(t, isDangerousIP(net.ParseIP("0.0.0.0")))
+		require.True(t, isDangerousIP(net.ParseIP("0.0.0.1")))
+		require.True(t, isDangerousIP(net.ParseIP("0.255.255.255")))
+	})
+	t.Run("NAT64 well-known prefix is blocked", func(t *testing.T) {
+		require.True(t, isDangerousIP(net.ParseIP("64:ff9b::1")))
+		require.True(t, isDangerousIP(net.ParseIP("64:ff9b::ffff:ffff")))
+	})
 }
 
 func TestBuildPinnedAddr(t *testing.T) {

@@ -119,6 +119,24 @@ func TestSampleAllTees(t *testing.T) {
 		defer v.SamplesMu.RUnlock()
 		require.Len(t, v.TeeSamples[common.HexToAddress("0x1")], verifier.SamplesToConsider)
 	})
+	t.Run("worker recovers from panic in query callback", func(t *testing.T) {
+		ver, _, cancel := setup()
+		defer cancel()
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
+			},
+		}
+		ver.TeeMachineRegistryCaller = mock
+		s := NewTeePoller(ver)
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+			panic("boom")
+		}
+		// Should not crash; panic in worker is recovered by the deferred recover.
+		require.NotPanics(t, func() {
+			s.sampleAllTees(context.Background(), query)
+		})
+	})
 	t.Run("query failure does not crash and logs error", func(t *testing.T) {
 		ver, _, cancel := setup()
 		defer cancel()
@@ -223,6 +241,41 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 		require.ErrorContains(t, err, "contract failed")
 		require.Empty(t, list.TeeIDs)
 	})
+	t.Run("mismatched TeeIds and Urls lengths are rejected", func(t *testing.T) {
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return teeMachinesResult{
+					TeeIds:      []common.Address{common.HexToAddress("0x1"), common.HexToAddress("0x2")},
+					Urls:        []string{"only-one-url"},
+					TotalLength: big.NewInt(2),
+				}, nil
+			},
+		}
+		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+		s := NewTeePoller(ver)
+
+		ctx := context.Background()
+		list, err := s.getAllActiveTeeMachines(ctx, 100)
+		require.ErrorContains(t, err, "registry returned mismatched lengths")
+		require.Empty(t, list.TeeIDs)
+	})
+}
+
+func TestGetExtensionTeesMismatchedLengths(t *testing.T) {
+	mock := &mockTeeMachineRegistryCaller{
+		getActiveByExtFunc: func(opts *bind.CallOpts, extensionID *big.Int) (extensionTeesResult, error) {
+			return extensionTeesResult{
+				TeeIds: []common.Address{common.HexToAddress("0x1")},
+				Urls:   []string{"url-a", "url-b"},
+			}, nil
+		},
+	}
+	ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+	s := NewTeePoller(ver)
+
+	list, err := s.getExtensionTees(context.Background(), 0)
+	require.ErrorContains(t, err, "registry returned mismatched lengths for extension 0")
+	require.Empty(t, list.TeeIDs)
 }
 
 func TestGetAllActiveTeesWithRetry(t *testing.T) {

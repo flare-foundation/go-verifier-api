@@ -398,6 +398,22 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
 	})
+	t.Run("invalid JSON data is truncated in error", func(t *testing.T) {
+		// Build a non-JSON blob longer than 128 bytes to exercise the preview truncation path.
+		large := make([]byte, 512)
+		for i := range large {
+			large[i] = 'x'
+		}
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result: teenodetypes.ActionResult{Data: hexutil.Bytes(large)},
+		})
+		defer server.Close()
+		_, _, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
+		require.ErrorContains(t, err, "len=512")
+		// Preview must exist but must not carry the full 512 bytes verbatim.
+		require.NotContains(t, err.Error(), string(large))
+	})
 	t.Run("unmarshal error", func(t *testing.T) {
 		badJSON := `{"teeInfo":"this-should-be-an-object-not-a-string"}`
 		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
