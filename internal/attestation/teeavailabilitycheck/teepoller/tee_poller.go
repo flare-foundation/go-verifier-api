@@ -65,21 +65,26 @@ func (s *TeePollerService) StartTeePoller(parentCtx context.Context) {
 	go func() {
 		defer cancel()
 
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Errorf("TEE poller recovered from panic: %v", r)
-			}
-		}()
+		// Wrap each poll cycle in its own recover so a panic skips the cycle
+		// without stopping the goroutine permanently.
+		safeSample := func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Errorf("TEE poller cycle recovered from panic: %v", r)
+				}
+			}()
+			s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+		}
 
 		logger.Info("TEE poller started")
 		// Run once immediately, before ticker starts.
-		s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+		safeSample()
 		ticker := time.NewTicker(verifier.SampleInterval)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+				safeSample()
 			case <-ctx.Done():
 				logger.Infof("TEE poller stopped (%v)", ctx.Err())
 				return
