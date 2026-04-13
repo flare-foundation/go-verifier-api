@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -233,6 +235,69 @@ func TestFormatTeeSamples(t *testing.T) {
 		require.Len(t, samples, 1)
 		require.Equal(t, teeAddr.Hex(), samples[0].TeeID)
 		require.Len(t, samples[0].Values, 2)
+	})
+
+	t.Run("returned slice is decoupled from internal storage", func(t *testing.T) {
+		// Mutating the snapshot returned to callers must not affect the verifier's
+		// internal sample map.
+		teeAddr := common.HexToAddress("0xabcd")
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeAddr: {{State: verifiertypes.TeeSampleValid}},
+			},
+		}
+		samples := formatTeeSamples(v)
+		require.Len(t, samples, 1)
+		samples[0].Values[0].State = verifiertypes.TeeSampleInvalid
+
+		v.SamplesMu.RLock()
+		defer v.SamplesMu.RUnlock()
+		require.Equal(t, verifiertypes.TeeSampleValid, v.TeeSamples[teeAddr][0].State)
+	})
+
+	t.Run("concurrent reads and writes do not race", func(t *testing.T) {
+		teeAddr := common.HexToAddress("0xdead")
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeAddr: {{State: verifiertypes.TeeSampleValid}},
+			},
+		}
+		stop := make(chan struct{})
+		var wg sync.WaitGroup
+
+		// Writer: simulate the poller appending samples.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					v.SamplesMu.Lock()
+					v.TeeSamples[teeAddr] = append(v.TeeSamples[teeAddr], verifiertypes.TeeSampleValue{State: verifiertypes.TeeSampleValid})
+					v.SamplesMu.Unlock()
+				}
+			}
+		}()
+
+		// Readers: many concurrent /poller/tees-style snapshots.
+		for range 10 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for range 100 {
+					_ = formatTeeSamples(v)
+				}
+			}()
+		}
+
+		// Let the reader goroutines finish, then signal the writer to stop.
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			close(stop)
+		}()
+		wg.Wait()
 	})
 }
 
