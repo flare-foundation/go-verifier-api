@@ -277,6 +277,9 @@ func (s *TeePollerService) getExtensionTees(ctx context.Context, extensionID int
 	if err != nil {
 		return teeList{}, fmt.Errorf("getActiveTeeMachines(extensionId=%d) failed: %w", extensionID, err)
 	}
+	if len(tees.TeeIds) != len(tees.Urls) {
+		return teeList{}, fmt.Errorf("registry returned mismatched lengths for extension %d: teeIds=%d, urls=%d", extensionID, len(tees.TeeIds), len(tees.Urls))
+	}
 	return teeList{
 		TeeIDs: tees.TeeIds,
 		URLs:   tees.Urls,
@@ -303,6 +306,9 @@ func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk
 		cancel()
 		if err != nil {
 			return teeList{}, fmt.Errorf("getAllActiveTeeMachines(start=%d, chunk=%d) failed: %w", start.Int64(), chunk.Int64(), err)
+		}
+		if len(tees.TeeIds) != len(tees.Urls) {
+			return teeList{}, fmt.Errorf("registry returned mismatched lengths (start=%d, chunk=%d): teeIds=%d, urls=%d", start.Int64(), chunk.Int64(), len(tees.TeeIds), len(tees.Urls))
 		}
 		allTeeIDs = append(allTeeIDs, tees.TeeIds...)
 		allURLs = append(allURLs, tees.Urls...)
