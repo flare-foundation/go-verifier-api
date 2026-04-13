@@ -290,18 +290,17 @@ func (s *TeePollerService) getExtensionTeesWithRetry(ctx context.Context, extens
 }
 
 func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk int64) (teeList, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
-	defer cancel()
-	callOpts := &bind.CallOpts{
-		Context: ctx,
-	}
-
 	var allTeeIDs []common.Address
 	var allURLs []string
 	start := big.NewInt(0)
 	chunk := big.NewInt(teeChunk)
 	for {
+		// Allocate a fresh fetchTimeout budget per page so cumulative pagination
+		// latency does not exhaust a single shared deadline.
+		pageCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+		callOpts := &bind.CallOpts{Context: pageCtx}
 		tees, err := s.verifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
+		cancel()
 		if err != nil {
 			return teeList{}, fmt.Errorf("getAllActiveTeeMachines(start=%d, chunk=%d) failed: %w", start.Int64(), chunk.Int64(), err)
 		}
