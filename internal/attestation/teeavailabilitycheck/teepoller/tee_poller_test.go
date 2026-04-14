@@ -547,6 +547,40 @@ func mockExtensionTees(t *testing.T, ids []string, urls []string) extensionTeesR
 	return extensionTeesResult{TeeIds: addresses, Urls: urls}
 }
 
+func TestDedup(t *testing.T) {
+	t.Run("no duplicates unchanged", func(t *testing.T) {
+		input := teeList{
+			TeeIDs: []common.Address{common.HexToAddress("0x1"), common.HexToAddress("0x2")},
+			URLs:   []string{"url1", "url2"},
+		}
+		result := dedup(input)
+		require.Len(t, result.TeeIDs, 2)
+	})
+	t.Run("duplicates removed keeping first", func(t *testing.T) {
+		input := teeList{
+			TeeIDs: []common.Address{
+				common.HexToAddress("0x1"),
+				common.HexToAddress("0x2"),
+				common.HexToAddress("0x1"),
+				common.HexToAddress("0x3"),
+				common.HexToAddress("0x2"),
+			},
+			URLs: []string{"url1", "url2", "url1-dup", "url3", "url2-dup"},
+		}
+		result := dedup(input)
+		require.Len(t, result.TeeIDs, 3)
+		require.Equal(t, common.HexToAddress("0x1"), result.TeeIDs[0])
+		require.Equal(t, "url1", result.URLs[0])
+		require.Equal(t, common.HexToAddress("0x2"), result.TeeIDs[1])
+		require.Equal(t, "url2", result.URLs[1])
+		require.Equal(t, common.HexToAddress("0x3"), result.TeeIDs[2])
+	})
+	t.Run("empty list", func(t *testing.T) {
+		result := dedup(teeList{})
+		require.Empty(t, result.TeeIDs)
+	})
+}
+
 func TestBuildPollingList(t *testing.T) {
 	setup := func(maxPolled int) *verifier.TeeVerifier {
 		return &verifier.TeeVerifier{

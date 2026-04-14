@@ -117,6 +117,8 @@ func (s *TeePollerService) sampleAllTees(
 		s.filterTeeSamplesToActive(activeTees)
 	}
 
+	activeTees = dedup(activeTees)
+
 	taskCh := make(chan task, len(activeTees.TeeIDs))
 	var wg sync.WaitGroup
 	workers := min(defaultWorkerCount, len(activeTees.TeeIDs))
@@ -222,6 +224,26 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 type teeList struct {
 	TeeIDs []common.Address
 	URLs   []string
+}
+
+// dedup removes duplicate teeIDs from the list, keeping the first occurrence.
+// The contract's GetActiveTeeMachines returns unique entries, so duplicates are
+// not expected under normal operation; this is a defensive check.
+func dedup(list teeList) teeList {
+	seen := make(map[common.Address]struct{}, len(list.TeeIDs))
+	result := teeList{
+		TeeIDs: make([]common.Address, 0, len(list.TeeIDs)),
+		URLs:   make([]string, 0, len(list.URLs)),
+	}
+	for i, id := range list.TeeIDs {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		result.TeeIDs = append(result.TeeIDs, id)
+		result.URLs = append(result.URLs, list.URLs[i])
+	}
+	return result
 }
 
 // buildPollingList fetches extension 0 TEEs (always polled) and optionally
