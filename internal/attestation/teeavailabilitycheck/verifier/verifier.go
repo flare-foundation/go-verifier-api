@@ -361,9 +361,10 @@ func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash c
 	}
 	now := time.Now().Unix()
 	blockAge := now - int64(latestBlock.Time())
-	blockFreshness := int64(blockStalenessThreshold)
-	if blockAge > blockFreshness {
-		logger.Warnf("Latest block is stale: %d seconds old (%d, %d)", blockAge, latestBlock.NumberU64(), latestBlock.Time())
+	if blockAge > int64(blockStalenessThreshold) {
+		return verifiertypes.TeeSampleIndeterminate, fmt.Errorf(
+			"RPC head is stale: %d seconds behind wall clock (block %d, time %d)",
+			blockAge, latestBlock.NumberU64(), latestBlock.Time())
 	}
 	if latestBlock.Time()-challengeBlock.Time() <= BlockFreshnessInSeconds {
 		return verifiertypes.TeeSampleValid, nil

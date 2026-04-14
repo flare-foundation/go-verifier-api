@@ -115,10 +115,11 @@ func TestCheckInfoChallenge(t *testing.T) {
 		require.ErrorContains(t, err, "challenge too old")
 		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 	})
-	t.Run("stale block but valid challenge", func(t *testing.T) {
-		// Latest block is >blockStalenessThreshold (120s) behind wall clock,
-		// triggering the stale warning, but the challenge is fresh relative
-		// to the latest block so validation still passes.
+	t.Run("stale RPC head returns indeterminate", func(t *testing.T) {
+		// Latest block is >blockStalenessThreshold (120s) behind wall clock.
+		// The challenge is fresh relative to the latest block, but because
+		// the RPC head is stale we cannot trust the comparison — return
+		// INDETERMINATE rather than silently accepting.
 		staleOffset := uint64(150) // >120s behind wall clock
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset - 10})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset})
@@ -132,8 +133,8 @@ func TestCheckInfoChallenge(t *testing.T) {
 		}
 		v := &verifier.TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.NoError(t, err)
-		require.Equal(t, verifiertypes.TeeSampleValid, state)
+		require.ErrorContains(t, err, "RPC head is stale")
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 	})
 }
 
