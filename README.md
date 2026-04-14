@@ -58,7 +58,7 @@ RPC_URL=https://<xrpl>
 
 ### `PMWPaymentStatus` Attestation Type
 You will need to run following indexers:
-- xrp-indexer (not yet publicly available)
+- [xrp-indexer](https://github.com/flare-foundation/verifier-xrp-indexer)
 - [c-chain indexer](https://github.com/flare-foundation/flare-system-c-chain-indexer) 
 
 Environment variables:
