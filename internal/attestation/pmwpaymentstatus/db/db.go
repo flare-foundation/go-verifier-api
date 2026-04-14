@@ -19,6 +19,11 @@ const (
 	cChainDBMaxAttempts = 10
 	cChainDBRetryDelay  = 2 * time.Second
 	cChainDBMaxDelay    = 10 * time.Second
+
+	dbMaxOpenConns    = 25
+	dbMaxIdleConns    = 10
+	dbConnMaxLifetime = 5 * time.Minute
+	dbConnMaxIdleTime = 5 * time.Minute
 )
 
 type DBOptions struct {
@@ -40,6 +45,9 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 		logger.Infof("Attempt %d: connecting to %s (%s)", attempt, dbName, dialector.Name())
 		db, err = gorm.Open(dialector, &gorm.Config{})
 		if err == nil {
+			if poolErr := configurePool(db); poolErr != nil {
+				return nil, fmt.Errorf("cannot configure connection pool for %s: %w", dbName, poolErr)
+			}
 			logger.Infof("Successfully connected to %s (%s) on attempt %d", dbName, dialector.Name(), attempt)
 			return db, nil
 		}
@@ -55,6 +63,18 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 		}
 	}
 	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, maxAttempts, err)
+}
+
+func configurePool(db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	sqlDB.SetMaxOpenConns(dbMaxOpenConns)
+	sqlDB.SetMaxIdleConns(dbMaxIdleConns)
+	sqlDB.SetConnMaxLifetime(dbConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(dbConnMaxIdleTime)
+	return nil
 }
 
 func InitSourceDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
