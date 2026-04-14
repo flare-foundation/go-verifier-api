@@ -14,12 +14,19 @@ import (
 )
 
 type DBRepo struct {
-	db       *gorm.DB
-	cChainDb *gorm.DB
+	db              *gorm.DB
+	cChainDb        *gorm.DB
+	contractAddress string // lowercase hex, no 0x prefix — matches indexer storage format
 }
 
-func NewDBRepo(db, cChainDb *gorm.DB) *DBRepo {
-	return &DBRepo{db: db, cChainDb: cChainDb}
+// NewDBRepo constructs a DBRepo. contractAddress is the canonical contract that emits
+// TeeInstructionsSent events; lookups from other addresses are treated as not-found.
+func NewDBRepo(db, cChainDb *gorm.DB, contractAddress common.Address) *DBRepo {
+	return &DBRepo{
+		db:              db,
+		cChainDb:        cChainDb,
+		contractAddress: removeHexPrefix(strings.ToLower(contractAddress.Hex())),
+	}
 }
 
 // FetchInstructionLogs fetches logs for multiple instruction IDs in a single query.
@@ -35,7 +42,8 @@ func (r *DBRepo) FetchInstructionLogs(ctx context.Context, eventHash string, ins
 
 	var dbLogs []database.Log
 	err := r.cChainDb.WithContext(ctx).
-		Where("topic0 = ? AND topic1 = ? AND topic2 IN (?)",
+		Where("address = ? AND topic0 = ? AND topic1 = ? AND topic2 IN (?)",
+			r.contractAddress,
 			removeHexPrefix(eventHash),
 			removeHexPrefix(common.HexToHash("").String()),
 			topic2Values).
@@ -70,7 +78,8 @@ type InstructionLogResult struct {
 func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, instructionID common.Hash) (*InstructionLogResult, error) {
 	var dbLogs []database.Log
 	err := r.cChainDb.WithContext(ctx).
-		Where("topic0 = ? AND topic1 = ? AND topic2 = ?",
+		Where("address = ? AND topic0 = ? AND topic1 = ? AND topic2 = ?",
+			r.contractAddress,
 			removeHexPrefix(eventHash),
 			removeHexPrefix(common.HexToHash("").String()),
 			removeHexPrefix(instructionID.Hex())).

@@ -28,8 +28,8 @@ func TestSampleAllTees(t *testing.T) {
 		t.Helper()
 		tmpV, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 			RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-			RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-			TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+			RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+			TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
 			AllowTeeDebug:                     false,
 			DisableAttestationCheckE2E:        false,
 		})
@@ -375,8 +375,8 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	// verifier setup
 	verIface, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-		RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+		TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
 		AllowTeeDebug:                     true,
 		DisableAttestationCheckE2E:        true,
 		AllowPrivateNetworks:              true,
@@ -440,8 +440,8 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	t.Run("data verification fail", func(t *testing.T) {
 		verIfaceInt, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 			RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-			RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-			TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+			RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+			TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
 			AllowTeeDebug:                     false,
 			DisableAttestationCheckE2E:        false,
 			AllowPrivateNetworks:              true,

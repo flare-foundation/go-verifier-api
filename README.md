@@ -67,7 +67,10 @@ VERIFIER_TYPE=PMWPaymentStatus
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
+TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
 ```
+
+> **NOTE**: `TEE_INSTRUCTIONS_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
 
 ### `PMWFeeProof` Attestation Type
 Requires the same indexers as `PMWPaymentStatus`.
@@ -78,6 +81,7 @@ VERIFIER_TYPE=PMWFeeProof
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
+TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
 ```
 
 ## How to Set Up and Run Verifier

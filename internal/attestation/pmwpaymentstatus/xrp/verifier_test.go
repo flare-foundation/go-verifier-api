@@ -25,6 +25,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// testContractAddress is the canonical TeeInstructionsSent emitter address used in tests.
+var testContractAddress = common.HexToAddress("0x00000000000000000000000000000000000000C1")
+
+// testContractAddressStored matches the indexer's lowercase-no-prefix storage format.
+const testContractAddressStored = "00000000000000000000000000000000000000c1"
+
 func newTestDB(t *testing.T, name string, models ...any) *gorm.DB {
 	t.Helper()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", name)
@@ -107,7 +113,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		Topic1:          stripHexPrefix(common.HexToHash("").Hex()),
 		Topic2:          stripHexPrefix(instructionID.Hex()),
 		Data:            hex.EncodeToString(eventData),
-		Address:         "contractAddr",
+		Address:         testContractAddressStored,
 		TransactionHash: fmt.Sprintf("%064x", nonce),
 		LogIndex:        nonce,
 		Timestamp:       1700000000,
@@ -125,7 +131,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 
 	return testFixture{
 		verifier: &XRPVerifier{
-			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
 		},
 		req: connector.IPMWPaymentStatusRequestBody{
@@ -144,7 +150,7 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 		cChainDB := newTestDB(t, "conc_nolog_cchain", &database.Log{})
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
@@ -228,7 +234,7 @@ func TestVerify(t *testing.T) {
 		cChainDB := newTestDB(t, "verify_nolog_cchain", &database.Log{})
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
@@ -274,14 +280,14 @@ func TestVerify(t *testing.T) {
 			Topic1:          stripHexPrefix(common.HexToHash("").Hex()),
 			Topic2:          stripHexPrefix(instructionID.Hex()),
 			Data:            hex.EncodeToString(eventData),
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 		}).Error)
 		// No transaction seeded.
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
@@ -315,13 +321,13 @@ func TestVerify(t *testing.T) {
 			Topic1:          stripHexPrefix(common.HexToHash("").Hex()),
 			Topic2:          stripHexPrefix(instructionID.Hex()),
 			Data:            hex.EncodeToString([]byte("not-abi-encoded")),
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 		}).Error)
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},

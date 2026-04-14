@@ -106,7 +106,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			Topic1:          trimHex(common.HexToHash("").Hex()),
 			Topic2:          trimHex(payID.Hex()),
 			Data:            hex.EncodeToString(eventData),
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 			Timestamp:       1700000000,
@@ -118,7 +118,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 		}
 		v := &XRPVerifier{
-			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB),
+			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
 		}
 

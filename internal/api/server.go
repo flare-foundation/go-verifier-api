@@ -179,6 +179,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		RPCURL:                            os.Getenv(config.EnvRPCURL),
 		RelayContractAddress:              os.Getenv(config.EnvRelayContractAddress),
 		TeeMachineRegistryContractAddress: os.Getenv(config.EnvTeeMachineRegistryContractAddress),
+		TeeInstructionsContractAddress:    os.Getenv(config.EnvTeeInstructionsContractAddress),
 		SourceDatabaseURL:                 os.Getenv(config.EnvSourceDatabaseURL),
 		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
 		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),

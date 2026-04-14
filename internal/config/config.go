@@ -15,6 +15,7 @@ const (
 	EnvRPCURL                            = "RPC_URL"
 	EnvRelayContractAddress              = "RELAY_CONTRACT_ADDRESS"
 	EnvTeeMachineRegistryContractAddress = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
+	EnvTeeInstructionsContractAddress    = "TEE_INSTRUCTIONS_CONTRACT_ADDRESS"
 	EnvSourceDatabaseURL                 = "SOURCE_DATABASE_URL"
 	EnvCChainDatabaseURL                 = "CCHAIN_DATABASE_URL"
 	EnvPort                              = "PORT"
@@ -31,6 +32,7 @@ type EnvConfig struct {
 	RPCURL                            string
 	RelayContractAddress              string
 	TeeMachineRegistryContractAddress string
+	TeeInstructionsContractAddress    string
 	SourceDatabaseURL                 string
 	CChainDatabaseURL                 string
 	AllowTeeDebug                     string
@@ -68,8 +70,8 @@ type ABIArgPair struct {
 
 type TeeAvailabilityCheckConfig struct {
 	EncodedAndABI
-	RelayContractAddress              string
-	TeeMachineRegistryContractAddress string
+	RelayContractAddress              common.Address
+	TeeMachineRegistryContractAddress common.Address
 	AllowTeeDebug                     bool
 	DisableAttestationCheckE2E        bool
 	AllowPrivateNetworks              bool
@@ -80,16 +82,18 @@ type TeeAvailabilityCheckConfig struct {
 
 type PMWPaymentStatusConfig struct {
 	EncodedAndABI
-	SourceDatabaseURL        string
-	CchainDatabaseURL        string
-	ParsedTeeInstructionsABI abi.ABI
+	SourceDatabaseURL              string
+	CchainDatabaseURL              string
+	TeeInstructionsContractAddress common.Address
+	ParsedTeeInstructionsABI       abi.ABI
 }
 
 type PMWFeeProofConfig struct {
 	EncodedAndABI
-	SourceDatabaseURL        string
-	CchainDatabaseURL        string
-	ParsedTeeInstructionsABI abi.ABI
+	SourceDatabaseURL              string
+	CchainDatabaseURL              string
+	TeeInstructionsContractAddress common.Address
+	ParsedTeeInstructionsABI       abi.ABI
 }
 
 type PMWMultisigAccountConfig struct {
@@ -174,6 +178,10 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 			}
 		case EnvTeeMachineRegistryContractAddress:
 			if cfg.TeeMachineRegistryContractAddress == "" {
+				missing = append(missing, field)
+			}
+		case EnvTeeInstructionsContractAddress:
+			if cfg.TeeInstructionsContractAddress == "" {
 				missing = append(missing, field)
 			}
 		case EnvSourceDatabaseURL:

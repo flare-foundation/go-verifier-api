@@ -72,6 +72,16 @@ func TestCheckMissingFields(t *testing.T) {
 			require.ErrorContains(t, err, f)
 		}
 	})
+	t.Run("TEE_INSTRUCTIONS_CONTRACT_ADDRESS missing", func(t *testing.T) {
+		cfg := EnvConfig{}
+		err := CheckMissingFields(cfg, []string{EnvTeeInstructionsContractAddress})
+		require.ErrorContains(t, err, EnvTeeInstructionsContractAddress)
+	})
+	t.Run("TEE_INSTRUCTIONS_CONTRACT_ADDRESS set", func(t *testing.T) {
+		cfg := EnvConfig{TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1"}
+		err := CheckMissingFields(cfg, []string{EnvTeeInstructionsContractAddress})
+		require.NoError(t, err)
+	})
 }
 
 func TestLoadEncodedAndABI(t *testing.T) {

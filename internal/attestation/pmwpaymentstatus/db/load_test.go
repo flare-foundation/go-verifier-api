@@ -57,13 +57,13 @@ func TestLoadPaymentStatusDBConcurrentReads(t *testing.T) {
 		Topic1:  common.HexToHash("").Hex()[2:],
 		Topic2:  common.HexToHash("0x1").Hex()[2:],
 		Data:    "deadbeef",
-		Address: "contractAddr",
+		Address: testContractAddressStored,
 	}
 	if err := cChainDB.Create(&log).Error; err != nil {
 		t.Fatal(err)
 	}
 
-	repo := NewDBRepo(xrpDB, cChainDB)
+	repo := NewDBRepo(xrpDB, cChainDB, testContractAddress)
 
 	const (
 		concurrency = 100
@@ -115,7 +115,7 @@ func TestLoadPaymentStatusDBConcurrentReads(t *testing.T) {
 // under concurrent requests for a non-existent record.
 func TestLoadPaymentStatusDBMissingRecord(t *testing.T) {
 	xrpDB := newSharedMemoryDB(t, "load_missing", &DBTransaction{})
-	repo := NewDBRepo(xrpDB, nil)
+	repo := NewDBRepo(xrpDB, nil, testContractAddress)
 
 	const concurrency = 100
 	type callResult struct {
@@ -150,7 +150,7 @@ func TestLoadPaymentStatusDBMissingRecord(t *testing.T) {
 // when the DB connection is unavailable (simulates infrastructure failure).
 func TestLoadPaymentStatusDBClosedConnection(t *testing.T) {
 	closedDB := newClosedDB(t)
-	repo := NewDBRepo(closedDB, nil)
+	repo := NewDBRepo(closedDB, nil, testContractAddress)
 
 	const concurrency = 100
 	type callResult struct {

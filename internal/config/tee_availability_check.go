@@ -34,6 +34,14 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	if err != nil {
 		return nil, err
 	}
+	relayAddr, err := parseContractAddress(envConfig.RelayContractAddress, EnvRelayContractAddress)
+	if err != nil {
+		return nil, err
+	}
+	registryAddr, err := parseContractAddress(envConfig.TeeMachineRegistryContractAddress, EnvTeeMachineRegistryContractAddress)
+	if err != nil {
+		return nil, err
+	}
 	googleRootCert, err := LoadGoogleRootCert()
 	if err != nil {
 		return nil, err
@@ -69,8 +77,8 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 
 	return &TeeAvailabilityCheckConfig{
 		EncodedAndABI:                     commonConfig,
-		RelayContractAddress:              envConfig.RelayContractAddress,
-		TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
+		RelayContractAddress:              relayAddr,
+		TeeMachineRegistryContractAddress: registryAddr,
 		AllowTeeDebug:                     allowTeeDebug,
 		DisableAttestationCheckE2E:        disableAttestationCheckE2E,
 		AllowPrivateNetworks:              allowPrivateNetworks,

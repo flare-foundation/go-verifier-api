@@ -114,7 +114,7 @@ func seedTestData(
 		Topic1:          removeHexPrefix(common.HexToHash("").Hex()),
 		Topic2:          removeHexPrefix(instructionID.Hex()),
 		Data:            hex.EncodeToString(eventData),
-		Address:         "contractAddr",
+		Address:         testContractAddressStored,
 		TransactionHash: fmt.Sprintf("%064x", nonce),
 		LogIndex:        nonce,
 		Timestamp:       1700000000,
@@ -155,7 +155,7 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 	}
 
 	v := &XRPVerifier{
-		Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB),
+		Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 		Config: cfg,
 	}
 
