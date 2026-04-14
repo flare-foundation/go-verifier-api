@@ -63,7 +63,10 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 		return 0, fmt.Errorf("signer list invalid for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
 	flags := accountInfo.Result.AccountFlags
-	if err := checkAccountFlags(flags); err != nil {
+	if flags == nil {
+		return 0, fmt.Errorf("account_flags missing from account_info response for %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
+	}
+	if err := checkAccountFlags(*flags); err != nil {
 		return 0, fmt.Errorf("invalid flag for account%s: %w: %w", accountInfo.Result.AccountData.Account, err, ErrValidationFailed)
 	}
 	if accountInfo.Result.AccountData.RegularKey != "" {

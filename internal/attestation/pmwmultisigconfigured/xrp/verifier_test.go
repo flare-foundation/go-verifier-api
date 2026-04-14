@@ -155,6 +155,18 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "destination tag is required")
 	})
+	t.Run("MissingAccountFlags", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			1,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 1)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
+		accountInfo.Result.AccountFlags = nil // simulate omitted field
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "account_flags missing from account_info response")
+	})
 	t.Run("DisallowIncomingXRPEnabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,
@@ -260,7 +272,7 @@ func makeAccountInfo(t *testing.T, signerLists []types.SignerList, flags types.A
 				RegularKey:  regularKey,
 				SignerLists: signerLists,
 			},
-			AccountFlags: flags,
+			AccountFlags: &flags,
 			Status:       "success",
 		},
 	}
@@ -277,7 +289,7 @@ func makeAccountInfoV2(t *testing.T, signerLists []types.SignerList, flags types
 				Sequence:   sequence,
 				RegularKey: regularKey,
 			},
-			AccountFlags: flags,
+			AccountFlags: &flags,
 			SignerLists:  signerLists,
 			Status:       "success",
 		},

@@ -17,10 +17,10 @@ type AccountFlags struct {
 }
 
 type AccountInfoResult struct {
-	AccountData  AccountData  `json:"account_data"`
-	AccountFlags AccountFlags `json:"account_flags"`
-	SignerLists  []SignerList `json:"signer_lists"` // API v2/Clio returns signer_lists at result level
-	Status       string       `json:"status"`
+	AccountData  AccountData   `json:"account_data"`
+	AccountFlags *AccountFlags `json:"account_flags,omitempty"`
+	SignerLists  []SignerList  `json:"signer_lists"` // API v2/Clio returns signer_lists at result level
+	Status       string        `json:"status"`
 }
 
 // ResolveSignerLists returns signer lists from whichever location they appear in the response.
