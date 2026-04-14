@@ -18,10 +18,19 @@ import (
 var (
 	ErrNotFound  = errors.New("resource not found (404)")
 	ErrHTTPFetch = errors.New("HTTP fetch failed")
+	ErrRedirect  = errors.New("redirects are not allowed")
 )
 
+// noRedirects rejects any HTTP redirect. TEE proxy URLs are expected to resolve
+// directly; following redirects would bypass the SSRF controls applied to the
+// original URL.
+var noRedirects = func(_ *http.Request, _ []*http.Request) error {
+	return ErrRedirect
+}
+
 var sharedHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
+	Timeout:       10 * time.Second,
+	CheckRedirect: noRedirects,
 	Transport: &http.Transport{
 		MaxIdleConns:        100,
 		MaxConnsPerHost:     100,
@@ -91,7 +100,7 @@ func FetchJSONPinned[T any](ctx context.Context, url string, fetchTimeout time.D
 	}
 	transport.TLSClientConfig = &tls.Config{ServerName: serverName}
 
-	client := &http.Client{Transport: transport}
+	client := &http.Client{Transport: transport, CheckRedirect: noRedirects}
 	defer transport.CloseIdleConnections()
 	return getJSONWithClient[T](ctx, url, fetchTimeout, client, hostHeader)
 }
