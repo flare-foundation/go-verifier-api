@@ -348,6 +348,9 @@ func (v *TeeVerifier) FetchSigningPolicyHashFromChainWithRetry(
 }
 
 func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (verifiertypes.TeeSampleState, error) {
+	ctx, cancel := context.WithTimeout(ctx, chainFetchTimeout)
+	defer cancel()
+
 	challengeBlock, err := v.EthClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return verifiertypes.MapFetchErrorToState("fetch challenge block", err)
