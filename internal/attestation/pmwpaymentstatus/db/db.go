@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -32,7 +33,7 @@ type DBOptions struct {
 	MaxDelay    time.Duration
 }
 
-func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions) (*gorm.DB, error) {
+func initDBWithRetries(dialector gorm.Dialector, dsn, dbName string, opts *DBOptions) (*gorm.DB, error) {
 	maxAttempts := opts.MaxAttempts
 	delay := opts.RetryDelay
 	maxDelay := opts.MaxDelay
@@ -51,7 +52,7 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 			logger.Infof("Successfully connected to %s (%s) on attempt %d", dbName, dialector.Name(), attempt)
 			return db, nil
 		}
-		logger.Warnf("Attempt %d: failed to connect to %s (%s): %v", attempt, dbName, dialector.Name(), err)
+		logger.Warnf("Attempt %d: failed to connect to %s (%s): %s", attempt, dbName, dialector.Name(), redactDSN(err, dsn))
 
 		if attempt < maxAttempts {
 			logger.Infof("Retrying in %v...", currentDelay)
@@ -62,7 +63,14 @@ func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions)
 			}
 		}
 	}
-	return nil, fmt.Errorf("failed to open %s after %d attempts: %w", dbName, maxAttempts, err)
+	return nil, fmt.Errorf("failed to open %s after %d attempts: %s", dbName, maxAttempts, redactDSN(err, dsn))
+}
+
+// redactDSN replaces any occurrence of the raw DSN in an error message with
+// [redacted] so that credentials embedded in connection strings are not written
+// to logs.
+func redactDSN(err error, dsn string) string {
+	return strings.ReplaceAll(err.Error(), dsn, "[redacted]")
 }
 
 func configurePool(db *gorm.DB) error {
@@ -86,7 +94,7 @@ func InitSourceDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	if overrideOpts != nil {
 		opts = overrideOpts
 	}
-	return initDBWithRetries(postgres.Open(dsn), "Source DB", opts)
+	return initDBWithRetries(postgres.Open(dsn), dsn, "Source DB", opts)
 }
 
 func InitCChainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
@@ -98,7 +106,7 @@ func InitCChainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 	if overrideOpts != nil {
 		opts = overrideOpts
 	}
-	return initDBWithRetries(mysql.Open(dsn), "CChain DB", opts)
+	return initDBWithRetries(mysql.Open(dsn), dsn, "CChain DB", opts)
 }
 
 func CloseDB(db *gorm.DB) error {
