@@ -32,11 +32,13 @@ var sharedHTTPClient = &http.Client{
 	Timeout:       10 * time.Second,
 	CheckRedirect: noRedirects,
 	Transport: &http.Transport{
-		MaxIdleConns:        100,
-		MaxConnsPerHost:     100,
-		MaxIdleConnsPerHost: 100,
-		IdleConnTimeout:     90 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second,
+		MaxIdleConns:           100,
+		MaxConnsPerHost:        100,
+		MaxIdleConnsPerHost:    100,
+		IdleConnTimeout:        90 * time.Second,
+		TLSHandshakeTimeout:    10 * time.Second,
+		MaxResponseHeaderBytes: 1 << 20, // 1 MB
+		ResponseHeaderTimeout:  5 * time.Second,
 	},
 }
 
@@ -46,11 +48,13 @@ func cloneTransportConfig() *http.Transport {
 		return &http.Transport{}
 	}
 	return &http.Transport{
-		MaxIdleConns:        base.MaxIdleConns,
-		MaxConnsPerHost:     base.MaxConnsPerHost,
-		MaxIdleConnsPerHost: base.MaxIdleConnsPerHost,
-		IdleConnTimeout:     base.IdleConnTimeout,
-		TLSHandshakeTimeout: base.TLSHandshakeTimeout,
+		MaxIdleConns:           base.MaxIdleConns,
+		MaxConnsPerHost:        base.MaxConnsPerHost,
+		MaxIdleConnsPerHost:    base.MaxIdleConnsPerHost,
+		IdleConnTimeout:        base.IdleConnTimeout,
+		TLSHandshakeTimeout:    base.TLSHandshakeTimeout,
+		MaxResponseHeaderBytes: base.MaxResponseHeaderBytes,
+		ResponseHeaderTimeout:  base.ResponseHeaderTimeout,
 	}
 }
 
