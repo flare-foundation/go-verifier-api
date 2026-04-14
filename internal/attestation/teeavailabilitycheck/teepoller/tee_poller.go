@@ -105,7 +105,11 @@ func (s *TeePollerService) sampleAllTees(
 			logger.Infof("No cached TEEs; skipping poll")
 			return
 		}
-	} else {
+	}
+
+	activeTees = dedup(activeTees)
+
+	if err == nil {
 		if !s.activeTeesEqual(activeTees) {
 			teeEntries := make([]string, len(activeTees.TeeIDs))
 			for i, id := range activeTees.TeeIDs {
@@ -116,8 +120,6 @@ func (s *TeePollerService) sampleAllTees(
 		s.updateActiveTees(activeTees)
 		s.filterTeeSamplesToActive(activeTees)
 	}
-
-	activeTees = dedup(activeTees)
 
 	taskCh := make(chan task, len(activeTees.TeeIDs))
 	var wg sync.WaitGroup

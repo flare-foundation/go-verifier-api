@@ -47,6 +47,7 @@ func (r *DBRepo) FetchInstructionLogs(ctx context.Context, eventHash string, ins
 			removeHexPrefix(eventHash),
 			removeHexPrefix(common.HexToHash("").String()),
 			topic2Values).
+		Order("block_number ASC, log_index ASC").
 		Find(&dbLogs).Error
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch instruction logs, eventHash %s: %w: %w", eventHash, paymentdb.ErrDatabase, err)
@@ -59,7 +60,11 @@ func (r *DBRepo) FetchInstructionLogs(ctx context.Context, eventHash string, ins
 			return nil, fmt.Errorf("cannot convert log: %w", err)
 		}
 		if len(chainLog.Topics) >= 3 {
-			result[chainLog.Topics[2]] = chainLog
+			key := chainLog.Topics[2]
+			if _, exists := result[key]; exists {
+				return nil, fmt.Errorf("duplicate logs for instruction %s, eventHash %s: %w", key.Hex(), eventHash, paymentdb.ErrDatabase)
+			}
+			result[key] = chainLog
 		}
 	}
 	return result, nil
@@ -118,6 +123,9 @@ func (r *DBRepo) FetchTransactionsBySourceAndSequences(ctx context.Context, sour
 
 	result := make(map[uint64]paymentdb.DBTransaction, len(txs))
 	for _, tx := range txs {
+		if _, exists := result[tx.Sequence]; exists {
+			return nil, fmt.Errorf("duplicate transactions for source %s, sequence %d: %w", sourceAddress, tx.Sequence, paymentdb.ErrDatabase)
+		}
 		result[tx.Sequence] = tx
 	}
 	return result, nil

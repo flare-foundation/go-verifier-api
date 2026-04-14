@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -81,6 +82,32 @@ func TestFetchInstructionLogs_WrongContractAddress(t *testing.T) {
 	result, err := repo.FetchInstructionLogs(context.Background(), eventHash, []common.Hash{id})
 	require.NoError(t, err)
 	require.Empty(t, result)
+}
+
+func TestFetchInstructionLogs_DuplicateRowsAreRejected(t *testing.T) {
+	cchainDb := newMemoryDB(t, &database.Log{})
+	id := common.HexToHash("0xdeadbeef")
+	eventHash := "abcd"
+	topic2 := strings.TrimPrefix(id.Hex(), "0x")
+	contractAddr := strings.TrimPrefix(strings.ToLower(testContractAddress.Hex()), "0x")
+
+	for i := range 2 {
+		require.NoError(t, cchainDb.Create(&database.Log{
+			Topic0:          eventHash,
+			Topic1:          "0000000000000000000000000000000000000000000000000000000000000000",
+			Topic2:          topic2,
+			Address:         contractAddr,
+			TransactionHash: strings.Repeat("0", 63) + string(rune('0'+i)),
+			LogIndex:        uint64(i),
+			BlockNumber:     uint64(10 + i),
+			Timestamp:       1700000000,
+		}).Error)
+	}
+
+	repo := NewDBRepo(nil, cchainDb, testContractAddress)
+	_, err := repo.FetchInstructionLogs(context.Background(), eventHash, []common.Hash{id})
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+	require.ErrorContains(t, err, "duplicate logs for instruction")
 }
 
 func TestFetchInstructionLogs_CorrectAddressReturnsLogs(t *testing.T) {
@@ -265,6 +292,23 @@ func TestFetchTransactionsBySourceAndSequences_NoResults(t *testing.T) {
 	result, err := repo.FetchTransactionsBySourceAndSequences(context.Background(), "addr", []uint64{1, 2})
 	require.NoError(t, err)
 	require.Empty(t, result)
+}
+
+func TestFetchTransactionsBySourceAndSequences_DuplicateRowsAreRejected(t *testing.T) {
+	sourceDb := newMemoryDB(t, &paymentdb.DBTransaction{})
+	for i := range 2 {
+		require.NoError(t, sourceDb.Create(&paymentdb.DBTransaction{
+			Hash:          fmt.Sprintf("hash%d", i),
+			SourceAddress: "addr",
+			Sequence:      10,
+			Response:      `{"Fee": "12"}`,
+		}).Error)
+	}
+
+	repo := NewDBRepo(sourceDb, nil, testContractAddress)
+	_, err := repo.FetchTransactionsBySourceAndSequences(context.Background(), "addr", []uint64{10})
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+	require.ErrorContains(t, err, "duplicate transactions for source")
 }
 
 func TestFetchTransactionsBySourceAndSequences_HappyPath(t *testing.T) {
