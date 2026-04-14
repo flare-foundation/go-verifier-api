@@ -52,6 +52,9 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 }
 
 func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
+	if accountInfo.Result.Validated == nil || !*accountInfo.Result.Validated {
+		return 0, fmt.Errorf("account_info response is not from a validated ledger for %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
+	}
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
 	signerLists := accountInfo.Result.ResolveSignerLists()

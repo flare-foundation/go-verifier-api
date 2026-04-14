@@ -155,6 +155,30 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "destination tag is required")
 	})
+	t.Run("NotValidatedLedger", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			1,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 1)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
+		accountInfo.Result.Validated = boolPtr(false)
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "not from a validated ledger")
+	})
+	t.Run("MissingValidatedField", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			1,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 1)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
+		accountInfo.Result.Validated = nil
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "not from a validated ledger")
+	})
 	t.Run("MissingAccountFlags", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,
@@ -261,6 +285,8 @@ func makeSignerList(t *testing.T, accounts []string, weights []uint16, quorum ui
 	}
 }
 
+func boolPtr(b bool) *bool { return &b }
+
 func makeAccountInfo(t *testing.T, signerLists []types.SignerList, flags types.AccountFlags, regularKey string,
 ) *types.AccountInfoResponse {
 	t.Helper()
@@ -273,6 +299,7 @@ func makeAccountInfo(t *testing.T, signerLists []types.SignerList, flags types.A
 				SignerLists: signerLists,
 			},
 			AccountFlags: &flags,
+			Validated:    boolPtr(true),
 			Status:       "success",
 		},
 	}
@@ -290,6 +317,7 @@ func makeAccountInfoV2(t *testing.T, signerLists []types.SignerList, flags types
 				RegularKey: regularKey,
 			},
 			AccountFlags: &flags,
+			Validated:    boolPtr(true),
 			SignerLists:  signerLists,
 			Status:       "success",
 		},
