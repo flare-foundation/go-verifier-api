@@ -330,7 +330,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 - DB infrastructure failure → 503 (via `ErrDatabase`).
 
 ### Data retention
-- The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production). Callers must request PMWFeeProof within this retention window; otherwise, the verifier returns 422 for missing transaction data.
+- Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no chain/RPC fallback). The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production). The C-chain indexer has its own retention policy for event logs. Callers must submit attestation requests within these retention windows; otherwise, the verifier returns 422 for missing data. FDC2 attestation requests are tied to reward epochs with short deadlines, so requests falling outside the retention window indicate a protocol-level delay, not normal operation.
 
 ### Data stores
 - Source DB: transactions table (Postgres)
