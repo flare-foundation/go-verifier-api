@@ -97,6 +97,55 @@ func TestMapFetchErrorToState(t *testing.T) {
 	})
 }
 
+func TestMapTransportError(t *testing.T) {
+	t.Run("context.DeadlineExceeded", func(t *testing.T) {
+		state, classified, ok := verifiertypes.MapTransportError(context.DeadlineExceeded)
+		require.True(t, ok)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrContext)
+	})
+	t.Run("context.Canceled", func(t *testing.T) {
+		state, classified, ok := verifiertypes.MapTransportError(context.Canceled)
+		require.True(t, ok)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrContext)
+	})
+	t.Run("net.Error", func(t *testing.T) {
+		netErr := &testNetError{timeout: true, msg: "timeout"}
+		state, classified, ok := verifiertypes.MapTransportError(netErr)
+		require.True(t, ok)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrNetwork)
+	})
+	t.Run("unrelated error returns ok=false", func(t *testing.T) {
+		_, _, ok := verifiertypes.MapTransportError(errors.New("not a transport error"))
+		require.False(t, ok)
+	})
+}
+
+func TestClassifyHTTPStatus(t *testing.T) {
+	t.Run("400 is invalid", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusBadRequest)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrInvalidInput)
+	})
+	t.Run("404 is invalid", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusNotFound)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrInvalidInput)
+	})
+	t.Run("500 is indeterminate", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusInternalServerError)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrNetwork)
+	})
+	t.Run("502 is indeterminate", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusBadGateway)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrNetwork)
+	})
+}
+
 func TestFetchError(t *testing.T) {
 	err := &verifiertypes.FetchError{Op: "fetchOp", Err: verifiertypes.ErrRPC}
 	require.Contains(t, err.Error(), "fetchOp")

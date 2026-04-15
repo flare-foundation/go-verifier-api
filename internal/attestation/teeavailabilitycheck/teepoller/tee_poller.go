@@ -203,7 +203,7 @@ func (s *TeePollerService) sampleAllTees(
 func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 	infoResponse, err := fetchTEEInfoData(ctx, teeVerifier, proxyURL)
 	if err != nil {
-		return verifiertypes.TeeSampleInvalid, fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
+		return classifyInfoFetchError(err), fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
 	}
 	// Authenticate the TEE response (PKI + claims) before performing any chain RPC calls,
 	// so a hostile proxy cannot force freshness-check RPC work with attacker-chosen data.

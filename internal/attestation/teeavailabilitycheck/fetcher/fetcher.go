@@ -21,6 +21,25 @@ var (
 	ErrRedirect  = errors.New("redirects are not allowed")
 )
 
+// HTTPStatusError is returned when an HTTP response carries a non-2xx status
+// code. It exposes StatusCode so callers (and shared error classifiers) can
+// distinguish deterministic client errors (4xx) from transient server errors
+// (5xx) without string parsing.
+type HTTPStatusError struct {
+	URL  string
+	Code int
+}
+
+// StatusCode implements the statusCoder interface used by shared error
+// classifiers.
+func (e *HTTPStatusError) StatusCode() int { return e.Code }
+
+func (e *HTTPStatusError) Error() string {
+	return fmt.Sprintf("unexpected status code: %d for url %s", e.Code, e.URL)
+}
+
+func (e *HTTPStatusError) Unwrap() error { return ErrHTTPFetch }
+
 // noRedirects rejects any HTTP redirect. TEE proxy URLs are expected to resolve
 // directly; following redirects would bypass the SSRF controls applied to the
 // original URL.
@@ -84,7 +103,7 @@ func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]
 	case http.StatusOK:
 		// proceed
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d for url %s", resp.StatusCode, url)
+		return nil, &HTTPStatusError{URL: url, Code: resp.StatusCode}
 	}
 	limitReader := io.LimitReader(resp.Body, maxResponseSize)
 	data, err := io.ReadAll(limitReader)
@@ -137,7 +156,7 @@ func getJSONWithClient[T any](ctx context.Context, url string, fetchTimeout time
 	case http.StatusOK:
 		// proceed
 	default:
-		return zero, fmt.Errorf("unexpected status code: %d for url %s: %w", resp.StatusCode, url, ErrHTTPFetch)
+		return zero, &HTTPStatusError{URL: url, Code: resp.StatusCode}
 	}
 	limitReader := io.LimitReader(resp.Body, maxResponseSize)
 	err = json.NewDecoder(limitReader).Decode(&zero)
