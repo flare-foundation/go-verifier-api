@@ -74,6 +74,7 @@ func (s *TeePollerService) StartTeePoller(parentCtx context.Context) {
 				}
 			}()
 			s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+			s.verifier.PublishSnapshot()
 		}
 
 		logger.Info("TEE poller started")

@@ -3,13 +3,18 @@ package handler
 import (
 	"context"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 )
+
+type pollerTeesRequest struct {
+	Offset int `query:"offset" minimum:"0" default:"0" doc:"Number of entries to skip."`
+	Limit  int `query:"limit" minimum:"1" maximum:"500" default:"100" doc:"Max entries to return."`
+}
 
 func RegisterTeePoolingHandler(
 	api huma.API,
@@ -20,30 +25,23 @@ func RegisterTeePoolingHandler(
 		http.MethodGet,
 		"/poller/tees",
 		[]string{"Poller"},
-		func(ctx context.Context, request *struct{}) (*types.Response[types.TeeSamplesResponse], error) {
-			samples := formatTeeSamples(verifier)
-			return types.NewResponse(types.TeeSamplesResponse{Samples: samples}), nil
+		func(ctx context.Context, request *pollerTeesRequest) (*types.Response[types.TeeSamplesResponse], error) {
+			all := loadSnapshot(&verifier.PollerSnapshot)
+			total := len(all)
+			offset := request.Offset
+			limit := request.Limit
+			if offset > total {
+				offset = total
+			}
+			end := min(offset+limit, total)
+			return types.NewResponse(types.TeeSamplesResponse{
+				Samples: all[offset:end],
+				Total:   total,
+			}), nil
 		})
 }
 
-func formatTeeSamples(teeVerifier *teeverifier.TeeVerifier) []verifiertypes.TeeSample {
-	// Snapshot under lock — only copy sample slices, no formatting.
-	teeVerifier.SamplesMu.RLock()
-	snapshot := make(map[common.Address][]verifiertypes.TeeSampleValue, len(teeVerifier.TeeSamples))
-	for teeID, values := range teeVerifier.TeeSamples {
-		copied := make([]verifiertypes.TeeSampleValue, len(values))
-		copy(copied, values)
-		snapshot[teeID] = copied
-	}
-	teeVerifier.SamplesMu.RUnlock()
-
-	// Format outside lock — Hex() and struct construction do not need synchronization.
-	samples := make([]verifiertypes.TeeSample, 0, len(snapshot))
-	for teeID, values := range snapshot {
-		samples = append(samples, verifiertypes.TeeSample{
-			TeeID:  teeID.Hex(),
-			Values: values,
-		})
-	}
-	return samples
+func loadSnapshot(snap *atomic.Value) []verifiertypes.TeeSample {
+	v, _ := snap.Load().([]verifiertypes.TeeSample)
+	return v
 }

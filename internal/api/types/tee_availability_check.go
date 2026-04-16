@@ -80,4 +80,5 @@ func LogTeeAvailabilityCheckRequestBody(req connector.ITeeAvailabilityCheckReque
 
 type TeeSamplesResponse struct {
 	Samples []verifiertypes.TeeSample `json:"samples"`
+	Total   int                       `json:"total"`
 }

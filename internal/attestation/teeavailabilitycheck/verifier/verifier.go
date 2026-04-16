@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -63,7 +65,8 @@ type TeeVerifier struct {
 	CRLCache                 *CRLCache
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
-	magicPassLogged          sync.Map // tracks TEE IDs that have already logged a MagicPass warning
+	PollerSnapshot           atomic.Value // stores []verifiertypes.TeeSample
+	magicPassLogged          sync.Map     // tracks TEE IDs that have already logged a MagicPass warning
 }
 
 type EthClient interface {
@@ -392,6 +395,28 @@ func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// PublishSnapshot builds a sorted snapshot of TeeSamples and stores it in
+// PollerSnapshot. Called after each poller cycle so the /poller/tees endpoint
+// reads a pre-computed snapshot without lock contention.
+func (v *TeeVerifier) PublishSnapshot() {
+	v.SamplesMu.RLock()
+	samples := make([]verifiertypes.TeeSample, 0, len(v.TeeSamples))
+	for teeID, values := range v.TeeSamples {
+		copied := make([]verifiertypes.TeeSampleValue, len(values))
+		copy(copied, values)
+		samples = append(samples, verifiertypes.TeeSample{
+			TeeID:  teeID.Hex(),
+			Values: copied,
+		})
+	}
+	v.SamplesMu.RUnlock()
+
+	sort.Slice(samples, func(i, j int) bool {
+		return samples[i].TeeID < samples[j].TeeID
+	})
+	v.PollerSnapshot.Store(samples)
 }
 
 // ClearMagicPassLogged removes the MagicPass log tracking for a TEE,
