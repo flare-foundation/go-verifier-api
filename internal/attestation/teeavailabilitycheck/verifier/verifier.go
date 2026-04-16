@@ -42,6 +42,7 @@ const (
 	blockStalenessThreshold = 120             // seconds — warn if latest block is older than this
 	SamplesToConsider       = 5               // NOTE: SamplesToConsider and SampleInterval need to be correlated.
 	SampleInterval          = 1 * time.Minute // NOTE: SamplesToConsider and SampleInterval need to be correlated.
+	MaxSampleStaleness      = time.Duration(SamplesToConsider) * SampleInterval
 )
 
 var (
@@ -379,6 +380,11 @@ func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
 
 	if len(samples) < SamplesToConsider {
 		return false, fmt.Errorf("insufficient samples to determine TEE %s status: %w", teeID.Hex(), ErrInsufficientSamples)
+	}
+	newest := samples[len(samples)-1].Timestamp
+	if time.Since(newest) > MaxSampleStaleness {
+		return false, fmt.Errorf("sample cache stale for TEE %s (newest %v ago): %w",
+			teeID.Hex(), time.Since(newest).Round(time.Second), ErrInsufficientSamples)
 	}
 	for _, sample := range samples {
 		if sample.State == verifiertypes.TeeSampleValid || sample.State == verifiertypes.TeeSampleIndeterminate {

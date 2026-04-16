@@ -330,6 +330,41 @@ func TestIsTEEInfoDown(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, down)
 	})
+	t.Run("stale samples return insufficient", func(t *testing.T) {
+		staleTime := now.Add(-(verifier.MaxSampleStaleness + time.Second))
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeID: {
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+				},
+			},
+		}
+		down, err := v.IsTEEInfoDown(teeID)
+		require.ErrorIs(t, err, verifier.ErrInsufficientSamples)
+		require.ErrorContains(t, err, "sample cache stale")
+		require.False(t, down)
+	})
+	t.Run("fresh all-invalid still returns DOWN", func(t *testing.T) {
+		freshTime := now.Add(-(verifier.MaxSampleStaleness - time.Second))
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeID: {
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+				},
+			},
+		}
+		down, err := v.IsTEEInfoDown(teeID)
+		require.NoError(t, err)
+		require.True(t, down)
+	})
 }
 
 func makeChallengeResultServer(t *testing.T, resp teenodetypes.ActionResponse) *httptest.Server {
@@ -627,7 +662,8 @@ func TestVerify(t *testing.T) {
 			TeeId: teeID,
 			Url:   server.URL,
 		}
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleValid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
+		now := time.Now()
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{Timestamp: now, State: verifiertypes.TeeSampleValid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot fetch TEE data for (TEE=0x0000000000000000000000000000000000000123")
 		require.ErrorContains(t, err, "and determine its status: action result not found: resource not found (404)")
@@ -637,6 +673,7 @@ func TestVerify(t *testing.T) {
 	})
 	t.Run("tee is down", func(t *testing.T) {
 		teeID := common.HexToAddress("0x123")
+		now := time.Now()
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -648,7 +685,7 @@ func TestVerify(t *testing.T) {
 			TeeId: teeID,
 			Url:   server.URL,
 		}
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.NoError(t, err)
 		require.Equal(t, uint8(verifier.DOWN), resp.Status)
