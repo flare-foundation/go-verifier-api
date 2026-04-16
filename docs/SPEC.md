@@ -172,7 +172,8 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - Runs on startup and every `SampleInterval = 1m`.
 - Fetches extension 0 TEEs via `getActiveTeeMachines(0)` (always polled). If `MAX_POLLED_TEES > 0`, also fetches remaining TEEs via `getAllActiveTeeMachines` and includes non-extension-0 TEEs up to the cap.
 - Fetches each `/info` via pinned connection; validates challenge freshness + claims + signing policies.
-- Rolling recent sample states in memory; exposed on `GET /poller/tees`.
+- Rolling recent sample states in memory. After each cycle, a sorted snapshot is published via `atomic.Value`.
+- `GET /poller/tees` reads the pre-computed snapshot (no lock contention). Supports `offset` (default 0) and `limit` (default 100, max 500) query params; returns `total` count for pagination.
 
 ### TEE status semantics
 - Poller sample states: `VALID`, `INVALID`, `INDETERMINATE`.
@@ -306,7 +307,7 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 - **MagicPass bypass** (`verifier.go`): TEE nodes in non-production mode return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts it and skips all attestation validation. Gated by the TEE node's `settings.Mode` — the verifier itself has no toggle. Compensating control: production TEE nodes never set `Mode != 0`. See §7.1.
 - **Unauthenticated Swagger UI** (`/api-doc`): The OpenAPI documentation endpoint is intentionally exempt from API key auth to allow internal developers and auditors to browse the API. Compensating control: service is deployed behind internal infrastructure, not exposed to the public internet. No sensitive data is served on this endpoint.
 - **HTTP redirects disabled** (`fetcher.go`): HTTP clients reject all redirects (`CheckRedirect` returns `ErrRedirect`). TEE proxy URLs are expected to resolve directly — TEE nodes cannot follow redirects on their POST-based proxy communication, so operators already configure non-redirecting URLs. Eliminates the SSRF bypass vector where a redirect target could point to a private/metadata IP.
-- **Unbounded ABI event data decoding** (`instruction_event.go`): `DecodeTeeInstructionsSentEventData` decodes `log.Data` without an explicit size cap. Bounded in practice by: (1) C-chain block gas limits constrain the maximum emitted event size; (2) the C-chain indexer only stores logs from configured contract addresses; (3) emitting a large event costs significant gas. A future hardening step could add an explicit `len(log.Data)` check before ABI decoding.
+- **ABI event data decoding** (`instruction_event.go`): `DecodeTeeInstructionsSentEventData` rejects `log.Data` larger than 1 MB (`maxEventDataSize`) before ABI decoding. Legitimate events are ~1–2 KB; the cap prevents OOM from corrupted indexer data.
 
 ## 13. Minimal Runtime Sequences
 **Start**: load env → validate common config → build module-specific config → build verifier/service dependencies → register endpoints + auth middleware → start HTTP server → (TEE only) start background poller.

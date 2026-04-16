@@ -218,7 +218,7 @@ This is the simplest way to run everything without worrying about Docker manuall
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
 
 ### Monitoring
-- When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures.
+- When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures. The endpoint supports `offset` and `limit` query params (default limit: 100, max: 500) and returns a `total` count for pagination.
 
 ## Technical Specification
 See [docs/SPEC.md](docs/SPEC.md) for the full technical specification covering architecture, verification flows, error model, and configuration.
