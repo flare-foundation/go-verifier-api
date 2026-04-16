@@ -20,7 +20,7 @@ import (
 func TestBuildPaymentStatusResponse(t *testing.T) {
 	paymentMessageInstruction := payment.ITeePaymentsPaymentInstructionMessage{
 		RecipientAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
-		TokenId:          []byte{0},
+		TokenId:          []byte{},
 		Amount:           big.NewInt(10000000),
 		MaxFee:           big.NewInt(12),
 		PaymentReference: [32]byte{0},
@@ -68,7 +68,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 
 		xAddrInstruction := payment.ITeePaymentsPaymentInstructionMessage{
 			RecipientAddress: xAddr,
-			TokenId:          []byte{0},
+			TokenId:          []byte{},
 			Amount:           big.NewInt(10000000),
 			MaxFee:           big.NewInt(12),
 			PaymentReference: [32]byte{0},
@@ -97,6 +97,17 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, paymentMessageInstruction.MaxFee, val.TransactionFee)
 		require.Equal(t, uint8(types.Reverted), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
+	})
+	t.Run("non-native payment rejected", func(t *testing.T) {
+		iouInstruction := payment.ITeePaymentsPaymentInstructionMessage{
+			RecipientAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
+			TokenId:          []byte{0x01},
+			Amount:           big.NewInt(10000000),
+			MaxFee:           big.NewInt(12),
+		}
+		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &iouInstruction, txFromDB)
+		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorContains(t, err, "non-native payments (TokenId set) are not supported")
 	})
 	t.Run("non-payment transaction type rejected", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData

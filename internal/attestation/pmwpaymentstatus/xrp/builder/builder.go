@@ -21,6 +21,9 @@ func BuildPaymentStatusResponse(
 	if raw.TransactionType != "Payment" {
 		return zero, fmt.Errorf("expected Payment transaction, got %q", raw.TransactionType)
 	}
+	if len(paymentMsg.TokenId) != 0 {
+		return zero, fmt.Errorf("non-native payments (TokenId set) are not supported")
+	}
 	transactionResult, err := getTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
 		return zero, fmt.Errorf("cannot parse transaction status: %w", err)
