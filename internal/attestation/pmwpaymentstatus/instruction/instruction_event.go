@@ -23,7 +23,15 @@ func TeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 	return event.ID.Hex(), nil
 }
 
+// maxEventDataSize caps the byte length of log.Data before ABI decoding.
+// Legitimate TeeInstructionsSent events are ~1–2 KB; 1 MB matches the HTTP
+// request body limit and prevents OOM from a corrupted indexer row.
+const maxEventDataSize = 1 << 20 // 1 MB
+
 func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command op.Command) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
+	if len(log.Data) > maxEventDataSize {
+		return nil, fmt.Errorf("event data too large (%d bytes, max %d)", len(log.Data), maxEventDataSize)
+	}
 	eventData, err := abiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
 		teeABI,
 		EventNameTeeInstructionsSent,
