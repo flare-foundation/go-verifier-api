@@ -20,6 +20,7 @@ import (
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
+	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -475,6 +476,39 @@ func TestQueryTeeInfoAndValidateURLBlocked(t *testing.T) {
 	require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 	require.ErrorContains(t, err, "cannot fetch TEE info from http://localhost:6662")
 	require.ErrorContains(t, err, "local hostnames are not allowed")
+}
+
+func TestVerifyDataSignature(t *testing.T) {
+	validResp, privKey := helpers.TeeInfoResponse(t, common.HexToHash("0x1"))
+	teeID := crypto.PubkeyToAddress(privKey.PublicKey)
+
+	t.Run("valid", func(t *testing.T) {
+		require.NoError(t, verifyDataSignature(validResp, teeID))
+	})
+	t.Run("missing signature", func(t *testing.T) {
+		resp := validResp
+		resp.DataSignature = nil
+		err := verifyDataSignature(resp, teeID)
+		require.ErrorContains(t, err, "missing DataSignature")
+	})
+	t.Run("mismatched public keys", func(t *testing.T) {
+		otherKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		resp := validResp
+		resp.TeeInfo.PublicKey = teenodetype.PublicKey{
+			X: common.BytesToHash(otherKey.X.Bytes()),
+			Y: common.BytesToHash(otherKey.Y.Bytes()),
+		}
+		err = verifyDataSignature(resp, teeID)
+		require.ErrorContains(t, err, "MachineData.PublicKey does not match TeeInfo.PublicKey")
+	})
+	t.Run("wrong signer", func(t *testing.T) {
+		otherKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		wrongTeeID := crypto.PubkeyToAddress(otherKey.PublicKey)
+		err = verifyDataSignature(validResp, wrongTeeID)
+		require.ErrorContains(t, err, "signature check fail")
+	})
 }
 
 type teeMachinesResult = struct {

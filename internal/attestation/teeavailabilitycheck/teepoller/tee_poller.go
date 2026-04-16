@@ -2,6 +2,7 @@ package teepoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -15,6 +16,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
+	teenodeutils "github.com/flare-foundation/tee-node/pkg/utils"
 )
 
 const (
@@ -206,6 +208,12 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 	if err != nil {
 		return classifyInfoFetchError(err), fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
 	}
+	// Verify DataSignature proves the responder holds the private key for teeInfo.PublicKey
+	// (proof-of-possession). Without this, any Confidential Space workload could serve a
+	// response carrying another TEE's public key and pass DataVerification.
+	if err := verifyDataSignature(infoResponse, teeID); err != nil {
+		return verifiertypes.TeeSampleInvalid, fmt.Errorf("data signature verification failed for TEE %s: %w", teeID.Hex(), err)
+	}
 	// Authenticate the TEE response (PKI + claims) before performing any chain RPC calls,
 	// so a hostile proxy cannot force freshness-check RPC work with attacker-chosen data.
 	_, err = teeVerifier.DataVerification(ctx, infoResponse, teeID, true)
@@ -383,6 +391,23 @@ func (s *TeePollerService) fetchPinnedBlockNumber(ctx context.Context) *big.Int 
 		return nil
 	}
 	return new(big.Int).Set(block.Number())
+}
+
+// verifyDataSignature checks that DataSignature was produced by the private key
+// corresponding to teeID. This is a proof-of-possession check: it ensures the
+// responder holds the TEE's key, not just a copy of its public key.
+func verifyDataSignature(info teenodetype.TeeInfoResponse, teeID common.Address) error {
+	if info.MachineData.PublicKey != info.TeeInfo.PublicKey {
+		return errors.New("MachineData.PublicKey does not match TeeInfo.PublicKey")
+	}
+	if len(info.DataSignature) == 0 {
+		return errors.New("missing DataSignature")
+	}
+	mdHash, err := info.MachineData.Hash()
+	if err != nil {
+		return fmt.Errorf("cannot hash MachineData: %w", err)
+	}
+	return teenodeutils.VerifySignature(mdHash[:], info.DataSignature, teeID)
 }
 
 func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, baseURL string) (teenodetype.TeeInfoResponse, error) {
