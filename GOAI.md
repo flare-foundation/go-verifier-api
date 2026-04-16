@@ -1,149 +1,119 @@
 # Go Coding Guide for Claude
 
-This is the Flare Go style guide. Follow these conventions when writing Go code for Flare projects.
-Where these rules conflict with general Go conventions, these rules take precedence.
+Flare Go style guide. Follow these rules when writing Go code for Flare projects. If these rules conflict with general Go conventions, these rules win.
 
-## Linting
+## Required workflow
 
-Command `golangci-lint run` must be used before the end of each edit and issues must be resolved.
-
-A `.golangci.yml` config is provided in this directory — use it as a template for new projects.
-
-When ignoring a linter, always include a reason:
+- Run `golangci-lint run` before finishing an edit and resolve all issues.
+- A `.golangci.yml` in this directory is the template for new projects.
+- If you ignore a linter, always include a reason:
 
 ```go
-//nolint:<linterName>,<otherLinter> // reason for ignoring
+//nolint:<linter>,<other> // reason
 ```
 
-Place it directly above a block (package, struct, function) or inline on a single line.
+Place it directly above the block or inline on a single line.
 
 ## Naming
 
-- Use the shortest name that sufficiently describes the item. Omit words clear from context.
-- The smaller the scope, the shorter the name. Common abbreviations (`db`, `cfg`) are fine.
-- Only camelCase and PascalCase are allowed. Never use `_` in any identifier, including test function names.
+- Use the shortest name that is still clear. Smaller scope -> shorter name. Common abbreviations (`db`, `cfg`) are fine.
+- Use camelCase or PascalCase only. Never use `_` in identifiers, including test names.
 - Names should describe purpose, not value.
-- For initialisms and acronyms, all letters must have the same case: `ID`, `URL`, `HTTP` — not `Id`, `Url`, `Http`.
+- Acronyms and initialisms keep consistent case: `ID`, `URL`, `HTTP`, not `Id`, `Url`, `Http`.
 
-### Functions and Methods
+### Functions and methods
 
-- Do not use `Get` as a prefix. Use `Compute`, `Fetch`, or a descriptive verb — and only when the operation takes meaningful time. For simple accessors, just name the concept directly.
-- Receiver variables must be very short (one or two letters) and consistent across all methods of the same type.
+- Do not prefix with `Get`.
+- Use a descriptive verb only when the operation is non-trivial, for example `Fetch` or `Compute`.
+- Simple accessors should just be named after the concept.
+- Receiver names must be 1-2 letters and consistent across methods of the same type.
 
-### Modules
+### Packages and modules
 
-All Flare module names must match their public repo path:
+- Package names must be lowercase.
+- Package name must match the folder name.
+- Do not use underscores in package or folder names, except `_test` packages.
+- Avoid generic exported package names like `utils`.
+- Name package contents with the package name in mind — the full reference is `package.Name`, so avoid redundancy (e.g. `user.Create`, not `user.UserCreate`).
+- Flare module paths must match the public repo path:
 
+```text
+github.com/flare-foundation/<repo-name>
 ```
-github.com/flare-foundation/<name-of-the-repo>
-```
 
-### Packages
+## Repo layout
 
-- Package name must be all lowercase.
-- Package name and its folder name must be identical — no underscores in folder names (except `_test` packages).
-- Avoid generic names like `utils` for exported packages.
-- Name package contents with the package name in mind, and vice versa — the full reference is `package.Name`, so avoid redundancy.
-
-## Repo Organization
-
-- `pkg/` — exported packages
-- `internal/` — unexported packages
-- `cmd/` — executables
-- Tests and test helpers go in `_test.go` files or `/internal`, never exported.
+- `cmd/` -> executables
+- `pkg/` -> exported packages
+- `internal/` -> unexported packages
+- Tests and test helpers belong in `_test.go` files or `internal/`, never exported packages
 
 ## Errors
 
-- Prefer `errors.New` over `fmt.Errorf` when there are no format arguments.
-- Use `%w` for error wrapping, `%v` for error formatting in log messages.
-- Error types end with `Error` or `error`; error variables start with `Err`.
-- `errors.New("text")` and another `errors.New("text")` are distinct errors. Use package-level variables when code needs to match on a specific error.
+- Prefer `errors.New` when no formatting is needed.
+- Use `%w` for wrapping and `%v` in log formatting.
+- Error vars start with `Err`. Error types end with `Error` or `error`.
+- If code must match an error, define a package-level variable; two separate `errors.New("x")` values are not equal.
 - Never expose internal error details through a server API.
-- Always handle errors. If intentionally ignoring one, document it:
+- Always handle errors. If intentionally ignored, document why:
 
 ```go
-//nolint:errcheck,gosec // reason for ignoring
+//nolint:errcheck,gosec // reason
 ```
 
 ## Comments
 
-- Doc comments are complete sentences starting with the name of the item they describe.
-- Describe what the item does, not how. Only include "how" if it is not obvious from the code.
+- Doc comments are complete sentences and start with the item name.
+- Explain what the item does. Explain how only when it is not obvious.
 
 ## Logging
 
-- Use the logger from [`go-flare-common`](https://github.com/flare-foundation/go-flare-common).
-- Exported code must not log directly. If logging is needed, accept a logger as an interface and let the caller configure it.
+- Use the logger from `go-flare-common`.
+- Exported code must not log directly. If logging is needed, accept a logger interface and let the caller configure it.
 
 ## Dependencies
 
-Prefer the standard library. Add external dependencies only when necessary.
+- Prefer the standard library.
+- Add external dependencies only when necessary.
+- Prefer `go-flare-common`, `go-ethereum`, and `avalanchego` for shared Flare/EVM functionality.
+- Typical uses:
+  - `abi` -> ABI handling
+  - `crypto` -> Ethereum-style cryptography
+  - `common` -> shared helpers
+  - `hexutil` -> byte slice marshaling
 
 ### go-flare-common
 
-[`go-flare-common`](https://github.com/flare-foundation/go-flare-common) is the shared library across Flare Go projects. It includes:
-
-- Logging utilities
-- abigen contract bindings
-- Common helpers reused across repos
-
-All changes to this repo must be backwards compatible and well tested.
-
-### go-ethereum and avalanchego
-
-These are largely interchangeable in the Flare ecosystem. Prefer them for:
-
-- `abi` — working with ABIs
-- `crypto` — Ethereum-ecosystem cryptography
-- `common` — general helpers
-- `hexutil` — marshaling of byte slices
-
-#### abigen
-
-Use `abigen` to generate type-safe Go bindings from smart contract ABIs.
-
-Standard practice: create a directory named after the package (derived from the contract name). Place the ABI file and a Go file with a `go:generate` directive there:
-
-```go
-//go:generate abigen --abi=neki.abi --pkg=neki --type Neki --out=autogen.go
-
-package neki
-```
-
-All bindings can then be regenerated with:
-
-```bash
-go generate ./...
-```
+- Shared Flare library for logging, generated contract bindings, and common helpers.
+- Changes to `go-flare-common` must be backward compatible and well tested.
 
 ## Testing
 
-- Use [testify](https://pkg.go.dev/github.com/stretchr/testify): `require` for fatal assertions, `assert` for non-fatal, `mock` for mocking.
-- When a unit test needs an external database (SQL, Redis, …), use an in-memory mock instead of a real database.
-- Tests must be independent — they must pass in any order and potentially in parallel.
-- Use `t.Helper()` in auxiliary test functions.
-- Prefer [table-driven tests](https://go.dev/wiki/TableDrivenTests) for cases with multiple inputs.
+- Use `testify`: `require` for fatal assertions, `assert` for non-fatal, `mock` for mocking.
+- Use in-memory mocks instead of real external databases in unit tests.
+- Tests must be independent and safe to run in any order, potentially in parallel.
+- Use `t.Helper()` in test helpers.
+- Prefer table-driven tests for multiple cases.
 
 ## Pitfalls
 
-### Time durations
+### Durations
 
-Never use raw integers for durations. Always multiply by the time unit:
+Never use raw integers for time durations.
 
 ```go
-x = 12 * time.Second  // correct
-x = 12                // wrong
+x = 12 * time.Second
 ```
 
-### Variable shadowing with `:=`
+### Shadowing with `:=`
 
-When a variable is declared outside a block and set inside using `:=` alongside an error return, the outer variable is silently shadowed:
+Do not accidentally shadow outer variables when assigning alongside `err`.
 
 ```go
-// Wrong — outer x is never set
+// Wrong
 var x int
 if something {
-    x, err := f()  // x here is a new variable scoped to the if block
+    x, err := f()
 }
 
 // Correct
@@ -156,20 +126,18 @@ if something {
 
 ### Slice initialization
 
-When the final length is known, initialize with capacity to avoid reallocations:
+If final size is known, preallocate:
 
 ```go
-x := make([]T, 0, n)  // then append
+x := make([]T, 0, n)
 // or
-x := make([]T, n)     // then assign by index
+x := make([]T, n)
 ```
 
-### Interface satisfaction check
+### Interface satisfaction
 
-To assert at compile time that `*X` implements interface `Y`:
+Use a compile-time assertion near the type definition:
 
 ```go
 var _ Y = &X{}
 ```
-
-Place this near the type definition. A missing method causes a compile error immediately.
