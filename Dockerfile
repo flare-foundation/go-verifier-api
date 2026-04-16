@@ -7,7 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o ./go-verifier-api cmd/main.go
+RUN CGO_ENABLED=0 go build -tags netgo -o ./go-verifier-api cmd/main.go
 RUN git rev-parse HEAD > COMMIT_HASH
 
 FROM debian:12-slim AS execution
