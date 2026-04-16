@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"testing"
 
@@ -73,6 +74,31 @@ func TestClassifyInfoFetchError(t *testing.T) {
 		require.Equal(t, verifiertypes.TeeSampleInvalid, classifyInfoFetchError(err))
 	})
 
+	t.Run("HTTP 401 is Invalid", func(t *testing.T) {
+		err := &fetcher.HTTPStatusError{URL: "http://x", Code: 401}
+		require.Equal(t, verifiertypes.TeeSampleInvalid, classifyInfoFetchError(err))
+	})
+
+	t.Run("HTTP 403 is Invalid", func(t *testing.T) {
+		err := &fetcher.HTTPStatusError{URL: "http://x", Code: 403}
+		require.Equal(t, verifiertypes.TeeSampleInvalid, classifyInfoFetchError(err))
+	})
+
+	t.Run("HTTP 405 is Invalid", func(t *testing.T) {
+		err := &fetcher.HTTPStatusError{URL: "http://x", Code: 405}
+		require.Equal(t, verifiertypes.TeeSampleInvalid, classifyInfoFetchError(err))
+	})
+
+	t.Run("HTTP 408 is Indeterminate", func(t *testing.T) {
+		err := &fetcher.HTTPStatusError{URL: "http://x", Code: 408}
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, classifyInfoFetchError(err))
+	})
+
+	t.Run("HTTP 429 is Indeterminate", func(t *testing.T) {
+		err := &fetcher.HTTPStatusError{URL: "http://x", Code: 429}
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, classifyInfoFetchError(err))
+	})
+
 	t.Run("JSON syntax error is Invalid", func(t *testing.T) {
 		var target struct{ X int }
 		decodeErr := json.Unmarshal([]byte("not-json"), &target)
@@ -85,6 +111,16 @@ func TestClassifyInfoFetchError(t *testing.T) {
 		decodeErr := json.Unmarshal([]byte(`{"X":"string"}`), &target)
 		require.Error(t, decodeErr)
 		require.Equal(t, verifiertypes.TeeSampleInvalid, classifyInfoFetchError(decodeErr))
+	})
+
+	t.Run("io.ErrUnexpectedEOF is Invalid", func(t *testing.T) {
+		err := fmt.Errorf("decode failed: %w", io.ErrUnexpectedEOF)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, classifyInfoFetchError(err))
+	})
+
+	t.Run("io.EOF is Invalid", func(t *testing.T) {
+		err := fmt.Errorf("decode failed: %w", io.EOF)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, classifyInfoFetchError(err))
 	})
 
 	t.Run("unknown error is Indeterminate", func(t *testing.T) {

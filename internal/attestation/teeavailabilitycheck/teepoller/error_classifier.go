@@ -3,6 +3,8 @@ package teepoller
 import (
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
 
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -35,17 +37,26 @@ func classifyInfoFetchError(err error) verifiertypes.TeeSampleState {
 	case errors.Is(err, verifier.ErrURLValidation):
 		return verifiertypes.TeeSampleInvalid
 	}
-	// HTTP non-2xx: delegate to shared status classifier so 4xx vs 5xx
-	// semantics match the RPC path.
+	// HTTP non-2xx: classify with TEE-endpoint semantics. 4xx are
+	// deterministic endpoint faults (TEE proxy misconfiguration), except
+	// 408 (request timeout) and 429 (rate limit) which are transient.
+	// 5xx are transient server/proxy issues. This differs from the RPC
+	// path where all non-400/404 are INDETERMINATE (verifier infra fault).
 	var statusErr *fetcher.HTTPStatusError
 	if errors.As(err, &statusErr) {
-		state, _ := verifiertypes.ClassifyHTTPStatus(statusErr.Code)
-		return state
+		code := statusErr.Code
+		if code >= 400 && code < 500 &&
+			code != http.StatusRequestTimeout &&
+			code != http.StatusTooManyRequests {
+			return verifiertypes.TeeSampleInvalid
+		}
+		return verifiertypes.TeeSampleIndeterminate
 	}
-	// Malformed JSON from the TEE → deterministic TEE fault.
+	// Malformed or truncated JSON from the TEE → deterministic TEE fault.
 	var jsonSyntaxErr *json.SyntaxError
 	var jsonTypeErr *json.UnmarshalTypeError
-	if errors.As(err, &jsonSyntaxErr) || errors.As(err, &jsonTypeErr) {
+	if errors.As(err, &jsonSyntaxErr) || errors.As(err, &jsonTypeErr) ||
+		errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 		return verifiertypes.TeeSampleInvalid
 	}
 	// Unknown error — fail safe as INDETERMINATE (avoid false DOWN).
