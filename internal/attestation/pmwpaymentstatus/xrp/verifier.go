@@ -90,8 +90,13 @@ func checkRowConsistency(raw types.RawTransactionData, dbTx db.DBTransaction) er
 	return nil
 }
 
+const maxResponseSize = 1 << 20
+
 func (x *XRPVerifier) parseRawTransactionData(sender string, nonce uint64, response string) (types.RawTransactionData, error) {
 	var rawTransactionData types.RawTransactionData
+	if len(response) > maxResponseSize {
+		return rawTransactionData, fmt.Errorf("XRP transaction response too large: %d bytes (max %d): %w", len(response), maxResponseSize, db.ErrDatabase)
+	}
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
 		logger.Errorf("Cannot unmarshal XRP transaction response for %s with nonce %d: %v", sender, nonce, err)

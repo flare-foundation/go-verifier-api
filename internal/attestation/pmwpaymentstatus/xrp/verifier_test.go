@@ -377,6 +377,16 @@ func TestVerify(t *testing.T) {
 		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 		require.ErrorContains(t, err, "JSON Sequence")
 	})
+
+	t.Run("oversized response returns 503", func(t *testing.T) {
+		// Pad beyond maxResponseSize (1 MB) to trip the size cap before JSON unmarshaling.
+		padding := strings.Repeat("x", 1<<20+1)
+		resp := `{"_pad":"` + padding + `","hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Sequence":42,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_oversized", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "too large")
+	})
 }
 
 func TestCheckRowConsistency(t *testing.T) {
