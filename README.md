@@ -215,6 +215,7 @@ This is the simplest way to run everything without worrying about Docker manuall
 - Other `TODO`s inside the code and README.
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
+- `go.mod` pins `github.com/jackc/pgx/v5 v5.9.1` as an explicit indirect override because `gorm.io/driver/postgres v1.6.0` pulls the unpatched v5.6.0 (CVE-2026-33815, CVE-2026-33816). Drop the explicit pgx require once a newer `gorm.io/driver/postgres` ships that pulls pgx >= v5.9.0.
 
 ### Monitoring
 - When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures. The endpoint supports `offset` and `limit` query params (default limit: 100, max: 500) and returns a `total` count for pagination.
