@@ -2,9 +2,11 @@ package xrpverifier
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,6 +47,13 @@ func TestParseTxFee(t *testing.T) {
 	t.Run("invalid JSON", func(t *testing.T) {
 		_, err := parseTxFee(`not json`)
 		require.ErrorContains(t, err, "cannot unmarshal")
+	})
+
+	t.Run("oversized response rejected", func(t *testing.T) {
+		padding := strings.Repeat("x", 1<<20+1)
+		_, err := parseTxFee(`{"_pad":"` + padding + `","Fee":"12"}`)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "too large")
 	})
 }
 

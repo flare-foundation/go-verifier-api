@@ -169,7 +169,12 @@ func (x *XRPVerifier) computeActualFee(ctx context.Context, senderAddress string
 	return actualFee, nil
 }
 
+const maxResponseSize = 1 << 20
+
 func parseTxFee(response string) (*big.Int, error) {
+	if len(response) > maxResponseSize {
+		return nil, fmt.Errorf("XRP transaction response too large: %d bytes (max %d): %w", len(response), maxResponseSize, paymentdb.ErrDatabase)
+	}
 	var raw struct {
 		Fee string `json:"Fee"`
 	}
