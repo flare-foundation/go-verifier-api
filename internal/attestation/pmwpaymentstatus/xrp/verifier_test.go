@@ -17,8 +17,10 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -201,9 +203,9 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 	})
 }
 
-const successTxResponse = `{"Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"1000"}}`
+const successTxResponse = `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"1000"}}`
 
-const revertedTxResponse = `{"Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[],"TransactionResult":"tecNO_DST_INSUF_XRP"}}`
+const revertedTxResponse = `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[],"TransactionResult":"tecNO_DST_INSUF_XRP"}}`
 
 func TestVerify(t *testing.T) {
 	t.Run("successful payment", func(t *testing.T) {
@@ -350,5 +352,90 @@ func TestVerify(t *testing.T) {
 		f := setupVerifyFixture(t, "verify_noresult", `{"Account":"rSender","Fee":"12","metaData":{"AffectedNodes":[],"TransactionResult":""}}`)
 		_, err := f.verifier.Verify(context.Background(), f.req)
 		require.ErrorContains(t, err, "missing transaction result")
+	})
+
+	t.Run("JSON hash mismatch returns 503", func(t *testing.T) {
+		resp := `{"hash":"deadbeef","Account":"rSender","Sequence":42,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_hashmismatch", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON hash")
+	})
+
+	t.Run("JSON Account mismatch returns 503", func(t *testing.T) {
+		resp := `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rDifferent","Sequence":42,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_acctmismatch", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Account")
+	})
+
+	t.Run("JSON Sequence mismatch returns 503", func(t *testing.T) {
+		resp := `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Sequence":99,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_seqmismatch", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Sequence")
+	})
+}
+
+func TestCheckRowConsistency(t *testing.T) {
+	raw := types.RawTransactionData{
+		CommonFields: transactions.CommonFields{
+			Account:  "rSender",
+			Sequence: 42,
+		},
+		Hash: "abc123",
+	}
+	dbTx := paymentdb.DBTransaction{
+		Hash:          "abc123",
+		SourceAddress: "rSender",
+		Sequence:      42,
+	}
+
+	t.Run("all match", func(t *testing.T) {
+		require.NoError(t, checkRowConsistency(raw, dbTx))
+	})
+
+	t.Run("hash case-insensitive match", func(t *testing.T) {
+		// Indexer stores Hash lowercase; raw XRPL JSON uses uppercase.
+		// EqualFold must treat them as equal.
+		r := raw
+		r.Hash = "ABC123"
+		d := dbTx
+		d.Hash = "abc123"
+		require.NoError(t, checkRowConsistency(r, d))
+	})
+
+	t.Run("empty JSON hash rejected", func(t *testing.T) {
+		r := raw
+		r.Hash = ""
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON hash")
+	})
+
+	t.Run("hash mismatch", func(t *testing.T) {
+		r := raw
+		r.Hash = "deadbeef"
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON hash")
+	})
+
+	t.Run("account mismatch", func(t *testing.T) {
+		r := raw
+		r.Account = "rOther"
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Account")
+	})
+
+	t.Run("sequence mismatch", func(t *testing.T) {
+		r := raw
+		r.Sequence = 99
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Sequence")
 	})
 }
