@@ -92,7 +92,6 @@ TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
     ```bash
     go mod tidy
     ```
-    To update [`go-flare-common`](https://github.com/flare-foundation/go-flare-common/commits/tee) to the latest commit on `tee` branch, run `go get github.com/flare-foundation/go-flare-common@<commitHash>`
 
 3. Run the project:
     ```bash
