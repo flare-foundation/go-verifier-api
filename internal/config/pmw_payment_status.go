@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
 )
 
@@ -23,7 +24,11 @@ func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, e
 }
 
 func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
-	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL})
+	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvTeeInstructionsContractAddress})
+	if err != nil {
+		return nil, err
+	}
+	teeInstructionsAddr, err := parseContractAddress(envConfig.TeeInstructionsContractAddress, EnvTeeInstructionsContractAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -36,11 +41,24 @@ func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, 
 		return nil, fmt.Errorf("cannot parse TeeInstructions ABI: %w", err)
 	}
 	return &PMWPaymentStatusConfig{
-		EncodedAndABI:            commonConfig,
-		SourceDatabaseURL:        envConfig.SourceDatabaseURL,
-		CchainDatabaseURL:        envConfig.CChainDatabaseURL,
-		ParsedTeeInstructionsABI: parsedTeeInstructionsABI,
+		EncodedAndABI:                  commonConfig,
+		SourceDatabaseURL:              envConfig.SourceDatabaseURL,
+		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
+		TeeInstructionsContractAddress: teeInstructionsAddr,
+		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
 	}, nil
+}
+
+// parseContractAddress validates a 0x-prefixed hex address and rejects zero/malformed values.
+func parseContractAddress(raw, envName string) (common.Address, error) {
+	if !common.IsHexAddress(raw) {
+		return common.Address{}, fmt.Errorf("%s is not a valid hex address: %q", envName, raw)
+	}
+	addr := common.HexToAddress(raw)
+	if addr == (common.Address{}) {
+		return common.Address{}, fmt.Errorf("%s must not be the zero address", envName)
+	}
+	return addr, nil
 }
 
 func ClearPMWPaymentStatusConfigForTest() {

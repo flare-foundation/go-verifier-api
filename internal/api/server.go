@@ -140,9 +140,16 @@ func getAPIKeys() ([]string, error) {
 }
 
 func LoadEnvConfig() (config.EnvConfig, error) {
-	err := godotenv.Load()
-	if err != nil {
-		logger.Info("No .env file found, proceeding with environment variables")
+	// .env loading is opt-in to avoid making process startup depend on the
+	// filesystem in production. Developers set LOAD_DOTENV=true in their shell
+	// (or in a Makefile/justfile target); production deployments set the required
+	// env vars directly via the container runtime and leave LOAD_DOTENV unset.
+	if os.Getenv("LOAD_DOTENV") == "true" {
+		if err := godotenv.Load(); err != nil {
+			logger.Info("LOAD_DOTENV=true but no .env file found, proceeding with environment variables")
+		} else {
+			logger.Info("Loaded environment variables from .env (LOAD_DOTENV=true)")
+		}
 	}
 	port, err := getEnvOrError(config.EnvPort)
 	if err != nil {
@@ -172,6 +179,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		RPCURL:                            os.Getenv(config.EnvRPCURL),
 		RelayContractAddress:              os.Getenv(config.EnvRelayContractAddress),
 		TeeMachineRegistryContractAddress: os.Getenv(config.EnvTeeMachineRegistryContractAddress),
+		TeeInstructionsContractAddress:    os.Getenv(config.EnvTeeInstructionsContractAddress),
 		SourceDatabaseURL:                 os.Getenv(config.EnvSourceDatabaseURL),
 		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
 		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),

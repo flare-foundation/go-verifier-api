@@ -2,6 +2,7 @@ package teepoller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -15,6 +16,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
+	teenodeutils "github.com/flare-foundation/tee-node/pkg/utils"
 )
 
 const (
@@ -65,21 +67,27 @@ func (s *TeePollerService) StartTeePoller(parentCtx context.Context) {
 	go func() {
 		defer cancel()
 
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Errorf("TEE poller recovered from panic: %v", r)
-			}
-		}()
+		// Wrap each poll cycle in its own recover so a panic skips the cycle
+		// without stopping the goroutine permanently.
+		safeSample := func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logger.Errorf("TEE poller cycle recovered from panic: %v", r)
+				}
+			}()
+			s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+			s.verifier.PublishSnapshot()
+		}
 
 		logger.Info("TEE poller started")
 		// Run once immediately, before ticker starts.
-		s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+		safeSample()
 		ticker := time.NewTicker(verifier.SampleInterval)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				s.sampleAllTees(ctx, queryTeeInfoAndValidate)
+				safeSample()
 			case <-ctx.Done():
 				logger.Infof("TEE poller stopped (%v)", ctx.Err())
 				return
@@ -100,7 +108,11 @@ func (s *TeePollerService) sampleAllTees(
 			logger.Infof("No cached TEEs; skipping poll")
 			return
 		}
-	} else {
+	}
+
+	activeTees = dedup(activeTees)
+
+	if err == nil {
 		if !s.activeTeesEqual(activeTees) {
 			teeEntries := make([]string, len(activeTees.TeeIDs))
 			for i, id := range activeTees.TeeIDs {
@@ -194,15 +206,23 @@ func (s *TeePollerService) sampleAllTees(
 func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 	infoResponse, err := fetchTEEInfoData(ctx, teeVerifier, proxyURL)
 	if err != nil {
-		return verifiertypes.TeeSampleInvalid, fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
+		return classifyInfoFetchError(err), fmt.Errorf("cannot fetch TEE info from %s: %w", proxyURL, err)
+	}
+	// Verify DataSignature proves the responder holds the private key for teeInfo.PublicKey
+	// (proof-of-possession). Without this, any Confidential Space workload could serve a
+	// response carrying another TEE's public key and pass DataVerification.
+	if err := verifyDataSignature(infoResponse, teeID); err != nil {
+		return verifiertypes.TeeSampleInvalid, fmt.Errorf("data signature verification failed for TEE %s: %w", teeID.Hex(), err)
+	}
+	// Authenticate the TEE response (PKI + claims) before performing any chain RPC calls,
+	// so a hostile proxy cannot force freshness-check RPC work with attacker-chosen data.
+	_, err = teeVerifier.DataVerification(ctx, infoResponse, teeID, true)
+	if err != nil {
+		return verifiertypes.TeeSampleInvalid, fmt.Errorf("data verification failed for TEE %s: %w", teeID.Hex(), err)
 	}
 	checkInfoChallenge, err := teeVerifier.CheckInfoChallengeIsValid(ctx, infoResponse.TeeInfo.Challenge)
 	if err != nil {
 		return checkInfoChallenge, err
-	}
-	_, err = teeVerifier.DataVerification(ctx, infoResponse, teeID, true)
-	if err != nil {
-		return verifiertypes.TeeSampleInvalid, fmt.Errorf("data verification failed for TEE %s: %w", teeID.Hex(), err)
 	}
 	infoData := infoResponse.TeeInfo
 	state, err := teeVerifier.CheckSigningPolicies(ctx, infoData)
@@ -215,6 +235,26 @@ func queryTeeInfoAndValidate(ctx context.Context, teeVerifier *verifier.TeeVerif
 type teeList struct {
 	TeeIDs []common.Address
 	URLs   []string
+}
+
+// dedup removes duplicate teeIDs from the list, keeping the first occurrence.
+// The contract's GetActiveTeeMachines returns unique entries, so duplicates are
+// not expected under normal operation; this is a defensive check.
+func dedup(list teeList) teeList {
+	seen := make(map[common.Address]struct{}, len(list.TeeIDs))
+	result := teeList{
+		TeeIDs: make([]common.Address, 0, len(list.TeeIDs)),
+		URLs:   make([]string, 0, len(list.URLs)),
+	}
+	for i, id := range list.TeeIDs {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		result.TeeIDs = append(result.TeeIDs, id)
+		result.URLs = append(result.URLs, list.URLs[i])
+	}
+	return result
 }
 
 // buildPollingList fetches extension 0 TEEs (always polled) and optionally
@@ -275,6 +315,9 @@ func (s *TeePollerService) getExtensionTees(ctx context.Context, extensionID int
 	if err != nil {
 		return teeList{}, fmt.Errorf("getActiveTeeMachines(extensionId=%d) failed: %w", extensionID, err)
 	}
+	if len(tees.TeeIds) != len(tees.Urls) {
+		return teeList{}, fmt.Errorf("registry returned mismatched lengths for extension %d: teeIds=%d, urls=%d", extensionID, len(tees.TeeIds), len(tees.Urls))
+	}
 	return teeList{
 		TeeIDs: tees.TeeIds,
 		URLs:   tees.Urls,
@@ -288,20 +331,27 @@ func (s *TeePollerService) getExtensionTeesWithRetry(ctx context.Context, extens
 }
 
 func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk int64) (teeList, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
-	defer cancel()
-	callOpts := &bind.CallOpts{
-		Context: ctx,
-	}
+	// Pin pagination to a single block so index-based (start, end) reads produce a
+	// consistent snapshot even when the registry changes between pages. Best-effort:
+	// if the block number cannot be fetched, proceed with unpinned pagination.
+	pinnedBlock := s.fetchPinnedBlockNumber(ctx)
 
 	var allTeeIDs []common.Address
 	var allURLs []string
 	start := big.NewInt(0)
 	chunk := big.NewInt(teeChunk)
 	for {
+		// Allocate a fresh fetchTimeout budget per page so cumulative pagination
+		// latency does not exhaust a single shared deadline.
+		pageCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+		callOpts := &bind.CallOpts{Context: pageCtx, BlockNumber: pinnedBlock}
 		tees, err := s.verifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
+		cancel()
 		if err != nil {
 			return teeList{}, fmt.Errorf("getAllActiveTeeMachines(start=%d, chunk=%d) failed: %w", start.Int64(), chunk.Int64(), err)
+		}
+		if len(tees.TeeIds) != len(tees.Urls) {
+			return teeList{}, fmt.Errorf("registry returned mismatched lengths (start=%d, chunk=%d): teeIds=%d, urls=%d", start.Int64(), chunk.Int64(), len(tees.TeeIds), len(tees.Urls))
 		}
 		allTeeIDs = append(allTeeIDs, tees.TeeIds...)
 		allURLs = append(allURLs, tees.Urls...)
@@ -324,6 +374,40 @@ func (s *TeePollerService) getAllActiveTeesWithRetry(ctx context.Context) (teeLi
 	return fetcher.Retry(ctx, chainMaxAttempts, chainRetryDelay, func() (teeList, error) {
 		return s.getAllActiveTeeMachines(ctx, teeMachineChunk)
 	}, nil)
+}
+
+// fetchPinnedBlockNumber returns the latest block number for pinning paginated reads
+// to a consistent snapshot. Returns nil (meaning "latest" per page) if the EthClient is
+// not configured or the call fails; in that case pagination proceeds unpinned.
+func (s *TeePollerService) fetchPinnedBlockNumber(ctx context.Context) *big.Int {
+	if s.verifier.EthClient == nil {
+		return nil
+	}
+	blockCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	block, err := s.verifier.EthClient.BlockByNumber(blockCtx, nil)
+	if err != nil {
+		logger.Debugf("Could not pin paginated reads to a block (falling back to unpinned): %v", err)
+		return nil
+	}
+	return new(big.Int).Set(block.Number())
+}
+
+// verifyDataSignature checks that DataSignature was produced by the private key
+// corresponding to teeID. This is a proof-of-possession check: it ensures the
+// responder holds the TEE's key, not just a copy of its public key.
+func verifyDataSignature(info teenodetype.TeeInfoResponse, teeID common.Address) error {
+	if info.MachineData.PublicKey != info.TeeInfo.PublicKey {
+		return errors.New("MachineData.PublicKey does not match TeeInfo.PublicKey")
+	}
+	if len(info.DataSignature) == 0 {
+		return errors.New("missing DataSignature")
+	}
+	mdHash, err := info.MachineData.Hash()
+	if err != nil {
+		return fmt.Errorf("cannot hash MachineData: %w", err)
+	}
+	return teenodeutils.VerifySignature(mdHash[:], info.DataSignature, teeID)
 }
 
 func fetchTEEInfoData(ctx context.Context, teeVerifier *verifier.TeeVerifier, baseURL string) (teenodetype.TeeInfoResponse, error) {

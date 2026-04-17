@@ -53,7 +53,7 @@ func TestLoadFeeProofDBBatchFetch(t *testing.T) {
 		}
 	}
 
-	repo := NewDBRepo(xrpDB, nil)
+	repo := NewDBRepo(xrpDB, nil, testContractAddress)
 
 	const (
 		concurrency = 100
@@ -121,7 +121,7 @@ func TestLoadFeeProofDBBatchFetchInstructionLogs(t *testing.T) {
 			Topic1:          common.HexToHash("").Hex()[2:],
 			Topic2:          id.Hex()[2:],
 			Data:            "deadbeef",
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", i+1),
 			LogIndex:        uint64(i),
 			Timestamp:       1700000000,
@@ -132,7 +132,7 @@ func TestLoadFeeProofDBBatchFetchInstructionLogs(t *testing.T) {
 		}
 	}
 
-	repo := NewDBRepo(nil, cChainDB)
+	repo := NewDBRepo(nil, cChainDB, testContractAddress)
 
 	const (
 		concurrency = 100
@@ -189,7 +189,7 @@ func TestLoadFeeProofDBClosedConnection(t *testing.T) {
 	}
 	sqlDB.Close()
 
-	repo := NewDBRepo(xrpDB, nil)
+	repo := NewDBRepo(xrpDB, nil, testContractAddress)
 
 	const concurrency = 100
 	type callResult struct {

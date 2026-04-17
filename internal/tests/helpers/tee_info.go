@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
+	teenodeutils "github.com/flare-foundation/tee-node/pkg/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,6 +18,14 @@ func TeeInfoResponse(t *testing.T, chainChallenge common.Hash) (teenodetypes.Tee
 	const initPolicy = 4819
 	const lastPolicy = 4830
 	const teeTimestamp = uint64(1762771322)
+	pubKey := teenodetypes.PublicKey{X: common.BytesToHash(privTEEKey.X.Bytes()), Y: common.BytesToHash(privTEEKey.Y.Bytes())}
+	machineData := teenodetypes.MachineData{
+		PublicKey: pubKey,
+	}
+	mdHash, err := machineData.Hash()
+	require.NoError(t, err)
+	mdSignature, err := teenodeutils.Sign(mdHash[:], privTEEKey)
+	require.NoError(t, err)
 	teeInfoResponse := teenodetypes.TeeInfoResponse{
 		TeeInfo: teenodetypes.TeeInfo{
 			Challenge:                chainChallenge,
@@ -25,8 +34,10 @@ func TeeInfoResponse(t *testing.T, chainChallenge common.Hash) (teenodetypes.Tee
 			LastSigningPolicyID:      lastPolicy,
 			LastSigningPolicyHash:    common.HexToHash("0x0102ae123095bc60c947ce0dd6f2e8ffcc757fa60e7e98f430f8fded9212cc6f"),
 			TeeTimestamp:             teeTimestamp,
-			PublicKey:                teenodetypes.PublicKey{X: common.BytesToHash(privTEEKey.X.Bytes()), Y: common.BytesToHash(privTEEKey.Y.Bytes())},
+			PublicKey:                pubKey,
 		},
+		MachineData:   machineData,
+		DataSignature: mdSignature,
 	}
 
 	return teeInfoResponse, privTEEKey

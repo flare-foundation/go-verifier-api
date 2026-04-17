@@ -35,7 +35,7 @@ type XRPVerifier struct {
 
 func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) *XRPVerifier {
 	return &XRPVerifier{
-		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB),
+		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, cfg.TeeInstructionsContractAddress),
 		Config: cfg,
 	}
 }
@@ -46,8 +46,8 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWFeeProofRequ
 	if req.ToNonce < req.FromNonce {
 		return zero, fmt.Errorf("toNonce (%d) < fromNonce (%d): %w", req.ToNonce, req.FromNonce, ErrNonceRangeTooLarge)
 	}
-	if req.ToNonce-req.FromNonce+1 > MaxNonceRange {
-		return zero, fmt.Errorf("nonce range %d exceeds max %d: %w", req.ToNonce-req.FromNonce+1, MaxNonceRange, ErrNonceRangeTooLarge)
+	if req.ToNonce-req.FromNonce >= MaxNonceRange {
+		return zero, fmt.Errorf("nonce range [%d, %d] exceeds max size %d: %w", req.FromNonce, req.ToNonce, MaxNonceRange, ErrNonceRangeTooLarge)
 	}
 
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
@@ -169,7 +169,12 @@ func (x *XRPVerifier) computeActualFee(ctx context.Context, senderAddress string
 	return actualFee, nil
 }
 
+const maxResponseSize = 1 << 20
+
 func parseTxFee(response string) (*big.Int, error) {
+	if len(response) > maxResponseSize {
+		return nil, fmt.Errorf("XRP transaction response too large: %d bytes (max %d): %w", len(response), maxResponseSize, paymentdb.ErrDatabase)
+	}
 	var raw struct {
 		Fee string `json:"Fee"`
 	}

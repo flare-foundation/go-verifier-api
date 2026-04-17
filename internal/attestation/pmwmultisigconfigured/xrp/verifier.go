@@ -52,17 +52,24 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAcco
 }
 
 func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
+	if accountInfo.Result.Validated == nil || !*accountInfo.Result.Validated {
+		return 0, fmt.Errorf("account_info response is not from a validated ledger for %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
+	}
 	// There is only a single signer list for an account.
 	// From docs: If a future amendment allows multiple signer lists for an account, this may change.[https://xrpl.org/docs/references/protocol/ledger-data/ledger-entry-types/signerlist]
-	if len(accountInfo.Result.AccountData.SignerLists) == 0 {
+	signerLists := accountInfo.Result.ResolveSignerLists()
+	if len(signerLists) == 0 {
 		return 0, fmt.Errorf("no signer list for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
-	signersValid := x.validateSignerList(accountInfo.Result.AccountData.SignerLists[0], req)
+	signersValid := x.validateSignerList(signerLists[0], req)
 	if !signersValid {
 		return 0, fmt.Errorf("signer list invalid for account %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
 	flags := accountInfo.Result.AccountFlags
-	if err := checkAccountFlags(flags); err != nil {
+	if flags == nil {
+		return 0, fmt.Errorf("account_flags missing from account_info response for %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
+	}
+	if err := checkAccountFlags(*flags); err != nil {
 		return 0, fmt.Errorf("invalid flag for account%s: %w: %w", accountInfo.Result.AccountData.Account, err, ErrValidationFailed)
 	}
 	if accountInfo.Result.AccountData.RegularKey != "" {
@@ -72,20 +79,20 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 }
 
 func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
-	expectedAccounts := make([]string, len(req.PublicKeys))
-	for i, pk := range req.PublicKeys {
+	expectedAccounts := make(map[string]struct{}, len(req.PublicKeys))
+	for _, pk := range req.PublicKeys {
 		addrStr, err := XRPAddressFromPubKey(pk)
 		if err != nil {
 			logger.Warnf("Failed to convert public key %s to address: %v", hex.EncodeToString(pk), err)
 			return false
 		}
-		expectedAccounts[i] = addrStr
+		expectedAccounts[addrStr] = struct{}{}
 	}
 	actualAccounts := signerList.AccountsMap()
 	if len(actualAccounts) != len(expectedAccounts) {
 		return false
 	}
-	for _, acc := range expectedAccounts {
+	for acc := range expectedAccounts {
 		weight, found := actualAccounts[acc]
 		if !found || weight != 1 {
 			return false

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -24,7 +25,7 @@ type XRPVerifier struct {
 
 func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB) *XRPVerifier {
 	return &XRPVerifier{
-		Repo:   db.NewDBRepo(xrpDB, cChainDB),
+		Repo:   db.NewDBRepo(xrpDB, cChainDB, cfg.TeeInstructionsContractAddress),
 		Config: cfg,
 	}
 }
@@ -59,6 +60,11 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	if err != nil {
 		return connector.IPMWPaymentStatusResponseBody{}, err
 	}
+	// Cross-check: JSON payload must describe the same XRPL transaction as the canonical DB columns.
+	// A row where they disagree is evidence of indexer corruption or partial write — refuse the attestation.
+	if err := checkRowConsistency(rawTransactionData, dbTransaction); err != nil {
+		return connector.IPMWPaymentStatusResponseBody{}, err
+	}
 	// Validate transaction and build response
 	resp, err := builder.BuildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
@@ -67,8 +73,30 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatu
 	return resp, nil
 }
 
+// checkRowConsistency verifies that the JSON fields parsed from DBTransaction.Response
+// agree with the canonical DB columns. Protects against partial writes or targeted
+// tampering of a subset of a row's fields; does not protect against a fully compromised
+// indexer (acknowledged trust boundary, see L-02 in audit.md).
+func checkRowConsistency(raw types.RawTransactionData, dbTx db.DBTransaction) error {
+	if !strings.EqualFold(raw.Hash, dbTx.Hash) {
+		return fmt.Errorf("DB inconsistency: JSON hash %q != column Hash %q: %w", raw.Hash, dbTx.Hash, db.ErrDatabase)
+	}
+	if raw.Account != dbTx.SourceAddress {
+		return fmt.Errorf("DB inconsistency: JSON Account %q != column SourceAddress %q: %w", raw.Account, dbTx.SourceAddress, db.ErrDatabase)
+	}
+	if uint64(raw.Sequence) != dbTx.Sequence {
+		return fmt.Errorf("DB inconsistency: JSON Sequence %d != column Sequence %d: %w", raw.Sequence, dbTx.Sequence, db.ErrDatabase)
+	}
+	return nil
+}
+
+const maxResponseSize = 1 << 20
+
 func (x *XRPVerifier) parseRawTransactionData(sender string, nonce uint64, response string) (types.RawTransactionData, error) {
 	var rawTransactionData types.RawTransactionData
+	if len(response) > maxResponseSize {
+		return rawTransactionData, fmt.Errorf("XRP transaction response too large: %d bytes (max %d): %w", len(response), maxResponseSize, db.ErrDatabase)
+	}
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
 		logger.Errorf("Cannot unmarshal XRP transaction response for %s with nonce %d: %v", sender, nonce, err)

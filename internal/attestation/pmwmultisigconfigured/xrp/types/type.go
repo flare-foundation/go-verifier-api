@@ -17,9 +17,21 @@ type AccountFlags struct {
 }
 
 type AccountInfoResult struct {
-	AccountData  AccountData  `json:"account_data"`
-	AccountFlags AccountFlags `json:"account_flags"`
-	Status       string       `json:"status"`
+	AccountData  AccountData   `json:"account_data"`
+	AccountFlags *AccountFlags `json:"account_flags,omitempty"`
+	SignerLists  []SignerList  `json:"signer_lists"` // API v2/Clio returns signer_lists at result level
+	Status       string        `json:"status"`
+	Validated    *bool         `json:"validated,omitempty"`
+	LedgerIndex  *uint64       `json:"ledger_index,omitempty"`
+}
+
+// ResolveSignerLists returns signer lists from whichever location they appear in the response.
+// API v1 (rippled) nests them inside account_data; API v2/Clio places them at the result level.
+func (r *AccountInfoResult) ResolveSignerLists() []SignerList {
+	if len(r.AccountData.SignerLists) > 0 {
+		return r.AccountData.SignerLists
+	}
+	return r.SignerLists
 }
 
 type AccountInfoResponse struct {

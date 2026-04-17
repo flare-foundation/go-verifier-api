@@ -23,6 +23,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// testContractAddress is the canonical TeeInstructionsSent emitter used in tests.
+var testContractAddress = common.HexToAddress("0x00000000000000000000000000000000000000C1")
+
+// testContractAddressStored matches the indexer's lowercase-no-prefix storage format.
+const testContractAddressStored = "00000000000000000000000000000000000000c1"
+
 func testSharedDB(tb testing.TB, name string, models ...any) *gorm.DB {
 	tb.Helper()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", name)
@@ -114,7 +120,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 			Topic1:          trimHex(common.HexToHash("").Hex()),
 			Topic2:          trimHex(payID.Hex()),
 			Data:            hex.EncodeToString(eventData),
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 			Timestamp:       1700000000,
@@ -142,7 +148,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 
 	return feeProofFixture{
 		verifier: &XRPVerifier{
-			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB),
+			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
 		},
 		opType:   opType,

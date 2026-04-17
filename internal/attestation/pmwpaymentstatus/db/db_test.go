@@ -14,19 +14,20 @@ func TestInitDBWithRetries(t *testing.T) {
 	opts := &DBOptions{MaxAttempts: 3, RetryDelay: 1 * time.Millisecond, MaxDelay: 2 * time.Millisecond}
 	DBOptionsName := "fakeDB"
 	t.Run("success", func(t *testing.T) {
-		db, err := initDBWithRetries(sqlite.Open(":memory:"), "test DB", opts)
+		db, err := initDBWithRetries(sqlite.Open(":memory:"), ":memory:", "test DB", opts)
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		defer func() { _ = CloseDB(db) }()
 	})
 	t.Run("exhaust retries", func(t *testing.T) {
-		db, err := initDBWithRetries(postgres.Open("invalid_dsn"), DBOptionsName, opts)
-		require.ErrorContains(t, err, "failed to open fakeDB after 3 attempts: cannot parse `invalid_dsn`")
+		db, err := initDBWithRetries(postgres.Open("invalid_dsn"), "invalid_dsn", DBOptionsName, opts)
+		require.ErrorContains(t, err, "failed to open fakeDB after 3 attempts")
+		require.NotContains(t, err.Error(), "invalid_dsn", "DSN should be redacted from error")
 		require.Nil(t, db)
 	})
 	t.Run("back off stop at max delay", func(t *testing.T) {
 		start := time.Now()
-		_, _ = initDBWithRetries(postgres.Open("invalid_dsn"), DBOptionsName, opts)
+		_, _ = initDBWithRetries(postgres.Open("invalid_dsn"), "invalid_dsn", DBOptionsName, opts)
 		elapsed := time.Since(start)
 
 		expected := 3 * time.Millisecond
@@ -55,12 +56,14 @@ func TestInitMainAndCChainDB(t *testing.T) {
 	}
 	t.Run("invalid source dsn", func(t *testing.T) {
 		db, err := InitSourceDB("invalid_dsn", testOpts)
-		require.ErrorContains(t, err, "failed to open Source DB after 2 attempts: cannot parse `invalid_dsn`: failed to parse")
+		require.ErrorContains(t, err, "failed to open Source DB after 2 attempts")
+		require.NotContains(t, err.Error(), "invalid_dsn", "DSN should be redacted")
 		require.Nil(t, db)
 	})
 	t.Run("invalid cchain dsn", func(t *testing.T) {
 		db, err := InitCChainDB("invalid_dsn", testOpts)
-		require.ErrorContains(t, err, "failed to open CChain DB after 2 attempts: invalid DSN: missing the slash")
+		require.ErrorContains(t, err, "failed to open CChain DB after 2 attempts")
+		require.NotContains(t, err.Error(), "invalid_dsn", "DSN should be redacted")
 		require.Nil(t, db)
 	})
 }

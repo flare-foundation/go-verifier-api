@@ -15,6 +15,7 @@ const (
 
 type RawTransactionData struct {
 	transactions.CommonFields
+	Hash     string              `json:"hash"`
 	MetaData TransactionMetaData `json:"metaData"`
 }
 

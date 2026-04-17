@@ -18,16 +18,46 @@ import (
 var (
 	ErrNotFound  = errors.New("resource not found (404)")
 	ErrHTTPFetch = errors.New("HTTP fetch failed")
+	ErrRedirect  = errors.New("redirects are not allowed")
 )
 
+// HTTPStatusError is returned when an HTTP response carries a non-2xx status
+// code. It exposes StatusCode so callers (and shared error classifiers) can
+// distinguish deterministic client errors (4xx) from transient server errors
+// (5xx) without string parsing.
+type HTTPStatusError struct {
+	URL  string
+	Code int
+}
+
+// StatusCode implements the statusCoder interface used by shared error
+// classifiers.
+func (e *HTTPStatusError) StatusCode() int { return e.Code }
+
+func (e *HTTPStatusError) Error() string {
+	return fmt.Sprintf("unexpected status code: %d for url %s", e.Code, e.URL)
+}
+
+func (e *HTTPStatusError) Unwrap() error { return ErrHTTPFetch }
+
+// noRedirects rejects any HTTP redirect. TEE proxy URLs are expected to resolve
+// directly; following redirects would bypass the SSRF controls applied to the
+// original URL.
+var noRedirects = func(_ *http.Request, _ []*http.Request) error {
+	return ErrRedirect
+}
+
 var sharedHTTPClient = &http.Client{
-	Timeout: 10 * time.Second,
+	Timeout:       10 * time.Second,
+	CheckRedirect: noRedirects,
 	Transport: &http.Transport{
-		MaxIdleConns:        100,
-		MaxConnsPerHost:     100,
-		MaxIdleConnsPerHost: 100,
-		IdleConnTimeout:     90 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second,
+		MaxIdleConns:           100,
+		MaxConnsPerHost:        100,
+		MaxIdleConnsPerHost:    100,
+		IdleConnTimeout:        90 * time.Second,
+		TLSHandshakeTimeout:    10 * time.Second,
+		MaxResponseHeaderBytes: 1 << 20, // 1 MB
+		ResponseHeaderTimeout:  5 * time.Second,
 	},
 }
 
@@ -37,11 +67,13 @@ func cloneTransportConfig() *http.Transport {
 		return &http.Transport{}
 	}
 	return &http.Transport{
-		MaxIdleConns:        base.MaxIdleConns,
-		MaxConnsPerHost:     base.MaxConnsPerHost,
-		MaxIdleConnsPerHost: base.MaxIdleConnsPerHost,
-		IdleConnTimeout:     base.IdleConnTimeout,
-		TLSHandshakeTimeout: base.TLSHandshakeTimeout,
+		MaxIdleConns:           base.MaxIdleConns,
+		MaxConnsPerHost:        base.MaxConnsPerHost,
+		MaxIdleConnsPerHost:    base.MaxIdleConnsPerHost,
+		IdleConnTimeout:        base.IdleConnTimeout,
+		TLSHandshakeTimeout:    base.TLSHandshakeTimeout,
+		MaxResponseHeaderBytes: base.MaxResponseHeaderBytes,
+		ResponseHeaderTimeout:  base.ResponseHeaderTimeout,
 	}
 }
 
@@ -71,7 +103,7 @@ func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]
 	case http.StatusOK:
 		// proceed
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d for url %s", resp.StatusCode, url)
+		return nil, &HTTPStatusError{URL: url, Code: resp.StatusCode}
 	}
 	limitReader := io.LimitReader(resp.Body, maxResponseSize)
 	data, err := io.ReadAll(limitReader)
@@ -79,10 +111,6 @@ func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]
 		return nil, fmt.Errorf("reading response body from %s: %w", url, err)
 	}
 	return data, nil
-}
-
-func FetchJSON[T any](ctx context.Context, url string, fetchTimeout time.Duration) (T, error) {
-	return getJSONWithClient[T](ctx, url, fetchTimeout, sharedHTTPClient, "")
 }
 
 // FetchJSONPinned fetches JSON from url while pinning the connection to dialAddr (host:port).
@@ -95,7 +123,7 @@ func FetchJSONPinned[T any](ctx context.Context, url string, fetchTimeout time.D
 	}
 	transport.TLSClientConfig = &tls.Config{ServerName: serverName}
 
-	client := &http.Client{Transport: transport}
+	client := &http.Client{Transport: transport, CheckRedirect: noRedirects}
 	defer transport.CloseIdleConnections()
 	return getJSONWithClient[T](ctx, url, fetchTimeout, client, hostHeader)
 }
@@ -128,7 +156,7 @@ func getJSONWithClient[T any](ctx context.Context, url string, fetchTimeout time
 	case http.StatusOK:
 		// proceed
 	default:
-		return zero, fmt.Errorf("unexpected status code: %d for url %s: %w", resp.StatusCode, url, ErrHTTPFetch)
+		return zero, &HTTPStatusError{URL: url, Code: resp.StatusCode}
 	}
 	limitReader := io.LimitReader(resp.Body, maxResponseSize)
 	err = json.NewDecoder(limitReader).Decode(&zero)

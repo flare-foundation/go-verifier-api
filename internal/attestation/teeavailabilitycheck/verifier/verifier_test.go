@@ -115,10 +115,11 @@ func TestCheckInfoChallenge(t *testing.T) {
 		require.ErrorContains(t, err, "challenge too old")
 		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 	})
-	t.Run("stale block but valid challenge", func(t *testing.T) {
-		// Latest block is >blockStalenessThreshold (120s) behind wall clock,
-		// triggering the stale warning, but the challenge is fresh relative
-		// to the latest block so validation still passes.
+	t.Run("stale RPC head returns indeterminate", func(t *testing.T) {
+		// Latest block is >blockStalenessThreshold (120s) behind wall clock.
+		// The challenge is fresh relative to the latest block, but because
+		// the RPC head is stale we cannot trust the comparison — return
+		// INDETERMINATE rather than silently accepting.
 		staleOffset := uint64(150) // >120s behind wall clock
 		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset - 10})
 		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset})
@@ -132,8 +133,8 @@ func TestCheckInfoChallenge(t *testing.T) {
 		}
 		v := &verifier.TeeVerifier{EthClient: mockClient}
 		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.NoError(t, err)
-		require.Equal(t, verifiertypes.TeeSampleValid, state)
+		require.ErrorContains(t, err, "RPC head is stale")
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
 	})
 }
 
@@ -329,6 +330,41 @@ func TestIsTEEInfoDown(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, down)
 	})
+	t.Run("stale samples return insufficient", func(t *testing.T) {
+		staleTime := now.Add(-(verifier.MaxSampleStaleness + time.Second))
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeID: {
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
+				},
+			},
+		}
+		down, err := v.IsTEEInfoDown(teeID)
+		require.ErrorIs(t, err, verifier.ErrInsufficientSamples)
+		require.ErrorContains(t, err, "sample cache stale")
+		require.False(t, down)
+	})
+	t.Run("fresh all-invalid still returns DOWN", func(t *testing.T) {
+		freshTime := now.Add(-(verifier.MaxSampleStaleness - time.Second))
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeID: {
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
+				},
+			},
+		}
+		down, err := v.IsTEEInfoDown(teeID)
+		require.NoError(t, err)
+		require.True(t, down)
+	})
 }
 
 func makeChallengeResultServer(t *testing.T, resp teenodetypes.ActionResponse) *httptest.Server {
@@ -397,6 +433,22 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
+	})
+	t.Run("invalid JSON data is truncated in error", func(t *testing.T) {
+		// Build a non-JSON blob longer than 128 bytes to exercise the preview truncation path.
+		large := make([]byte, 512)
+		for i := range large {
+			large[i] = 'x'
+		}
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result: teenodetypes.ActionResult{Data: hexutil.Bytes(large)},
+		})
+		defer server.Close()
+		_, _, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
+		require.ErrorContains(t, err, "len=512")
+		// Preview must exist but must not carry the full 512 bytes verbatim.
+		require.NotContains(t, err.Error(), string(large))
 	})
 	t.Run("unmarshal error", func(t *testing.T) {
 		badJSON := `{"teeInfo":"this-should-be-an-object-not-a-string"}`
@@ -571,8 +623,8 @@ func TestVerify(t *testing.T) {
 	rootCert, leafKey, x5c := generateTestCertificateChain(t)
 	verIface, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-		RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+		TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
 		AllowTeeDebug:                     false,
 		DisableAttestationCheckE2E:        false,
 		AllowPrivateNetworks:              true,
@@ -610,7 +662,8 @@ func TestVerify(t *testing.T) {
 			TeeId: teeID,
 			Url:   server.URL,
 		}
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleValid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
+		now := time.Now()
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{Timestamp: now, State: verifiertypes.TeeSampleValid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot fetch TEE data for (TEE=0x0000000000000000000000000000000000000123")
 		require.ErrorContains(t, err, "and determine its status: action result not found: resource not found (404)")
@@ -620,6 +673,7 @@ func TestVerify(t *testing.T) {
 	})
 	t.Run("tee is down", func(t *testing.T) {
 		teeID := common.HexToAddress("0x123")
+		now := time.Now()
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -631,7 +685,7 @@ func TestVerify(t *testing.T) {
 			TeeId: teeID,
 			Url:   server.URL,
 		}
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}, {State: verifiertypes.TeeSampleInvalid}}
+		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.NoError(t, err)
 		require.Equal(t, uint8(verifier.DOWN), resp.Status)

@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
@@ -18,6 +19,12 @@ func BuildPaymentStatusResponse(
 	tx db.DBTransaction,
 ) (connector.IPMWPaymentStatusResponseBody, error) {
 	var zero connector.IPMWPaymentStatusResponseBody
+	if raw.TransactionType != "Payment" {
+		return zero, fmt.Errorf("expected Payment transaction, got %q", raw.TransactionType)
+	}
+	if len(paymentMsg.TokenId) != 0 {
+		return zero, errors.New("non-native payments (TokenId set) are not supported")
+	}
 	transactionResult, err := getTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
 		return zero, fmt.Errorf("cannot parse transaction status: %w", err)
@@ -30,12 +37,19 @@ func BuildPaymentStatusResponse(
 	if err != nil {
 		return zero, fmt.Errorf("invalid transaction hash %s: %w", tx.Hash, err)
 	}
+	// Normalize recipient address: X-addresses (used by some XRPL clients) are decoded
+	// to classic r... addresses for matching against transaction metadata, which always
+	// uses classic addresses.
+	recipientClassic, err := helper.NormalizeAddress(paymentMsg.RecipientAddress)
+	if err != nil {
+		return zero, fmt.Errorf("invalid recipient address %s: %w", paymentMsg.RecipientAddress, err)
+	}
 	// NOTE: receivedAmount is calculated from AffectedNodes regardless of transaction status.
 	// For reverted XRP transactions (tec-class results), this is typically 0 since the recipient's
 	// balance is unchanged. We intentionally calculate rather than hardcode 0 on revert, because
 	// it reports what actually happened on-chain and would self-correct if an edge case ever
 	// modifies the recipient's balance on a non-tesSUCCESS result.
-	receivedAmount, err := transaction.FindReceivedAmountForAddress(&raw.MetaData, paymentMsg.RecipientAddress)
+	receivedAmount, err := transaction.FindReceivedAmountForAddress(&raw.MetaData, recipientClassic)
 	if err != nil {
 		return zero, fmt.Errorf("cannot calculate received amount for recipient %s: %w", paymentMsg.RecipientAddress, err)
 	}

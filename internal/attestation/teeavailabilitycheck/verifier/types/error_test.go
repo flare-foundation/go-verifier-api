@@ -3,13 +3,12 @@ package types_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +22,17 @@ func TestMapFetchErrorToState(t *testing.T) {
 		st, err = verifiertypes.MapFetchErrorToState("op2", context.Canceled)
 		require.Equal(t, verifiertypes.TeeSampleIndeterminate, st)
 		requireFetchError(t, err, "op2", verifiertypes.ErrContext)
+	})
+	t.Run("ethereum not found is invalid input", func(t *testing.T) {
+		st, err := verifiertypes.MapFetchErrorToState("fetch block", ethereum.NotFound)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, st)
+		requireFetchError(t, err, "fetch block", verifiertypes.ErrInvalidInput)
+
+		// Wrapped not-found also classifies as invalid.
+		wrapped := fmt.Errorf("chain call failed: %w", ethereum.NotFound)
+		st, err = verifiertypes.MapFetchErrorToState("fetch block", wrapped)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, st)
+		requireFetchError(t, err, "fetch block", verifiertypes.ErrInvalidInput)
 	})
 	t.Run("HTTP error", func(t *testing.T) {
 		// Simulate HTTP 400 (BadRequest)
@@ -87,107 +97,60 @@ func TestMapFetchErrorToState(t *testing.T) {
 	})
 }
 
-func TestFetchJSON(t *testing.T) {
-	type testStruct struct {
-		Foo string `json:"foo"`
-		Bar int    `json:"bar"`
-	}
+func TestMapTransportError(t *testing.T) {
+	t.Run("context.DeadlineExceeded", func(t *testing.T) {
+		state, classified, ok := verifiertypes.MapTransportError(context.DeadlineExceeded)
+		require.True(t, ok)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrContext)
+	})
+	t.Run("context.Canceled", func(t *testing.T) {
+		state, classified, ok := verifiertypes.MapTransportError(context.Canceled)
+		require.True(t, ok)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrContext)
+	})
+	t.Run("net.Error", func(t *testing.T) {
+		netErr := &testNetError{timeout: true, msg: "timeout"}
+		state, classified, ok := verifiertypes.MapTransportError(netErr)
+		require.True(t, ok)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrNetwork)
+	})
+	t.Run("unrelated error returns ok=false", func(t *testing.T) {
+		_, _, ok := verifiertypes.MapTransportError(errors.New("not a transport error"))
+		require.False(t, ok)
+	})
+}
 
-	// Set up a temporary HTTP server
-	handler := http.NewServeMux()
-	handler.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"foo":"hello","bar":42}`))
+func TestClassifyHTTPStatus(t *testing.T) {
+	t.Run("400 is invalid", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusBadRequest)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrInvalidInput)
 	})
-	handler.HandleFunc("/notfound", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
+	t.Run("404 is invalid", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusNotFound)
+		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrInvalidInput)
 	})
-	handler.HandleFunc("/badjson", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"foo":123,"bar":"0x123"}`)) // invalid types
+	t.Run("500 is indeterminate", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusInternalServerError)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrNetwork)
 	})
-	handler.HandleFunc("/unexpected", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusTeapot) // 418
-		_, _ = w.Write([]byte(`{"foo":"irrelevant","bar":0}`))
+	t.Run("502 is indeterminate", func(t *testing.T) {
+		state, classified := verifiertypes.ClassifyHTTPStatus(http.StatusBadGateway)
+		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
+		require.ErrorIs(t, classified, verifiertypes.ErrNetwork)
 	})
+}
 
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
-	t.Run("success", func(t *testing.T) {
-		ctx := context.Background()
-		result, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/ok", 50*time.Millisecond)
-		require.NoError(t, err)
-		require.Equal(t, testStruct{Foo: "hello", Bar: 42}, result)
-	})
-	t.Run("not found", func(t *testing.T) {
-		ctx := context.Background()
-		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/notfound", 50*time.Millisecond)
-		require.ErrorIs(t, err, fetcher.ErrNotFound)
-	})
-	t.Run("unexpected status code", func(t *testing.T) {
-		ctx := context.Background()
-		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/unexpected", 50*time.Millisecond)
-		require.ErrorContains(t, err, "unexpected status code")
-	})
-	t.Run("bad json", func(t *testing.T) {
-		ctx := context.Background()
-		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/badjson", 50*time.Millisecond)
-		require.ErrorContains(t, err, "decoding JSON from http://127.0.0.1")
-		require.ErrorContains(t, err, "failed for type types_test.testStruct")
-	})
-	t.Run("timeout", func(t *testing.T) {
-		slowHandler := http.NewServeMux()
-		slowHandler.HandleFunc("/slow", func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(100 * time.Millisecond)
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"foo":"late","bar":1}`))
-		})
-		slowServer := httptest.NewServer(slowHandler)
-		defer slowServer.Close()
-
-		ctx := context.Background()
-		_, err := fetcher.FetchJSON[testStruct](ctx, slowServer.URL+"/slow", 50*time.Millisecond)
-		require.Contains(t, err.Error(), "context deadline exceeded")
-	})
-	t.Run("context canceled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		_, err := fetcher.FetchJSON[testStruct](ctx, server.URL+"/ok", 50*time.Millisecond)
-		require.ErrorContains(t, err, "context canceled")
-	})
-	t.Run("malformed URL causes request creation failure", func(t *testing.T) {
-		ctx := context.Background()
-		_, err := fetcher.FetchJSON[testStruct](ctx, "http://%41:8080", 50*time.Millisecond)
-		require.ErrorContains(t, err, "failed to create HTTP request")
-	})
-	t.Run("FetchError methods", func(t *testing.T) {
-		err := &verifiertypes.FetchError{Op: "fetchOp", Err: verifiertypes.ErrRPC}
-		require.Contains(t, err.Error(), "fetchOp")
-		require.Contains(t, err.Error(), verifiertypes.ErrRPC.Error())
-		require.ErrorIs(t, err, verifiertypes.ErrRPC)
-	})
-	t.Run("oversized json", func(t *testing.T) {
-		bigData := []byte(`{"foo":"`)
-		garbage := make([]byte, 3*1024*1024)
-		for i := range garbage {
-			garbage[i] = 'x'
-		}
-		bigData = append(bigData, garbage...)
-		bigData = append(bigData, []byte(`"}`)...)
-
-		bigServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(bigData)
-		}))
-		defer bigServer.Close()
-
-		ctx := context.Background()
-		_, err := fetcher.FetchJSON[testStruct](ctx, bigServer.URL, 1*time.Second)
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "decoding JSON from")
-	})
+func TestFetchError(t *testing.T) {
+	err := &verifiertypes.FetchError{Op: "fetchOp", Err: verifiertypes.ErrRPC}
+	require.Contains(t, err.Error(), "fetchOp")
+	require.Contains(t, err.Error(), verifiertypes.ErrRPC.Error())
+	require.ErrorIs(t, err, verifiertypes.ErrRPC)
 }
 
 type testRPCError struct {

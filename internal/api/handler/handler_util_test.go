@@ -1,13 +1,20 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -210,13 +217,14 @@ func loadTestEncodedAndABI(t *testing.T) *config.EncodedAndABI {
 	return &encodedAndABI
 }
 
-func TestFormatTeeSamples(t *testing.T) {
+func TestPublishSnapshot(t *testing.T) {
 	t.Run("empty samples", func(t *testing.T) {
 		v := &verifier.TeeVerifier{
 			TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
 		}
-		samples := formatTeeSamples(v)
-		require.Empty(t, samples)
+		v.PublishSnapshot()
+		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
+		require.Empty(t, snap)
 	})
 
 	t.Run("with samples", func(t *testing.T) {
@@ -229,10 +237,172 @@ func TestFormatTeeSamples(t *testing.T) {
 				},
 			},
 		}
-		samples := formatTeeSamples(v)
-		require.Len(t, samples, 1)
-		require.Equal(t, teeAddr.Hex(), samples[0].TeeID)
-		require.Len(t, samples[0].Values, 2)
+		v.PublishSnapshot()
+		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
+		require.Len(t, snap, 1)
+		require.Equal(t, teeAddr.Hex(), snap[0].TeeID)
+		require.Len(t, snap[0].Values, 2)
+	})
+
+	t.Run("snapshot is sorted by TeeID", func(t *testing.T) {
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				common.HexToAddress("0xBBBB"): {{State: verifiertypes.TeeSampleValid}},
+				common.HexToAddress("0xAAAA"): {{State: verifiertypes.TeeSampleValid}},
+				common.HexToAddress("0xCCCC"): {{State: verifiertypes.TeeSampleValid}},
+			},
+		}
+		v.PublishSnapshot()
+		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
+		require.Len(t, snap, 3)
+		require.True(t, snap[0].TeeID < snap[1].TeeID)
+		require.True(t, snap[1].TeeID < snap[2].TeeID)
+	})
+
+	t.Run("snapshot is decoupled from internal storage", func(t *testing.T) {
+		teeAddr := common.HexToAddress("0xabcd")
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeAddr: {{State: verifiertypes.TeeSampleValid}},
+			},
+		}
+		v.PublishSnapshot()
+		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
+		require.Len(t, snap, 1)
+		snap[0].Values[0].State = verifiertypes.TeeSampleInvalid
+
+		v.SamplesMu.RLock()
+		defer v.SamplesMu.RUnlock()
+		require.Equal(t, verifiertypes.TeeSampleValid, v.TeeSamples[teeAddr][0].State)
+	})
+
+	t.Run("concurrent publish and read do not race", func(t *testing.T) {
+		teeAddr := common.HexToAddress("0xdead")
+		v := &verifier.TeeVerifier{
+			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
+				teeAddr: {{State: verifiertypes.TeeSampleValid}},
+			},
+		}
+		v.PublishSnapshot()
+		stop := make(chan struct{})
+		var wg sync.WaitGroup
+
+		// Writer: simulate the poller appending samples + publishing.
+		wg.Go(func() {
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					v.SamplesMu.Lock()
+					v.TeeSamples[teeAddr] = append(v.TeeSamples[teeAddr], verifiertypes.TeeSampleValue{State: verifiertypes.TeeSampleValid})
+					v.SamplesMu.Unlock()
+					v.PublishSnapshot()
+				}
+			}
+		})
+
+		// Readers: many concurrent atomic loads (simulating /poller/tees endpoint).
+		for range 10 {
+			wg.Go(func() {
+				for range 100 {
+					_ = v.PollerSnapshot.Load()
+				}
+			})
+		}
+
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			close(stop)
+		}()
+		wg.Wait()
+	})
+}
+
+func TestPollerTeesEndpointPagination(t *testing.T) {
+	router := chi.NewMux()
+	api := humachi.New(router, huma.DefaultConfig("test", "1.0"))
+
+	v := &verifier.TeeVerifier{
+		TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
+	}
+	// Populate 5 TEEs.
+	for i := range 5 {
+		addr := common.BigToAddress(big.NewInt(int64(i + 1)))
+		v.TeeSamples[addr] = []verifiertypes.TeeSampleValue{
+			{Timestamp: time.Now(), State: verifiertypes.TeeSampleValid},
+		}
+	}
+	v.PublishSnapshot()
+	RegisterTeePoolingHandler(api, v)
+
+	type samplesResponse struct {
+		Samples []struct {
+			TeeID  string `json:"tee_id"`
+			Values []struct {
+				State string `json:"state"`
+			} `json:"values"`
+		} `json:"samples"`
+		Total int `json:"total"`
+	}
+	get := func(t *testing.T, query string) samplesResponse {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/poller/tees"+query, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+		var resp samplesResponse
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		return resp
+	}
+
+	t.Run("default returns all when under limit", func(t *testing.T) {
+		resp := get(t, "")
+		require.Len(t, resp.Samples, 5)
+		require.Equal(t, 5, resp.Total)
+	})
+
+	t.Run("limit restricts page size", func(t *testing.T) {
+		resp := get(t, "?limit=2")
+		require.Len(t, resp.Samples, 2)
+		require.Equal(t, 5, resp.Total)
+	})
+
+	t.Run("offset skips entries", func(t *testing.T) {
+		resp := get(t, "?offset=3&limit=10")
+		require.Len(t, resp.Samples, 2)
+		require.Equal(t, 5, resp.Total)
+	})
+
+	t.Run("offset beyond total returns empty", func(t *testing.T) {
+		resp := get(t, "?offset=100")
+		require.Empty(t, resp.Samples)
+		require.Equal(t, 5, resp.Total)
+	})
+
+	t.Run("results are sorted by TeeID", func(t *testing.T) {
+		resp := get(t, "")
+		for i := 1; i < len(resp.Samples); i++ {
+			require.True(t, resp.Samples[i-1].TeeID < resp.Samples[i].TeeID)
+		}
+	})
+
+	t.Run("before snapshot published returns empty", func(t *testing.T) {
+		emptyV := &verifier.TeeVerifier{
+			TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
+		}
+		emptyRouter := chi.NewMux()
+		emptyAPI := humachi.New(emptyRouter, huma.DefaultConfig("test", "1.0"))
+		RegisterTeePoolingHandler(emptyAPI, emptyV)
+
+		req := httptest.NewRequest(http.MethodGet, "/poller/tees", nil)
+		w := httptest.NewRecorder()
+		emptyRouter.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+		var resp samplesResponse
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		require.Empty(t, resp.Samples)
+		require.Equal(t, 0, resp.Total)
 	})
 }
 

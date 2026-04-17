@@ -96,7 +96,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 	}
 
 	v := &XRPVerifier{
-		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB),
+		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 		Config: cfg,
 	}
 
@@ -134,7 +134,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 			Topic1:          removeHexPrefix(common.HexToHash("").Hex()),
 			Topic2:          removeHexPrefix(payID.Hex()),
 			Data:            hex.EncodeToString(eventData),
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 			Timestamp:       1700000000,

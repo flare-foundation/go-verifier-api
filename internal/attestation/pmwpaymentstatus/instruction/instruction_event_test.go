@@ -141,6 +141,12 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		require.ErrorContains(t, err, "cannot decode TeeInstructionsSent message arguments")
 	})
 
+	t.Run("oversized log data rejected", func(t *testing.T) {
+		log := &ethtypes.Log{Data: make([]byte, 1<<20+1)}
+		_, err := instruction.DecodeTeeInstructionsSentEventData(log, teeABI, op.Pay)
+		require.ErrorContains(t, err, "event data too large")
+	})
+
 	t.Run("wrong ABI returns error", func(t *testing.T) {
 		msg := payment.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: "rSender",

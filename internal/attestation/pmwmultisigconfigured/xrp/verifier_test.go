@@ -32,6 +32,19 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, seq, sequence)
 	})
+	t.Run("success with v2/Clio response layout", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			2,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 2)
+		flags := accountFlags(t, true, false, false, false)
+		accountInfo := makeAccountInfoV2(t, signerList, flags, "")
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		require.NoError(t, err)
+		require.Equal(t, seq, sequence)
+	})
 	t.Run("wrong signer weights", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,
@@ -92,6 +105,20 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "o signer list for account")
 	})
+	t.Run("duplicate pubkeys hide extra signer", func(t *testing.T) {
+		// Request has [A, B, A] (duplicate), on-chain has [A, B, C].
+		// Before fix, len check passed (3==3) and duplicate A was checked twice.
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey, testAccounts[0].PubKey},
+			2,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address, testAccounts[2].Address}, []uint16{1, 1, 1}, 2)
+		flags := accountFlags(t, true, false, false, false)
+		accountInfo := makeAccountInfo(t, signerList, flags, "")
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
+	})
 	t.Run("MasterKey enabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,
@@ -127,6 +154,42 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		accountInfo := makeAccountInfo(t, signerList, flags, "")
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "destination tag is required")
+	})
+	t.Run("NotValidatedLedger", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			1,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 1)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
+		accountInfo.Result.Validated = boolPtr(false)
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "not from a validated ledger")
+	})
+	t.Run("MissingValidatedField", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			1,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 1)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
+		accountInfo.Result.Validated = nil
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "not from a validated ledger")
+	})
+	t.Run("MissingAccountFlags", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			1,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 1)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
+		accountInfo.Result.AccountFlags = nil // simulate omitted field
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "account_flags missing from account_info response")
 	})
 	t.Run("DisallowIncomingXRPEnabled", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
@@ -222,6 +285,8 @@ func makeSignerList(t *testing.T, accounts []string, weights []uint16, quorum ui
 	}
 }
 
+func boolPtr(b bool) *bool { return &b }
+
 func makeAccountInfo(t *testing.T, signerLists []types.SignerList, flags types.AccountFlags, regularKey string,
 ) *types.AccountInfoResponse {
 	t.Helper()
@@ -233,7 +298,27 @@ func makeAccountInfo(t *testing.T, signerLists []types.SignerList, flags types.A
 				RegularKey:  regularKey,
 				SignerLists: signerLists,
 			},
-			AccountFlags: flags,
+			AccountFlags: &flags,
+			Validated:    boolPtr(true),
+			Status:       "success",
+		},
+	}
+}
+
+// makeAccountInfoV2 builds a response with signer_lists at the result level (API v2/Clio layout).
+func makeAccountInfoV2(t *testing.T, signerLists []types.SignerList, flags types.AccountFlags, regularKey string,
+) *types.AccountInfoResponse {
+	t.Helper()
+	return &types.AccountInfoResponse{
+		Result: types.AccountInfoResult{
+			AccountData: types.AccountData{
+				Account:    "rTestAccount",
+				Sequence:   sequence,
+				RegularKey: regularKey,
+			},
+			AccountFlags: &flags,
+			Validated:    boolPtr(true),
+			SignerLists:  signerLists,
 			Status:       "success",
 		},
 	}

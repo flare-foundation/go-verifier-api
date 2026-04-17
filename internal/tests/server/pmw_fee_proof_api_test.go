@@ -23,8 +23,9 @@ func TestPMWFeeProof(t *testing.T) {
 	config.ClearPMWFeeProofConfigForTest()
 
 	setup := server.SetupServer(t, connector.PMWFeeProof, config.SourceTestXRP, config.EnvConfig{
-		SourceDatabaseURL: "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
-		CChainDatabaseURL: "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+		SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+		CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+		TeeInstructionsContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
 	})
 	defer setup.Stop()
 

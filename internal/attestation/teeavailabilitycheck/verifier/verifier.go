@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
@@ -42,6 +44,7 @@ const (
 	blockStalenessThreshold = 120             // seconds — warn if latest block is older than this
 	SamplesToConsider       = 5               // NOTE: SamplesToConsider and SampleInterval need to be correlated.
 	SampleInterval          = 1 * time.Minute // NOTE: SamplesToConsider and SampleInterval need to be correlated.
+	MaxSampleStaleness      = time.Duration(SamplesToConsider) * SampleInterval
 )
 
 var (
@@ -62,7 +65,8 @@ type TeeVerifier struct {
 	CRLCache                 *CRLCache
 	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
 	SamplesMu                sync.RWMutex
-	magicPassLogged          sync.Map // tracks TEE IDs that have already logged a MagicPass warning
+	PollerSnapshot           atomic.Value // stores []verifiertypes.TeeSample
+	magicPassLogged          sync.Map     // tracks TEE IDs that have already logged a MagicPass warning
 }
 
 type EthClient interface {
@@ -91,15 +95,15 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
 	}
-	teeMachineRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(common.HexToAddress(cfg.TeeMachineRegistryContractAddress), client)
+	teeMachineRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(cfg.TeeMachineRegistryContractAddress, client)
 	if err != nil {
 		client.Close()
-		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress, err)
+		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress.Hex(), err)
 	}
-	relayCaller, err := relay.NewRelayCaller(common.HexToAddress(cfg.RelayContractAddress), client)
+	relayCaller, err := relay.NewRelayCaller(cfg.RelayContractAddress, client)
 	if err != nil {
 		client.Close()
-		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress, err)
+		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress.Hex(), err)
 	}
 	return &TeeVerifier{
 		Cfg:                      cfg,
@@ -348,6 +352,9 @@ func (v *TeeVerifier) FetchSigningPolicyHashFromChainWithRetry(
 }
 
 func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (verifiertypes.TeeSampleState, error) {
+	ctx, cancel := context.WithTimeout(ctx, chainFetchTimeout)
+	defer cancel()
+
 	challengeBlock, err := v.EthClient.BlockByHash(ctx, blockHash)
 	if err != nil {
 		return verifiertypes.MapFetchErrorToState("fetch challenge block", err)
@@ -358,9 +365,10 @@ func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash c
 	}
 	now := time.Now().Unix()
 	blockAge := now - int64(latestBlock.Time())
-	blockFreshness := int64(blockStalenessThreshold)
-	if blockAge > blockFreshness {
-		logger.Warnf("Latest block is stale: %d seconds old (%d, %d)", blockAge, latestBlock.NumberU64(), latestBlock.Time())
+	if blockAge > int64(blockStalenessThreshold) {
+		return verifiertypes.TeeSampleIndeterminate, fmt.Errorf(
+			"RPC head is stale: %d seconds behind wall clock (block %d, time %d)",
+			blockAge, latestBlock.NumberU64(), latestBlock.Time())
 	}
 	if latestBlock.Time()-challengeBlock.Time() <= BlockFreshnessInSeconds {
 		return verifiertypes.TeeSampleValid, nil
@@ -376,12 +384,39 @@ func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
 	if len(samples) < SamplesToConsider {
 		return false, fmt.Errorf("insufficient samples to determine TEE %s status: %w", teeID.Hex(), ErrInsufficientSamples)
 	}
+	newest := samples[len(samples)-1].Timestamp
+	if time.Since(newest) > MaxSampleStaleness {
+		return false, fmt.Errorf("sample cache stale for TEE %s (newest %v ago): %w",
+			teeID.Hex(), time.Since(newest).Round(time.Second), ErrInsufficientSamples)
+	}
 	for _, sample := range samples {
 		if sample.State == verifiertypes.TeeSampleValid || sample.State == verifiertypes.TeeSampleIndeterminate {
 			return false, nil
 		}
 	}
 	return true, nil
+}
+
+// PublishSnapshot builds a sorted snapshot of TeeSamples and stores it in
+// PollerSnapshot. Called after each poller cycle so the /poller/tees endpoint
+// reads a pre-computed snapshot without lock contention.
+func (v *TeeVerifier) PublishSnapshot() {
+	v.SamplesMu.RLock()
+	samples := make([]verifiertypes.TeeSample, 0, len(v.TeeSamples))
+	for teeID, values := range v.TeeSamples {
+		copied := make([]verifiertypes.TeeSampleValue, len(values))
+		copy(copied, values)
+		samples = append(samples, verifiertypes.TeeSample{
+			TeeID:  teeID.Hex(),
+			Values: copied,
+		})
+	}
+	v.SamplesMu.RUnlock()
+
+	sort.Slice(samples, func(i, j int) bool {
+		return samples[i].TeeID < samples[j].TeeID
+	})
+	v.PollerSnapshot.Store(samples)
 }
 
 // ClearMagicPassLogged removes the MagicPass log tracking for a TEE,
@@ -434,7 +469,11 @@ func FetchTEEChallengeResult(
 		return zero, zeroAdd, errors.New("TEE challenge result data is empty")
 	}
 	if !json.Valid(actionResp.Result.Data) {
-		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON: %q", actionResp.Result.Data)
+		preview := actionResp.Result.Data
+		if len(preview) > 128 {
+			preview = preview[:128]
+		}
+		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON (len=%d, preview=%q)", len(actionResp.Result.Data), preview)
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse

@@ -73,7 +73,7 @@ func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sour
 			Topic1:          trimHex(common.HexToHash("").Hex()),
 			Topic2:          trimHex(payID.Hex()),
 			Data:            hex.EncodeToString(eventData),
-			Address:         "benchContractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 			Timestamp:       1700000000,
@@ -132,7 +132,7 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 	v := &XRPVerifier{
-		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB),
+		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
 		Config: cfg,
 	}
 
@@ -140,12 +140,12 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 	iterations := 50
 
 	type benchResult struct {
-		count   uint64
-		avgMs   float64
-		minMs   float64
-		maxMs   float64
-		p95Ms   float64
-		medMs   float64
+		count uint64
+		avgMs float64
+		minMs float64
+		maxMs float64
+		p95Ms float64
+		medMs float64
 	}
 
 	var results []benchResult
@@ -284,7 +284,7 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 	v := &XRPVerifier{
-		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB),
+		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
 		Config: cfg,
 	}
 

@@ -20,6 +20,7 @@ import (
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
+	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,8 +29,8 @@ func TestSampleAllTees(t *testing.T) {
 		t.Helper()
 		tmpV, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 			RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-			RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-			TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+			RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+			TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
 			AllowTeeDebug:                     false,
 			DisableAttestationCheckE2E:        false,
 		})
@@ -118,6 +119,24 @@ func TestSampleAllTees(t *testing.T) {
 		v.SamplesMu.RLock()
 		defer v.SamplesMu.RUnlock()
 		require.Len(t, v.TeeSamples[common.HexToAddress("0x1")], verifier.SamplesToConsider)
+	})
+	t.Run("worker recovers from panic in query callback", func(t *testing.T) {
+		ver, _, cancel := setup()
+		defer cancel()
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
+			},
+		}
+		ver.TeeMachineRegistryCaller = mock
+		s := NewTeePoller(ver)
+		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
+			panic("boom")
+		}
+		// Should not crash; panic in worker is recovered by the deferred recover.
+		require.NotPanics(t, func() {
+			s.sampleAllTees(context.Background(), query)
+		})
 	})
 	t.Run("query failure does not crash and logs error", func(t *testing.T) {
 		ver, _, cancel := setup()
@@ -223,6 +242,94 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 		require.ErrorContains(t, err, "contract failed")
 		require.Empty(t, list.TeeIDs)
 	})
+	t.Run("pins all pages to the same block when EthClient is configured", func(t *testing.T) {
+		pinnedBlockNumber := big.NewInt(12345)
+		mockClient := &helpers.MockEthClient{
+			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
+				return types.NewBlockWithHeader(&types.Header{Number: pinnedBlockNumber}), nil
+			},
+		}
+		seen := []*big.Int{}
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				seen = append(seen, opts.BlockNumber)
+				// Return enough entries to trigger a second page.
+				if start.Int64() == 0 {
+					return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"u1"}), nil
+				}
+				return mockAllActiveTeeMAchines(t, []string{}, []string{}), nil
+			},
+		}
+		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock, EthClient: mockClient}
+		s := NewTeePoller(ver)
+
+		_, err := s.getAllActiveTeeMachines(context.Background(), 1)
+		require.NoError(t, err)
+		require.NotEmpty(t, seen)
+		for i, bn := range seen {
+			require.NotNil(t, bn, "page %d was not pinned to a block", i)
+			require.Zero(t, bn.Cmp(pinnedBlockNumber), "page %d pinned to %s, want %s", i, bn, pinnedBlockNumber)
+		}
+	})
+	t.Run("falls back to unpinned pagination when BlockByNumber fails", func(t *testing.T) {
+		mockClient := &helpers.MockEthClient{
+			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
+				return nil, errors.New("eth client unavailable")
+			},
+		}
+		seen := []*big.Int{}
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				seen = append(seen, opts.BlockNumber)
+				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"u1"}), nil
+			},
+		}
+		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock, EthClient: mockClient}
+		s := NewTeePoller(ver)
+
+		list, err := s.getAllActiveTeeMachines(context.Background(), 100)
+		require.NoError(t, err)
+		require.Len(t, list.TeeIDs, 1)
+		require.NotEmpty(t, seen)
+		for i, bn := range seen {
+			require.Nil(t, bn, "page %d was pinned to %s but should have fallen back to nil (unpinned)", i, bn)
+		}
+	})
+	t.Run("mismatched TeeIds and Urls lengths are rejected", func(t *testing.T) {
+		mock := &mockTeeMachineRegistryCaller{
+			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
+				return teeMachinesResult{
+					TeeIds:      []common.Address{common.HexToAddress("0x1"), common.HexToAddress("0x2")},
+					Urls:        []string{"only-one-url"},
+					TotalLength: big.NewInt(2),
+				}, nil
+			},
+		}
+		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+		s := NewTeePoller(ver)
+
+		ctx := context.Background()
+		list, err := s.getAllActiveTeeMachines(ctx, 100)
+		require.ErrorContains(t, err, "registry returned mismatched lengths")
+		require.Empty(t, list.TeeIDs)
+	})
+}
+
+func TestGetExtensionTeesMismatchedLengths(t *testing.T) {
+	mock := &mockTeeMachineRegistryCaller{
+		getActiveByExtFunc: func(opts *bind.CallOpts, extensionID *big.Int) (extensionTeesResult, error) {
+			return extensionTeesResult{
+				TeeIds: []common.Address{common.HexToAddress("0x1")},
+				Urls:   []string{"url-a", "url-b"},
+			}, nil
+		},
+	}
+	ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+	s := NewTeePoller(ver)
+
+	list, err := s.getExtensionTees(context.Background(), 0)
+	require.ErrorContains(t, err, "registry returned mismatched lengths for extension 0")
+	require.Empty(t, list.TeeIDs)
 }
 
 func TestGetAllActiveTeesWithRetry(t *testing.T) {
@@ -269,8 +376,8 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	// verifier setup
 	verIface, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-		RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+		TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
 		AllowTeeDebug:                     true,
 		DisableAttestationCheckE2E:        true,
 		AllowPrivateNetworks:              true,
@@ -334,8 +441,8 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	t.Run("data verification fail", func(t *testing.T) {
 		verIfaceInt, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
 			RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-			RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-			TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+			RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+			TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
 			AllowTeeDebug:                     false,
 			DisableAttestationCheckE2E:        false,
 			AllowPrivateNetworks:              true,
@@ -369,6 +476,39 @@ func TestQueryTeeInfoAndValidateURLBlocked(t *testing.T) {
 	require.Equal(t, verifiertypes.TeeSampleInvalid, state)
 	require.ErrorContains(t, err, "cannot fetch TEE info from http://localhost:6662")
 	require.ErrorContains(t, err, "local hostnames are not allowed")
+}
+
+func TestVerifyDataSignature(t *testing.T) {
+	validResp, privKey := helpers.TeeInfoResponse(t, common.HexToHash("0x1"))
+	teeID := crypto.PubkeyToAddress(privKey.PublicKey)
+
+	t.Run("valid", func(t *testing.T) {
+		require.NoError(t, verifyDataSignature(validResp, teeID))
+	})
+	t.Run("missing signature", func(t *testing.T) {
+		resp := validResp
+		resp.DataSignature = nil
+		err := verifyDataSignature(resp, teeID)
+		require.ErrorContains(t, err, "missing DataSignature")
+	})
+	t.Run("mismatched public keys", func(t *testing.T) {
+		otherKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		resp := validResp
+		resp.TeeInfo.PublicKey = teenodetype.PublicKey{
+			X: common.BytesToHash(otherKey.X.Bytes()),
+			Y: common.BytesToHash(otherKey.Y.Bytes()),
+		}
+		err = verifyDataSignature(resp, teeID)
+		require.ErrorContains(t, err, "MachineData.PublicKey does not match TeeInfo.PublicKey")
+	})
+	t.Run("wrong signer", func(t *testing.T) {
+		otherKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		wrongTeeID := crypto.PubkeyToAddress(otherKey.PublicKey)
+		err = verifyDataSignature(validResp, wrongTeeID)
+		require.ErrorContains(t, err, "signature check fail")
+	})
 }
 
 type teeMachinesResult = struct {
@@ -439,6 +579,40 @@ func mockExtensionTees(t *testing.T, ids []string, urls []string) extensionTeesR
 		addresses[i] = common.HexToAddress(id)
 	}
 	return extensionTeesResult{TeeIds: addresses, Urls: urls}
+}
+
+func TestDedup(t *testing.T) {
+	t.Run("no duplicates unchanged", func(t *testing.T) {
+		input := teeList{
+			TeeIDs: []common.Address{common.HexToAddress("0x1"), common.HexToAddress("0x2")},
+			URLs:   []string{"url1", "url2"},
+		}
+		result := dedup(input)
+		require.Len(t, result.TeeIDs, 2)
+	})
+	t.Run("duplicates removed keeping first", func(t *testing.T) {
+		input := teeList{
+			TeeIDs: []common.Address{
+				common.HexToAddress("0x1"),
+				common.HexToAddress("0x2"),
+				common.HexToAddress("0x1"),
+				common.HexToAddress("0x3"),
+				common.HexToAddress("0x2"),
+			},
+			URLs: []string{"url1", "url2", "url1-dup", "url3", "url2-dup"},
+		}
+		result := dedup(input)
+		require.Len(t, result.TeeIDs, 3)
+		require.Equal(t, common.HexToAddress("0x1"), result.TeeIDs[0])
+		require.Equal(t, "url1", result.URLs[0])
+		require.Equal(t, common.HexToAddress("0x2"), result.TeeIDs[1])
+		require.Equal(t, "url2", result.URLs[1])
+		require.Equal(t, common.HexToAddress("0x3"), result.TeeIDs[2])
+	})
+	t.Run("empty list", func(t *testing.T) {
+		result := dedup(teeList{})
+		require.Empty(t, result.TeeIDs)
+	})
 }
 
 func TestBuildPollingList(t *testing.T) {

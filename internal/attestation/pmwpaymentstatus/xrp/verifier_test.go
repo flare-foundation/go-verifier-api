@@ -17,13 +17,21 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+// testContractAddress is the canonical TeeInstructionsSent emitter address used in tests.
+var testContractAddress = common.HexToAddress("0x00000000000000000000000000000000000000C1")
+
+// testContractAddressStored matches the indexer's lowercase-no-prefix storage format.
+const testContractAddressStored = "00000000000000000000000000000000000000c1"
 
 func newTestDB(t *testing.T, name string, models ...any) *gorm.DB {
 	t.Helper()
@@ -107,7 +115,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		Topic1:          stripHexPrefix(common.HexToHash("").Hex()),
 		Topic2:          stripHexPrefix(instructionID.Hex()),
 		Data:            hex.EncodeToString(eventData),
-		Address:         "contractAddr",
+		Address:         testContractAddressStored,
 		TransactionHash: fmt.Sprintf("%064x", nonce),
 		LogIndex:        nonce,
 		Timestamp:       1700000000,
@@ -125,7 +133,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 
 	return testFixture{
 		verifier: &XRPVerifier{
-			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
 		},
 		req: connector.IPMWPaymentStatusRequestBody{
@@ -144,7 +152,7 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 		cChainDB := newTestDB(t, "conc_nolog_cchain", &database.Log{})
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
@@ -195,9 +203,9 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 	})
 }
 
-const successTxResponse = `{"Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"1000"}}`
+const successTxResponse = `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"1000"}}`
 
-const revertedTxResponse = `{"Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[],"TransactionResult":"tecNO_DST_INSUF_XRP"}}`
+const revertedTxResponse = `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Amount":"1000","Destination":"rRecipient","Fee":"12","Sequence":42,"TransactionType":"Payment","metaData":{"AffectedNodes":[],"TransactionResult":"tecNO_DST_INSUF_XRP"}}`
 
 func TestVerify(t *testing.T) {
 	t.Run("successful payment", func(t *testing.T) {
@@ -228,7 +236,7 @@ func TestVerify(t *testing.T) {
 		cChainDB := newTestDB(t, "verify_nolog_cchain", &database.Log{})
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
@@ -274,14 +282,14 @@ func TestVerify(t *testing.T) {
 			Topic1:          stripHexPrefix(common.HexToHash("").Hex()),
 			Topic2:          stripHexPrefix(instructionID.Hex()),
 			Data:            hex.EncodeToString(eventData),
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 		}).Error)
 		// No transaction seeded.
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
@@ -315,13 +323,13 @@ func TestVerify(t *testing.T) {
 			Topic1:          stripHexPrefix(common.HexToHash("").Hex()),
 			Topic2:          stripHexPrefix(instructionID.Hex()),
 			Data:            hex.EncodeToString([]byte("not-abi-encoded")),
-			Address:         "contractAddr",
+			Address:         testContractAddressStored,
 			TransactionHash: fmt.Sprintf("%064x", nonce),
 			LogIndex:        nonce,
 		}).Error)
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB),
+			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
@@ -344,5 +352,100 @@ func TestVerify(t *testing.T) {
 		f := setupVerifyFixture(t, "verify_noresult", `{"Account":"rSender","Fee":"12","metaData":{"AffectedNodes":[],"TransactionResult":""}}`)
 		_, err := f.verifier.Verify(context.Background(), f.req)
 		require.ErrorContains(t, err, "missing transaction result")
+	})
+
+	t.Run("JSON hash mismatch returns 503", func(t *testing.T) {
+		resp := `{"hash":"deadbeef","Account":"rSender","Sequence":42,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_hashmismatch", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON hash")
+	})
+
+	t.Run("JSON Account mismatch returns 503", func(t *testing.T) {
+		resp := `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rDifferent","Sequence":42,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_acctmismatch", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Account")
+	})
+
+	t.Run("JSON Sequence mismatch returns 503", func(t *testing.T) {
+		resp := `{"hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Sequence":99,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"rRecipient","Balance":"2000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"1000"}}}],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_seqmismatch", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Sequence")
+	})
+
+	t.Run("oversized response returns 503", func(t *testing.T) {
+		// Pad beyond maxResponseSize (1 MB) to trip the size cap before JSON unmarshaling.
+		padding := strings.Repeat("x", 1<<20+1)
+		resp := `{"_pad":"` + padding + `","hash":"000000000000000000000000000000000000000000000000000000000000002a","Account":"rSender","Sequence":42,"Fee":"12","TransactionType":"Payment","metaData":{"AffectedNodes":[],"TransactionResult":"tesSUCCESS"}}`
+		f := setupVerifyFixture(t, "verify_oversized", resp)
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "too large")
+	})
+}
+
+func TestCheckRowConsistency(t *testing.T) {
+	raw := types.RawTransactionData{
+		CommonFields: transactions.CommonFields{
+			Account:  "rSender",
+			Sequence: 42,
+		},
+		Hash: "abc123",
+	}
+	dbTx := paymentdb.DBTransaction{
+		Hash:          "abc123",
+		SourceAddress: "rSender",
+		Sequence:      42,
+	}
+
+	t.Run("all match", func(t *testing.T) {
+		require.NoError(t, checkRowConsistency(raw, dbTx))
+	})
+
+	t.Run("hash case-insensitive match", func(t *testing.T) {
+		// Indexer stores Hash lowercase; raw XRPL JSON uses uppercase.
+		// EqualFold must treat them as equal.
+		r := raw
+		r.Hash = "ABC123"
+		d := dbTx
+		d.Hash = "abc123"
+		require.NoError(t, checkRowConsistency(r, d))
+	})
+
+	t.Run("empty JSON hash rejected", func(t *testing.T) {
+		r := raw
+		r.Hash = ""
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON hash")
+	})
+
+	t.Run("hash mismatch", func(t *testing.T) {
+		r := raw
+		r.Hash = "deadbeef"
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON hash")
+	})
+
+	t.Run("account mismatch", func(t *testing.T) {
+		r := raw
+		r.Account = "rOther"
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Account")
+	})
+
+	t.Run("sequence mismatch", func(t *testing.T) {
+		r := raw
+		r.Sequence = 99
+		err := checkRowConsistency(r, dbTx)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Sequence")
 	})
 }

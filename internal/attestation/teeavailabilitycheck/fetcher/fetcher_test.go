@@ -60,6 +60,22 @@ func TestFetchBytes(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, data, maxResponseSize)
 	})
+	t.Run("redirect is rejected", func(t *testing.T) {
+		target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("redirected"))
+		}))
+		defer target.Close()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, target.URL, http.StatusFound)
+		}))
+		defer server.Close()
+
+		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
+		require.ErrorIs(t, err, ErrRedirect)
+		require.Nil(t, data)
+	})
 	t.Run("timeout", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(2 * time.Second)

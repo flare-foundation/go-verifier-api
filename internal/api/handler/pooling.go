@@ -3,12 +3,18 @@ package handler
 import (
 	"context"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	teeverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 )
+
+type pollerTeesRequest struct {
+	Offset int `query:"offset" minimum:"0" default:"0" doc:"Number of entries to skip."`
+	Limit  int `query:"limit" minimum:"1" maximum:"500" default:"100" doc:"Max entries to return."`
+}
 
 func RegisterTeePoolingHandler(
 	api huma.API,
@@ -19,25 +25,23 @@ func RegisterTeePoolingHandler(
 		http.MethodGet,
 		"/poller/tees",
 		[]string{"Poller"},
-		func(ctx context.Context, request *struct{}) (*types.Response[types.TeeSamplesResponse], error) {
-			samples := formatTeeSamples(verifier)
-			return types.NewResponse(types.TeeSamplesResponse{Samples: samples}), nil
+		func(ctx context.Context, request *pollerTeesRequest) (*types.Response[types.TeeSamplesResponse], error) {
+			all := loadSnapshot(&verifier.PollerSnapshot)
+			total := len(all)
+			offset := request.Offset
+			limit := request.Limit
+			if offset > total {
+				offset = total
+			}
+			end := min(offset+limit, total)
+			return types.NewResponse(types.TeeSamplesResponse{
+				Samples: all[offset:end],
+				Total:   total,
+			}), nil
 		})
 }
 
-func formatTeeSamples(teeVerifier *teeverifier.TeeVerifier) []verifiertypes.TeeSample {
-	teeVerifier.SamplesMu.RLock()
-	defer teeVerifier.SamplesMu.RUnlock()
-	samples := make([]verifiertypes.TeeSample, 0, len(teeVerifier.TeeSamples))
-	for teeID, values := range teeVerifier.TeeSamples {
-		sampleValues := make([]verifiertypes.TeeSampleValue, 0, len(values))
-		sampleValues = append(sampleValues, values...)
-
-		samples = append(samples, verifiertypes.TeeSample{
-			TeeID:  teeID.Hex(),
-			Values: sampleValues,
-		})
-	}
-
-	return samples
+func loadSnapshot(snap *atomic.Value) []verifiertypes.TeeSample {
+	v, _ := snap.Load().([]verifiertypes.TeeSample)
+	return v
 }

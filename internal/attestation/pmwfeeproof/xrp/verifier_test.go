@@ -1,10 +1,13 @@
 package xrpverifier
 
 import (
+	"math"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,6 +49,13 @@ func TestParseTxFee(t *testing.T) {
 		_, err := parseTxFee(`not json`)
 		require.ErrorContains(t, err, "cannot unmarshal")
 	})
+
+	t.Run("oversized response rejected", func(t *testing.T) {
+		padding := strings.Repeat("x", 1<<20+1)
+		_, err := parseTxFee(`{"_pad":"` + padding + `","Fee":"12"}`)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "too large")
+	})
 }
 
 func TestNonceRangeValidation(t *testing.T) {
@@ -72,14 +82,18 @@ func TestNonceRangeValidation(t *testing.T) {
 	})
 
 	t.Run("range at max boundary", func(t *testing.T) {
-		// Exactly MaxNonceRange should not trigger ErrNonceRangeTooLarge.
-		count := MaxNonceRange
-		require.True(t, count-0+1 > MaxNonceRange, "sanity: MaxNonceRange+1 exceeds max")
-		require.False(t, count-1+1 > MaxNonceRange, "sanity: MaxNonceRange does not exceed max")
+		// Range of exactly MaxNonceRange nonces: ToNonce-FromNonce = MaxNonceRange-1, check passes.
+		require.False(t, (MaxNonceRange-1) >= MaxNonceRange, "sanity: MaxNonceRange nonces must pass")
 	})
 
-	t.Run("equal from and to", func(t *testing.T) {
-		// fromNonce == toNonce is 1 nonce, always valid.
-		require.False(t, uint64(1) > MaxNonceRange)
+	t.Run("overflow attempt rejected", func(t *testing.T) {
+		// FromNonce=0, ToNonce=MaxUint64 would wrap to 0 if checked with `+1` arithmetic.
+		// The direct-difference check rejects it.
+		_, err := v.Verify(t.Context(), connector.IPMWFeeProofRequestBody{
+			FromNonce: 0,
+			ToNonce:   math.MaxUint64,
+		})
+		require.ErrorIs(t, err, ErrNonceRangeTooLarge)
+		require.ErrorContains(t, err, "exceeds max size")
 	})
 }

@@ -67,7 +67,10 @@ VERIFIER_TYPE=PMWPaymentStatus
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
+TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
 ```
+
+> **NOTE**: `TEE_INSTRUCTIONS_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
 
 ### `PMWFeeProof` Attestation Type
 Requires the same indexers as `PMWPaymentStatus`.
@@ -78,22 +81,27 @@ VERIFIER_TYPE=PMWFeeProof
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
+TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
 ```
 
 ## How to Set Up and Run Verifier
-1. Fill in the `.env` file or set environment variables according to the attestation type.
+1. Fill in the `.env` file (for local development) or set environment variables directly (for production). To load the `.env` file at startup set `LOAD_DOTENV=true` in your shell before running the binary — `.env` loading is opt-in so production deployments are not sensitive to filesystem contents.
 
 2. Install dependencies:
 
     ```bash
     go mod tidy
     ```
-    To update [`go-flare-common`](https://github.com/flare-foundation/go-flare-common/commits/tee) to the latest commit on `tee` branch, run `go get github.com/flare-foundation/go-flare-common@<commitHash>`
 
 3. Run the project:
     ```bash
     go run ./cmd/main.go
     ```
+    For local development with a `.env` file, set `LOAD_DOTENV=true` so the binary loads it at startup:
+    ```bash
+    LOAD_DOTENV=true go run ./cmd/main.go
+    ```
+    In production, leave `LOAD_DOTENV` unset and inject environment variables via the container runtime.
 
 4. Access Swagger UI:
     ```
@@ -207,9 +215,10 @@ This is the simplest way to run everything without worrying about Docker manuall
 - Other `TODO`s inside the code and README.
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
+- `go.mod` pins `github.com/jackc/pgx/v5 v5.9.1` as an explicit indirect override because `gorm.io/driver/postgres v1.6.0` pulls the unpatched v5.6.0 (CVE-2026-33815, CVE-2026-33816). Drop the explicit pgx require once a newer `gorm.io/driver/postgres` ships that pulls pgx >= v5.9.0.
 
 ### Monitoring
-- When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures.
+- When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures. The endpoint supports `offset` and `limit` query params (default limit: 100, max: 500) and returns a `total` count for pagination.
 
 ## Technical Specification
 See [docs/SPEC.md](docs/SPEC.md) for the full technical specification covering architecture, verification flows, error model, and configuration.

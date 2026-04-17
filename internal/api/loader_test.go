@@ -59,7 +59,7 @@ func TestPMWPaymentStatusServiceError(t *testing.T) {
 		AttestationType: connector.PMWPaymentStatus,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL")
+	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, TEE_INSTRUCTIONS_CONTRACT_ADDRESS")
 	require.Nil(t, closers)
 }
 

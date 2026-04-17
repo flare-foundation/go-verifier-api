@@ -13,13 +13,21 @@ import (
 
 const dnsLookupTimeout = 750 * time.Millisecond
 
+// ErrURLValidation is returned (wrapped) when an external URL fails SSRF
+// validation (bad scheme, blocked IP, DNS resolution failure, etc.). Callers
+// can detect it with errors.Is to classify the failure as a deterministic
+// registry/config fault rather than a transient transport error.
+var ErrURLValidation = errors.New("URL validation failed")
+
 var blockedIPPrefixes = []netip.Prefix{
+	netip.MustParsePrefix("0.0.0.0/8"),         // "this network" (RFC 791) — non-routable
 	netip.MustParsePrefix("100.64.0.0/10"),     // carrier-grade NAT
 	netip.MustParsePrefix("198.18.0.0/15"),     // benchmark testing
 	netip.MustParsePrefix("2001:db8::/32"),     // documentation (RFC 3849)
 	netip.MustParsePrefix("100::/64"),          // discard prefix (RFC 6666)
 	netip.MustParsePrefix("2002::/16"),         // 6to4 (RFC 3056) — can embed private IPv4
 	netip.MustParsePrefix("2001::/32"),         // Teredo (RFC 4380)
+	netip.MustParsePrefix("64:ff9b::/96"),      // NAT64 well-known prefix (RFC 6052) — maps to IPv4
 	netip.MustParsePrefix("fd00:ec2::254/128"), // AWS EC2 IPv6 metadata
 }
 
@@ -59,25 +67,25 @@ func BuildPinnedAddr(resolved *ResolvedURL) (dialAddr, hostHeader, serverName st
 func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver, allowPrivateNetworks bool) (*ResolvedURL, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid URL %q: %w", rawURL, err)
+		return nil, fmt.Errorf("%w: invalid URL %q: %w", ErrURLValidation, rawURL, err)
 	}
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return nil, fmt.Errorf("unsupported URL scheme %q: only http and https are allowed", parsedURL.Scheme)
+		return nil, fmt.Errorf("%w: unsupported URL scheme %q: only http and https are allowed", ErrURLValidation, parsedURL.Scheme)
 	}
 	if parsedURL.Host == "" {
-		return nil, errors.New("URL host is required")
+		return nil, fmt.Errorf("%w: URL host is required", ErrURLValidation)
 	}
 	if parsedURL.User != nil {
-		return nil, errors.New("URL userinfo is not allowed")
+		return nil, fmt.Errorf("%w: URL userinfo is not allowed", ErrURLValidation)
 	}
 
 	host := strings.TrimSuffix(strings.ToLower(parsedURL.Hostname()), ".")
 	if host == "" {
-		return nil, errors.New("URL hostname is required")
+		return nil, fmt.Errorf("%w: URL hostname is required", ErrURLValidation)
 	}
 	if !allowPrivateNetworks {
 		if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-			return nil, fmt.Errorf("local hostnames are not allowed: %s", host)
+			return nil, fmt.Errorf("%w: local hostnames are not allowed: %s", ErrURLValidation, host)
 		}
 	}
 
@@ -92,7 +100,7 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver,
 
 	if ip := net.ParseIP(host); ip != nil {
 		if ipCheckFn(ip) {
-			return nil, fmt.Errorf(ipLiteralMsg, ip.String())
+			return nil, fmt.Errorf("%w: "+ipLiteralMsg, ErrURLValidation, ip.String())
 		}
 		return &ResolvedURL{
 			Scheme:   parsedURL.Scheme,
@@ -107,14 +115,14 @@ func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver,
 	defer cancel()
 	resolvedIPs, err := resolver.LookupIPAddr(dnsCtx, host)
 	if err != nil {
-		return nil, fmt.Errorf("cannot resolve hostname %q: %w", host, err)
+		return nil, fmt.Errorf("%w: cannot resolve hostname %q: %w", ErrURLValidation, host, err)
 	}
 	if len(resolvedIPs) == 0 {
-		return nil, fmt.Errorf("hostname %q resolved to no IP addresses", host)
+		return nil, fmt.Errorf("%w: hostname %q resolved to no IP addresses", ErrURLValidation, host)
 	}
 	for _, ipAddr := range resolvedIPs {
 		if ipCheckFn(ipAddr.IP) {
-			return nil, fmt.Errorf(ipResolveMsg, host, ipAddr.IP.String())
+			return nil, fmt.Errorf("%w: "+ipResolveMsg, ErrURLValidation, host, ipAddr.IP.String())
 		}
 	}
 
