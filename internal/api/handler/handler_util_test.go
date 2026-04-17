@@ -288,9 +288,7 @@ func TestPublishSnapshot(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Writer: simulate the poller appending samples + publishing.
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for {
 				select {
 				case <-stop:
@@ -302,17 +300,15 @@ func TestPublishSnapshot(t *testing.T) {
 					v.PublishSnapshot()
 				}
 			}
-		}()
+		})
 
 		// Readers: many concurrent atomic loads (simulating /poller/tees endpoint).
 		for range 10 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				for range 100 {
 					_ = v.PollerSnapshot.Load()
 				}
-			}()
+			})
 		}
 
 		go func() {

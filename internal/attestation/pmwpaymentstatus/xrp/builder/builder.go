@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
@@ -22,7 +23,7 @@ func BuildPaymentStatusResponse(
 		return zero, fmt.Errorf("expected Payment transaction, got %q", raw.TransactionType)
 	}
 	if len(paymentMsg.TokenId) != 0 {
-		return zero, fmt.Errorf("non-native payments (TokenId set) are not supported")
+		return zero, errors.New("non-native payments (TokenId set) are not supported")
 	}
 	transactionResult, err := getTransactionStatus(raw.MetaData.TransactionResult)
 	if err != nil {
