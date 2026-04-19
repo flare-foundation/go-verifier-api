@@ -15,7 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -47,7 +47,7 @@ func newSharedMemDB(t *testing.T, name string, models ...any) *gorm.DB {
 
 func loadABI(t *testing.T) abi.ABI {
 	t.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func encodePaymentEventData(t *testing.T, teeABI abi.ABI, command op.Command, ms
 	}
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		[]teeinstructions.IMachineManagerFacetTeeMachine{},
 		[32]byte{},
 		[32]byte{},
 		msgBytes,

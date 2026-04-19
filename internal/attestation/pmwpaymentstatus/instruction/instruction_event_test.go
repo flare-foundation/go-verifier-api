@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
@@ -18,7 +18,7 @@ import (
 
 func loadTestABI(t *testing.T) abi.ABI {
 	t.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
 	require.NoError(t, err)
 	return parsed
 }
@@ -31,7 +31,7 @@ func encodeTestEvent(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPayme
 
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		[]teeinstructions.IMachineManagerFacetTeeMachine{},
 		[32]byte{},
 		[32]byte{},
 		msgBytes,
@@ -125,7 +125,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		// Build a valid event but with garbage in the Message field.
 		eventABI := teeABI.Events["TeeInstructionsSent"]
 		data, err := eventABI.Inputs.NonIndexed().Pack(
-			[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+			[]teeinstructions.IMachineManagerFacetTeeMachine{},
 			[32]byte{},
 			[32]byte{},
 			[]byte("not-a-valid-payment-message"), // corrupt message

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
 )
 
@@ -32,7 +32,7 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command 
 	if len(log.Data) > maxEventDataSize {
 		return nil, fmt.Errorf("event data too large (%d bytes, max %d)", len(log.Data), maxEventDataSize)
 	}
-	eventData, err := abiDecodeEventData[teeextensionregistry.TeeExtensionRegistryTeeInstructionsSent](
+	eventData, err := abiDecodeEventData[teeinstructions.TeeInstructionsTeeInstructionsSent](
 		teeABI,
 		EventNameTeeInstructionsSent,
 		log.Data,

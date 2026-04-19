@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -46,7 +46,7 @@ func newTestDB(t *testing.T, name string, models ...any) *gorm.DB {
 
 func testABI(t *testing.T) abi.ABI {
 	t.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
 	require.NoError(t, err)
 	return parsed
 }
@@ -58,7 +58,7 @@ func encodeEventData(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPayme
 	require.NoError(t, err)
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		[]teeinstructions.IMachineManagerFacetTeeMachine{},
 		[32]byte{}, [32]byte{},
 		msgBytes,
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),

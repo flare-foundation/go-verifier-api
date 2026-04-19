@@ -20,7 +20,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -113,7 +113,7 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 	// Clean any leftover data from a previous run.
 	cleanupBenchData(xrpDB, cchainDB)
 
-	teeABI, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	teeABI, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 
 	cleanupBenchData(xrpDB, cchainDB)
 
-	teeABI, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	teeABI, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}
