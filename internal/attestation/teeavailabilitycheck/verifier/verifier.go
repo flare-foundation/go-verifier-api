@@ -207,7 +207,7 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	// compromised or malicious TEE could return "magic_pass" to bypass verification.
 	// This exists to support hackathon and development environments where real Google
 	// Confidential Space attestation is unavailable.
-	if string(response.Attestation) == teeattestation.MagicPass {
+	if response.Attestation == teeattestation.MagicPass {
 		platform := E2ETestPlatform
 		codeHash := E2ETestCodeHash
 		if pollerContext {
@@ -234,14 +234,14 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	var leafCRL, intermediateCRL *x509.RevocationList
 	if v.CRLCache != nil {
 		var crlErr error
-		leafCRL, intermediateCRL, crlErr = v.CRLCache.FetchCRLsForToken(ctx, string(attestationToken), v.Cfg.GoogleRootCertificate)
+		leafCRL, intermediateCRL, crlErr = v.CRLCache.FetchCRLsForToken(ctx, attestationToken, v.Cfg.GoogleRootCertificate)
 		if crlErr != nil {
 			return StatusInfo{}, fmt.Errorf("CRL fetch failed: %w", crlErr)
 		}
 	}
 
 	// Certificate checks - check if we can trust the data in token
-	_, claims, err := googlecloud.ParseAndValidatePKIToken(string(attestationToken), v.Cfg.GoogleRootCertificate, leafCRL, intermediateCRL)
+	_, claims, err := googlecloud.ParseAndValidatePKIToken(attestationToken, v.Cfg.GoogleRootCertificate, leafCRL, intermediateCRL)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
 	}

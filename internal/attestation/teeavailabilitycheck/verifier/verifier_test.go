@@ -500,7 +500,7 @@ func TestDataVerification(t *testing.T) {
 		v := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{}}
 		teeID := common.HexToAddress("0x1234")
 		resp := teenodetypes.TeeInfoResponse{
-			Attestation: []byte("magic_pass"),
+			Attestation: "magic_pass",
 		}
 		// First call: should log.
 		res, err := v.DataVerification(context.Background(), resp, teeID, true)
@@ -540,7 +540,7 @@ func TestDataVerification(t *testing.T) {
 		token.Header["x5c"] = x5c
 		signedToken, err := token.SignedString(leafKey)
 		require.NoError(t, err)
-		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		teeInfoResponse.Attestation = signedToken
 
 		v := &verifier.TeeVerifier{
 			Cfg: &config.TeeAvailabilityCheckConfig{
@@ -563,7 +563,7 @@ func TestDataVerification(t *testing.T) {
 		token.Header["x5c"] = x5c
 		signedToken, err := token.SignedString(leafKey)
 		require.NoError(t, err)
-		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		teeInfoResponse.Attestation = signedToken
 
 		v := &verifier.TeeVerifier{
 			Cfg: &config.TeeAvailabilityCheckConfig{
@@ -584,7 +584,7 @@ func TestDataVerification(t *testing.T) {
 		token.Header["x5c"] = x5c
 		signedToken, err := token.SignedString(leafKey)
 		require.NoError(t, err)
-		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		teeInfoResponse.Attestation = signedToken
 
 		v := &verifier.TeeVerifier{
 			Cfg: &config.TeeAvailabilityCheckConfig{
@@ -606,7 +606,7 @@ func TestDataVerification(t *testing.T) {
 		token.Header["x5c"] = x5c
 		signedToken, err := token.SignedString(leafKey)
 		require.NoError(t, err)
-		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		teeInfoResponse.Attestation = signedToken
 
 		v := &verifier.TeeVerifier{
 			Cfg: &config.TeeAvailabilityCheckConfig{
@@ -716,7 +716,7 @@ func TestVerify(t *testing.T) {
 		token.Header["x5c"] = x5c
 		signedToken, err := token.SignedString(leafKey)
 		require.NoError(t, err)
-		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		teeInfoResponse.Attestation = signedToken
 		data, err := json.Marshal(teeInfoResponse)
 		require.NoError(t, err)
 
@@ -763,7 +763,7 @@ func TestVerify(t *testing.T) {
 		token.Header["x5c"] = x5c
 		signedToken, err := token.SignedString(leafKey)
 		require.NoError(t, err)
-		teeInfoResponse.Attestation = hexutil.Bytes([]byte(signedToken))
+		teeInfoResponse.Attestation = signedToken
 		data, err := json.Marshal(teeInfoResponse)
 		require.NoError(t, err)
 
