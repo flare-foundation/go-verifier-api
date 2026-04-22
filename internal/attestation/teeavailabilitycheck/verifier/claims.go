@@ -68,7 +68,7 @@ func ValidateClaims(claims *googlecloud.GoogleTeeClaims, teeInfoData teenodetype
 	}
 	statusInfo.CodeHash, err = claims.CodeHash()
 	if err != nil {
-		return StatusInfo{}, fmt.Errorf("cannot convert container.image_digest %q to Bytes32: %w", claims.SubMods.Container.ImageDigest, err)
+		return StatusInfo{}, fmt.Errorf("cannot convert container.image_id %q to Bytes32: %w", claims.SubMods.Container.ImageID, err)
 	}
 	statusInfo.Platform, err = claims.Platform()
 	if err != nil {

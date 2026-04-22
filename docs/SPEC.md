@@ -124,7 +124,7 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 2. **Debug status** — If `AllowTeeDebug=false` (production): requires `debugStatus == "disabled-since-boot"`. If `AllowTeeDebug=true` (testing): rejects production TEEs.
 3. **Software name** — Must equal `"CONFIDENTIAL_SPACE"`.
 4. **Stability** — If `SupportAttributes` is nil → hard error (verification fails). If present but `"STABLE"` not in the list → returns status `OBSOLETE`.
-5. **CodeHash** — Extracted from `SubMods.Container.ImageDigest` (sha256 digest → 32-byte hash).
+5. **CodeHash** — Extracted from `SubMods.Container.ImageID` (sha256 digest → 32-byte hash).
 6. **Platform** — Extracted from `HWModel` claim (e.g. `"GCP_INTEL_TDX"` → 32-byte hash).
 
 **Bypasses**:

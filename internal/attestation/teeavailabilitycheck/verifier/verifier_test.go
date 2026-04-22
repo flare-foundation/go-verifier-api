@@ -532,7 +532,7 @@ func TestDataVerification(t *testing.T) {
 					SupportAttributes: []string{"STABLE"},
 				},
 				Container: googlecloud.Container{
-					ImageDigest: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
+					ImageID: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
 				},
 			},
 		}
@@ -708,7 +708,7 @@ func TestVerify(t *testing.T) {
 					SupportAttributes: []string{"STABLE"},
 				},
 				Container: googlecloud.Container{
-					ImageDigest: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
+					ImageID: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
 				},
 			},
 		}

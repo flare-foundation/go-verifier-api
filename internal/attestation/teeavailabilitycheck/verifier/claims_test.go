@@ -28,7 +28,7 @@ func TestValidateClaims(t *testing.T) {
 				SupportAttributes: []string{"STABLE"},
 			},
 			Container: googlecloud.Container{
-				ImageDigest: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
+				ImageID: "sha256:194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
 			},
 		},
 	}
@@ -92,10 +92,10 @@ func TestValidateClaims(t *testing.T) {
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.ErrorContains(t, err, "cannot convert HWMode")
 	})
-	t.Run("cannot retrieve hash of container.image_digest", func(t *testing.T) {
+	t.Run("cannot retrieve hash of container.image_id", func(t *testing.T) {
 		modClaims := *baseClaims
-		modClaims.SubMods.Container.ImageDigest = "0x" + strings.Repeat("ff", 33)
+		modClaims.SubMods.Container.ImageID = "0x" + strings.Repeat("ff", 33)
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
-		require.ErrorContains(t, err, "cannot convert container.image_digest")
+		require.ErrorContains(t, err, "cannot convert container.image_id")
 	})
 }
