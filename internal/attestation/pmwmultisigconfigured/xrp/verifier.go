@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
@@ -106,7 +106,7 @@ func XRPAddressFromPubKey(pubkey []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	compressed := secp256k1.CompressPubkey(pk.X, pk.Y)
+	compressed := crypto.CompressPubkey(pk)
 	return address.PubToAddress(hex.EncodeToString(compressed))
 }
 
