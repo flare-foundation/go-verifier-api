@@ -1,6 +1,8 @@
 FROM golang:1.25.1 AS builder
 
-# Build context is the parent directory (contains go-verifier-api/ and tee-node/).
+# TODO: revert to single-context build once tee-node is publicly available.
+# tee-node is a local replace (../tee-node in go.mod), so the build context must be
+# the parent directory. Run from inside go-verifier-api/:
 # docker build -t local/go-verifier-api -f Dockerfile ..
 
 WORKDIR /app/go-verifier-api
