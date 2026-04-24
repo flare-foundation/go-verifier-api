@@ -7,7 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/handler"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	feeproofservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof"
@@ -23,7 +23,7 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 	var closers []io.Closer
 	handler.RegisterHealthHandler(api)
 	switch envConfig.AttestationType {
-	case connector.AvailabilityCheck:
+	case fdc2.AvailabilityCheck:
 		service, err := teeavailabilityservice.NewTeeAvailabilityService(envConfig)
 		if err != nil {
 			return nil, err
@@ -31,7 +31,7 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		verifier := service.Verifier()
 		config := service.Config()
 
-		handler.RegisterVerificationHandler[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody, types.TeeAvailabilityCheckRequestBody, types.TeeAvailabilityCheckResponseBody](api, &config.EncodedAndABI, verifier)
+		handler.RegisterVerificationHandler[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody, types.TeeAvailabilityCheckRequestBody, types.TeeAvailabilityCheckResponseBody](api, &config.EncodedAndABI, verifier)
 
 		// Start poller
 		teeVerifier, ok := verifier.(*teeavailabilitycheck.TeeVerifier)
@@ -44,7 +44,7 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		poller.StartTeePoller(ctx)
 
 		closers = append(closers, poller, teeVerifier)
-	case connector.PMWPaymentStatus:
+	case fdc2.PMWPaymentStatus:
 		service, err := paymentservice.NewPaymentService(envConfig)
 		if err != nil {
 			return nil, err
@@ -52,10 +52,10 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		verifier := service.Verifier()
 		config := service.Config()
 
-		handler.RegisterVerificationHandler[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody, types.PMWPaymentStatusRequestBody, types.PMWPaymentStatusResponseBody](api, &config.EncodedAndABI, verifier)
+		handler.RegisterVerificationHandler[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody, types.PMWPaymentStatusRequestBody, types.PMWPaymentStatusResponseBody](api, &config.EncodedAndABI, verifier)
 
 		closers = append(closers, service)
-	case connector.PMWMultisigAccountConfigured:
+	case fdc2.PMWMultisigAccountConfigured:
 		service, err := multisigservice.NewMultisigService(envConfig)
 		if err != nil {
 			return nil, err
@@ -63,9 +63,9 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		verifier := service.Verifier()
 		config := service.Config()
 
-		handler.RegisterVerificationHandler[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody, types.PMWMultisigAccountConfiguredRequestBody, types.PMWMultisigAccountConfiguredResponseBody](api, &config.EncodedAndABI, verifier)
+		handler.RegisterVerificationHandler[fdc2.IPMWMultisigAccountConfiguredRequestBody, fdc2.IPMWMultisigAccountConfiguredResponseBody, types.PMWMultisigAccountConfiguredRequestBody, types.PMWMultisigAccountConfiguredResponseBody](api, &config.EncodedAndABI, verifier)
 
-	case connector.PMWFeeProof:
+	case fdc2.PMWFeeProof:
 		service, err := feeproofservice.NewFeeProofService(envConfig)
 		if err != nil {
 			return nil, err
@@ -73,7 +73,7 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		verifier := service.Verifier()
 		config := service.Config()
 
-		handler.RegisterVerificationHandler[connector.IPMWFeeProofRequestBody, connector.IPMWFeeProofResponseBody, types.PMWFeeProofRequestBody, types.PMWFeeProofResponseBody](api, &config.EncodedAndABI, verifier)
+		handler.RegisterVerificationHandler[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody, types.PMWFeeProofRequestBody, types.PMWFeeProofResponseBody](api, &config.EncodedAndABI, verifier)
 
 		closers = append(closers, service)
 	default:

@@ -11,7 +11,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -30,11 +30,11 @@ func registerOp[T any, R any](
 	}, handler)
 }
 
-func getVerifierAPIPath(sourceName config.SourceName, attestationType connector.AttestationType, endpoint string) string {
+func getVerifierAPIPath(sourceName config.SourceName, attestationType fdc2.AttestationType, endpoint string) string {
 	return fmt.Sprintf("/verifier/%s/%s/%s", strings.ToLower(string(sourceName)), attestationType, endpoint)
 }
 
-func getVerifierAPITag(attestationType connector.AttestationType) []string {
+func getVerifierAPITag(attestationType fdc2.AttestationType) []string {
 	return []string{string(attestationType)}
 }
 

@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 )
 
 const (
@@ -41,7 +41,7 @@ type EnvConfig struct {
 	MaxPolledTees                     string
 	Port                              string
 	APIKeys                           []string
-	AttestationType                   connector.AttestationType
+	AttestationType                   fdc2.AttestationType
 	SourceID                          SourceName
 }
 
@@ -59,7 +59,7 @@ type SourceIDEncodedPair struct {
 }
 
 type AttestationTypeEncodedPair struct {
-	AttestationType        connector.AttestationType
+	AttestationType        fdc2.AttestationType
 	AttestationTypeEncoded common.Hash
 }
 
@@ -114,23 +114,23 @@ func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.H
 	return convert.StringToCommonHash(attestationTypeOrSourceName)
 }
 
-var abiStructNames = map[connector.AttestationType]struct {
+var abiStructNames = map[fdc2.AttestationType]struct {
 	Request  string
 	Response string
 }{
-	connector.AvailabilityCheck: {
+	fdc2.AvailabilityCheck: {
 		Request:  "availabilityCheckRequestBodyStruct",
 		Response: "availabilityCheckResponseBodyStruct",
 	},
-	connector.PMWMultisigAccountConfigured: {
+	fdc2.PMWMultisigAccountConfigured: {
 		Request:  "pmwMultisigAccountConfiguredRequestBodyStruct",
 		Response: "pmwMultisigAccountConfiguredResponseBodyStruct",
 	},
-	connector.PMWPaymentStatus: {
+	fdc2.PMWPaymentStatus: {
 		Request:  "pmwPaymentStatusRequestBodyStruct",
 		Response: "pmwPaymentStatusResponseBodyStruct",
 	},
-	connector.PMWFeeProof: {
+	fdc2.PMWFeeProof: {
 		Request:  "pmwFeeProofRequestBodyStruct",
 		Response: "pmwFeeProofResponseBodyStruct",
 	},
@@ -201,7 +201,7 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 }
 
 func getABIArguments(structNeeded string) (abi.Argument, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(connector.ConnectorMetaData.ABI))
+	parsedABI, err := abi.JSON(strings.NewReader(fdc2.Fdc2MetaData.ABI))
 	if err != nil {
 		return abi.Argument{}, fmt.Errorf("failed to parse ABI: %w", err)
 	}

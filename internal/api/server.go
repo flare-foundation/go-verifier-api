@@ -15,7 +15,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	apidocs "github.com/flare-foundation/go-verifier-api/internal/api/docs"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/go-chi/chi/v5"
@@ -90,11 +90,11 @@ func ShutdownServer(srv *http.Server, closers []io.Closer) {
 	}
 }
 
-var AttestationTypes = []connector.AttestationType{
-	connector.AvailabilityCheck,
-	connector.PMWPaymentStatus,
-	connector.PMWMultisigAccountConfigured,
-	connector.PMWFeeProof,
+var AttestationTypes = []fdc2.AttestationType{
+	fdc2.AvailabilityCheck,
+	fdc2.PMWPaymentStatus,
+	fdc2.PMWMultisigAccountConfigured,
+	fdc2.PMWFeeProof,
 }
 
 var SourceIDs = []config.SourceName{
@@ -103,7 +103,7 @@ var SourceIDs = []config.SourceName{
 	config.SourceTestXRP,
 }
 
-func parseAttestationType(value string) (connector.AttestationType, error) {
+func parseAttestationType(value string) (fdc2.AttestationType, error) {
 	for _, at := range AttestationTypes {
 		if string(at) == value {
 			return at, nil

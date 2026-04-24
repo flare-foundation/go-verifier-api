@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	pmwpaymentstatusverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/verifier"
@@ -15,8 +15,8 @@ import (
 
 type PaymentService struct {
 	verifier attestation.Verifier[
-		connector.IPMWPaymentStatusRequestBody,
-		connector.IPMWPaymentStatusResponseBody,
+		fdc2.IPMWPaymentStatusRequestBody,
+		fdc2.IPMWPaymentStatusResponseBody,
 	]
 	config *config.PMWPaymentStatusConfig
 	db     *gorm.DB
@@ -47,8 +47,8 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 }
 
 func (s *PaymentService) Verifier() attestation.Verifier[
-	connector.IPMWPaymentStatusRequestBody,
-	connector.IPMWPaymentStatusResponseBody,
+	fdc2.IPMWPaymentStatusRequestBody,
+	fdc2.IPMWPaymentStatusResponseBody,
 ] {
 	return s.verifier
 }

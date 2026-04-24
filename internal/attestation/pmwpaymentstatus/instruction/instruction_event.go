@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 )
 
 const EventNameTeeInstructionsSent = "TeeInstructionsSent"
@@ -28,11 +28,11 @@ func TeeInstructionsSentEventSignature(abiDef abi.ABI) (string, error) {
 // request body limit and prevents OOM from a corrupted indexer row.
 const maxEventDataSize = 1 << 20 // 1 MB
 
-func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command op.Command) (*payment.ITeePaymentsPaymentInstructionMessage, error) {
+func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command op.Command) (*payments.ITeePaymentsPaymentInstructionMessage, error) {
 	if len(log.Data) > maxEventDataSize {
 		return nil, fmt.Errorf("event data too large (%d bytes, max %d)", len(log.Data), maxEventDataSize)
 	}
-	eventData, err := abiDecodeEventData[teeinstructions.TeeInstructionsTeeInstructionsSent](
+	eventData, err := abiDecodeEventData[instructions.InstructionsTeeInstructionsSent](
 		teeABI,
 		EventNameTeeInstructionsSent,
 		log.Data,
@@ -40,8 +40,8 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command 
 	if err != nil {
 		return nil, fmt.Errorf("cannot decode event %s: %w", EventNameTeeInstructionsSent, err)
 	}
-	var message payment.ITeePaymentsPaymentInstructionMessage
-	err = structs.DecodeTo(payment.MessageArguments[command], eventData.Message, &message)
+	var message payments.ITeePaymentsPaymentInstructionMessage
+	err = structs.DecodeTo(payments.MessageArguments[command], eventData.Message, &message)
 	if err != nil {
 		return nil, fmt.Errorf("cannot decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
 	}

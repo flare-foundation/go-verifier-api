@@ -20,11 +20,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
@@ -57,7 +57,7 @@ func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sour
 			tb.Fatal(err)
 		}
 
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: benchSender,
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(500),
@@ -113,7 +113,7 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 	// Clean any leftover data from a previous run.
 	cleanupBenchData(xrpDB, cchainDB)
 
-	teeABI, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
+	teeABI, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 	var results []benchResult
 
 	for _, count := range counts {
-		req := connector.IPMWFeeProofRequestBody{
+		req := fdc2.IPMWFeeProofRequestBody{
 			OpType:         opType,
 			SenderAddress:  benchSender,
 			FromNonce:      benchBaseNonce,
@@ -266,7 +266,7 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 
 	cleanupBenchData(xrpDB, cchainDB)
 
-	teeABI, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
+	teeABI, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 	var results []concResult
 
 	for _, sc := range scenarios {
-		req := connector.IPMWFeeProofRequestBody{
+		req := fdc2.IPMWFeeProofRequestBody{
 			OpType:         opType,
 			SenderAddress:  benchSender,
 			FromNonce:      benchBaseNonce,

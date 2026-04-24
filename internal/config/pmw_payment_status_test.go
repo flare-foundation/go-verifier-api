@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -61,7 +61,7 @@ func TestBuildPMWPaymentStatusConfigSuccess(t *testing.T) {
 	config.ClearPMWPaymentStatusConfigForTest()
 	envConfig := config.EnvConfig{
 		SourceID:                       config.SourceTestXRP,
-		AttestationType:                connector.PMWPaymentStatus,
+		AttestationType:                fdc2.PMWPaymentStatus,
 		SourceDatabaseURL:              "postgres://localhost/test",
 		CChainDatabaseURL:              "root:root@tcp(localhost)/db",
 		TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",

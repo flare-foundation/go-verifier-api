@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/machinemanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -90,12 +90,12 @@ type TeeMachineRegistryCallerInterface interface {
 	}, error)
 }
 
-func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
+func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
 	}
-	teeMachineRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(cfg.TeeMachineRegistryContractAddress, client)
+	teeMachineRegistryCaller, err := machinemanager.NewMachineManagerCaller(cfg.TeeMachineRegistryContractAddress, client)
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress.Hex(), err)
@@ -115,8 +115,8 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 	}, nil
 }
 
-func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
-	var zero connector.ITeeAvailabilityCheckResponseBody
+func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheckRequestBody) (fdc2.ITeeAvailabilityCheckResponseBody, error) {
+	var zero fdc2.ITeeAvailabilityCheckResponseBody
 	// Fetch from TEE proxy /action/result/<instructionID>
 	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.Cfg.AllowPrivateNetworks)
 	if err != nil {
@@ -126,7 +126,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 			return zero, infoErr
 		}
 		if isDown {
-			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(DOWN)}, nil
+			return fdc2.ITeeAvailabilityCheckResponseBody{Status: uint8(DOWN)}, nil
 		}
 		return zero, fmt.Errorf("cannot fetch TEE data for (TEE=%s, URL=%s, instruction=%x) and determine its status: %w", req.TeeId, req.Url, req.InstructionId[:], err)
 	}
@@ -172,14 +172,14 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}
 
 	statusInfo := dvRes.info
-	return connector.ITeeAvailabilityCheckResponseBody{
+	return fdc2.ITeeAvailabilityCheckResponseBody{
 		Status:                 uint8(statusInfo.Status),
 		TeeTimestamp:           infoData.TeeTimestamp,
 		CodeHash:               statusInfo.CodeHash,
 		Platform:               statusInfo.Platform,
 		InitialSigningPolicyId: infoData.InitialSigningPolicyID,
 		LastSigningPolicyId:    infoData.LastSigningPolicyID,
-		State: connector.ITeeAvailabilityCheckTeeState{
+		State: fdc2.ITeeAvailabilityCheckTeeState{
 			SystemState:        infoData.State.SystemState,
 			SystemStateVersion: infoData.State.SystemStateVersion,
 			State:              infoData.State.State,

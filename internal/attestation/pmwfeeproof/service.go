@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	feeproofverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/verifier"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
@@ -15,8 +15,8 @@ import (
 
 type FeeProofService struct {
 	verifier attestation.Verifier[
-		connector.IPMWFeeProofRequestBody,
-		connector.IPMWFeeProofResponseBody,
+		fdc2.IPMWFeeProofRequestBody,
+		fdc2.IPMWFeeProofResponseBody,
 	]
 	config *config.PMWFeeProofConfig
 	db     *gorm.DB
@@ -47,8 +47,8 @@ func NewFeeProofService(envConfig config.EnvConfig) (*FeeProofService, error) {
 }
 
 func (s *FeeProofService) Verifier() attestation.Verifier[
-	connector.IPMWFeeProofRequestBody,
-	connector.IPMWFeeProofResponseBody,
+	fdc2.IPMWFeeProofRequestBody,
+	fdc2.IPMWFeeProofResponseBody,
 ] {
 	return s.verifier
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/stretchr/testify/require"
 )
@@ -64,7 +64,7 @@ func TestNonceRangeValidation(t *testing.T) {
 	v := &XRPVerifier{}
 
 	t.Run("toNonce < fromNonce", func(t *testing.T) {
-		_, err := v.Verify(t.Context(), connector.IPMWFeeProofRequestBody{
+		_, err := v.Verify(t.Context(), fdc2.IPMWFeeProofRequestBody{
 			FromNonce: 10,
 			ToNonce:   5,
 		})
@@ -73,7 +73,7 @@ func TestNonceRangeValidation(t *testing.T) {
 	})
 
 	t.Run("range exceeds max", func(t *testing.T) {
-		_, err := v.Verify(t.Context(), connector.IPMWFeeProofRequestBody{
+		_, err := v.Verify(t.Context(), fdc2.IPMWFeeProofRequestBody{
 			FromNonce: 1,
 			ToNonce:   1 + MaxNonceRange, // MaxNonceRange + 1 nonces
 		})
@@ -89,7 +89,7 @@ func TestNonceRangeValidation(t *testing.T) {
 	t.Run("overflow attempt rejected", func(t *testing.T) {
 		// FromNonce=0, ToNonce=MaxUint64 would wrap to 0 if checked with `+1` arithmetic.
 		// The direct-difference check rejects it.
-		_, err := v.Verify(t.Context(), connector.IPMWFeeProofRequestBody{
+		_, err := v.Verify(t.Context(), fdc2.IPMWFeeProofRequestBody{
 			FromNonce: 0,
 			ToNonce:   math.MaxUint64,
 		})

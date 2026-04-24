@@ -3,7 +3,7 @@ package verifier
 import (
 	"fmt"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -13,13 +13,13 @@ import (
 type VerifierConstructor func(
 	cfg *config.PMWFeeProofConfig,
 	db, cChainDB *gorm.DB,
-) (attestation.Verifier[connector.IPMWFeeProofRequestBody, connector.IPMWFeeProofResponseBody], error)
+) (attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody], error)
 
 var xrpConstructor = func(
 	cfg *config.PMWFeeProofConfig,
 	db, cChainDB *gorm.DB,
 ) (
-	attestation.Verifier[connector.IPMWFeeProofRequestBody, connector.IPMWFeeProofResponseBody], error,
+	attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody], error,
 ) {
 	return xrpverifier.NewXRPVerifier(cfg, db, cChainDB), nil
 }
@@ -33,7 +33,7 @@ func NewVerifier(
 	cfg *config.PMWFeeProofConfig,
 	db, cChainDB *gorm.DB,
 ) (
-	attestation.Verifier[connector.IPMWFeeProofRequestBody, connector.IPMWFeeProofResponseBody], error,
+	attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody], error,
 ) {
 	sourceIDStr := string(cfg.SourceIDPair.SourceID)
 	constructor, ok := registry[sourceIDStr]

@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeinstructions"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 )
 
 var (
@@ -36,7 +36,7 @@ func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, 
 	if err != nil {
 		return nil, err
 	}
-	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(teeinstructions.TeeInstructionsMetaData.ABI))
+	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse TeeInstructions ABI: %w", err)
 	}

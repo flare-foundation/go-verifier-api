@@ -9,7 +9,7 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/builder"
@@ -30,45 +30,45 @@ func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB
 	}
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWPaymentStatusRequestBody) (connector.IPMWPaymentStatusResponseBody, error) {
+func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequestBody) (fdc2.IPMWPaymentStatusResponseBody, error) {
 	// Build instruction ID
 	instructionID, err := teeinstruction.GenerateInstructionID(req.OpType, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.Nonce)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction ID: %w", err)
+		return fdc2.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction ID: %w", err)
 	}
 	// Event log
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	chainLog, err := x.Repo.FetchInstructionLog(ctx, eventHash, instructionID)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Decode event data
 	paymentMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(chainLog, x.Config.ParsedTeeInstructionsABI, op.Pay)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Query underlying chain for transaction
 	dbTransaction, err := x.Repo.FetchTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Parse transaction response JSON into structured data
 	rawTransactionData, err := x.parseRawTransactionData(req.SenderAddress, req.Nonce, dbTransaction.Response)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Cross-check: JSON payload must describe the same XRPL transaction as the canonical DB columns.
 	// A row where they disagree is evidence of indexer corruption or partial write — refuse the attestation.
 	if err := checkRowConsistency(rawTransactionData, dbTransaction); err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, err
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Validate transaction and build response
 	resp, err := builder.BuildPaymentStatusResponse(rawTransactionData, paymentMessage, dbTransaction)
 	if err != nil {
-		return connector.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot build payment status response: %w", err)
+		return fdc2.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot build payment status response: %w", err)
 	}
 	return resp, nil
 }

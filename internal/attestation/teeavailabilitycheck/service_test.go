@@ -3,7 +3,7 @@ package teeavailabilityservice
 import (
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ var envConfig = config.EnvConfig{
 	RelayContractAddress:              "0x0000000000000000000000000000000000000001",
 	TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
 	SourceID:                          config.SourceTEE,
-	AttestationType:                   connector.AvailabilityCheck,
+	AttestationType:                   fdc2.AvailabilityCheck,
 }
 
 func TestTeeAvailabilityService(t *testing.T) {

@@ -3,14 +3,14 @@ package teeavailabilityservice
 import (
 	"fmt"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
 type TeeAvailabilityService struct {
-	verifier attestation.Verifier[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody]
+	verifier attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody]
 	config   *config.TeeAvailabilityCheckConfig
 }
 
@@ -28,8 +28,8 @@ func NewTeeAvailabilityService(envConfig config.EnvConfig) (*TeeAvailabilityServ
 }
 
 func (s *TeeAvailabilityService) Verifier() attestation.Verifier[
-	connector.ITeeAvailabilityCheckRequestBody,
-	connector.ITeeAvailabilityCheckResponseBody,
+	fdc2.ITeeAvailabilityCheckRequestBody,
+	fdc2.ITeeAvailabilityCheckResponseBody,
 ] {
 	return s.verifier
 }

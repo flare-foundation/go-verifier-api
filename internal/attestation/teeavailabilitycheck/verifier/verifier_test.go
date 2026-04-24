@@ -24,7 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -642,7 +642,7 @@ func TestVerify(t *testing.T) {
 		server := httptest.NewServer(handler)
 		defer server.Close()
 
-		req := connector.ITeeAvailabilityCheckRequestBody{
+		req := fdc2.ITeeAvailabilityCheckRequestBody{
 			Url: server.URL,
 		}
 		resp, err := ver.Verify(context.Background(), req)
@@ -658,7 +658,7 @@ func TestVerify(t *testing.T) {
 		server := httptest.NewServer(handler)
 		defer server.Close()
 
-		req := connector.ITeeAvailabilityCheckRequestBody{
+		req := fdc2.ITeeAvailabilityCheckRequestBody{
 			TeeId: teeID,
 			Url:   server.URL,
 		}
@@ -681,7 +681,7 @@ func TestVerify(t *testing.T) {
 		server := httptest.NewServer(handler)
 		defer server.Close()
 
-		req := connector.ITeeAvailabilityCheckRequestBody{
+		req := fdc2.ITeeAvailabilityCheckRequestBody{
 			TeeId: teeID,
 			Url:   server.URL,
 		}
@@ -742,7 +742,7 @@ func TestVerify(t *testing.T) {
 		server := httptest.NewServer(handler)
 		defer server.Close()
 
-		req := connector.ITeeAvailabilityCheckRequestBody{
+		req := fdc2.ITeeAvailabilityCheckRequestBody{
 			TeeId:      crypto.PubkeyToAddress(privTEEKey.PublicKey),
 			Url:        server.URL,
 			TeeProxyId: crypto.PubkeyToAddress(privProxyKey.PublicKey),
@@ -789,7 +789,7 @@ func TestVerify(t *testing.T) {
 		server := httptest.NewServer(handler)
 		defer server.Close()
 
-		req := connector.ITeeAvailabilityCheckRequestBody{
+		req := fdc2.ITeeAvailabilityCheckRequestBody{
 			TeeId:      crypto.PubkeyToAddress(privTEEKey.PublicKey),
 			Url:        server.URL,
 			TeeProxyId: crypto.PubkeyToAddress(privProxyKey.PublicKey),

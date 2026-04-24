@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -53,7 +53,7 @@ func TestLoadMultisigConcurrentVerify(t *testing.T) {
 	)
 
 	type callResult struct {
-		resp connector.IPMWMultisigAccountConfiguredResponseBody
+		resp fdc2.IPMWMultisigAccountConfiguredResponseBody
 		err  error
 	}
 
@@ -128,7 +128,7 @@ func TestLoadMultisigSlowUpstream(t *testing.T) {
 
 	const concurrency = 6
 	type callResult struct {
-		resp    connector.IPMWMultisigAccountConfiguredResponseBody
+		resp    fdc2.IPMWMultisigAccountConfiguredResponseBody
 		err     error
 		elapsed time.Duration
 	}

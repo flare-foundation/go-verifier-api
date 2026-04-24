@@ -10,7 +10,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
@@ -170,13 +170,13 @@ func generateRequestID() string {
 
 func logRequestBody[T any](requestData T) {
 	switch req := any(requestData).(type) {
-	case connector.ITeeAvailabilityCheckRequestBody:
+	case fdc2.ITeeAvailabilityCheckRequestBody:
 		types.LogTeeAvailabilityCheckRequestBody(req)
-	case connector.IPMWMultisigAccountConfiguredRequestBody:
+	case fdc2.IPMWMultisigAccountConfiguredRequestBody:
 		types.LogPMWMultisigAccountConfiguredRequestBody(req)
-	case connector.IPMWPaymentStatusRequestBody:
+	case fdc2.IPMWPaymentStatusRequestBody:
 		types.LogPMWPaymentStatusRequestBody(req)
-	case connector.IPMWFeeProofRequestBody:
+	case fdc2.IPMWFeeProofRequestBody:
 		types.LogPMWFeeProofRequestBody(req)
 	default:
 		logger.Debug("No request logger for this request type")

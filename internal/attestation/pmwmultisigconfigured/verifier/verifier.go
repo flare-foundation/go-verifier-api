@@ -3,7 +3,7 @@ package verifier
 import (
 	"fmt"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
@@ -12,10 +12,10 @@ import (
 
 type VerifierConstructor func(
 	cfg *config.PMWMultisigAccountConfig,
-) (attestation.Verifier[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error)
+) (attestation.Verifier[fdc2.IPMWMultisigAccountConfiguredRequestBody, fdc2.IPMWMultisigAccountConfiguredResponseBody], error)
 
 var xrpConstructor = func(cfg *config.PMWMultisigAccountConfig) (
-	attestation.Verifier[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
+	attestation.Verifier[fdc2.IPMWMultisigAccountConfiguredRequestBody, fdc2.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
 	return xrpverifier.NewXRPVerifier(cfg), nil
 }
@@ -26,7 +26,7 @@ var registry = map[string]VerifierConstructor{
 }
 
 func NewVerifier(cfg *config.PMWMultisigAccountConfig) (
-	attestation.Verifier[connector.IPMWMultisigAccountConfiguredRequestBody, connector.IPMWMultisigAccountConfiguredResponseBody], error,
+	attestation.Verifier[fdc2.IPMWMultisigAccountConfiguredRequestBody, fdc2.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
 	sourceIDStr := string(cfg.SourceIDPair.SourceID)
 	constructor, ok := registry[sourceIDStr]

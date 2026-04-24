@@ -3,7 +3,7 @@ package config_test
 import (
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func TestBuildPMWFeeProofConfigError(t *testing.T) {
 func TestBuildPMWFeeProofConfigSuccess(t *testing.T) {
 	envConfig := config.EnvConfig{
 		SourceID:                       config.SourceTestXRP,
-		AttestationType:                connector.PMWFeeProof,
+		AttestationType:                fdc2.PMWFeeProof,
 		SourceDatabaseURL:              "postgres://localhost/test",
 		CChainDatabaseURL:              "root:root@tcp(localhost)/db",
 		TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",

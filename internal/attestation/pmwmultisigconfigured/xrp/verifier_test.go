@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/types"
@@ -324,9 +324,9 @@ func makeAccountInfoV2(t *testing.T, signerLists []types.SignerList, flags types
 	}
 }
 
-func makeIPMWMultisigAccountConfiguredRequestBody(t *testing.T, publicKeys [][]byte, threshold uint64) connector.IPMWMultisigAccountConfiguredRequestBody {
+func makeIPMWMultisigAccountConfiguredRequestBody(t *testing.T, publicKeys [][]byte, threshold uint64) fdc2.IPMWMultisigAccountConfiguredRequestBody {
 	t.Helper()
-	return connector.IPMWMultisigAccountConfiguredRequestBody{
+	return fdc2.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountName,
 		PublicKeys:     publicKeys,
 		Threshold:      threshold,

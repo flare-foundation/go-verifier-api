@@ -4,7 +4,7 @@ import (
 	"encoding/pem"
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,7 +60,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                          SourceTEE,
-			AttestationType:                   connector.AvailabilityCheck,
+			AttestationType:                   fdc2.AvailabilityCheck,
 			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
 			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
 			RPCURL:                            "https://rpc.example.com",
@@ -79,7 +79,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	t.Run("allow private networks enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                          SourceTEE,
-			AttestationType:                   connector.AvailabilityCheck,
+			AttestationType:                   fdc2.AvailabilityCheck,
 			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
 			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
 			RPCURL:                            "https://rpc.example.com",
@@ -93,7 +93,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	t.Run("all flags enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                          SourceTEE,
-			AttestationType:                   connector.AvailabilityCheck,
+			AttestationType:                   fdc2.AvailabilityCheck,
 			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
 			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
 			RPCURL:                            "https://rpc.example.com",

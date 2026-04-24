@@ -3,7 +3,7 @@ package paymentservice
 import (
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ var envConfig = config.EnvConfig{
 	SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 	CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 	TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
-	AttestationType:                connector.PMWPaymentStatus,
+	AttestationType:                fdc2.PMWPaymentStatus,
 	SourceID:                       "testXRP",
 }
 
@@ -44,7 +44,7 @@ func TestNewPaymentService(t *testing.T) {
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
 			SourceID:                       "UNSUPPORTED_SOURCE",
-			AttestationType:                connector.PMWPaymentStatus,
+			AttestationType:                fdc2.PMWPaymentStatus,
 		}
 		service, err := NewPaymentService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot initialize PMWPaymentStatus verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
@@ -57,7 +57,7 @@ func TestNewPaymentService(t *testing.T) {
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
 			SourceID:                       "testXRP",
-			AttestationType:                connector.PMWPaymentStatus,
+			AttestationType:                fdc2.PMWPaymentStatus,
 		}
 		service, err := NewPaymentService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot connect to Source DB:")
@@ -70,7 +70,7 @@ func TestNewPaymentService(t *testing.T) {
 			CChainDatabaseURL:              "root:root@tcp()",
 			TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
 			SourceID:                       "testXRP",
-			AttestationType:                connector.PMWPaymentStatus,
+			AttestationType:                fdc2.PMWPaymentStatus,
 		}
 		service, err := NewPaymentService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot connect to CChain DB:")

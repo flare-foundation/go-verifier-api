@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/transaction"
@@ -15,10 +15,10 @@ import (
 
 func BuildPaymentStatusResponse(
 	raw types.RawTransactionData,
-	paymentMsg *payment.ITeePaymentsPaymentInstructionMessage,
+	paymentMsg *payments.ITeePaymentsPaymentInstructionMessage,
 	tx db.DBTransaction,
-) (connector.IPMWPaymentStatusResponseBody, error) {
-	var zero connector.IPMWPaymentStatusResponseBody
+) (fdc2.IPMWPaymentStatusResponseBody, error) {
+	var zero fdc2.IPMWPaymentStatusResponseBody
 	if raw.TransactionType != "Payment" {
 		return zero, fmt.Errorf("expected Payment transaction, got %q", raw.TransactionType)
 	}
@@ -57,7 +57,7 @@ func BuildPaymentStatusResponse(
 	if transactionResult != types.Success {
 		revertReason = raw.MetaData.TransactionResult
 	}
-	return connector.IPMWPaymentStatusResponseBody{
+	return fdc2.IPMWPaymentStatusResponseBody{
 		RecipientAddress:  paymentMsg.RecipientAddress,
 		TokenId:           paymentMsg.TokenId,
 		Amount:            paymentMsg.Amount,

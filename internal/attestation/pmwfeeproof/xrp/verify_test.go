@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
@@ -28,7 +28,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]int64{50},    // maxFee
 			[]string{"12"}, // txFee
 		)
-		resp, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
 			FromNonce:      100,
@@ -46,7 +46,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]int64{50, 60, 70},        // maxFees
 			[]string{"10", "15", "20"}, // txFees
 		)
-		resp, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
 			FromNonce:      100,
@@ -65,7 +65,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]int64{50, 60},
 			[]string{"10", "15"},
 		)
-		_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
 			FromNonce:      100,
@@ -90,7 +90,7 @@ func TestVerifyFeeProof(t *testing.T) {
 		eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
 
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: "rSender",
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(50),
@@ -122,7 +122,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			Config: cfg,
 		}
 
-		_, err = v.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+		_, err = v.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         opType,
 			SenderAddress:  "rSender",
 			FromNonce:      nonce,
@@ -134,7 +134,7 @@ func TestVerifyFeeProof(t *testing.T) {
 
 	t.Run("toNonce < fromNonce returns error", func(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_badrange", []uint64{100}, []int64{50}, []string{"10"})
-		_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:        f.opType,
 			SenderAddress: "rSender",
 			FromNonce:     10,
@@ -145,7 +145,7 @@ func TestVerifyFeeProof(t *testing.T) {
 
 	t.Run("range exceeds max returns error", func(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_bigrange", []uint64{100}, []int64{50}, []string{"10"})
-		_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:        f.opType,
 			SenderAddress: "rSender",
 			FromNonce:     1,
@@ -160,7 +160,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]int64{50},
 			[]string{"not-a-number"},
 		)
-		_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
 			FromNonce:      100,
@@ -187,7 +187,7 @@ func TestVerifyFeeProofConcurrentErrors(t *testing.T) {
 		for i := range concurrency {
 			go func(idx int) {
 				defer wg.Done()
-				_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+				_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 					OpType:         f.opType,
 					SenderAddress:  "rSender",
 					FromNonce:      100,
@@ -218,7 +218,7 @@ func TestVerifyFeeProofConcurrentErrors(t *testing.T) {
 		for i := range concurrency {
 			go func(idx int) {
 				defer wg.Done()
-				_, err := f.verifier.Verify(context.Background(), connector.IPMWFeeProofRequestBody{
+				_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 					OpType:         f.opType,
 					SenderAddress:  "rSender",
 					FromNonce:      100,

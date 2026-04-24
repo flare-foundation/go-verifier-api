@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,13 +89,13 @@ func TestLoadEncodedAndABI(t *testing.T) {
 	abiStructNames = maps.Clone(original)
 	defer func() { abiStructNames = original }()
 
-	testCases := map[connector.AttestationType]struct {
+	testCases := map[fdc2.AttestationType]struct {
 		Request, Response string
 	}{
-		"0xInvalidName":             {"req", "res"},
-		connector.AvailabilityCheck: {"availabilityCheckRequestBodyStruct", "availabilityCheckResponseBodyStruct"},
-		"InvalidRequestABI":         {"req", "availabilityCheckResponseBodyStruct"},
-		"InvalidResponseABI":        {"availabilityCheckRequestBodyStruct", "res"},
+		"0xInvalidName":        {"req", "res"},
+		fdc2.AvailabilityCheck: {"availabilityCheckRequestBodyStruct", "availabilityCheckResponseBodyStruct"},
+		"InvalidRequestABI":    {"req", "availabilityCheckResponseBodyStruct"},
+		"InvalidResponseABI":   {"availabilityCheckRequestBodyStruct", "res"},
 	}
 	maps.Copy(abiStructNames, testCases)
 
@@ -113,7 +113,7 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			input: args{
 				envConfig: EnvConfig{
 					SourceID:        SourceTEE,
-					AttestationType: connector.AvailabilityCheck,
+					AttestationType: fdc2.AvailabilityCheck,
 				},
 			},
 			expectError: false,
@@ -145,7 +145,7 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			input: args{
 				envConfig: EnvConfig{
 					SourceID:        "0xInvalidName",
-					AttestationType: connector.PMWMultisigAccountConfigured,
+					AttestationType: fdc2.PMWMultisigAccountConfigured,
 				},
 			},
 			expectError:    true,
@@ -193,10 +193,10 @@ func TestLoadEncodedAndABI(t *testing.T) {
 }
 
 func TestGetABIArguments(t *testing.T) {
-	origABI := connector.ConnectorMetaData.ABI
-	defer func() { connector.ConnectorMetaData.ABI = origABI }()
+	origABI := fdc2.Fdc2MetaData.ABI
+	defer func() { fdc2.Fdc2MetaData.ABI = origABI }()
 
-	connector.ConnectorMetaData.ABI = `[
+	fdc2.Fdc2MetaData.ABI = `[
 		{
 			"constant": false,
 			"inputs": [{"name": "arg1","type": "uint256"}],
@@ -219,7 +219,7 @@ func TestGetABIArguments(t *testing.T) {
 		require.Equal(t, abi.Argument{}, val)
 	})
 	t.Run("invalid ABI", func(t *testing.T) {
-		connector.ConnectorMetaData.ABI = "not json"
+		fdc2.Fdc2MetaData.ABI = "not json"
 		val, err := getABIArguments("TestMethod")
 		require.ErrorContains(t, err, "failed to parse ABI: invalid character")
 		require.Equal(t, abi.Argument{}, val)
