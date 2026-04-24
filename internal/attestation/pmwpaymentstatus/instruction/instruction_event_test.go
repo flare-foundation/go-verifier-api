@@ -31,7 +31,7 @@ func encodeTestEvent(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPayme
 
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeinstructions.IMachineManagerFacetTeeMachine{},
+		[]teeinstructions.IMachineManagerTeeMachine{},
 		[32]byte{},
 		[32]byte{},
 		msgBytes,
@@ -125,7 +125,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		// Build a valid event but with garbage in the Message field.
 		eventABI := teeABI.Events["TeeInstructionsSent"]
 		data, err := eventABI.Inputs.NonIndexed().Pack(
-			[]teeinstructions.IMachineManagerFacetTeeMachine{},
+			[]teeinstructions.IMachineManagerTeeMachine{},
 			[32]byte{},
 			[32]byte{},
 			[]byte("not-a-valid-payment-message"), // corrupt message

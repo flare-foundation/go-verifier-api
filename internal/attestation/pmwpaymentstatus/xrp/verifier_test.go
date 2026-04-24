@@ -58,7 +58,7 @@ func encodeEventData(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPayme
 	require.NoError(t, err)
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeinstructions.IMachineManagerFacetTeeMachine{},
+		[]teeinstructions.IMachineManagerTeeMachine{},
 		[32]byte{}, [32]byte{},
 		msgBytes,
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),

@@ -62,7 +62,7 @@ func testEncodeEvent(tb testing.TB, teeABI abi.ABI, command op.Command, msg paym
 	}
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeinstructions.IMachineManagerFacetTeeMachine{},
+		[]teeinstructions.IMachineManagerTeeMachine{},
 		[32]byte{}, [32]byte{},
 		msgBytes,
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),
