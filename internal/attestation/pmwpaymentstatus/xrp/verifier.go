@@ -25,7 +25,7 @@ type XRPVerifier struct {
 
 func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB) *XRPVerifier {
 	return &XRPVerifier{
-		Repo:   db.NewDBRepo(xrpDB, cChainDB, cfg.TeeInstructionsContractAddress),
+		Repo:   db.NewDBRepo(xrpDB, cChainDB, cfg.FlareTeeManagerContractAddress),
 		Config: cfg,
 	}
 }

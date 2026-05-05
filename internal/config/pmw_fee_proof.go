@@ -23,11 +23,11 @@ func LoadPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 }
 
 func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
-	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvTeeInstructionsContractAddress})
+	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress})
 	if err != nil {
 		return nil, err
 	}
-	teeInstructionsAddr, err := parseContractAddress(envConfig.TeeInstructionsContractAddress, EnvTeeInstructionsContractAddress)
+	flareTeeManagerAddr, err := parseContractAddress(envConfig.FlareTeeManagerContractAddress, EnvFlareTeeManagerContractAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 		EncodedAndABI:                  commonConfig,
 		SourceDatabaseURL:              envConfig.SourceDatabaseURL,
 		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
-		TeeInstructionsContractAddress: teeInstructionsAddr,
+		FlareTeeManagerContractAddress: flareTeeManagerAddr,
 		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
 	}, nil
 }

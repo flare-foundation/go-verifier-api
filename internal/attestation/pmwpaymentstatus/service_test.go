@@ -12,7 +12,7 @@ var envConfig = config.EnvConfig{
 	RPCURL:                         "http://127.0.0.1:8545",
 	SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 	CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
-	TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
+	FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
 	AttestationType:                fdc2.PMWPaymentStatus,
 	SourceID:                       "testXRP",
 }
@@ -34,7 +34,7 @@ func TestNewPaymentService(t *testing.T) {
 			CChainDatabaseURL: "",
 		}
 		service, err := NewPaymentService(badEnvConfig)
-		require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, TEE_INSTRUCTIONS_CONTRACT_ADDRESS")
+		require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS")
 		require.Nil(t, service)
 	})
 	t.Run("using unsupported source ID", func(t *testing.T) {
@@ -42,7 +42,7 @@ func TestNewPaymentService(t *testing.T) {
 		badEnvConfig := config.EnvConfig{
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
-			TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
+			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
 			SourceID:                       "UNSUPPORTED_SOURCE",
 			AttestationType:                fdc2.PMWPaymentStatus,
 		}
@@ -55,7 +55,7 @@ func TestNewPaymentService(t *testing.T) {
 		badEnvConfig := config.EnvConfig{
 			SourceDatabaseURL:              "postgres:",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
-			TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
+			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
 			SourceID:                       "testXRP",
 			AttestationType:                fdc2.PMWPaymentStatus,
 		}
@@ -68,7 +68,7 @@ func TestNewPaymentService(t *testing.T) {
 		badEnvConfig := config.EnvConfig{
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp()",
-			TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1",
+			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
 			SourceID:                       "testXRP",
 			AttestationType:                fdc2.PMWPaymentStatus,
 		}

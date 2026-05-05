@@ -28,7 +28,7 @@ func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckC
 func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckConfig, error) {
 	err := CheckMissingFields(envConfig, []string{
 		EnvRelayContractAddress,
-		EnvTeeMachineRegistryContractAddress,
+		EnvFlareTeeManagerContractAddress,
 		EnvRPCURL,
 	})
 	if err != nil {
@@ -38,7 +38,7 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	if err != nil {
 		return nil, err
 	}
-	registryAddr, err := parseContractAddress(envConfig.TeeMachineRegistryContractAddress, EnvTeeMachineRegistryContractAddress)
+	flareTeeManagerAddr, err := parseContractAddress(envConfig.FlareTeeManagerContractAddress, EnvFlareTeeManagerContractAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -76,15 +76,15 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	}
 
 	return &TeeAvailabilityCheckConfig{
-		EncodedAndABI:                     commonConfig,
-		RelayContractAddress:              relayAddr,
-		TeeMachineRegistryContractAddress: registryAddr,
-		AllowTeeDebug:                     allowTeeDebug,
-		DisableAttestationCheckE2E:        disableAttestationCheckE2E,
-		AllowPrivateNetworks:              allowPrivateNetworks,
-		MaxPolledTees:                     maxPolledTees,
-		RPCURL:                            envConfig.RPCURL,
-		GoogleRootCertificate:             googleRootCert,
+		EncodedAndABI:                  commonConfig,
+		RelayContractAddress:           relayAddr,
+		FlareTeeManagerContractAddress: flareTeeManagerAddr,
+		AllowTeeDebug:                  allowTeeDebug,
+		DisableAttestationCheckE2E:     disableAttestationCheckE2E,
+		AllowPrivateNetworks:           allowPrivateNetworks,
+		MaxPolledTees:                  maxPolledTees,
+		RPCURL:                         envConfig.RPCURL,
+		GoogleRootCertificate:          googleRootCert,
 	}, nil
 }
 

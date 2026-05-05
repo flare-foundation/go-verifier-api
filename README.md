@@ -30,7 +30,7 @@ Environment variables:
 VERIFIER_TYPE=TeeAvailabilityCheck
 SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
-TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS=0x...
+FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
 
 # Test/E2E-only flags (optional, default to false):
@@ -67,10 +67,10 @@ VERIFIER_TYPE=PMWPaymentStatus
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
-TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
+FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 ```
 
-> **NOTE**: `TEE_INSTRUCTIONS_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
+> **NOTE**: `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
 
 ### `PMWFeeProof` Attestation Type
 Requires the same indexers as `PMWPaymentStatus`.
@@ -81,7 +81,7 @@ VERIFIER_TYPE=PMWFeeProof
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
-TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
+FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 ```
 
 ## How to Set Up and Run Verifier
@@ -120,7 +120,7 @@ TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
 ## TEE Poller
-The `TeeAvailabilityCheck` attestation type initiates a process called [`teepoller`](internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go). The purpose of the `teepoller` is to continuously ping all available TEEs (retrieved from the `TeeMachineRegistry` smart contract), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
+The `TeeAvailabilityCheck` attestation type initiates a process called [`teepoller`](internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go). The purpose of the `teepoller` is to continuously ping all available TEEs (retrieved via the `MachineManager` interface on the `FlareTeeManager` diamond), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
 
 Samples retrieved by the poller can be VALID, INVALID or INDETERMINATE (the latter case occurs when the check fails due to verifier fault, e.g. being unable to connect to RPC).
 

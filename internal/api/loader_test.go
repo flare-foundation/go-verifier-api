@@ -28,12 +28,12 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
-		AttestationType:                   fdc2.AvailabilityCheck,
-		RPCURL:                            "http",
-		RelayContractAddress:              "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
-		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
-		AllowTeeDebug:                     "false",
-		DisableAttestationCheckE2E:        "false",
+		AttestationType:                fdc2.AvailabilityCheck,
+		RPCURL:                         "http",
+		RelayContractAddress:           "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
+		FlareTeeManagerContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		AllowTeeDebug:                  "false",
+		DisableAttestationCheckE2E:     "false",
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
 	require.ErrorContains(t, err, "cannot connect to Flare node")
@@ -59,7 +59,7 @@ func TestPMWPaymentStatusServiceError(t *testing.T) {
 		AttestationType: fdc2.PMWPaymentStatus,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, TEE_INSTRUCTIONS_CONTRACT_ADDRESS")
+	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS")
 	require.Nil(t, closers)
 }
 

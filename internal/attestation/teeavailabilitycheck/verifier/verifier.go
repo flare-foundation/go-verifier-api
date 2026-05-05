@@ -57,16 +57,16 @@ var (
 )
 
 type TeeVerifier struct {
-	Cfg                      *config.TeeAvailabilityCheckConfig
-	EthClient                EthClient
-	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
-	RelayCaller              RelayCallerInterface
-	ValidateURL              bool
-	CRLCache                 *CRLCache
-	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
-	SamplesMu                sync.RWMutex
-	PollerSnapshot           atomic.Value // stores []verifiertypes.TeeSample
-	magicPassLogged          sync.Map     // tracks TEE IDs that have already logged a MagicPass warning
+	Cfg                  *config.TeeAvailabilityCheckConfig
+	EthClient            EthClient
+	MachineManagerCaller MachineManagerCallerInterface
+	RelayCaller          RelayCallerInterface
+	ValidateURL          bool
+	CRLCache             *CRLCache
+	TeeSamples           map[common.Address][]verifiertypes.TeeSampleValue
+	SamplesMu            sync.RWMutex
+	PollerSnapshot       atomic.Value // stores []verifiertypes.TeeSample
+	magicPassLogged      sync.Map     // tracks TEE IDs that have already logged a MagicPass warning
 }
 
 type EthClient interface {
@@ -78,7 +78,7 @@ type RelayCallerInterface interface {
 	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
 }
 
-type TeeMachineRegistryCallerInterface interface {
+type MachineManagerCallerInterface interface {
 	GetAllActiveTeeMachines(opts *bind.CallOpts, start *big.Int, end *big.Int) (struct {
 		TeeIds      []common.Address
 		Urls        []string
@@ -95,10 +95,10 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[f
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
 	}
-	teeMachineRegistryCaller, err := machinemanager.NewMachineManagerCaller(cfg.TeeMachineRegistryContractAddress, client)
+	machineManagerCaller, err := machinemanager.NewMachineManagerCaller(cfg.FlareTeeManagerContractAddress, client)
 	if err != nil {
 		client.Close()
-		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress.Hex(), err)
+		return nil, fmt.Errorf("cannot create MachineManager caller at %s: %w", cfg.FlareTeeManagerContractAddress.Hex(), err)
 	}
 	relayCaller, err := relay.NewRelayCaller(cfg.RelayContractAddress, client)
 	if err != nil {
@@ -106,12 +106,12 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[f
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress.Hex(), err)
 	}
 	return &TeeVerifier{
-		Cfg:                      cfg,
-		EthClient:                client,
-		TeeMachineRegistryCaller: teeMachineRegistryCaller,
-		RelayCaller:              relayCaller,
-		CRLCache:                 NewCRLCache(),
-		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
+		Cfg:                  cfg,
+		EthClient:            client,
+		MachineManagerCaller: machineManagerCaller,
+		RelayCaller:          relayCaller,
+		CRLCache:             NewCRLCache(),
+		TeeSamples:           make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}, nil
 }
 

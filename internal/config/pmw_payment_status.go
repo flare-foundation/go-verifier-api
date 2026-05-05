@@ -24,11 +24,11 @@ func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, e
 }
 
 func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
-	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvTeeInstructionsContractAddress})
+	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress})
 	if err != nil {
 		return nil, err
 	}
-	teeInstructionsAddr, err := parseContractAddress(envConfig.TeeInstructionsContractAddress, EnvTeeInstructionsContractAddress)
+	flareTeeManagerAddr, err := parseContractAddress(envConfig.FlareTeeManagerContractAddress, EnvFlareTeeManagerContractAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, 
 		EncodedAndABI:                  commonConfig,
 		SourceDatabaseURL:              envConfig.SourceDatabaseURL,
 		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
-		TeeInstructionsContractAddress: teeInstructionsAddr,
+		FlareTeeManagerContractAddress: flareTeeManagerAddr,
 		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
 	}, nil
 }

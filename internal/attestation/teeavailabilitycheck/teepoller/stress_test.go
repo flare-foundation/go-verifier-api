@@ -29,8 +29,8 @@ func stressMakeTeeList(count int) teeList {
 	return teeList{TeeIDs: ids, URLs: urls}
 }
 
-func stressMockRegistry(activeTees teeList) *mockTeeMachineRegistryCaller {
-	return &mockTeeMachineRegistryCaller{
+func stressMockMachineManager(activeTees teeList) *mockMachineManagerCaller {
+	return &mockMachineManagerCaller{
 		getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 			s := int(start.Int64())
 			e := int(end.Int64())
@@ -56,9 +56,9 @@ func TestStressPollerConcurrencyRamp(t *testing.T) {
 		t.Run(fmt.Sprintf("%d_TEEs", teeCount), func(t *testing.T) {
 			activeTees := stressMakeTeeList(teeCount)
 			v := &verifier.TeeVerifier{
-				Cfg:                      &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
-				TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
-				TeeMachineRegistryCaller: stressMockRegistry(activeTees),
+				Cfg:                  &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
+				TeeSamples:           make(map[common.Address][]verifiertypes.TeeSampleValue),
+				MachineManagerCaller: stressMockMachineManager(activeTees),
 			}
 
 			validate := func(ctx context.Context, ver *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
@@ -107,9 +107,9 @@ func TestStressPollerSlowUpstreamIsolation(t *testing.T) {
 	}
 
 	v := &verifier.TeeVerifier{
-		Cfg:                      &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
-		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
-		TeeMachineRegistryCaller: stressMockRegistry(activeTees),
+		Cfg:                  &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
+		TeeSamples:           make(map[common.Address][]verifiertypes.TeeSampleValue),
+		MachineManagerCaller: stressMockMachineManager(activeTees),
 	}
 
 	validate := func(ctx context.Context, ver *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
@@ -170,9 +170,9 @@ func TestStressPollerSustained(t *testing.T) {
 	var validateCalls int64
 
 	v := &verifier.TeeVerifier{
-		Cfg:                      &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
-		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
-		TeeMachineRegistryCaller: stressMockRegistry(activeTees),
+		Cfg:                  &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
+		TeeSamples:           make(map[common.Address][]verifiertypes.TeeSampleValue),
+		MachineManagerCaller: stressMockMachineManager(activeTees),
 	}
 
 	validate := func(ctx context.Context, ver *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {

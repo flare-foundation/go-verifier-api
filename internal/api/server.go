@@ -176,20 +176,19 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		return config.EnvConfig{}, err
 	}
 	return config.EnvConfig{
-		RPCURL:                            os.Getenv(config.EnvRPCURL),
-		RelayContractAddress:              os.Getenv(config.EnvRelayContractAddress),
-		TeeMachineRegistryContractAddress: os.Getenv(config.EnvTeeMachineRegistryContractAddress),
-		TeeInstructionsContractAddress:    os.Getenv(config.EnvTeeInstructionsContractAddress),
-		SourceDatabaseURL:                 os.Getenv(config.EnvSourceDatabaseURL),
-		CChainDatabaseURL:                 os.Getenv(config.EnvCChainDatabaseURL),
-		AllowTeeDebug:                     os.Getenv(config.EnvAllowTeeDebug),
-		DisableAttestationCheckE2E:        os.Getenv(config.EnvDisableAttestationCheckE2E),
-		AllowPrivateNetworks:              os.Getenv(config.EnvAllowPrivateNetworks),
-		MaxPolledTees:                     os.Getenv(config.EnvMaxPolledTees),
-		Port:                              port,
-		APIKeys:                           apiKeys,
-		AttestationType:                   attestationType,
-		SourceID:                          sourceID,
+		RPCURL:                         os.Getenv(config.EnvRPCURL),
+		RelayContractAddress:           os.Getenv(config.EnvRelayContractAddress),
+		FlareTeeManagerContractAddress: os.Getenv(config.EnvFlareTeeManagerContractAddress),
+		SourceDatabaseURL:              os.Getenv(config.EnvSourceDatabaseURL),
+		CChainDatabaseURL:              os.Getenv(config.EnvCChainDatabaseURL),
+		AllowTeeDebug:                  os.Getenv(config.EnvAllowTeeDebug),
+		DisableAttestationCheckE2E:     os.Getenv(config.EnvDisableAttestationCheckE2E),
+		AllowPrivateNetworks:           os.Getenv(config.EnvAllowPrivateNetworks),
+		MaxPolledTees:                  os.Getenv(config.EnvMaxPolledTees),
+		Port:                           port,
+		APIKeys:                        apiKeys,
+		AttestationType:                attestationType,
+		SourceID:                       sourceID,
 	}, nil
 }
 

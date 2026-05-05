@@ -12,37 +12,35 @@ import (
 )
 
 const (
-	EnvRPCURL                            = "RPC_URL"
-	EnvRelayContractAddress              = "RELAY_CONTRACT_ADDRESS"
-	EnvTeeMachineRegistryContractAddress = "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS"
-	EnvTeeInstructionsContractAddress    = "TEE_INSTRUCTIONS_CONTRACT_ADDRESS"
-	EnvSourceDatabaseURL                 = "SOURCE_DATABASE_URL"
-	EnvCChainDatabaseURL                 = "CCHAIN_DATABASE_URL"
-	EnvPort                              = "PORT"
-	EnvAPIKeys                           = "API_KEYS"
-	EnvAttestationType                   = "VERIFIER_TYPE"
-	EnvSourceID                          = "SOURCE_ID"
-	EnvAllowTeeDebug                     = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
-	EnvDisableAttestationCheckE2E        = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
-	EnvAllowPrivateNetworks              = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
-	EnvMaxPolledTees                     = "MAX_POLLED_TEES"               // Maximum total TEEs to poll. Extension 0 TEEs are always polled regardless of this value. 0 = extension 0 only (default). >0 = also poll extra TEEs from other extensions, up to this total.
+	EnvRPCURL                         = "RPC_URL"
+	EnvRelayContractAddress           = "RELAY_CONTRACT_ADDRESS"
+	EnvFlareTeeManagerContractAddress = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
+	EnvSourceDatabaseURL              = "SOURCE_DATABASE_URL"
+	EnvCChainDatabaseURL              = "CCHAIN_DATABASE_URL"
+	EnvPort                           = "PORT"
+	EnvAPIKeys                        = "API_KEYS"
+	EnvAttestationType                = "VERIFIER_TYPE"
+	EnvSourceID                       = "SOURCE_ID"
+	EnvAllowTeeDebug                  = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
+	EnvDisableAttestationCheckE2E     = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
+	EnvAllowPrivateNetworks           = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
+	EnvMaxPolledTees                  = "MAX_POLLED_TEES"               // Maximum total TEEs to poll. Extension 0 TEEs are always polled regardless of this value. 0 = extension 0 only (default). >0 = also poll extra TEEs from other extensions, up to this total.
 )
 
 type EnvConfig struct {
-	RPCURL                            string
-	RelayContractAddress              string
-	TeeMachineRegistryContractAddress string
-	TeeInstructionsContractAddress    string
-	SourceDatabaseURL                 string
-	CChainDatabaseURL                 string
-	AllowTeeDebug                     string
-	DisableAttestationCheckE2E        string
-	AllowPrivateNetworks              string
-	MaxPolledTees                     string
-	Port                              string
-	APIKeys                           []string
-	AttestationType                   fdc2.AttestationType
-	SourceID                          SourceName
+	RPCURL                         string
+	RelayContractAddress           string
+	FlareTeeManagerContractAddress string
+	SourceDatabaseURL              string
+	CChainDatabaseURL              string
+	AllowTeeDebug                  string
+	DisableAttestationCheckE2E     string
+	AllowPrivateNetworks           string
+	MaxPolledTees                  string
+	Port                           string
+	APIKeys                        []string
+	AttestationType                fdc2.AttestationType
+	SourceID                       SourceName
 }
 
 type SourceName string
@@ -70,21 +68,21 @@ type ABIArgPair struct {
 
 type TeeAvailabilityCheckConfig struct {
 	EncodedAndABI
-	RelayContractAddress              common.Address
-	TeeMachineRegistryContractAddress common.Address
-	AllowTeeDebug                     bool
-	DisableAttestationCheckE2E        bool
-	AllowPrivateNetworks              bool
-	MaxPolledTees                     int
-	RPCURL                            string
-	GoogleRootCertificate             *x509.Certificate
+	RelayContractAddress           common.Address
+	FlareTeeManagerContractAddress common.Address
+	AllowTeeDebug                  bool
+	DisableAttestationCheckE2E     bool
+	AllowPrivateNetworks           bool
+	MaxPolledTees                  int
+	RPCURL                         string
+	GoogleRootCertificate          *x509.Certificate
 }
 
 type PMWPaymentStatusConfig struct {
 	EncodedAndABI
 	SourceDatabaseURL              string
 	CchainDatabaseURL              string
-	TeeInstructionsContractAddress common.Address
+	FlareTeeManagerContractAddress common.Address
 	ParsedTeeInstructionsABI       abi.ABI
 }
 
@@ -92,7 +90,7 @@ type PMWFeeProofConfig struct {
 	EncodedAndABI
 	SourceDatabaseURL              string
 	CchainDatabaseURL              string
-	TeeInstructionsContractAddress common.Address
+	FlareTeeManagerContractAddress common.Address
 	ParsedTeeInstructionsABI       abi.ABI
 }
 
@@ -176,12 +174,8 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 			if cfg.RelayContractAddress == "" {
 				missing = append(missing, field)
 			}
-		case EnvTeeMachineRegistryContractAddress:
-			if cfg.TeeMachineRegistryContractAddress == "" {
-				missing = append(missing, field)
-			}
-		case EnvTeeInstructionsContractAddress:
-			if cfg.TeeInstructionsContractAddress == "" {
+		case EnvFlareTeeManagerContractAddress:
+			if cfg.FlareTeeManagerContractAddress == "" {
 				missing = append(missing, field)
 			}
 		case EnvSourceDatabaseURL:

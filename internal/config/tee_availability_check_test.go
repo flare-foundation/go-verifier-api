@@ -16,39 +16,39 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
-		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS, RPC_URL")
+		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, FLARE_TEE_MANAGER_CONTRACT_ADDRESS, RPC_URL")
 	})
 	t.Run("invalid RELAY_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:                          SourceTEE,
-			AttestationType:                   "UnknownType",
-			RelayContractAddress:              "not-hex",
-			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000001",
-			RPCURL:                            "URL",
+			SourceID:                       SourceTEE,
+			AttestationType:                "UnknownType",
+			RelayContractAddress:           "not-hex",
+			FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000001",
+			RPCURL:                         "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "RELAY_CONTRACT_ADDRESS is not a valid hex address")
 	})
-	t.Run("invalid TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS hex", func(t *testing.T) {
+	t.Run("invalid FLARE_TEE_MANAGER_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:                          SourceTEE,
-			AttestationType:                   "UnknownType",
-			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
-			TeeMachineRegistryContractAddress: "not-hex",
-			RPCURL:                            "URL",
+			SourceID:                       SourceTEE,
+			AttestationType:                "UnknownType",
+			RelayContractAddress:           "0x0000000000000000000000000000000000000001",
+			FlareTeeManagerContractAddress: "not-hex",
+			RPCURL:                         "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
-		require.ErrorContains(t, err, "TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS is not a valid hex address")
+		require.ErrorContains(t, err, "FLARE_TEE_MANAGER_CONTRACT_ADDRESS is not a valid hex address")
 	})
 	t.Run("invalid attestation type", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:                          SourceTEE,
-			AttestationType:                   "UnknownType",
-			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
-			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
-			RPCURL:                            "URL",
+			SourceID:                       SourceTEE,
+			AttestationType:                "UnknownType",
+			RelayContractAddress:           "0x0000000000000000000000000000000000000001",
+			FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
+			RPCURL:                         "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -59,11 +59,11 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:                          SourceTEE,
-			AttestationType:                   fdc2.AvailabilityCheck,
-			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
-			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
-			RPCURL:                            "https://rpc.example.com",
+			SourceID:                       SourceTEE,
+			AttestationType:                fdc2.AvailabilityCheck,
+			RelayContractAddress:           "0x0000000000000000000000000000000000000001",
+			FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
+			RPCURL:                         "https://rpc.example.com",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -72,18 +72,18 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.False(t, cfg.DisableAttestationCheckE2E)
 		require.False(t, cfg.AllowPrivateNetworks)
 		require.NotEqual(t, cfg.RelayContractAddress, [20]byte{})
-		require.NotEqual(t, cfg.TeeMachineRegistryContractAddress, [20]byte{})
+		require.NotEqual(t, cfg.FlareTeeManagerContractAddress, [20]byte{})
 		require.Equal(t, "https://rpc.example.com", cfg.RPCURL)
 		require.NotNil(t, cfg.GoogleRootCertificate)
 	})
 	t.Run("allow private networks enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:                          SourceTEE,
-			AttestationType:                   fdc2.AvailabilityCheck,
-			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
-			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
-			RPCURL:                            "https://rpc.example.com",
-			AllowPrivateNetworks:              "true",
+			SourceID:                       SourceTEE,
+			AttestationType:                fdc2.AvailabilityCheck,
+			RelayContractAddress:           "0x0000000000000000000000000000000000000001",
+			FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
+			RPCURL:                         "https://rpc.example.com",
+			AllowPrivateNetworks:           "true",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -92,14 +92,14 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	})
 	t.Run("all flags enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:                          SourceTEE,
-			AttestationType:                   fdc2.AvailabilityCheck,
-			RelayContractAddress:              "0x0000000000000000000000000000000000000001",
-			TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
-			RPCURL:                            "https://rpc.example.com",
-			AllowTeeDebug:                     "true",
-			DisableAttestationCheckE2E:        "true",
-			AllowPrivateNetworks:              "true",
+			SourceID:                       SourceTEE,
+			AttestationType:                fdc2.AvailabilityCheck,
+			RelayContractAddress:           "0x0000000000000000000000000000000000000001",
+			FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
+			RPCURL:                         "https://rpc.example.com",
+			AllowTeeDebug:                  "true",
+			DisableAttestationCheckE2E:     "true",
+			AllowPrivateNetworks:           "true",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)

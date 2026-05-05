@@ -28,11 +28,11 @@ func TestSampleAllTees(t *testing.T) {
 	setup := func() (*verifier.TeeVerifier, context.Context, context.CancelFunc) {
 		t.Helper()
 		tmpV, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
-			RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-			RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
-			TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
-			AllowTeeDebug:                     false,
-			DisableAttestationCheckE2E:        false,
+			RPCURL:                         "https://coston-api.flare.network/ext/C/rpc",
+			RelayContractAddress:           common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+			FlareTeeManagerContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
+			AllowTeeDebug:                  false,
+			DisableAttestationCheckE2E:     false,
 		})
 		require.NoError(t, err)
 
@@ -45,12 +45,12 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
 			},
 		}
-		v.TeeMachineRegistryCaller = mock
+		v.MachineManagerCaller = mock
 		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleValid, nil
 		}
@@ -64,12 +64,12 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("fallback to cache", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return teeMachinesResult{}, errors.New("boom")
 			},
 		}
-		v.TeeMachineRegistryCaller = mock
+		v.MachineManagerCaller = mock
 		s := NewTeePoller(v)
 		s.updateActiveTees(mockActiveTees(t, []string{"0x2"}, []string{"url"}))
 		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
@@ -83,12 +83,12 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("try to fallback to cache (empty cache)", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return teeMachinesResult{}, errors.New("boom")
 			},
 		}
-		v.TeeMachineRegistryCaller = mock
+		v.MachineManagerCaller = mock
 		s := NewTeePoller(v)
 		s.updateActiveTees(mockActiveTees(t, []string{}, []string{}))
 		fakeValidator := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
@@ -102,12 +102,12 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("truncate old samples", func(t *testing.T) {
 		v, ctx, cancel := setup()
 		defer cancel()
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
 			},
 		}
-		v.TeeMachineRegistryCaller = mock
+		v.MachineManagerCaller = mock
 		s := NewTeePoller(v)
 		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleValid, nil
@@ -123,12 +123,12 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("worker recovers from panic in query callback", func(t *testing.T) {
 		ver, _, cancel := setup()
 		defer cancel()
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
 			},
 		}
-		ver.TeeMachineRegistryCaller = mock
+		ver.MachineManagerCaller = mock
 		s := NewTeePoller(ver)
 		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			panic("boom")
@@ -141,12 +141,12 @@ func TestSampleAllTees(t *testing.T) {
 	t.Run("query failure does not crash and logs error", func(t *testing.T) {
 		ver, _, cancel := setup()
 		defer cancel()
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"url"}), nil
 			},
 		}
-		ver.TeeMachineRegistryCaller = mock
+		ver.MachineManagerCaller = mock
 		s := NewTeePoller(ver)
 		query := func(ctx context.Context, v *verifier.TeeVerifier, proxyURL string, teeID common.Address) (verifiertypes.TeeSampleState, error) {
 			return verifiertypes.TeeSampleInvalid, errors.New("query failed")
@@ -202,7 +202,7 @@ func TestCachedActiveTees(t *testing.T) {
 
 func TestGetAllActiveTeeMachines(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				ids := []string{"0xabc", "0xbcd", "0xcde"}
 				urls := []string{"http://tee-abc", "http://tee-bce", "http://tee-cde"}
@@ -220,7 +220,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 				return mockAllActiveTeeMAchines(t, ids[s:e], urls[s:e]), nil
 			},
 		}
-		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+		ver := &verifier.TeeVerifier{MachineManagerCaller: mock}
 		s := NewTeePoller(ver)
 		ctx := context.Background()
 		list, err := s.getAllActiveTeeMachines(ctx, 1)
@@ -229,12 +229,12 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 		require.Equal(t, "http://tee-abc", list.URLs[0])
 	})
 	t.Run("error", func(t *testing.T) {
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return teeMachinesResult{}, errors.New("contract failed")
 			},
 		}
-		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+		ver := &verifier.TeeVerifier{MachineManagerCaller: mock}
 		s := NewTeePoller(ver)
 
 		ctx := context.Background()
@@ -250,7 +250,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 			},
 		}
 		seen := []*big.Int{}
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				seen = append(seen, opts.BlockNumber)
 				// Return enough entries to trigger a second page.
@@ -260,7 +260,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 				return mockAllActiveTeeMAchines(t, []string{}, []string{}), nil
 			},
 		}
-		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock, EthClient: mockClient}
+		ver := &verifier.TeeVerifier{MachineManagerCaller: mock, EthClient: mockClient}
 		s := NewTeePoller(ver)
 
 		_, err := s.getAllActiveTeeMachines(context.Background(), 1)
@@ -278,13 +278,13 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 			},
 		}
 		seen := []*big.Int{}
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				seen = append(seen, opts.BlockNumber)
 				return mockAllActiveTeeMAchines(t, []string{"0x1"}, []string{"u1"}), nil
 			},
 		}
-		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock, EthClient: mockClient}
+		ver := &verifier.TeeVerifier{MachineManagerCaller: mock, EthClient: mockClient}
 		s := NewTeePoller(ver)
 
 		list, err := s.getAllActiveTeeMachines(context.Background(), 100)
@@ -296,7 +296,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 		}
 	})
 	t.Run("mismatched TeeIds and Urls lengths are rejected", func(t *testing.T) {
-		mock := &mockTeeMachineRegistryCaller{
+		mock := &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				return teeMachinesResult{
 					TeeIds:      []common.Address{common.HexToAddress("0x1"), common.HexToAddress("0x2")},
@@ -305,7 +305,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 				}, nil
 			},
 		}
-		ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+		ver := &verifier.TeeVerifier{MachineManagerCaller: mock}
 		s := NewTeePoller(ver)
 
 		ctx := context.Background()
@@ -316,7 +316,7 @@ func TestGetAllActiveTeeMachines(t *testing.T) {
 }
 
 func TestGetExtensionTeesMismatchedLengths(t *testing.T) {
-	mock := &mockTeeMachineRegistryCaller{
+	mock := &mockMachineManagerCaller{
 		getActiveByExtFunc: func(opts *bind.CallOpts, extensionID *big.Int) (extensionTeesResult, error) {
 			return extensionTeesResult{
 				TeeIds: []common.Address{common.HexToAddress("0x1")},
@@ -324,7 +324,7 @@ func TestGetExtensionTeesMismatchedLengths(t *testing.T) {
 			}, nil
 		},
 	}
-	ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+	ver := &verifier.TeeVerifier{MachineManagerCaller: mock}
 	s := NewTeePoller(ver)
 
 	list, err := s.getExtensionTees(context.Background(), 0)
@@ -334,7 +334,7 @@ func TestGetExtensionTeesMismatchedLengths(t *testing.T) {
 
 func TestGetAllActiveTeesWithRetry(t *testing.T) {
 	callCount := 0
-	mock := &mockTeeMachineRegistryCaller{
+	mock := &mockMachineManagerCaller{
 		getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 			callCount++
 			if callCount == 1 {
@@ -343,7 +343,7 @@ func TestGetAllActiveTeesWithRetry(t *testing.T) {
 			return mockAllActiveTeeMAchines(t, []string{"0x123"}, []string{"http://tee-123"}), nil
 		},
 	}
-	ver := &verifier.TeeVerifier{TeeMachineRegistryCaller: mock}
+	ver := &verifier.TeeVerifier{MachineManagerCaller: mock}
 	s := NewTeePoller(ver)
 
 	ctx := context.Background()
@@ -358,7 +358,7 @@ func TestStartTeePoller_Close(t *testing.T) {
 	ver := &verifier.TeeVerifier{
 		TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}
-	ver.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+	ver.MachineManagerCaller = &mockMachineManagerCaller{
 		getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 			return mockAllActiveTeeMAchines(t, nil, nil), nil
 		},
@@ -375,12 +375,12 @@ func TestStartTeePoller_Close(t *testing.T) {
 func TestQueryTeeInfoAndValidate(t *testing.T) {
 	// verifier setup
 	verIface, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
-		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-		RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
-		TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
-		AllowTeeDebug:                     true,
-		DisableAttestationCheckE2E:        true,
-		AllowPrivateNetworks:              true,
+		RPCURL:                         "https://coston-api.flare.network/ext/C/rpc",
+		RelayContractAddress:           common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+		FlareTeeManagerContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
+		AllowTeeDebug:                  true,
+		DisableAttestationCheckE2E:     true,
+		AllowPrivateNetworks:           true,
 	})
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
@@ -440,12 +440,12 @@ func TestQueryTeeInfoAndValidate(t *testing.T) {
 	})
 	t.Run("data verification fail", func(t *testing.T) {
 		verIfaceInt, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
-			RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-			RelayContractAddress:              common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
-			TeeMachineRegistryContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
-			AllowTeeDebug:                     false,
-			DisableAttestationCheckE2E:        false,
-			AllowPrivateNetworks:              true,
+			RPCURL:                         "https://coston-api.flare.network/ext/C/rpc",
+			RelayContractAddress:           common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
+			FlareTeeManagerContractAddress: common.HexToAddress("0x053568617FFccEe2F75073975CC0e1549Ff9db71"),
+			AllowTeeDebug:                  false,
+			DisableAttestationCheckE2E:     false,
+			AllowPrivateNetworks:           true,
 		})
 		require.NoError(t, err)
 		verInt, ok := verIfaceInt.(*verifier.TeeVerifier)
@@ -521,20 +521,20 @@ type extensionTeesResult = struct {
 	Urls   []string
 }
 
-var _ verifier.TeeMachineRegistryCallerInterface = (*mockTeeMachineRegistryCaller)(nil)
+var _ verifier.MachineManagerCallerInterface = (*mockMachineManagerCaller)(nil)
 
-type mockTeeMachineRegistryCaller struct {
+type mockMachineManagerCaller struct {
 	getAllActiveFunc   func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error)
 	getActiveByExtFunc func(opts *bind.CallOpts, extensionId *big.Int) (extensionTeesResult, error)
 }
 
-func (m *mockTeeMachineRegistryCaller) GetAllActiveTeeMachines(
+func (m *mockMachineManagerCaller) GetAllActiveTeeMachines(
 	opts *bind.CallOpts, start, end *big.Int,
 ) (teeMachinesResult, error) {
 	return m.getAllActiveFunc(opts, start, end)
 }
 
-func (m *mockTeeMachineRegistryCaller) GetActiveTeeMachines(
+func (m *mockMachineManagerCaller) GetActiveTeeMachines(
 	opts *bind.CallOpts, extensionId *big.Int,
 ) (extensionTeesResult, error) {
 	if m.getActiveByExtFunc != nil {
@@ -628,7 +628,7 @@ func TestBuildPollingList(t *testing.T) {
 
 	t.Run("cap=0 returns extension 0 only", func(t *testing.T) {
 		v := setup(0)
-		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+		v.MachineManagerCaller = &mockMachineManagerCaller{
 			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
 				require.Equal(t, int64(0), extID.Int64())
 				return mockExtensionTees(t, []string{"0x1", "0x2"}, []string{"url1", "url2"}), nil
@@ -646,7 +646,7 @@ func TestBuildPollingList(t *testing.T) {
 
 	t.Run("cap fills with non-ext0 TEEs", func(t *testing.T) {
 		v := setup(5)
-		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+		v.MachineManagerCaller = &mockMachineManagerCaller{
 			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
 				return mockExtensionTees(t, []string{"0x1", "0x2"}, []string{"url1", "url2"}), nil
 			},
@@ -670,7 +670,7 @@ func TestBuildPollingList(t *testing.T) {
 
 	t.Run("ext0 exceeds cap — all ext0 still polled", func(t *testing.T) {
 		v := setup(2)
-		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+		v.MachineManagerCaller = &mockMachineManagerCaller{
 			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
 				return mockExtensionTees(t, []string{"0x1", "0x2", "0x3"}, []string{"url1", "url2", "url3"}), nil
 			},
@@ -688,7 +688,7 @@ func TestBuildPollingList(t *testing.T) {
 
 	t.Run("getAllActive fails — falls back to ext0 only", func(t *testing.T) {
 		v := setup(10)
-		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+		v.MachineManagerCaller = &mockMachineManagerCaller{
 			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
 				return mockExtensionTees(t, []string{"0x1"}, []string{"url1"}), nil
 			},
@@ -706,7 +706,7 @@ func TestBuildPollingList(t *testing.T) {
 
 	t.Run("ext0 fetch fails — returns error", func(t *testing.T) {
 		v := setup(0)
-		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+		v.MachineManagerCaller = &mockMachineManagerCaller{
 			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
 				return extensionTeesResult{}, errors.New("RPC error")
 			},
@@ -721,7 +721,7 @@ func TestBuildPollingList(t *testing.T) {
 
 	t.Run("no duplicates from ext0 in extra TEEs", func(t *testing.T) {
 		v := setup(10)
-		v.TeeMachineRegistryCaller = &mockTeeMachineRegistryCaller{
+		v.MachineManagerCaller = &mockMachineManagerCaller{
 			getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
 				return mockExtensionTees(t, []string{"0x1", "0x2"}, []string{"url1", "url2"}), nil
 			},

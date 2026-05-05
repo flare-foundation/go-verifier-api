@@ -63,7 +63,7 @@ TEE-only operational route: `GET /poller/tees`
 Required:
 - `RPC_URL`
 - `RELAY_CONTRACT_ADDRESS`
-- `TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS`
+- `FLARE_TEE_MANAGER_CONTRACT_ADDRESS`
 
 Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false) — when enabled, only accepts Google Confidential Space TEEs running in debug mode (`dbgstat != "disabled-since-boot"`) and rejects production TEEs. Intended for development/testing with debug TEE images.
@@ -78,7 +78,7 @@ Also loads embedded Google root certificate:
 Required:
 - `SOURCE_DATABASE_URL` (Postgres)
 - `CCHAIN_DATABASE_URL` (MySQL)
-- `TEE_INSTRUCTIONS_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
+- `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
 
 ### PMWMultisigAccountConfigured
 Required:
@@ -88,7 +88,7 @@ Required:
 Required:
 - `SOURCE_DATABASE_URL` (Postgres)
 - `CCHAIN_DATABASE_URL` (MySQL)
-- `TEE_INSTRUCTIONS_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
+- `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
 
 ## 7. Attestation Module Specs
 

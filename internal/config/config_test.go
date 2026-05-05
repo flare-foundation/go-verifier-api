@@ -38,17 +38,17 @@ func TestCheckMissingFields(t *testing.T) {
 	fields := []string{
 		EnvRPCURL,
 		EnvRelayContractAddress,
-		EnvTeeMachineRegistryContractAddress,
+		EnvFlareTeeManagerContractAddress,
 		EnvSourceDatabaseURL,
 		EnvCChainDatabaseURL,
 	}
 	t.Run("no missing fields", func(t *testing.T) {
 		cfg := EnvConfig{
-			RPCURL:                            "rpc",
-			RelayContractAddress:              "relay",
-			TeeMachineRegistryContractAddress: "tee",
-			CChainDatabaseURL:                 "cchain",
-			SourceDatabaseURL:                 "dbURL",
+			RPCURL:                         "rpc",
+			RelayContractAddress:           "relay",
+			FlareTeeManagerContractAddress: "tee",
+			CChainDatabaseURL:              "cchain",
+			SourceDatabaseURL:              "dbURL",
 		}
 		err := CheckMissingFields(cfg, fields)
 		require.NoError(t, err)
@@ -59,10 +59,10 @@ func TestCheckMissingFields(t *testing.T) {
 			RelayContractAddress: "",
 		}
 		err := CheckMissingFields(cfg, fields)
-		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS, SOURCE_DATABASE_URL, CCHAIN_DATABASE_URL")
+		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, FLARE_TEE_MANAGER_CONTRACT_ADDRESS, SOURCE_DATABASE_URL, CCHAIN_DATABASE_URL")
 		require.ErrorContains(t, err, EnvRelayContractAddress)
 		require.ErrorContains(t, err, EnvCChainDatabaseURL)
-		require.ErrorContains(t, err, EnvTeeMachineRegistryContractAddress)
+		require.ErrorContains(t, err, EnvFlareTeeManagerContractAddress)
 	})
 	t.Run("all missing fields", func(t *testing.T) {
 		cfg := EnvConfig{}
@@ -72,14 +72,14 @@ func TestCheckMissingFields(t *testing.T) {
 			require.ErrorContains(t, err, f)
 		}
 	})
-	t.Run("TEE_INSTRUCTIONS_CONTRACT_ADDRESS missing", func(t *testing.T) {
+	t.Run("FLARE_TEE_MANAGER_CONTRACT_ADDRESS missing", func(t *testing.T) {
 		cfg := EnvConfig{}
-		err := CheckMissingFields(cfg, []string{EnvTeeInstructionsContractAddress})
-		require.ErrorContains(t, err, EnvTeeInstructionsContractAddress)
+		err := CheckMissingFields(cfg, []string{EnvFlareTeeManagerContractAddress})
+		require.ErrorContains(t, err, EnvFlareTeeManagerContractAddress)
 	})
-	t.Run("TEE_INSTRUCTIONS_CONTRACT_ADDRESS set", func(t *testing.T) {
-		cfg := EnvConfig{TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1"}
-		err := CheckMissingFields(cfg, []string{EnvTeeInstructionsContractAddress})
+	t.Run("FLARE_TEE_MANAGER_CONTRACT_ADDRESS set", func(t *testing.T) {
+		cfg := EnvConfig{FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1"}
+		err := CheckMissingFields(cfg, []string{EnvFlareTeeManagerContractAddress})
 		require.NoError(t, err)
 	})
 }
