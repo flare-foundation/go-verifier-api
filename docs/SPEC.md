@@ -97,7 +97,14 @@ Required:
 ### Primary flow (`Verify`)
 1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, metadata, multicast, Teredo, 6to4) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
 2. Validate challenge equals request challenge.
-3. Recover proxy signer and match `teeProxyId`.
+3. Verify action-result integrity:
+   - Recover proxy signer from `actionResp.ProxySignature` over `keccak256(actionResp.Result.Data)`; require it to equal `req.teeProxyId`.
+   - Require `actionResp.Result.ID == req.instructionId`.
+   - Require `actionResp.Result.Status == 1` (successful direct action; tee-node's direct processor emits `Status: 1` on success and `0` on `Invalid`).
+   - Require `actionResp.Result.OPType == op.Get.Hash()` and `actionResp.Result.OPCommand == op.TEEInfo.Hash()` (the availability-response op pair registered in tee-node's router).
+   - Verify `actionResp.Signature` over `actionResp.Result.Hash()` against `req.teeId` (TEE proof-of-possession on the action result).
+
+   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand` — those are checked explicitly above against the expected availability-response constants. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy; no separate verifier-side check is enforced because the submission convention is set by the proxy / relay client. The proof-of-possession here is over `Result.Hash()`, distinct from the poller path's proof-of-possession over `MachineData.Hash()` via `DataSignature` — the two paths consume different endpoints with different payload shapes.
 4. **In parallel** (both depend only on challenge response):
    - `DataVerification`: CRL fetch + PKI validation + TEE ID + claims.
    - `CheckSigningPolicies`: signing policy hashes against relay contract (2 concurrent RPC calls).
@@ -301,7 +308,7 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 
 ## 12. Operational Notes and Risks
 - Poller sample cache is in-memory only by design choice (lost on restart).
-- `PMWPaymentStatus` request includes `subNonce`, but current DB query path primarily keys by source address + nonce. XRP does not use batch payments, so each nonce maps to exactly one transaction. SubNonce filtering will be needed when UTXO chains are supported.
+- `PMWPaymentStatus` request includes `subNonce`, but current DB query path keys by source address + nonce. Single payment per `instructionId` is enforced on the contract side (`TeePayments`), so each `instructionId` maps to exactly one message and one XRP transaction; the verifier therefore does not need to filter logs by `subNonce`. SubNonce filtering will be needed when UTXO chains are supported, or if contract-side batching is later enabled (`batchSize > 1`).
 
 ### Accepted risks
 - **MagicPass bypass** (`verifier.go`): TEE nodes in non-production mode return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts it and skips all attestation validation. Gated by the TEE node's `settings.Mode` — the verifier itself has no toggle. Compensating control: production TEE nodes never set `Mode != 0`. See §7.1.

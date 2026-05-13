@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
@@ -392,15 +393,19 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		signature, err := crypto.Sign(ethHash, privKey)
 		require.NoError(t, err)
 
-		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+		fullResp := teenodetypes.ActionResponse{
 			Result:         teenodetypes.ActionResult{Data: data},
 			ProxySignature: signature,
-		})
+		}
+		server := makeChallengeResultServer(t, fullResp)
 		defer server.Close()
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		actionResp, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.NoError(t, err)
 		require.NotEqual(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, address, signer)
+		// Full ActionResponse must be returned (signature and metadata propagated).
+		require.Equal(t, fullResp.ProxySignature, actionResp.ProxySignature)
+		require.Equal(t, fullResp.Result.Data, actionResp.Result.Data)
 	})
 	t.Run("fetch error", func(t *testing.T) {
 		handler := http.NewServeMux()
@@ -409,7 +414,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		})
 		server := httptest.NewServer(handler)
 		defer server.Close()
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.Error(t, err)
@@ -419,7 +424,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 			Result: teenodetypes.ActionResult{Data: hexutil.Bytes{}},
 		})
 		defer server.Close()
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is empty")
@@ -429,7 +434,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 			Result: teenodetypes.ActionResult{Data: hexutil.Bytes([]byte("not-json"))},
 		})
 		defer server.Close()
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
@@ -444,7 +449,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 			Result: teenodetypes.ActionResult{Data: hexutil.Bytes(large)},
 		})
 		defer server.Close()
-		_, _, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		_, _, _, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
 		require.ErrorContains(t, err, "len=512")
 		// Preview must exist but must not carry the full 512 bytes verbatim.
@@ -456,7 +461,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 			Result: teenodetypes.ActionResult{Data: hexutil.Bytes([]byte(badJSON))},
 		})
 		defer server.Close()
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "unmarshal TEE result")
@@ -468,25 +473,25 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 			ProxySignature: []byte("invalid-signature"),
 		})
 		defer server.Close()
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "recover signer")
 	})
 	t.Run("blocks private IP in strict mode", func(t *testing.T) {
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://127.0.0.1", challengeID, false)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://127.0.0.1", challengeID, false)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "private/local IPs are not allowed")
 	})
 	t.Run("blocks dangerous IP in allow-private mode", func(t *testing.T) {
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://169.254.169.254", challengeID, true)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://169.254.169.254", challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "dangerous IPs are not allowed")
 	})
 	t.Run("invalid base URL", func(t *testing.T) {
-		teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://", challengeID, true)
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://", challengeID, true)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "URL host is required")
@@ -727,13 +732,21 @@ func TestVerify(t *testing.T) {
 		signature, err := crypto.Sign(ethHash, privProxyKey)
 		require.NoError(t, err)
 
+		actionResult := teenodetypes.ActionResult{
+			Status:    1, // success for direct instructions (tee-node)
+			OPType:    op.Get.Hash(),
+			OPCommand: op.TEEInfo.Hash(),
+			Data:      data,
+		}
+		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
+		require.NoError(t, err)
+
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			resp := teenodetypes.ActionResponse{
-				Result: teenodetypes.ActionResult{
-					Data: data,
-				},
+				Result:         actionResult,
+				Signature:      teeSignature,
 				ProxySignature: signature,
 			}
 			err := json.NewEncoder(w).Encode(resp)
@@ -774,13 +787,21 @@ func TestVerify(t *testing.T) {
 		signature, err := crypto.Sign(ethHash, privProxyKey)
 		require.NoError(t, err)
 
+		actionResult := teenodetypes.ActionResult{
+			Status:    1, // success for direct instructions (tee-node)
+			OPType:    op.Get.Hash(),
+			OPCommand: op.TEEInfo.Hash(),
+			Data:      data,
+		}
+		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
+		require.NoError(t, err)
+
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			resp := teenodetypes.ActionResponse{
-				Result: teenodetypes.ActionResult{
-					Data: data,
-				},
+				Result:         actionResult,
+				Signature:      teeSignature,
 				ProxySignature: signature,
 			}
 			err := json.NewEncoder(w).Encode(resp)

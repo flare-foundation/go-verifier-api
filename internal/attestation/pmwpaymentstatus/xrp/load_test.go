@@ -124,12 +124,13 @@ func seedTestData(
 		t.Fatalf("cannot seed log: %v", err)
 	}
 
+	hashHex := fmt.Sprintf("%064x", nonce)
 	txResponse := fmt.Sprintf(
-		`{"Account":"%s","Amount":"%s","Destination":"%s","Fee":"%s","Sequence":%d,"TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"%s","Balance":"1000000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"900000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"%s"}}`,
-		senderAddress, amount.String(), recipientAddress, txFee, nonce, recipientAddress, amount.String())
+		`{"Account":"%s","Amount":"%s","Destination":"%s","Fee":"%s","Sequence":%d,"hash":"%s","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"%s","Balance":"1000000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"900000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"%s"}}`,
+		senderAddress, amount.String(), recipientAddress, txFee, nonce, hashHex, recipientAddress, amount.String())
 
 	tx := paymentdb.DBTransaction{
-		Hash:          fmt.Sprintf("%064x", nonce),
+		Hash:          hashHex,
 		BlockNumber:   100,
 		Timestamp:     1700000000,
 		Response:      txResponse,

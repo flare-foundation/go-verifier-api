@@ -28,7 +28,7 @@ func TestLoadMultisigConcurrentVerify(t *testing.T) {
 			[]string{testAccounts[0].Address, testAccounts[1].Address, testAccounts[2].Address},
 			[]uint16{1, 1, 1}, 2),
 		accountFlags(t, true, false, false, false),
-		"", 9999,
+		"",
 	)
 
 	var requestCount int64
@@ -44,7 +44,7 @@ func TestLoadMultisigConcurrentVerify(t *testing.T) {
 		Client: client.NewClient(server.URL),
 	}
 
-	req := makeIPMWMultisigAccountConfiguredRequestBody(t, "rTestAccount",
+	req := makeIPMWMultisigAccountConfiguredRequestBody(t,
 		[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey, testAccounts[2].PubKey}, 2)
 
 	const (
@@ -86,8 +86,8 @@ func TestLoadMultisigConcurrentVerify(t *testing.T) {
 			if r.resp.Status != 0 {
 				t.Fatalf("round %d, caller %d: expected status OK (0), got %d", round, i, r.resp.Status)
 			}
-			if r.resp.Sequence != 9999 {
-				t.Fatalf("round %d, caller %d: expected sequence 9999, got %d", round, i, r.resp.Sequence)
+			if r.resp.Sequence != sequence {
+				t.Fatalf("round %d, caller %d: expected sequence %d, got %d", round, i, sequence, r.resp.Sequence)
 			}
 		}
 	}
@@ -108,7 +108,7 @@ func TestLoadMultisigSlowUpstream(t *testing.T) {
 			[]string{testAccounts[0].Address, testAccounts[1].Address},
 			[]uint16{1, 1}, 2),
 		accountFlags(t, true, false, false, false),
-		"", 1234,
+		"",
 	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +123,7 @@ func TestLoadMultisigSlowUpstream(t *testing.T) {
 		Client: client.NewClient(server.URL),
 	}
 
-	req := makeIPMWMultisigAccountConfiguredRequestBody(t, "rTestAccount",
+	req := makeIPMWMultisigAccountConfiguredRequestBody(t,
 		[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey}, 2)
 
 	const concurrency = 6

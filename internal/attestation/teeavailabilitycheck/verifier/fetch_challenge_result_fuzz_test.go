@@ -63,13 +63,16 @@ func FuzzFetchTEEChallengeResult(f *testing.F) {
 		state.sig = append(state.sig[:0], signature...)
 		state.mu.Unlock()
 
-		teeInfo, signer, err := FetchTEEChallengeResult(context.Background(), server.URL, challengeID, true)
+		actionResp, teeInfo, signer, err := FetchTEEChallengeResult(context.Background(), server.URL, challengeID, true)
 		if err != nil {
 			if !reflect.DeepEqual(teeInfo, teenodetypes.TeeInfoResponse{}) {
 				t.Fatal("failed fetch returned non-zero tee info")
 			}
 			if signer != (common.Address{}) {
 				t.Fatal("failed fetch returned non-zero signer")
+			}
+			if !reflect.DeepEqual(actionResp, teenodetypes.ActionResponse{}) {
+				t.Fatal("failed fetch returned non-zero action response")
 			}
 			return
 		}
