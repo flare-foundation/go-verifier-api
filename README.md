@@ -216,7 +216,6 @@ This is the simplest way to run everything without worrying about Docker manuall
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
 - `go.mod` pins `github.com/jackc/pgx/v5 v5.9.1` as an explicit indirect override because `gorm.io/driver/postgres v1.6.0` pulls the unpatched v5.6.0 (CVE-2026-33815, CVE-2026-33816). Drop the explicit pgx require once a newer `gorm.io/driver/postgres` ships that pulls pgx >= v5.9.0.
-- DIAMOND_CUT - change tee-node dependency on github
 - PMWFeeProof: cap the per-nonce reissue scan in `pmwfeeproof/xrp/verifier.go:115`. The inner `for reissueNum := 0; ; reissueNum++` loop is bounded only by indexer state (the contract has no on-chain reissue count cap — only the `BatchNotYetEnded` timing constraint). A polluted indexer can trigger arbitrary DB lookups per request. Suggested cap: 50 (well above any realistic retry count). Return a 422 (or new sentinel mapped to 400) when exceeded.
 
 ### Monitoring
