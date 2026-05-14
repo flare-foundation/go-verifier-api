@@ -100,10 +100,13 @@ Required:
 3. Verify action-result integrity:
    - Recover proxy signer from `actionResp.ProxySignature` over `keccak256(actionResp.Result.Data)`; require it to equal `req.teeProxyId`.
    - Require `actionResp.Result.ID == req.instructionId`.
-   - Require `actionResp.Result.Status == 1` (successful direct action; tee-node's direct processor emits `Status: 1` on success and `0` on `Invalid`).
+   - Require `actionResp.Result.Status == 1` (success for both availability-response producers in tee-node).
+   - Require `(actionResp.Result.OPType, actionResp.Result.OPCommand)` to be one of the two allowed availability-response pairs:
+     - `(op.Reg, op.TEEAttestation)` — initial TEE admission, emitted by `VerificationFacet.requestTeeAttestation` and `MachineManagerFacet`; handled by tee-node's `regutils.TEEAttestation` (instruction processor, `immediateResult=true`).
+     - `(op.Get, op.TEEInfo)` — routine liveness/uptime proof for an admitted TEE, triggered via `VerificationFacet.requestAvailabilityCheckAttestation`; handled by tee-node's `getutils.TEEInfo` (direct processor).
    - Verify `actionResp.Signature` over `actionResp.Result.Hash()` against `req.teeId` (TEE proof-of-possession on the action result).
 
-   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand`. The verifier currently does not enforce specific values for `OPType`/`OPCommand` because the availability path can carry either `(op.Get, op.TEEInfo)` (direct query for an admitted TEE) or `(op.Reg, op.TEEAttestation)` (registration attestation when a TEE is being added), and the response `Data` shape (`TeeInfoResponse`) is constrained by JSON unmarshal downstream. Adding an explicit allowlist of OP pairs is a defense-in-depth follow-up. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy. The proof-of-possession here is over `Result.Hash()`, distinct from the poller path's proof-of-possession over `MachineData.Hash()` via `DataSignature` — the two paths consume different endpoints with different payload shapes.
+   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand` — those are checked explicitly above against the allowlist. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy; no separate verifier-side check is enforced because the submission convention is set by the proxy / relay client. The proof-of-possession here is over `Result.Hash()`, distinct from the poller path's proof-of-possession over `MachineData.Hash()` via `DataSignature` — the two paths consume different endpoints with different payload shapes.
 4. **In parallel** (both depend only on challenge response):
    - `DataVerification`: CRL fetch + PKI validation + TEE ID + claims.
    - `CheckSigningPolicies`: signing policy hashes against relay contract (2 concurrent RPC calls).

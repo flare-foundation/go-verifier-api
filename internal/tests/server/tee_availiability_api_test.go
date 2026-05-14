@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -50,9 +51,11 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 
 		actionResult := teenodetypes.ActionResult{
-			ID:     instructionId,
-			Status: 1, // success for direct instructions (tee-node)
-			Data:   teeInfoBytes,
+			ID:        instructionId,
+			Status:    1, // success for direct instructions (tee-node)
+			OPType:    op.Get.Hash(),
+			OPCommand: op.TEEInfo.Hash(),
+			Data:      teeInfoBytes,
 		}
 		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
 		require.NoError(t, err)
