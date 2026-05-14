@@ -32,11 +32,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 			Fee:             "12",
 			Sequence:        uint(0),
 			Memos: []transactions.Memo{
-				{
-					MemoData:   "",
-					MemoFormat: "",
-					MemoType:   "",
-				},
+				{},
 			},
 		},
 		MetaData: helpers.PaymentTransaction0.MetaData,
