@@ -136,7 +136,19 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 
 **Bypasses**:
 - `DISABLE_ATTESTATION_CHECK_E2E=true` — skips JWT validation entirely (E2E only).
-- **MagicPass** — TEE nodes in non-production mode (`settings.Mode != 0`) return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts it, skips all attestation validation (PKI, claims, CRL), and returns `OK` with hardcoded test values for `codeHash` and `platform`. Supports hackathon/dev environments; do not rely on in production.
+- **MagicPass** — **Cannot admit a rogue TEE on-chain in a normal production deployment.** The verifier accept path exists, but the on-chain confirmation rejects the resulting proof because none of the test code hash / test platform values are registered or whitelisted on mainnet. Detail:
+
+  *Verifier behavior.* TEE nodes in non-production mode (`settings.Mode != 0`) return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts it, skips all attestation validation (PKI, claims, CRL), and returns `OK` with hardcoded test values: `E2ETestCodeHash` and `E2ETestPlatform` (`"TEST_PLATFORM"` UTF-8 padded). Gated by the TEE node's `settings.Mode` — the verifier itself has no toggle.
+
+  *Contract-side admission chain* (`flare-smart-contracts-v2`):
+  - `contracts/tee/facets/VerificationFacet.sol#confirmAvailability` is the on-chain entry point for committing an availability proof.
+  - `MachineManager.checkTeeMachineInProduction(teeId)` — only PRODUCTION-status TEEs are accepted (`contracts/tee/library/MachineManager.sol`).
+  - `MachineManager.checkCodeHashPlatformSupported(extensionId, teeMachine.codeHash, teeMachine.platform)` — the registered pair must be in both `ExtensionManager.systemSupportedPlatforms` and the extension's `platforms` set (`contracts/tee/library/ExtensionManager.sol`).
+  - `Verification.verifyAvailabilityCheckProof` → `verifyMatchingAttestation` requires `responseBody.codeHash == registered.codeHash` and `responseBody.platform == registered.platform` (`contracts/tee/library/Verification.sol`).
+
+  For magic_pass to actually admit on-chain, governance would have to register a TEE with `codeHash = E2ETestCodeHash` AND `platform = E2ETestPlatform`, whitelist that pair in `systemSupportedPlatforms` and the extension's `platforms` set, and move that TEE to `PRODUCTION` status. Every step is on-chain and visible; the sequence is operationally absurd on mainnet. In normal production a misconfigured magic_pass response silently fails on-chain confirmation — wasting DP/relay work but never producing a valid admission. Operators must not register test code hashes or whitelist `TEST_PLATFORM` on production networks.
+
+  Supports hackathon/dev environments only; do not rely on it in production.
 
 ### Verify timeout budget
 The [client](https://github.com/flare-foundation/tee-relay-client/blob/main/internal/router/processors/fdc_verifier.go#L43) calls the verifier with a **10s timeout, 3 retries, 5s delay between retries** (20s total retry timeout). The verifier targets a worst-case response time under 8s so the client can retry on transient failures.
@@ -311,7 +323,12 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 - `PMWPaymentStatus` request includes `subNonce`, but current DB query path keys by source address + nonce. Single payment per `instructionId` is enforced on the contract side (`TeePayments`), so each `instructionId` maps to exactly one message and one XRP transaction; the verifier therefore does not need to filter logs by `subNonce`. SubNonce filtering will be needed when UTXO chains are supported, or if contract-side batching is later enabled (`batchSize > 1`).
 
 ### Accepted risks
-- **MagicPass bypass** (`verifier.go`): TEE nodes in non-production mode return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts it and skips all attestation validation. Gated by the TEE node's `settings.Mode` — the verifier itself has no toggle. Compensating control: production TEE nodes never set `Mode != 0`. See §7.1.
+- **MagicPass bypass** (`verifier.go`): cannot admit a rogue TEE on-chain in a normal production deployment.
+  - *What it is*: TEE nodes in non-production mode return `"magic_pass"`; the verifier accepts it and returns `OK` with `E2ETestCodeHash` / `E2ETestPlatform`. No verifier-side toggle; gated by the TEE's `settings.Mode`.
+  - *Compensating controls*:
+    1. Production TEE nodes never set `Mode != 0`.
+    2. On-chain confirmation rejects the proof unless the registered TEE's `codeHash`/`platform` match the response — see the chain documented in §7.1 (`VerificationFacet.confirmAvailability` → `Verification.verifyMatchingAttestation` + `MachineManager.checkCodeHashPlatformSupported`).
+  - *Residual risk*: a misconfigured magic_pass response on mainnet wastes DP/relay work and surfaces as a failed on-chain confirmation; it does not produce a valid admission. Operators must not register the test code hash or whitelist `TEST_PLATFORM` on production networks.
 - **Unauthenticated Swagger UI** (`/api-doc`): The OpenAPI documentation endpoint is intentionally exempt from API key auth to allow internal developers and auditors to browse the API. Compensating control: service is deployed behind internal infrastructure, not exposed to the public internet. No sensitive data is served on this endpoint.
 - **HTTP redirects disabled** (`fetcher.go`): HTTP clients reject all redirects (`CheckRedirect` returns `ErrRedirect`). TEE proxy URLs are expected to resolve directly — TEE nodes cannot follow redirects on their POST-based proxy communication, so operators already configure non-redirecting URLs. Eliminates the SSRF bypass vector where a redirect target could point to a private/metadata IP.
 - **ABI event data decoding** (`instruction_event.go`): `DecodeTeeInstructionsSentEventData` rejects `log.Data` larger than 1 MB (`maxEventDataSize`) before ABI decoding. Legitimate events are ~1–2 KB; the cap prevents OOM from corrupted indexer data.
