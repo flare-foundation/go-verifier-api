@@ -11,12 +11,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
@@ -46,19 +46,19 @@ func newTestDB(t *testing.T, name string, models ...any) *gorm.DB {
 
 func testABI(t *testing.T) abi.ABI {
 	t.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	require.NoError(t, err)
 	return parsed
 }
 
-func encodeEventData(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPaymentInstructionMessage) []byte {
+func encodeEventData(t *testing.T, teeABI abi.ABI, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
-	msgArg := payment.MessageArguments[op.Pay]
+	msgArg := payments.MessageArguments[op.Pay]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	require.NoError(t, err)
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		[]instructions.IMachineManagerTeeMachine{},
 		[32]byte{}, [32]byte{},
 		msgBytes,
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),
@@ -73,7 +73,7 @@ func stripHexPrefix(s string) string {
 
 type testFixture struct {
 	verifier *XRPVerifier
-	req      connector.IPMWPaymentStatusRequestBody
+	req      fdc2.IPMWPaymentStatusRequestBody
 }
 
 func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixture {
@@ -98,7 +98,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 	eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 	require.NoError(t, err)
 
-	msg := payment.ITeePaymentsPaymentInstructionMessage{
+	msg := payments.ITeePaymentsPaymentInstructionMessage{
 		SenderAddress:    senderAddress,
 		RecipientAddress: "rRecipient",
 		Amount:           big.NewInt(1000),
@@ -136,7 +136,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
 		},
-		req: connector.IPMWPaymentStatusRequestBody{
+		req: fdc2.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
 			SenderAddress: senderAddress,
 			Nonce:         nonce,
@@ -158,7 +158,7 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
 			},
 		}
-		req := connector.IPMWPaymentStatusRequestBody{
+		req := fdc2.IPMWPaymentStatusRequestBody{
 			OpType: common.HexToHash("0xAA"), SenderAddress: "rSender", Nonce: 999,
 		}
 
@@ -242,7 +242,7 @@ func TestVerify(t *testing.T) {
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
 			},
 		}
-		req := connector.IPMWPaymentStatusRequestBody{
+		req := fdc2.IPMWPaymentStatusRequestBody{
 			OpType:        common.HexToHash("0xAA"),
 			SenderAddress: "rSender",
 			Nonce:         999,
@@ -266,7 +266,7 @@ func TestVerify(t *testing.T) {
 		eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
 
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: senderAddress,
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(50),
@@ -295,7 +295,7 @@ func TestVerify(t *testing.T) {
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 			},
 		}
-		req := connector.IPMWPaymentStatusRequestBody{
+		req := fdc2.IPMWPaymentStatusRequestBody{
 			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, SubNonce: nonce,
 		}
 		_, err = v.Verify(context.Background(), req)
@@ -335,7 +335,7 @@ func TestVerify(t *testing.T) {
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 			},
 		}
-		req := connector.IPMWPaymentStatusRequestBody{
+		req := fdc2.IPMWPaymentStatusRequestBody{
 			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, SubNonce: nonce,
 		}
 		_, err = v.Verify(context.Background(), req)

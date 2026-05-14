@@ -11,7 +11,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
@@ -35,13 +35,13 @@ type XRPVerifier struct {
 
 func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) *XRPVerifier {
 	return &XRPVerifier{
-		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, cfg.TeeInstructionsContractAddress),
+		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, cfg.FlareTeeManagerContractAddress),
 		Config: cfg,
 	}
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWFeeProofRequestBody) (connector.IPMWFeeProofResponseBody, error) {
-	var zero connector.IPMWFeeProofResponseBody
+func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBody) (fdc2.IPMWFeeProofResponseBody, error) {
+	var zero fdc2.IPMWFeeProofResponseBody
 
 	if req.ToNonce < req.FromNonce {
 		return zero, fmt.Errorf("toNonce (%d) < fromNonce (%d): %w", req.ToNonce, req.FromNonce, ErrNonceRangeTooLarge)
@@ -87,7 +87,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWFeeProofRequ
 		return zero, err
 	}
 
-	return connector.IPMWFeeProofResponseBody{
+	return fdc2.IPMWFeeProofResponseBody{
 		ActualFee:    actualFee,
 		EstimatedFee: estimatedFee,
 	}, nil
@@ -95,7 +95,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWFeeProofRequ
 
 // computeEstimatedFee verifies all nonces have pay events and sums the estimated fees
 // including residuals from reissue events.
-func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req connector.IPMWFeeProofRequestBody, eventHash string, sourceID [32]byte, nonces []uint64, payIDs []common.Hash, payLogs map[common.Hash]*ethtypes.Log) (*big.Int, error) {
+func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeProofRequestBody, eventHash string, sourceID [32]byte, nonces []uint64, payIDs []common.Hash, payLogs map[common.Hash]*ethtypes.Log) (*big.Int, error) {
 	estimatedFee := new(big.Int)
 	for i, nonce := range nonces {
 		payLog, ok := payLogs[payIDs[i]]

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -30,7 +30,7 @@ type TestSetupServer struct {
 	APIKey                 string
 }
 
-func SetupServer(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName, config config.EnvConfig) TestSetupServer {
+func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID config.SourceName, config config.EnvConfig) TestSetupServer {
 	t.Helper()
 	config.AttestationType = attestationType
 	config.SourceID = sourceID
@@ -59,7 +59,7 @@ func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
 	return stop
 }
 
-func prepareAttestationTypeAndSourceID(t *testing.T, attestationType connector.AttestationType, sourceID config.SourceName) (common.Hash, common.Hash) {
+func prepareAttestationTypeAndSourceID(t *testing.T, attestationType fdc2.AttestationType, sourceID config.SourceName) (common.Hash, common.Hash) {
 	t.Helper()
 	var attestationTypeBytes, sourceIDBytes [32]byte
 	copy(attestationTypeBytes[:], attestationType)

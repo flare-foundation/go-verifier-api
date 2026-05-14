@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teemachineregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/machinemanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -57,16 +57,16 @@ var (
 )
 
 type TeeVerifier struct {
-	Cfg                      *config.TeeAvailabilityCheckConfig
-	EthClient                EthClient
-	TeeMachineRegistryCaller TeeMachineRegistryCallerInterface
-	RelayCaller              RelayCallerInterface
-	ValidateURL              bool
-	CRLCache                 *CRLCache
-	TeeSamples               map[common.Address][]verifiertypes.TeeSampleValue
-	SamplesMu                sync.RWMutex
-	PollerSnapshot           atomic.Value // stores []verifiertypes.TeeSample
-	magicPassLogged          sync.Map     // tracks TEE IDs that have already logged a MagicPass warning
+	Cfg                  *config.TeeAvailabilityCheckConfig
+	EthClient            EthClient
+	MachineManagerCaller MachineManagerCallerInterface
+	RelayCaller          RelayCallerInterface
+	ValidateURL          bool
+	CRLCache             *CRLCache
+	TeeSamples           map[common.Address][]verifiertypes.TeeSampleValue
+	SamplesMu            sync.RWMutex
+	PollerSnapshot       atomic.Value // stores []verifiertypes.TeeSample
+	magicPassLogged      sync.Map     // tracks TEE IDs that have already logged a MagicPass warning
 }
 
 type EthClient interface {
@@ -78,7 +78,7 @@ type RelayCallerInterface interface {
 	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
 }
 
-type TeeMachineRegistryCallerInterface interface {
+type MachineManagerCallerInterface interface {
 	GetAllActiveTeeMachines(opts *bind.CallOpts, start *big.Int, end *big.Int) (struct {
 		TeeIds      []common.Address
 		Urls        []string
@@ -90,15 +90,15 @@ type TeeMachineRegistryCallerInterface interface {
 	}, error)
 }
 
-func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[connector.ITeeAvailabilityCheckRequestBody, connector.ITeeAvailabilityCheckResponseBody], error) {
+func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
 	}
-	teeMachineRegistryCaller, err := teemachineregistry.NewTeeMachineRegistryCaller(cfg.TeeMachineRegistryContractAddress, client)
+	machineManagerCaller, err := machinemanager.NewMachineManagerCaller(cfg.FlareTeeManagerContractAddress, client)
 	if err != nil {
 		client.Close()
-		return nil, fmt.Errorf("cannot create TeeMachineRegistry caller at %s: %w", cfg.TeeMachineRegistryContractAddress.Hex(), err)
+		return nil, fmt.Errorf("cannot create MachineManager caller at %s: %w", cfg.FlareTeeManagerContractAddress.Hex(), err)
 	}
 	relayCaller, err := relay.NewRelayCaller(cfg.RelayContractAddress, client)
 	if err != nil {
@@ -106,19 +106,19 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[c
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress.Hex(), err)
 	}
 	return &TeeVerifier{
-		Cfg:                      cfg,
-		EthClient:                client,
-		TeeMachineRegistryCaller: teeMachineRegistryCaller,
-		RelayCaller:              relayCaller,
-		CRLCache:                 NewCRLCache(),
-		TeeSamples:               make(map[common.Address][]verifiertypes.TeeSampleValue),
+		Cfg:                  cfg,
+		EthClient:            client,
+		MachineManagerCaller: machineManagerCaller,
+		RelayCaller:          relayCaller,
+		CRLCache:             NewCRLCache(),
+		TeeSamples:           make(map[common.Address][]verifiertypes.TeeSampleValue),
 	}, nil
 }
 
-func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailabilityCheckRequestBody) (connector.ITeeAvailabilityCheckResponseBody, error) {
-	var zero connector.ITeeAvailabilityCheckResponseBody
+func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheckRequestBody) (fdc2.ITeeAvailabilityCheckResponseBody, error) {
+	var zero fdc2.ITeeAvailabilityCheckResponseBody
 	// Fetch from TEE proxy /action/result/<instructionID>
-	response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.Cfg.AllowPrivateNetworks)
+	actionResp, response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.Cfg.AllowPrivateNetworks)
 	if err != nil {
 		// check polled data
 		isDown, infoErr := v.IsTEEInfoDown(req.TeeId)
@@ -126,7 +126,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 			return zero, infoErr
 		}
 		if isDown {
-			return connector.ITeeAvailabilityCheckResponseBody{Status: uint8(DOWN)}, nil
+			return fdc2.ITeeAvailabilityCheckResponseBody{Status: uint8(DOWN)}, nil
 		}
 		return zero, fmt.Errorf("cannot fetch TEE data for (TEE=%s, URL=%s, instruction=%x) and determine its status: %w", req.TeeId, req.Url, req.InstructionId[:], err)
 	}
@@ -138,6 +138,10 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	// Check proxy signature.
 	if dataSigner != req.TeeProxyId {
 		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s: %w", req.TeeProxyId.Hex(), dataSigner.Hex(), ErrTEEDataValidation)
+	}
+	// Verify the action result is from the expected TEE and bound to this instruction.
+	if err := verifyActionResult(actionResp, req.InstructionId, req.TeeId); err != nil {
+		return zero, fmt.Errorf("%w: %w", ErrTEEDataValidation, err)
 	}
 	// Run DataVerification and CheckSigningPolicies in parallel (independent after challenge fetch).
 	infoData := response.TeeInfo
@@ -172,14 +176,14 @@ func (v *TeeVerifier) Verify(ctx context.Context, req connector.ITeeAvailability
 	}
 
 	statusInfo := dvRes.info
-	return connector.ITeeAvailabilityCheckResponseBody{
+	return fdc2.ITeeAvailabilityCheckResponseBody{
 		Status:                 uint8(statusInfo.Status),
 		TeeTimestamp:           infoData.TeeTimestamp,
 		CodeHash:               statusInfo.CodeHash,
 		Platform:               statusInfo.Platform,
 		InitialSigningPolicyId: infoData.InitialSigningPolicyID,
 		LastSigningPolicyId:    infoData.LastSigningPolicyID,
-		State: connector.ITeeAvailabilityCheckTeeState{
+		State: fdc2.ITeeAvailabilityCheckTeeState{
 			SystemState:        infoData.State.SystemState,
 			SystemStateVersion: infoData.State.SystemStateVersion,
 			State:              infoData.State.State,
@@ -449,45 +453,84 @@ func FetchTEEChallengeResult(
 	baseURL string,
 	challengeInstructionID common.Hash,
 	allowPrivateNetworks bool,
-) (teenodetypes.TeeInfoResponse, common.Address, error) {
-	var zero teenodetypes.TeeInfoResponse
+) (teenodetypes.ActionResponse, teenodetypes.TeeInfoResponse, common.Address, error) {
+	var zeroAction teenodetypes.ActionResponse
+	var zeroInfo teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
 	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
 	resolved, err := ResolveExternalURL(ctx, baseURL, allowPrivateNetworks)
 	if err != nil {
-		return zero, zeroAdd, err
+		return zeroAction, zeroInfo, zeroAdd, err
 	}
 	dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
 	actionResp, err := fetcher.FetchJSONPinned[teenodetypes.ActionResponse](ctx, url, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
 	if err != nil {
 		if errors.Is(err, fetcher.ErrNotFound) {
-			return zero, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)
+			return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)
 		}
-		return zero, zeroAdd, err
+		return zeroAction, zeroInfo, zeroAdd, err
 	}
 	if len(actionResp.Result.Data) == 0 {
-		return zero, zeroAdd, errors.New("TEE challenge result data is empty")
+		return zeroAction, zeroInfo, zeroAdd, errors.New("TEE challenge result data is empty")
 	}
 	if !json.Valid(actionResp.Result.Data) {
 		preview := actionResp.Result.Data
 		if len(preview) > 128 {
 			preview = preview[:128]
 		}
-		return zero, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON (len=%d, preview=%q)", len(actionResp.Result.Data), preview)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON (len=%d, preview=%q)", len(actionResp.Result.Data), preview)
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse
 	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
 	if err != nil {
-		return zero, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
 	// recover signer
 	signer, err := utils.SignatureToSignersAddress(crypto.Keccak256(actionResp.Result.Data), actionResp.ProxySignature)
 	if err != nil {
-		return zero, zeroAdd, fmt.Errorf("recover signer: %w", err)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("recover signer: %w", err)
 	}
 
-	return teeInfo, signer, nil
+	return actionResp, teeInfo, signer, nil
+}
+
+// verifyActionResult checks that the action result is genuinely from the
+// expected TEE and bound to the requested instruction. It complements the
+// proxy-signature check by establishing TEE proof-of-possession on the action
+// result itself, preventing a malicious proxy from replaying an older valid
+// result or serving a different TEE's response.
+//
+// The TEE signature over Result.Hash() binds Data, ID, SubmissionTag, and
+// Status (see tee-node pkg/types/actions.go Hash()). OPType and OPCommand
+// are NOT bound by the signature; the verifier currently does not check
+// them explicitly because the availability path can carry either
+// (op.Get, op.TEEInfo) or (op.Reg, op.TEEAttestation) and the response
+// Data shape (TeeInfoResponse) is constrained by JSON unmarshal downstream.
+func verifyActionResult(
+	actionResp teenodetypes.ActionResponse,
+	expectedInstructionID common.Hash,
+	expectedTeeID common.Address,
+) error {
+	if actionResp.Result.ID != expectedInstructionID {
+		return fmt.Errorf("action result instruction ID mismatch: expected %s, got %s",
+			expectedInstructionID.Hex(), actionResp.Result.ID.Hex())
+	}
+	// Availability check is processed as a direct instruction; success is Status=1
+	// (see tee-node internal/processors/direct/direct.go). Status=0 is
+	// processorutils.Invalid (failure), Status=3 is DeadlineExceeded.
+	if actionResp.Result.Status != 1 {
+		return fmt.Errorf("action result status not success: status=%d, log=%q, additionalStatus=%x",
+			actionResp.Result.Status, actionResp.Result.Log, []byte(actionResp.Result.AdditionalResultStatus))
+	}
+	if len(actionResp.Signature) == 0 {
+		return errors.New("missing TEE signature on action result")
+	}
+	if err := utils.VerifySignature(actionResp.Result.Hash(), actionResp.Signature, expectedTeeID); err != nil {
+		return fmt.Errorf("TEE signature on action result does not match expected TEE %s: %w",
+			expectedTeeID.Hex(), err)
+	}
+	return nil
 }
 
 // Ensure *TeeVerifier implements io.Closer at compile time.

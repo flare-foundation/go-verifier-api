@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -97,7 +97,7 @@ func TestLoadEnvConfig(t *testing.T) {
 		loadEnvShouldFail(t)
 		t.Setenv(config.EnvPort, "1234")
 		loadEnvShouldFail(t)
-		t.Setenv(config.EnvAttestationType, string(connector.AvailabilityCheck))
+		t.Setenv(config.EnvAttestationType, string(fdc2.AvailabilityCheck))
 		loadEnvShouldFail(t)
 		t.Setenv(config.EnvSourceID, string(config.SourceTEE))
 		loadEnvShouldFail(t)
@@ -107,7 +107,7 @@ func TestLoadEnvConfig(t *testing.T) {
 		cfg, err := LoadEnvConfig()
 		require.NoError(t, err)
 		require.Equal(t, "1234", cfg.Port)
-		require.Equal(t, connector.AvailabilityCheck, cfg.AttestationType)
+		require.Equal(t, fdc2.AvailabilityCheck, cfg.AttestationType)
 		require.Equal(t, config.SourceTEE, cfg.SourceID)
 		require.Equal(t, "true", cfg.AllowPrivateNetworks)
 	})
@@ -121,7 +121,7 @@ func TestLoadEnvConfig(t *testing.T) {
 	t.Run("Env config should fail if source id is invalid", func(t *testing.T) {
 		t.Setenv(config.EnvPort, "1234")
 		t.Setenv(config.EnvSourceID, "invalid-source-id")
-		t.Setenv(config.EnvAttestationType, string(connector.AvailabilityCheck))
+		t.Setenv(config.EnvAttestationType, string(fdc2.AvailabilityCheck))
 		_, err := LoadEnvConfig()
 		require.ErrorContains(t, err, "invalid source id: invalid-source-id")
 	})

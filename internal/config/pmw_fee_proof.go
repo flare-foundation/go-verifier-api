@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 )
 
 var (
@@ -23,11 +23,11 @@ func LoadPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 }
 
 func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
-	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvTeeInstructionsContractAddress})
+	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress})
 	if err != nil {
 		return nil, err
 	}
-	teeInstructionsAddr, err := parseContractAddress(envConfig.TeeInstructionsContractAddress, EnvTeeInstructionsContractAddress)
+	flareTeeManagerAddr, err := parseContractAddress(envConfig.FlareTeeManagerContractAddress, EnvFlareTeeManagerContractAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsedTeeInstructionsABI, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse TeeInstructions ABI: %w", err)
 	}
@@ -43,7 +43,7 @@ func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 		EncodedAndABI:                  commonConfig,
 		SourceDatabaseURL:              envConfig.SourceDatabaseURL,
 		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
-		TeeInstructionsContractAddress: teeInstructionsAddr,
+		FlareTeeManagerContractAddress: flareTeeManagerAddr,
 		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
 	}, nil
 }

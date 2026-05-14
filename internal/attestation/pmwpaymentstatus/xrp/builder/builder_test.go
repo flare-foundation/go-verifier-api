@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	addresscodec "github.com/Peersyst/xrpl-go/address-codec"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/builder"
@@ -18,7 +18,7 @@ import (
 )
 
 func TestBuildPaymentStatusResponse(t *testing.T) {
-	paymentMessageInstruction := payment.ITeePaymentsPaymentInstructionMessage{
+	paymentMessageInstruction := payments.ITeePaymentsPaymentInstructionMessage{
 		RecipientAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 		TokenId:          []byte{},
 		Amount:           big.NewInt(10000000),
@@ -32,11 +32,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 			Fee:             "12",
 			Sequence:        uint(0),
 			Memos: []transactions.Memo{
-				{
-					MemoData:   "",
-					MemoFormat: "",
-					MemoType:   "",
-				},
+				{},
 			},
 		},
 		MetaData: helpers.PaymentTransaction0.MetaData,
@@ -66,7 +62,7 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		xAddr, err := addresscodec.ClassicAddressToXAddress("rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK", 0, false, false)
 		require.NoError(t, err)
 
-		xAddrInstruction := payment.ITeePaymentsPaymentInstructionMessage{
+		xAddrInstruction := payments.ITeePaymentsPaymentInstructionMessage{
 			RecipientAddress: xAddr,
 			TokenId:          []byte{},
 			Amount:           big.NewInt(10000000),
@@ -99,35 +95,35 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
 	})
 	t.Run("non-native payment rejected", func(t *testing.T) {
-		iouInstruction := payment.ITeePaymentsPaymentInstructionMessage{
+		iouInstruction := payments.ITeePaymentsPaymentInstructionMessage{
 			RecipientAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
 			TokenId:          []byte{0x01},
 			Amount:           big.NewInt(10000000),
 			MaxFee:           big.NewInt(12),
 		}
 		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &iouInstruction, txFromDB)
-		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "non-native payments (TokenId set) are not supported")
 	})
 	t.Run("non-payment transaction type rejected", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
 		modRawTransactionData.TransactionType = "AccountSet"
 		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
-		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, `expected Payment transaction, got "AccountSet"`)
 	})
 	t.Run("invalid transaction status", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
 		modRawTransactionData.MetaData.TransactionResult = "te"
 		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
-		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "transaction result too short")
 	})
 	t.Run("invalid fee field", func(t *testing.T) {
 		modRawTransactionData := rawTransactionData
 		modRawTransactionData.Fee = "fee"
 		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
-		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "invalid big.Int string: fee")
 	})
 	t.Run("invalid tx hash field", func(t *testing.T) {
@@ -135,12 +131,12 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 			Hash: "0x1234",
 		}
 		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &paymentMessageInstruction, txFromDB)
-		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "invalid transaction hash 0x1234: invalid length for hex string 0x1234: expected 32 bytes, got 2")
 	})
 	t.Run("no meta data", func(t *testing.T) {
 		val, err := builder.BuildPaymentStatusResponse(helpers.PaymentTransaction0_error0, &paymentMessageInstruction, txFromDB)
-		require.Equal(t, connector.IPMWPaymentStatusResponseBody{}, val)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "cannot calculate received amount for recipient")
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode for account")
 	})

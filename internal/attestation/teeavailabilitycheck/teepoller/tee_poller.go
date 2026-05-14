@@ -311,7 +311,7 @@ func (s *TeePollerService) getExtensionTees(ctx context.Context, extensionID int
 	defer cancel()
 	callOpts := &bind.CallOpts{Context: ctx}
 
-	tees, err := s.verifier.TeeMachineRegistryCaller.GetActiveTeeMachines(callOpts, big.NewInt(extensionID))
+	tees, err := s.verifier.MachineManagerCaller.GetActiveTeeMachines(callOpts, big.NewInt(extensionID))
 	if err != nil {
 		return teeList{}, fmt.Errorf("getActiveTeeMachines(extensionId=%d) failed: %w", extensionID, err)
 	}
@@ -345,7 +345,7 @@ func (s *TeePollerService) getAllActiveTeeMachines(ctx context.Context, teeChunk
 		// latency does not exhaust a single shared deadline.
 		pageCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
 		callOpts := &bind.CallOpts{Context: pageCtx, BlockNumber: pinnedBlock}
-		tees, err := s.verifier.TeeMachineRegistryCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
+		tees, err := s.verifier.MachineManagerCaller.GetAllActiveTeeMachines(callOpts, start, new(big.Int).Add(start, chunk))
 		cancel()
 		if err != nil {
 			return teeList{}, fmt.Errorf("getAllActiveTeeMachines(start=%d, chunk=%d) failed: %w", start.Int64(), chunk.Int64(), err)

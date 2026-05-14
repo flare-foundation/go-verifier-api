@@ -9,11 +9,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
@@ -46,23 +46,23 @@ func testSharedDB(tb testing.TB, name string, models ...any) *gorm.DB {
 
 func testTeeABI(tb testing.TB) abi.ABI {
 	tb.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	if err != nil {
 		tb.Fatal(err)
 	}
 	return parsed
 }
 
-func testEncodeEvent(tb testing.TB, teeABI abi.ABI, command op.Command, msg payment.ITeePaymentsPaymentInstructionMessage) []byte {
+func testEncodeEvent(tb testing.TB, teeABI abi.ABI, command op.Command, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	tb.Helper()
-	msgArg := payment.MessageArguments[command]
+	msgArg := payments.MessageArguments[command]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	if err != nil {
 		tb.Fatalf("cannot encode message: %v", err)
 	}
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		[]instructions.IMachineManagerTeeMachine{},
 		[32]byte{}, [32]byte{},
 		msgBytes,
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),
@@ -104,7 +104,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 			tb.Fatal(err)
 		}
 
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: senderAddress,
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(maxFees[i]),

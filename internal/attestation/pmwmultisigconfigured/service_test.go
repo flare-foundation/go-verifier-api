@@ -3,7 +3,7 @@ package multisigservice
 import (
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -11,7 +11,7 @@ import (
 var envConfig = config.EnvConfig{
 	RPCURL:          "https://s.altnet.rippletest.net:51234",
 	SourceID:        "testXRP",
-	AttestationType: connector.PMWMultisigAccountConfigured,
+	AttestationType: fdc2.PMWMultisigAccountConfigured,
 }
 
 func TestMultisigService(t *testing.T) {
@@ -28,7 +28,7 @@ func TestMultisigService(t *testing.T) {
 		badEnvConfig := config.EnvConfig{
 			RPCURL:          "",
 			SourceID:        "testXRP",
-			AttestationType: connector.PMWMultisigAccountConfigured,
+			AttestationType: fdc2.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
@@ -40,7 +40,7 @@ func TestMultisigService(t *testing.T) {
 		badEnvConfig := config.EnvConfig{
 			RPCURL:          "https://s.altnet.rippletest.net:51234",
 			SourceID:        "UNSUPPORTED_SOURCE",
-			AttestationType: connector.PMWMultisigAccountConfigured,
+			AttestationType: fdc2.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot initialize PMWMultisigAccountConfigured verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")

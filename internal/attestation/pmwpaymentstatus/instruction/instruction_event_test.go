@@ -8,30 +8,30 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/stretchr/testify/require"
 )
 
 func loadTestABI(t *testing.T) abi.ABI {
 	t.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	require.NoError(t, err)
 	return parsed
 }
 
-func encodeTestEvent(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPaymentInstructionMessage) []byte {
+func encodeTestEvent(t *testing.T, teeABI abi.ABI, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
-	msgArg := payment.MessageArguments[op.Pay]
+	msgArg := payments.MessageArguments[op.Pay]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	require.NoError(t, err)
 
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		[]instructions.IMachineManagerTeeMachine{},
 		[32]byte{},
 		[32]byte{},
 		msgBytes,
@@ -64,7 +64,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 	teeABI := loadTestABI(t)
 
 	t.Run("valid event data decodes correctly", func(t *testing.T) {
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress:    "rSender",
 			RecipientAddress: "rRecipient",
 			Amount:           big.NewInt(1000),
@@ -107,7 +107,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 	})
 
 	t.Run("truncated log data returns error", func(t *testing.T) {
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: "rSender",
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(50),
@@ -125,7 +125,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		// Build a valid event but with garbage in the Message field.
 		eventABI := teeABI.Events["TeeInstructionsSent"]
 		data, err := eventABI.Inputs.NonIndexed().Pack(
-			[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+			[]instructions.IMachineManagerTeeMachine{},
 			[32]byte{},
 			[32]byte{},
 			[]byte("not-a-valid-payment-message"), // corrupt message
@@ -148,7 +148,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 	})
 
 	t.Run("wrong ABI returns error", func(t *testing.T) {
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: "rSender",
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(50),

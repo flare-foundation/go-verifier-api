@@ -3,17 +3,17 @@ package teeavailabilityservice
 import (
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
 var envConfig = config.EnvConfig{
-	RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-	RelayContractAddress:              "0x0000000000000000000000000000000000000001",
-	TeeMachineRegistryContractAddress: "0x0000000000000000000000000000000000000002",
-	SourceID:                          config.SourceTEE,
-	AttestationType:                   connector.AvailabilityCheck,
+	RPCURL:                         "https://coston-api.flare.network/ext/C/rpc",
+	RelayContractAddress:           "0x0000000000000000000000000000000000000001",
+	FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
+	SourceID:                       config.SourceTEE,
+	AttestationType:                fdc2.AvailabilityCheck,
 }
 
 func TestTeeAvailabilityService(t *testing.T) {
@@ -30,11 +30,11 @@ func TestTeeAvailabilityService(t *testing.T) {
 	t.Run("missing fields in env config", func(t *testing.T) {
 		config.ClearTeeAvailabilityCheckConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			RPCURL:                            "",
-			RelayContractAddress:              envConfig.RelayContractAddress,
-			TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
-			SourceID:                          envConfig.SourceID,
-			AttestationType:                   envConfig.AttestationType,
+			RPCURL:                         "",
+			RelayContractAddress:           envConfig.RelayContractAddress,
+			FlareTeeManagerContractAddress: envConfig.FlareTeeManagerContractAddress,
+			SourceID:                       envConfig.SourceID,
+			AttestationType:                envConfig.AttestationType,
 		}
 		service, err := NewTeeAvailabilityService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot load TeeAvailabilityCheck config: missing environment variables: RPC_URL")
@@ -44,11 +44,11 @@ func TestTeeAvailabilityService(t *testing.T) {
 	t.Run("unknown attestation type", func(t *testing.T) {
 		config.ClearTeeAvailabilityCheckConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			RPCURL:                            envConfig.RPCURL,
-			RelayContractAddress:              envConfig.RelayContractAddress,
-			TeeMachineRegistryContractAddress: envConfig.TeeMachineRegistryContractAddress,
-			SourceID:                          envConfig.SourceID,
-			AttestationType:                   "UnknownType",
+			RPCURL:                         envConfig.RPCURL,
+			RelayContractAddress:           envConfig.RelayContractAddress,
+			FlareTeeManagerContractAddress: envConfig.FlareTeeManagerContractAddress,
+			SourceID:                       envConfig.SourceID,
+			AttestationType:                "UnknownType",
 		}
 		service, err := NewTeeAvailabilityService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot load TeeAvailabilityCheck config: no ABI struct names defined for attestation type UnknownType")

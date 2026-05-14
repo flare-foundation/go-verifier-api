@@ -5,7 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 )
 
 type PMWPaymentStatusRequestBody struct {
@@ -15,8 +15,8 @@ type PMWPaymentStatusRequestBody struct {
 	SubNonce      uint64      `json:"subNonce" validate:"required" example:"1"`
 }
 
-func (requestBody PMWPaymentStatusRequestBody) ToInternal() (connector.IPMWPaymentStatusRequestBody, error) {
-	return connector.IPMWPaymentStatusRequestBody{
+func (requestBody PMWPaymentStatusRequestBody) ToInternal() (fdc2.IPMWPaymentStatusRequestBody, error) {
+	return fdc2.IPMWPaymentStatusRequestBody{
 		OpType:        requestBody.OpType,
 		SenderAddress: requestBody.SenderAddress,
 		Nonce:         requestBody.Nonce,
@@ -39,7 +39,7 @@ type PMWPaymentStatusResponseBody struct {
 	BlockTimestamp    uint64        `json:"blockTimestamp"`
 }
 
-func (s PMWPaymentStatusResponseBody) FromInternal(data connector.IPMWPaymentStatusResponseBody) ResponseConvertible[connector.IPMWPaymentStatusResponseBody] {
+func (s PMWPaymentStatusResponseBody) FromInternal(data fdc2.IPMWPaymentStatusResponseBody) ResponseConvertible[fdc2.IPMWPaymentStatusResponseBody] {
 	return PMWPaymentStatusResponseBody{
 		RecipientAddress:  data.RecipientAddress,
 		TokenID:           data.TokenId,
@@ -73,7 +73,7 @@ func (s PMWPaymentStatusResponseBody) Log() {
 	)
 }
 
-func LogPMWPaymentStatusRequestBody(req connector.IPMWPaymentStatusRequestBody) {
+func LogPMWPaymentStatusRequestBody(req fdc2.IPMWPaymentStatusRequestBody) {
 	logger.Debugf("PMWPaymentStatus request: OpType=%s, SenderAddress=%s, Nonce=%d, SubNonce=%d",
 		convert.CommonHashToString(req.OpType), req.SenderAddress, req.Nonce, req.SubNonce)
 }

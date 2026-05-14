@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 )
 
@@ -27,7 +27,7 @@ func CreateAttestationRequestData[T any](t *testing.T, attestationType common.Ha
 	}
 }
 
-func TeeAvailabilityCheckRequestBody(t *testing.T, data connector.ITeeAvailabilityCheckRequestBody) types.TeeAvailabilityCheckRequestBody {
+func TeeAvailabilityCheckRequestBody(t *testing.T, data fdc2.ITeeAvailabilityCheckRequestBody) types.TeeAvailabilityCheckRequestBody {
 	t.Helper()
 	return types.TeeAvailabilityCheckRequestBody{
 		TeeID:         data.TeeId,
@@ -38,7 +38,7 @@ func TeeAvailabilityCheckRequestBody(t *testing.T, data connector.ITeeAvailabili
 	}
 }
 
-func PMWMultisigAccountConfiguredRequestBody(t *testing.T, data connector.IPMWMultisigAccountConfiguredRequestBody) types.PMWMultisigAccountConfiguredRequestBody {
+func PMWMultisigAccountConfiguredRequestBody(t *testing.T, data fdc2.IPMWMultisigAccountConfiguredRequestBody) types.PMWMultisigAccountConfiguredRequestBody {
 	t.Helper()
 	return types.PMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: data.AccountAddress,
@@ -47,7 +47,7 @@ func PMWMultisigAccountConfiguredRequestBody(t *testing.T, data connector.IPMWMu
 	}
 }
 
-func PMWPaymentStatusRequestBody(t *testing.T, data connector.IPMWPaymentStatusRequestBody) types.PMWPaymentStatusRequestBody {
+func PMWPaymentStatusRequestBody(t *testing.T, data fdc2.IPMWPaymentStatusRequestBody) types.PMWPaymentStatusRequestBody {
 	t.Helper()
 	return types.PMWPaymentStatusRequestBody{
 		OpType:        data.OpType,
@@ -57,7 +57,7 @@ func PMWPaymentStatusRequestBody(t *testing.T, data connector.IPMWPaymentStatusR
 	}
 }
 
-func PMWFeeProofRequestBody(t *testing.T, data connector.IPMWFeeProofRequestBody) types.PMWFeeProofRequestBody {
+func PMWFeeProofRequestBody(t *testing.T, data fdc2.IPMWFeeProofRequestBody) types.PMWFeeProofRequestBody {
 	t.Helper()
 	return types.PMWFeeProofRequestBody{
 		OpType:         data.OpType,

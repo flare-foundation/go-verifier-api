@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
@@ -21,10 +21,10 @@ import (
 func TestPMWPaymentStatus(t *testing.T) {
 	config.ClearPMWPaymentStatusConfigForTest()
 
-	setup := server.SetupServer(t, connector.PMWPaymentStatus, config.SourceTestXRP, config.EnvConfig{
+	setup := server.SetupServer(t, fdc2.PMWPaymentStatus, config.SourceTestXRP, config.EnvConfig{
 		SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 		CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
-		TeeInstructionsContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
+		FlareTeeManagerContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
 	})
 	defer setup.Stop()
 
@@ -35,7 +35,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	testRecipientAddress := "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G"
 	testTxHash := common.HexToHash("0x7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA")
 	nonce := uint64(11263145)
-	baseReqBody := connector.IPMWPaymentStatusRequestBody{
+	baseReqBody := fdc2.IPMWPaymentStatusRequestBody{
 		OpType:        opType,
 		SenderAddress: testSenderAddress,
 		Nonce:         nonce,
@@ -53,7 +53,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		internalData, err := reqData.ToInternal()
 		require.NoError(t, err)
 
-		attBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, internalData)
+		attBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, internalData)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
@@ -68,7 +68,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 
 	desiredURL = setup.URL + "/prepareResponseBody"
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := helpers.Post[types.AttestationResponseData[types.PMWPaymentStatusResponseBody]](t, desiredURL, request, setup.APIKey)
@@ -96,7 +96,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -106,7 +106,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("prepareResponseBody: verification failed", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove 4 for chars.
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -115,12 +115,12 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	desiredURL = setup.URL + "/verify"
 	t.Run("verify: valid", func(t *testing.T) { // Using log (12) in c-chain idx db and transaction 7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA from xrp idx db.
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 
-		result := helpers.DecodeResponseBody[connector.IPMWPaymentStatusResponseBody](t, connector.PMWPaymentStatus, response.ResponseBody)
+		result := helpers.DecodeResponseBody[fdc2.IPMWPaymentStatusResponseBody](t, fdc2.PMWPaymentStatus, response.ResponseBody)
 		// https://testnet.xrpl.org/transactions/7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA
 		require.Equal(t, testRecipientAddress, result.RecipientAddress)
 		require.Empty(t, result.TokenId)
@@ -149,7 +149,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusUnauthorized, "Unauthorized")
 	})
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -157,7 +157,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid attestationType", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -174,7 +174,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: verification failed - not found in c-chain indexer", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove 4 for chars.
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -186,7 +186,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 10
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 10
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -198,7 +198,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 1
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 1
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -210,7 +210,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 2
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 2
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -222,7 +222,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 3
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 3
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -234,7 +234,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 4
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 4
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -246,7 +246,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 5
 		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 5
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWPaymentStatus, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code

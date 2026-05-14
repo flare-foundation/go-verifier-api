@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 )
 
 type PMWMultisigAccountConfiguredRequestBody struct {
@@ -14,21 +14,35 @@ type PMWMultisigAccountConfiguredRequestBody struct {
 	Threshold      uint64          `json:"threshold" validate:"gte=1" example:"3"`
 }
 
-const maxPublicKeys = 32 // XRPL SignerList maximum: https://xrpl.org/docs/references/protocol/transactions/types/signerlistset
+// MaxPublicKeys is the XRPL SignerList maximum:
+// https://xrpl.org/docs/references/protocol/transactions/types/signerlistset
+const MaxPublicKeys = 32
 
-func (requestBody PMWMultisigAccountConfiguredRequestBody) ToInternal() (connector.IPMWMultisigAccountConfiguredRequestBody, error) {
-	if len(requestBody.PublicKeys) > maxPublicKeys {
-		return connector.IPMWMultisigAccountConfiguredRequestBody{}, fmt.Errorf("too many public keys: %d (max %d)", len(requestBody.PublicKeys), maxPublicKeys)
+// ValidatePublicKeys enforces XRPL SignerList constraints on a decoded
+// publicKeys slice. It is called by both the JSON request decoder (ToInternal)
+// and by the verifier itself, so direct ABI requests cannot bypass the limit.
+func ValidatePublicKeys(publicKeys [][]byte) error {
+	if len(publicKeys) > MaxPublicKeys {
+		return fmt.Errorf("too many public keys: %d (max %d)", len(publicKeys), MaxPublicKeys)
 	}
+	for i, pk := range publicKeys {
+		if len(pk) == 0 {
+			return fmt.Errorf("public key at index %d is empty", i)
+		}
+	}
+	return nil
+}
+
+func (requestBody PMWMultisigAccountConfiguredRequestBody) ToInternal() (fdc2.IPMWMultisigAccountConfiguredRequestBody, error) {
 	publicKeys := make([][]byte, len(requestBody.PublicKeys))
 	for i, pk := range requestBody.PublicKeys {
-		if len(pk) == 0 {
-			return connector.IPMWMultisigAccountConfiguredRequestBody{}, fmt.Errorf("public key at index %d is empty", i)
-		}
 		publicKeys[i] = pk
 	}
+	if err := ValidatePublicKeys(publicKeys); err != nil {
+		return fdc2.IPMWMultisigAccountConfiguredRequestBody{}, err
+	}
 
-	return connector.IPMWMultisigAccountConfiguredRequestBody{
+	return fdc2.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: requestBody.AccountAddress,
 		PublicKeys:     publicKeys,
 		Threshold:      requestBody.Threshold,
@@ -47,7 +61,7 @@ const (
 	PMWMultisigAccountStatusERROR
 )
 
-func (s PMWMultisigAccountConfiguredResponseBody) FromInternal(data connector.IPMWMultisigAccountConfiguredResponseBody) ResponseConvertible[connector.IPMWMultisigAccountConfiguredResponseBody] {
+func (s PMWMultisigAccountConfiguredResponseBody) FromInternal(data fdc2.IPMWMultisigAccountConfiguredResponseBody) ResponseConvertible[fdc2.IPMWMultisigAccountConfiguredResponseBody] {
 	return PMWMultisigAccountConfiguredResponseBody{
 		PMWMultisigAccountStatus: data.Status,
 		Sequence:                 data.Sequence,
@@ -59,8 +73,7 @@ func (s PMWMultisigAccountConfiguredResponseBody) Log() {
 		s.PMWMultisigAccountStatus, s.Sequence)
 }
 
-func LogPMWMultisigAccountConfiguredRequestBody(req connector.IPMWMultisigAccountConfiguredRequestBody) {
+func LogPMWMultisigAccountConfiguredRequestBody(req fdc2.IPMWMultisigAccountConfiguredRequestBody) {
 	logger.Debugf("PMWMultisigAccountConfigured request: AccountAddress=%s, Threshold=%d, PublicKeys=%d keys",
 		req.AccountAddress, req.Threshold, len(req.PublicKeys))
 }
-

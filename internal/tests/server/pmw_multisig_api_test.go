@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
@@ -16,7 +16,7 @@ import (
 
 func TestPMWMultisigAccountConfigured(t *testing.T) {
 	config.ClearPMWMultisigAccountConfiguredConfigForTest()
-	setup := server.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
+	setup := server.SetupServer(t, fdc2.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
 		RPCURL: "https://s.altnet.rippletest.net:51234",
 	})
 	defer setup.Stop()
@@ -25,7 +25,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	testAddress := "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL"
 	pubKeys := [][]byte{pubkey1, pubkey2, pubkey3}
 	mSigThr := uint64(1)
-	baseReqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+	baseReqBody := fdc2.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAddress,
 		PublicKeys:     pubKeys,
 		Threshold:      mSigThr,
@@ -42,7 +42,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		internalData, err := request.RequestData.ToInternal()
 		require.NoError(t, err)
 
-		attBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, internalData)
+		attBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, internalData)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
@@ -66,7 +66,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	})
 	desiredURL = setup.URL + "/prepareResponseBody"
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := helpers.Post[types.AttestationResponseData[types.PMWMultisigAccountConfiguredResponseBody]](t, desiredURL, request, setup.APIKey)
@@ -77,7 +77,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		require.Equal(t, uint64(10136106), response.ResponseData.Sequence)
 	})
 	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -94,7 +94,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	t.Run("prepareResponseBody: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove 4 for chars.
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -103,12 +103,12 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	})
 	desiredURL = setup.URL + "/verify"
 	t.Run("verify: valid", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := helpers.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		result := helpers.DecodeResponseBody[connector.IPMWMultisigAccountConfiguredResponseBody](t, connector.PMWMultisigAccountConfigured, response.ResponseBody)
+		result := helpers.DecodeResponseBody[fdc2.IPMWMultisigAccountConfiguredResponseBody](t, fdc2.PMWMultisigAccountConfigured, response.ResponseBody)
 		require.NoError(t, err)
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusOK), result.Status)
 		require.Equal(t, uint64(10136106), result.Sequence)
@@ -116,18 +116,18 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	t.Run("verify: missing pubkey in request", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PublicKeys = modifiedReqBody.PublicKeys[:2] // Remove last public key.
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := helpers.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
-		result := helpers.DecodeResponseBody[connector.IPMWMultisigAccountConfiguredResponseBody](t, connector.PMWMultisigAccountConfigured, response.ResponseBody)
+		result := helpers.DecodeResponseBody[fdc2.IPMWMultisigAccountConfiguredResponseBody](t, fdc2.PMWMultisigAccountConfigured, response.ResponseBody)
 		require.NoError(t, err)
 		require.Equal(t, uint8(types.PMWMultisigAccountStatusERROR), result.Status)
 		require.Equal(t, uint64(0), result.Sequence)
 	})
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -135,7 +135,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid attestation type", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, [32]byte{0xFF}, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -152,7 +152,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	t.Run("verify: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove 4 for chars.
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -163,20 +163,20 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 
 func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 	config.ClearPMWMultisigAccountConfiguredConfigForTest()
-	setup := server.SetupServer(t, connector.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
+	setup := server.SetupServer(t, fdc2.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
 		RPCURL: "http://localhost:1", // Unreachable RPC URL to trigger ErrFetchAccountInfo.
 	})
 	defer setup.Stop()
 
 	pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-	reqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+	reqBody := fdc2.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL",
 		PublicKeys:     [][]byte{pubkey1, pubkey2, pubkey3},
 		Threshold:      uint64(1),
 	}
 
 	t.Run("verify: RPC unreachable returns 503", func(t *testing.T) {
-		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
+		encodedReqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, reqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/verify", request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -185,7 +185,7 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 	})
 
 	t.Run("prepareResponseBody: RPC unreachable returns 503", func(t *testing.T) {
-		encodedReqBody := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, reqBody)
+		encodedReqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, reqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, encodedReqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose // test only checks status code

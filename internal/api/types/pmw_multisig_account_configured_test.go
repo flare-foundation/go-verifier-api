@@ -8,7 +8,7 @@ import (
 )
 
 func TestToInternalRejectsTooManyPublicKeys(t *testing.T) {
-	keys := make([]hexutil.Bytes, maxPublicKeys+1)
+	keys := make([]hexutil.Bytes, MaxPublicKeys+1)
 	for i := range keys {
 		keys[i] = hexutil.Bytes{byte(i), 0x02}
 	}
@@ -19,6 +19,34 @@ func TestToInternalRejectsTooManyPublicKeys(t *testing.T) {
 	}
 	_, err := req.ToInternal()
 	require.ErrorContains(t, err, "too many public keys")
+}
+
+func TestValidatePublicKeys(t *testing.T) {
+	t.Run("nil slice is valid", func(t *testing.T) {
+		require.NoError(t, ValidatePublicKeys(nil))
+	})
+	t.Run("empty slice is valid", func(t *testing.T) {
+		require.NoError(t, ValidatePublicKeys([][]byte{}))
+	})
+	t.Run("at cap is valid", func(t *testing.T) {
+		keys := make([][]byte, MaxPublicKeys)
+		for i := range keys {
+			keys[i] = []byte{byte(i), 0x02}
+		}
+		require.NoError(t, ValidatePublicKeys(keys))
+	})
+	t.Run("over cap is rejected", func(t *testing.T) {
+		keys := make([][]byte, MaxPublicKeys+1)
+		for i := range keys {
+			keys[i] = []byte{byte(i), 0x02}
+		}
+		err := ValidatePublicKeys(keys)
+		require.ErrorContains(t, err, "too many public keys")
+	})
+	t.Run("empty entry is rejected", func(t *testing.T) {
+		err := ValidatePublicKeys([][]byte{{0x01}, nil, {0x03}})
+		require.ErrorContains(t, err, "public key at index 1 is empty")
+	})
 }
 
 func TestToInternalRejectsEmptyPublicKey(t *testing.T) {

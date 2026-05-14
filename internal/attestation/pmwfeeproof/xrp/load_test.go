@@ -15,12 +15,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
@@ -47,23 +47,23 @@ func newSharedMemDB(t *testing.T, name string, models ...any) *gorm.DB {
 
 func loadABI(t *testing.T) abi.ABI {
 	t.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return parsed
 }
 
-func encodePaymentEventData(t *testing.T, teeABI abi.ABI, command op.Command, msg payment.ITeePaymentsPaymentInstructionMessage) []byte {
+func encodePaymentEventData(t *testing.T, teeABI abi.ABI, command op.Command, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
-	msgArg := payment.MessageArguments[command]
+	msgArg := payments.MessageArguments[command]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	if err != nil {
 		t.Fatalf("cannot encode message: %v", err)
 	}
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{},
+		[]instructions.IMachineManagerTeeMachine{},
 		[32]byte{},
 		[32]byte{},
 		msgBytes,
@@ -117,7 +117,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		msg := payment.ITeePaymentsPaymentInstructionMessage{
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress:    senderAddress,
 			RecipientAddress: "rRecipient",
 			Amount:           big.NewInt(1000),
@@ -157,7 +157,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 		}
 	}
 
-	req := connector.IPMWFeeProofRequestBody{
+	req := fdc2.IPMWFeeProofRequestBody{
 		OpType:         opType,
 		SenderAddress:  senderAddress,
 		FromNonce:      fromNonce,
@@ -171,7 +171,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 	)
 
 	type callResult struct {
-		resp connector.IPMWFeeProofResponseBody
+		resp fdc2.IPMWFeeProofResponseBody
 		err  error
 	}
 

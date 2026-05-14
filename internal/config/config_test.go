@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,17 +38,17 @@ func TestCheckMissingFields(t *testing.T) {
 	fields := []string{
 		EnvRPCURL,
 		EnvRelayContractAddress,
-		EnvTeeMachineRegistryContractAddress,
+		EnvFlareTeeManagerContractAddress,
 		EnvSourceDatabaseURL,
 		EnvCChainDatabaseURL,
 	}
 	t.Run("no missing fields", func(t *testing.T) {
 		cfg := EnvConfig{
-			RPCURL:                            "rpc",
-			RelayContractAddress:              "relay",
-			TeeMachineRegistryContractAddress: "tee",
-			CChainDatabaseURL:                 "cchain",
-			SourceDatabaseURL:                 "dbURL",
+			RPCURL:                         "rpc",
+			RelayContractAddress:           "relay",
+			FlareTeeManagerContractAddress: "tee",
+			CChainDatabaseURL:              "cchain",
+			SourceDatabaseURL:              "dbURL",
 		}
 		err := CheckMissingFields(cfg, fields)
 		require.NoError(t, err)
@@ -59,10 +59,10 @@ func TestCheckMissingFields(t *testing.T) {
 			RelayContractAddress: "",
 		}
 		err := CheckMissingFields(cfg, fields)
-		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS, SOURCE_DATABASE_URL, CCHAIN_DATABASE_URL")
+		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, FLARE_TEE_MANAGER_CONTRACT_ADDRESS, SOURCE_DATABASE_URL, CCHAIN_DATABASE_URL")
 		require.ErrorContains(t, err, EnvRelayContractAddress)
 		require.ErrorContains(t, err, EnvCChainDatabaseURL)
-		require.ErrorContains(t, err, EnvTeeMachineRegistryContractAddress)
+		require.ErrorContains(t, err, EnvFlareTeeManagerContractAddress)
 	})
 	t.Run("all missing fields", func(t *testing.T) {
 		cfg := EnvConfig{}
@@ -72,14 +72,14 @@ func TestCheckMissingFields(t *testing.T) {
 			require.ErrorContains(t, err, f)
 		}
 	})
-	t.Run("TEE_INSTRUCTIONS_CONTRACT_ADDRESS missing", func(t *testing.T) {
+	t.Run("FLARE_TEE_MANAGER_CONTRACT_ADDRESS missing", func(t *testing.T) {
 		cfg := EnvConfig{}
-		err := CheckMissingFields(cfg, []string{EnvTeeInstructionsContractAddress})
-		require.ErrorContains(t, err, EnvTeeInstructionsContractAddress)
+		err := CheckMissingFields(cfg, []string{EnvFlareTeeManagerContractAddress})
+		require.ErrorContains(t, err, EnvFlareTeeManagerContractAddress)
 	})
-	t.Run("TEE_INSTRUCTIONS_CONTRACT_ADDRESS set", func(t *testing.T) {
-		cfg := EnvConfig{TeeInstructionsContractAddress: "0x00000000000000000000000000000000000000C1"}
-		err := CheckMissingFields(cfg, []string{EnvTeeInstructionsContractAddress})
+	t.Run("FLARE_TEE_MANAGER_CONTRACT_ADDRESS set", func(t *testing.T) {
+		cfg := EnvConfig{FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1"}
+		err := CheckMissingFields(cfg, []string{EnvFlareTeeManagerContractAddress})
 		require.NoError(t, err)
 	})
 }
@@ -89,13 +89,13 @@ func TestLoadEncodedAndABI(t *testing.T) {
 	abiStructNames = maps.Clone(original)
 	defer func() { abiStructNames = original }()
 
-	testCases := map[connector.AttestationType]struct {
+	testCases := map[fdc2.AttestationType]struct {
 		Request, Response string
 	}{
-		"0xInvalidName":             {"req", "res"},
-		connector.AvailabilityCheck: {"availabilityCheckRequestBodyStruct", "availabilityCheckResponseBodyStruct"},
-		"InvalidRequestABI":         {"req", "availabilityCheckResponseBodyStruct"},
-		"InvalidResponseABI":        {"availabilityCheckRequestBodyStruct", "res"},
+		"0xInvalidName":        {"req", "res"},
+		fdc2.AvailabilityCheck: {"availabilityCheckRequestBodyStruct", "availabilityCheckResponseBodyStruct"},
+		"InvalidRequestABI":    {"req", "availabilityCheckResponseBodyStruct"},
+		"InvalidResponseABI":   {"availabilityCheckRequestBodyStruct", "res"},
 	}
 	maps.Copy(abiStructNames, testCases)
 
@@ -113,7 +113,7 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			input: args{
 				envConfig: EnvConfig{
 					SourceID:        SourceTEE,
-					AttestationType: connector.AvailabilityCheck,
+					AttestationType: fdc2.AvailabilityCheck,
 				},
 			},
 			expectError: false,
@@ -145,7 +145,7 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			input: args{
 				envConfig: EnvConfig{
 					SourceID:        "0xInvalidName",
-					AttestationType: connector.PMWMultisigAccountConfigured,
+					AttestationType: fdc2.PMWMultisigAccountConfigured,
 				},
 			},
 			expectError:    true,
@@ -193,10 +193,10 @@ func TestLoadEncodedAndABI(t *testing.T) {
 }
 
 func TestGetABIArguments(t *testing.T) {
-	origABI := connector.ConnectorMetaData.ABI
-	defer func() { connector.ConnectorMetaData.ABI = origABI }()
+	origABI := fdc2.Fdc2MetaData.ABI
+	defer func() { fdc2.Fdc2MetaData.ABI = origABI }()
 
-	connector.ConnectorMetaData.ABI = `[
+	fdc2.Fdc2MetaData.ABI = `[
 		{
 			"constant": false,
 			"inputs": [{"name": "arg1","type": "uint256"}],
@@ -219,7 +219,7 @@ func TestGetABIArguments(t *testing.T) {
 		require.Equal(t, abi.Argument{}, val)
 	})
 	t.Run("invalid ABI", func(t *testing.T) {
-		connector.ConnectorMetaData.ABI = "not json"
+		fdc2.Fdc2MetaData.ABI = "not json"
 		val, err := getABIArguments("TestMethod")
 		require.ErrorContains(t, err, "failed to parse ABI: invalid character")
 		require.Equal(t, abi.Argument{}, val)

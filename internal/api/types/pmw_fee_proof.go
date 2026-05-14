@@ -5,7 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 )
 
 type PMWFeeProofRequestBody struct {
@@ -16,8 +16,8 @@ type PMWFeeProofRequestBody struct {
 	UntilTimestamp uint64      `json:"untilTimestamp" validate:"required" example:"1710000000"`
 }
 
-func (requestBody PMWFeeProofRequestBody) ToInternal() (connector.IPMWFeeProofRequestBody, error) {
-	return connector.IPMWFeeProofRequestBody{
+func (requestBody PMWFeeProofRequestBody) ToInternal() (fdc2.IPMWFeeProofRequestBody, error) {
+	return fdc2.IPMWFeeProofRequestBody{
 		OpType:         requestBody.OpType,
 		SenderAddress:  requestBody.SenderAddress,
 		FromNonce:      requestBody.FromNonce,
@@ -31,7 +31,7 @@ type PMWFeeProofResponseBody struct {
 	EstimatedFee hexutil.Big `json:"estimatedFee"`
 }
 
-func (s PMWFeeProofResponseBody) FromInternal(data connector.IPMWFeeProofResponseBody) ResponseConvertible[connector.IPMWFeeProofResponseBody] {
+func (s PMWFeeProofResponseBody) FromInternal(data fdc2.IPMWFeeProofResponseBody) ResponseConvertible[fdc2.IPMWFeeProofResponseBody] {
 	return PMWFeeProofResponseBody{
 		ActualFee:    hexutil.Big(*data.ActualFee),
 		EstimatedFee: hexutil.Big(*data.EstimatedFee),
@@ -45,7 +45,7 @@ func (s PMWFeeProofResponseBody) Log() {
 	)
 }
 
-func LogPMWFeeProofRequestBody(req connector.IPMWFeeProofRequestBody) {
+func LogPMWFeeProofRequestBody(req fdc2.IPMWFeeProofRequestBody) {
 	logger.Debugf("PMWFeeProof request: OpType=%s, SenderAddress=%s, FromNonce=%d, ToNonce=%d, UntilTimestamp=%d",
 		convert.CommonHashToString(req.OpType), req.SenderAddress, req.FromNonce, req.ToNonce, req.UntilTimestamp)
 }

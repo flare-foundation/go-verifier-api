@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	nodetypes "github.com/flare-foundation/tee-node/pkg/types"
 
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
@@ -20,7 +20,12 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-var ErrValidationFailed = errors.New("multisig account validation failed")
+var (
+	ErrValidationFailed = errors.New("multisig account validation failed")
+	// ErrInvalidRequest is returned when the request shape violates documented
+	// constraints (e.g. too many public keys, empty key entries). Maps to HTTP 400.
+	ErrInvalidRequest = errors.New("invalid multisig request")
+)
 
 type XRPVerifier struct {
 	Config *config.PMWMultisigAccountConfig
@@ -33,25 +38,30 @@ func NewXRPVerifier(cfg *config.PMWMultisigAccountConfig) *XRPVerifier {
 	return &XRPVerifier{Config: cfg, Client: client}
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req connector.IPMWMultisigAccountConfiguredRequestBody) (connector.IPMWMultisigAccountConfiguredResponseBody, error) {
+func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigAccountConfiguredRequestBody) (fdc2.IPMWMultisigAccountConfiguredResponseBody, error) {
+	// Enforce request shape here so direct ABI callers (verify / prepareResponseBody)
+	// cannot bypass the limits applied by the JSON ToInternal path.
+	if err := apitypes.ValidatePublicKeys(req.PublicKeys); err != nil {
+		return fdc2.IPMWMultisigAccountConfiguredResponseBody{}, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+	}
 	accountInfo, err := x.Client.FetchAccountInfo(ctx, req.AccountAddress)
 	if err != nil {
-		return connector.IPMWMultisigAccountConfiguredResponseBody{}, err
+		return fdc2.IPMWMultisigAccountConfiguredResponseBody{}, err
 	}
 	sequence, err := x.validateMultisigConfiguration(accountInfo, req)
 	if err != nil {
-		return connector.IPMWMultisigAccountConfiguredResponseBody{
+		return fdc2.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(apitypes.PMWMultisigAccountStatusERROR),
 			Sequence: 0,
 		}, nil
 	}
-	return connector.IPMWMultisigAccountConfiguredResponseBody{
+	return fdc2.IPMWMultisigAccountConfiguredResponseBody{
 		Status:   uint8(apitypes.PMWMultisigAccountStatusOK),
 		Sequence: sequence,
 	}, nil
 }
 
-func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req connector.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
+func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req fdc2.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
 	if accountInfo.Result.Validated == nil || !*accountInfo.Result.Validated {
 		return 0, fmt.Errorf("account_info response is not from a validated ledger for %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
@@ -78,7 +88,7 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	return accountInfo.Result.AccountData.Sequence, nil
 }
 
-func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req connector.IPMWMultisigAccountConfiguredRequestBody) bool {
+func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req fdc2.IPMWMultisigAccountConfiguredRequestBody) bool {
 	expectedAccounts := make(map[string]struct{}, len(req.PublicKeys))
 	for _, pk := range req.PublicKeys {
 		addrStr, err := XRPAddressFromPubKey(pk)

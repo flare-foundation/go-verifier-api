@@ -28,7 +28,7 @@ import (
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +41,7 @@ var (
 
 func TestPrepareRequestBody(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t)
-	attBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+	attBody := fdc2.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     testPublicKeys,
 		Threshold:      testThreshold,
@@ -67,14 +67,14 @@ func TestPrepareRequestBody(t *testing.T) {
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
 		val, err := prepareRequestBody(req, encodedAndABI)
-		require.ErrorContains(t, err, "encoding request data failed: encoding type connector.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
+		require.ErrorContains(t, err, "encoding request data failed: encoding type fdc2.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
 		require.Nil(t, val)
 	})
 }
 
 func TestResolve(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t)
-	attBodyInvalid := connector.IPMWMultisigAccountConfiguredRequestBody{
+	attBodyInvalid := fdc2.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     [][]byte{}, // empty slice triggers "min=1" validation
 		Threshold:      0,          // violates "gte=1"
@@ -133,13 +133,13 @@ func TestValidateSystemAndRequestAttestationNameAndSourceID(t *testing.T) {
 
 func TestDecodeRequest(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t)
-	baseReqBody := connector.IPMWMultisigAccountConfiguredRequestBody{
+	baseReqBody := fdc2.IPMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: testAccountAddress,
 		PublicKeys:     testPublicKeys,
 		Threshold:      testThreshold,
 	}
 	t.Run("valid", func(t *testing.T) {
-		encoded := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		encoded := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, baseReqBody)
 		decoded, err := decodeRequest[types.PMWMultisigAccountConfiguredRequestBody](encoded, encodedAndABI)
 		require.NoError(t, err)
 		require.Equal(t, testAccountAddress, decoded.AccountAddress)
@@ -147,7 +147,7 @@ func TestDecodeRequest(t *testing.T) {
 		require.Equal(t, testThreshold, decoded.Threshold)
 	})
 	t.Run("invalid", func(t *testing.T) {
-		encoded := helpers.EncodeRequestBody(t, connector.PMWMultisigAccountConfigured, baseReqBody)
+		encoded := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, baseReqBody)
 		invalidBody := append([]byte(nil), encoded...)
 		invalidBody = append(invalidBody, 'a', 'a')
 		val, err := decodeRequest[types.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndABI)
@@ -159,13 +159,13 @@ func TestDecodeRequest(t *testing.T) {
 func TestEncodeResponse(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t)
 	t.Run("valid", func(t *testing.T) {
-		resp := connector.IPMWMultisigAccountConfiguredResponseBody{
+		resp := fdc2.IPMWMultisigAccountConfiguredResponseBody{
 			Status:   uint8(types.PMWMultisigAccountStatusOK),
 			Sequence: 10136106,
 		}
 		encoded, err := encodeResponse(resp, encodedAndABI)
 		require.NoError(t, err)
-		decoded, err := structs.Decode[connector.IPMWMultisigAccountConfiguredResponseBody](encodedAndABI.ABIPair.Response, encoded)
+		decoded, err := structs.Decode[fdc2.IPMWMultisigAccountConfiguredResponseBody](encodedAndABI.ABIPair.Response, encoded)
 		require.NoError(t, err)
 		require.Equal(t, resp, decoded)
 	})
@@ -183,14 +183,14 @@ func TestEncodeResponse(t *testing.T) {
 func TestEncodeRequest(t *testing.T) {
 	encodedAndABI := loadTestEncodedAndABI(t)
 	t.Run("valid", func(t *testing.T) {
-		req := connector.IPMWMultisigAccountConfiguredRequestBody{
+		req := fdc2.IPMWMultisigAccountConfiguredRequestBody{
 			AccountAddress: testAccountAddress,
 			PublicKeys:     testPublicKeys,
 			Threshold:      testThreshold,
 		}
 		encoded, err := encodeRequest(req, encodedAndABI)
 		require.NoError(t, err)
-		decoded, err := structs.Decode[connector.IPMWMultisigAccountConfiguredRequestBody](encodedAndABI.ABIPair.Request, encoded)
+		decoded, err := structs.Decode[fdc2.IPMWMultisigAccountConfiguredRequestBody](encodedAndABI.ABIPair.Request, encoded)
 		require.NoError(t, err)
 		require.Equal(t, req, decoded)
 	})
@@ -207,7 +207,7 @@ func TestEncodeRequest(t *testing.T) {
 
 func loadTestEncodedAndABI(t *testing.T) *config.EncodedAndABI {
 	t.Helper()
-	attestationType := connector.PMWMultisigAccountConfigured
+	attestationType := fdc2.PMWMultisigAccountConfigured
 	encodedAndABI, err := config.LoadEncodedAndABI(config.EnvConfig{
 		APIKeys:         nil,
 		AttestationType: attestationType,

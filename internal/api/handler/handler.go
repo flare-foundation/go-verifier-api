@@ -10,10 +10,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
+	multisigxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
@@ -135,7 +136,8 @@ func classifyVerifyError(reqID string, err error) error {
 	msg := "Verification failed"
 	switch {
 	// 400 — bad request
-	case errors.Is(err, feeproofxrp.ErrNonceRangeTooLarge):
+	case errors.Is(err, feeproofxrp.ErrNonceRangeTooLarge),
+		errors.Is(err, multisigxrp.ErrInvalidRequest):
 		return warnHuma400(reqID, msg, err)
 	// 422 — data/validation errors
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
@@ -170,13 +172,13 @@ func generateRequestID() string {
 
 func logRequestBody[T any](requestData T) {
 	switch req := any(requestData).(type) {
-	case connector.ITeeAvailabilityCheckRequestBody:
+	case fdc2.ITeeAvailabilityCheckRequestBody:
 		types.LogTeeAvailabilityCheckRequestBody(req)
-	case connector.IPMWMultisigAccountConfiguredRequestBody:
+	case fdc2.IPMWMultisigAccountConfiguredRequestBody:
 		types.LogPMWMultisigAccountConfiguredRequestBody(req)
-	case connector.IPMWPaymentStatusRequestBody:
+	case fdc2.IPMWPaymentStatusRequestBody:
 		types.LogPMWPaymentStatusRequestBody(req)
-	case connector.IPMWFeeProofRequestBody:
+	case fdc2.IPMWFeeProofRequestBody:
 		types.LogPMWFeeProofRequestBody(req)
 	default:
 		logger.Debug("No request logger for this request type")

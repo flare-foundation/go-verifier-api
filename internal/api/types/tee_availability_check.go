@@ -3,7 +3,7 @@ package types
 import (
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,8 +18,8 @@ type TeeAvailabilityCheckRequestBody struct {
 	InstructionID common.Hash    `json:"instructionId" validate:"required" example:"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"`
 }
 
-func (requestBody TeeAvailabilityCheckRequestBody) ToInternal() (connector.ITeeAvailabilityCheckRequestBody, error) {
-	return connector.ITeeAvailabilityCheckRequestBody{
+func (requestBody TeeAvailabilityCheckRequestBody) ToInternal() (fdc2.ITeeAvailabilityCheckRequestBody, error) {
+	return fdc2.ITeeAvailabilityCheckRequestBody{
 		TeeId:         requestBody.TeeID,
 		TeeProxyId:    requestBody.TeeProxyID,
 		Url:           requestBody.URL,
@@ -45,7 +45,7 @@ type TeeAvailabilityCheckTeeState struct {
 	StateVersion       common.Hash   `json:"stateVersion"`
 }
 
-func (t TeeAvailabilityCheckResponseBody) FromInternal(data connector.ITeeAvailabilityCheckResponseBody) ResponseConvertible[connector.ITeeAvailabilityCheckResponseBody] {
+func (t TeeAvailabilityCheckResponseBody) FromInternal(data fdc2.ITeeAvailabilityCheckResponseBody) ResponseConvertible[fdc2.ITeeAvailabilityCheckResponseBody] {
 	return TeeAvailabilityCheckResponseBody{
 		Status:                 data.Status,
 		TeeTimestamp:           data.TeeTimestamp,
@@ -73,7 +73,7 @@ func (t TeeAvailabilityCheckResponseBody) Log() {
 		t.State)
 }
 
-func LogTeeAvailabilityCheckRequestBody(req connector.ITeeAvailabilityCheckRequestBody) {
+func LogTeeAvailabilityCheckRequestBody(req fdc2.ITeeAvailabilityCheckRequestBody) {
 	logger.Debugf("TeeAvailabilityCheck request: TeeID=%s, TeeProxyID=%s, URL=%s, Challenge=%x, InstructionID=%x",
 		req.TeeId, req.TeeProxyId, req.Url, req.Challenge, req.InstructionId)
 }

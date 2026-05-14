@@ -60,7 +60,7 @@ func TestLoadPollerSingleCycleCompletion(t *testing.T) {
 			v := &verifier.TeeVerifier{
 				Cfg:        &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
 				TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
-				TeeMachineRegistryCaller: &mockTeeMachineRegistryCaller{
+				MachineManagerCaller: &mockMachineManagerCaller{
 					getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 						s := int(start.Int64())
 						e := int(end.Int64())
@@ -123,7 +123,7 @@ func TestLoadPollerSlowTEEsDoNotStallCycle(t *testing.T) {
 	v := &verifier.TeeVerifier{
 		Cfg:        &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
 		TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
-		TeeMachineRegistryCaller: &mockTeeMachineRegistryCaller{
+		MachineManagerCaller: &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				s := int(start.Int64())
 				e := int(end.Int64())
@@ -195,7 +195,7 @@ func TestLoadPollerRepeatedCyclesStability(t *testing.T) {
 	v := &verifier.TeeVerifier{
 		Cfg:        &config.TeeAvailabilityCheckConfig{AllowPrivateNetworks: true},
 		TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
-		TeeMachineRegistryCaller: &mockTeeMachineRegistryCaller{
+		MachineManagerCaller: &mockMachineManagerCaller{
 			getAllActiveFunc: func(opts *bind.CallOpts, start, end *big.Int) (teeMachinesResult, error) {
 				s := int(start.Int64())
 				e := int(end.Int64())
@@ -339,7 +339,7 @@ func TestLoadPollerExtensionFilteringWorstCase(t *testing.T) {
 					MaxPolledTees:        tc.cap,
 				},
 				TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
-				TeeMachineRegistryCaller: &mockTeeMachineRegistryCaller{
+				MachineManagerCaller: &mockMachineManagerCaller{
 					getActiveByExtFunc: func(opts *bind.CallOpts, extID *big.Int) (extensionTeesResult, error) {
 						return mockExtensionTees(t, ext0IDs, ext0URLs), nil
 					},

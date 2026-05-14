@@ -15,12 +15,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/teeextensionregistry"
+	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payment"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -45,17 +45,17 @@ func newSharedMemDB(t *testing.T, name string, models ...any) *gorm.DB {
 
 func loadABI(t *testing.T) abi.ABI {
 	t.Helper()
-	parsed, err := abi.JSON(strings.NewReader(teeextensionregistry.TeeExtensionRegistryMetaData.ABI))
+	parsed, err := abi.JSON(strings.NewReader(instructions.InstructionsMetaData.ABI))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return parsed
 }
 
-func encodePaymentEventData(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymentsPaymentInstructionMessage) []byte {
+func encodePaymentEventData(t *testing.T, teeABI abi.ABI, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
 
-	msgArg := payment.MessageArguments[op.Pay]
+	msgArg := payments.MessageArguments[op.Pay]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	if err != nil {
 		t.Fatalf("cannot encode payment message: %v", err)
@@ -63,7 +63,7 @@ func encodePaymentEventData(t *testing.T, teeABI abi.ABI, msg payment.ITeePaymen
 
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
-		[]teeextensionregistry.ITeeMachineRegistryTeeMachine{}, // TeeMachines
+		[]instructions.IMachineManagerTeeMachine{}, // TeeMachines
 		[32]byte{},         // OpType
 		[32]byte{},         // OpCommand
 		msgBytes,           // Message
@@ -97,7 +97,7 @@ func seedTestData(
 ) {
 	t.Helper()
 
-	msg := payment.ITeePaymentsPaymentInstructionMessage{
+	msg := payments.ITeePaymentsPaymentInstructionMessage{
 		SenderAddress:    senderAddress,
 		RecipientAddress: recipientAddress,
 		Amount:           amount,
@@ -124,12 +124,13 @@ func seedTestData(
 		t.Fatalf("cannot seed log: %v", err)
 	}
 
+	hashHex := fmt.Sprintf("%064x", nonce)
 	txResponse := fmt.Sprintf(
-		`{"Account":"%s","Amount":"%s","Destination":"%s","Fee":"%s","Sequence":%d,"TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"%s","Balance":"1000000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"900000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"%s"}}`,
-		senderAddress, amount.String(), recipientAddress, txFee, nonce, recipientAddress, amount.String())
+		`{"Account":"%s","Amount":"%s","Destination":"%s","Fee":"%s","Sequence":%d,"hash":"%s","TransactionType":"Payment","metaData":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Account":"%s","Balance":"1000000"},"LedgerEntryType":"AccountRoot","PreviousFields":{"Balance":"900000"}}}],"TransactionResult":"tesSUCCESS","delivered_amount":"%s"}}`,
+		senderAddress, amount.String(), recipientAddress, txFee, nonce, hashHex, recipientAddress, amount.String())
 
 	tx := paymentdb.DBTransaction{
-		Hash:          fmt.Sprintf("%064x", nonce),
+		Hash:          hashHex,
 		BlockNumber:   100,
 		Timestamp:     1700000000,
 		Response:      txResponse,
@@ -176,7 +177,7 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 	seedTestData(t, teeABI, xrpDB, cChainDB, eventHash, instructionID,
 		senderAddress, "rRecipient", nonce, big.NewInt(1000), big.NewInt(50), "12")
 
-	req := connector.IPMWPaymentStatusRequestBody{
+	req := fdc2.IPMWPaymentStatusRequestBody{
 		OpType:        opType,
 		SenderAddress: senderAddress,
 		Nonce:         nonce,
@@ -189,7 +190,7 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 	)
 
 	type callResult struct {
-		resp connector.IPMWPaymentStatusResponseBody
+		resp fdc2.IPMWPaymentStatusResponseBody
 		err  error
 	}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -21,13 +21,13 @@ import (
 
 func TestTEEAvailabilityCheck(t *testing.T) {
 	config.ClearTeeAvailabilityCheckConfigForTest()
-	setup := server.SetupServer(t, connector.AvailabilityCheck, config.SourceTEE, config.EnvConfig{
-		RPCURL:                            "https://coston-api.flare.network/ext/C/rpc",
-		RelayContractAddress:              "0x92a6E1127262106611e1e129BB64B6D8654273F7",
-		TeeMachineRegistryContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
-		AllowTeeDebug:                     "true",
-		DisableAttestationCheckE2E:        "true",
-		AllowPrivateNetworks:              "true",
+	setup := server.SetupServer(t, fdc2.AvailabilityCheck, config.SourceTEE, config.EnvConfig{
+		RPCURL:                         "https://coston-api.flare.network/ext/C/rpc",
+		RelayContractAddress:           "0x92a6E1127262106611e1e129BB64B6D8654273F7",
+		FlareTeeManagerContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+		AllowTeeDebug:                  "true",
+		DisableAttestationCheckE2E:     "true",
+		AllowPrivateNetworks:           "true",
 	})
 	defer setup.Stop()
 
@@ -49,11 +49,17 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		proxySignature, err := crypto.Sign(ethHash, privProxyKey)
 		require.NoError(t, err)
 
+		actionResult := teenodetypes.ActionResult{
+			ID:     instructionId,
+			Status: 1, // success for direct instructions (tee-node)
+			Data:   teeInfoBytes,
+		}
+		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
+		require.NoError(t, err)
+
 		resp := teenodetypes.ActionResponse{
-			Result: teenodetypes.ActionResult{
-				Data: teeInfoBytes,
-			},
-			Signature:      []byte{},
+			Result:         actionResult,
+			Signature:      teeSignature,
 			ProxySignature: proxySignature,
 		}
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -64,7 +70,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	baseReqBody := connector.ITeeAvailabilityCheckRequestBody{
+	baseReqBody := fdc2.ITeeAvailabilityCheckRequestBody{
 		TeeId:         crypto.PubkeyToAddress(privTEEKey.PublicKey),
 		TeeProxyId:    crypto.PubkeyToAddress(privProxyKey.PublicKey),
 		Url:           server.URL,
@@ -83,7 +89,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		internalData, err := request.RequestData.ToInternal()
 		require.NoError(t, err)
 
-		attBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, internalData)
+		attBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, internalData)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
@@ -111,7 +117,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "requestBody cannot be empty")
 	})
 	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -121,7 +127,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	t.Run("prepareResponseBody: proxy ID does not match", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.TeeProxyId = common.HexToAddress("0x11")
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -129,7 +135,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.Post[types.AttestationResponseData[types.TeeAvailabilityCheckResponseBody]](t, desiredURL, request, setup.APIKey)
@@ -149,7 +155,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -159,7 +165,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	t.Run("verify: proxy ID does not match", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.TeeProxyId = common.HexToAddress("0x11")
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -169,7 +175,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	t.Run("verify: challenge does not match", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Challenge = common.HexToHash("0x11")
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -179,7 +185,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 	t.Run("verify: not enough TEE poller data", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.InstructionId = common.HexToHash("0x11")
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -187,13 +193,13 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
 	t.Run("verify: valid", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.AvailabilityCheck, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 
-		result := helpers.DecodeResponseBody[connector.ITeeAvailabilityCheckResponseBody](t, connector.AvailabilityCheck, response.ResponseBody)
+		result := helpers.DecodeResponseBody[fdc2.ITeeAvailabilityCheckResponseBody](t, fdc2.AvailabilityCheck, response.ResponseBody)
 		require.NotEmpty(t, result)
 		require.Equal(t, uint8(verifier.OK), result.Status)
 		require.Equal(t, verifier.E2ETestCodeHash[:], result.CodeHash[:])

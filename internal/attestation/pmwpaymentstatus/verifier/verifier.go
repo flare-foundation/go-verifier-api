@@ -3,7 +3,7 @@ package verifier
 import (
 	"fmt"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -13,13 +13,13 @@ import (
 type VerifierConstructor func(
 	cfg *config.PMWPaymentStatusConfig,
 	db, cChainDB *gorm.DB,
-) (attestation.Verifier[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error)
+) (attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody], error)
 
 var xrpConstructor = func(
 	cfg *config.PMWPaymentStatusConfig,
 	db, cChainDB *gorm.DB,
 ) (
-	attestation.Verifier[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
+	attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody], error,
 ) {
 	return xrpverifier.NewXRPVerifier(cfg, db, cChainDB), nil
 }
@@ -33,7 +33,7 @@ func NewVerifier(
 	cfg *config.PMWPaymentStatusConfig,
 	db, cChainDB *gorm.DB,
 ) (
-	attestation.Verifier[connector.IPMWPaymentStatusRequestBody, connector.IPMWPaymentStatusResponseBody], error,
+	attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody], error,
 ) {
 	sourceIDStr := string(cfg.SourceIDPair.SourceID)
 	constructor, ok := registry[sourceIDStr]

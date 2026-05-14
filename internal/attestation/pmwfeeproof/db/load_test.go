@@ -18,6 +18,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// testContractAddressStored is the same address as testContractAddress in the
+// indexer's storage format (lowercase, no 0x prefix). Defined here because it
+// is only consumed by load-tagged tests.
+const testContractAddressStored = "00000000000000000000000000000000000000c1"
+
 func newSharedMemoryDB(t *testing.T, name string, models ...any) *gorm.DB {
 	t.Helper()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", name)

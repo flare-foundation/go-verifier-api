@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/connector"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -22,10 +22,10 @@ import (
 func TestPMWFeeProof(t *testing.T) {
 	config.ClearPMWFeeProofConfigForTest()
 
-	setup := server.SetupServer(t, connector.PMWFeeProof, config.SourceTestXRP, config.EnvConfig{
+	setup := server.SetupServer(t, fdc2.PMWFeeProof, config.SourceTestXRP, config.EnvConfig{
 		SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 		CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
-		TeeInstructionsContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
+		FlareTeeManagerContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
 	})
 	defer setup.Stop()
 
@@ -38,7 +38,7 @@ func TestPMWFeeProof(t *testing.T) {
 	toNonce := uint64(11263177)
 	untilTimestamp := uint64(1759820500) // After all event timestamps
 
-	baseReqBody := connector.IPMWFeeProofRequestBody{
+	baseReqBody := fdc2.IPMWFeeProofRequestBody{
 		OpType:         opType,
 		SenderAddress:  testSenderAddress,
 		FromNonce:      fromNonce,
@@ -66,7 +66,7 @@ func TestPMWFeeProof(t *testing.T) {
 		internalData, err := reqData.ToInternal()
 		require.NoError(t, err)
 
-		attBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, internalData)
+		attBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, internalData)
 		require.NoError(t, err)
 		require.Equal(t, []byte(response.RequestBody), attBody)
 	})
@@ -80,7 +80,7 @@ func TestPMWFeeProof(t *testing.T) {
 
 	desiredURL = setup.URL + "/prepareResponseBody"
 	t.Run("prepareResponseBody: valid", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 
 		response, err := helpers.Post[types.AttestationResponseData[types.PMWFeeProofResponseBody]](t, desiredURL, request, setup.APIKey)
@@ -97,7 +97,7 @@ func TestPMWFeeProof(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
 	t.Run("prepareResponseBody: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -106,12 +106,12 @@ func TestPMWFeeProof(t *testing.T) {
 
 	desiredURL = setup.URL + "/verify"
 	t.Run("verify: valid", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
 
-		result := helpers.DecodeResponseBody[connector.IPMWFeeProofResponseBody](t, connector.PMWFeeProof, response.ResponseBody)
+		result := helpers.DecodeResponseBody[fdc2.IPMWFeeProofResponseBody](t, fdc2.PMWFeeProof, response.ResponseBody)
 		require.Equal(t, expectedActualFee, result.ActualFee)
 		require.Equal(t, expectedEstimatedFee, result.EstimatedFee)
 	})
@@ -128,14 +128,14 @@ func TestPMWFeeProof(t *testing.T) {
 		helpers.AssertHumaError(t, response, http.StatusUnauthorized, "Unauthorized")
 	})
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
 	})
 	t.Run("verify: invalid attestationType", func(t *testing.T) {
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, baseReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 1
 		modifiedReqBody.ToNonce = xrpverifier.MaxNonceRange + 1 // exceeds MaxNonceRange
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -161,7 +161,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 99999 // Nonce with no pay event
 		modifiedReqBody.ToNonce = 99999
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 11263185 // baseNonce + 40
 		modifiedReqBody.ToNonce = 11263185
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 11263186 // baseNonce + 41
 		modifiedReqBody.ToNonce = 11263186
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -194,7 +194,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 11263187 // baseNonce + 42
 		modifiedReqBody.ToNonce = 11263187
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 11263188 // baseNonce + 43
 		modifiedReqBody.ToNonce = 11263188
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.FromNonce = 99999
 		modifiedReqBody.ToNonce = 99999
-		reqBody := helpers.EncodeRequestBody(t, connector.PMWFeeProof, modifiedReqBody)
+		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)

@@ -30,7 +30,7 @@ Environment variables:
 VERIFIER_TYPE=TeeAvailabilityCheck
 SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
-TEE_MACHINE_REGISTRY_CONTRACT_ADDRESS=0x...
+FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
 
 # Test/E2E-only flags (optional, default to false):
@@ -67,10 +67,10 @@ VERIFIER_TYPE=PMWPaymentStatus
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
-TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
+FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 ```
 
-> **NOTE**: `TEE_INSTRUCTIONS_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
+> **NOTE**: `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
 
 ### `PMWFeeProof` Attestation Type
 Requires the same indexers as `PMWPaymentStatus`.
@@ -81,7 +81,7 @@ VERIFIER_TYPE=PMWFeeProof
 SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
-TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
+FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 ```
 
 ## How to Set Up and Run Verifier
@@ -120,7 +120,7 @@ TEE_INSTRUCTIONS_CONTRACT_ADDRESS=0x...
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
 ## TEE Poller
-The `TeeAvailabilityCheck` attestation type initiates a process called [`teepoller`](internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go). The purpose of the `teepoller` is to continuously ping all available TEEs (retrieved from the `TeeMachineRegistry` smart contract), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
+The `TeeAvailabilityCheck` attestation type initiates a process called [`teepoller`](internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go). The purpose of the `teepoller` is to continuously ping all available TEEs (retrieved via the `MachineManager` interface on the `FlareTeeManager` diamond), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
 
 Samples retrieved by the poller can be VALID, INVALID or INDETERMINATE (the latter case occurs when the check fails due to verifier fault, e.g. being unable to connect to RPC).
 
@@ -216,6 +216,7 @@ This is the simplest way to run everything without worrying about Docker manuall
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
 - `go.mod` pins `github.com/jackc/pgx/v5 v5.9.1` as an explicit indirect override because `gorm.io/driver/postgres v1.6.0` pulls the unpatched v5.6.0 (CVE-2026-33815, CVE-2026-33816). Drop the explicit pgx require once a newer `gorm.io/driver/postgres` ships that pulls pgx >= v5.9.0.
+- PMWFeeProof: cap the per-nonce reissue scan in `pmwfeeproof/xrp/verifier.go:115`. The inner `for reissueNum := 0; ; reissueNum++` loop is bounded only by indexer state (the contract has no on-chain reissue count cap — only the `BatchNotYetEnded` timing constraint). A polluted indexer can trigger arbitrary DB lookups per request. Suggested cap: 50 (well above any realistic retry count). Return a 422 (or new sentinel mapped to 400) when exceeded.
 
 ### Monitoring
 - When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures. The endpoint supports `offset` and `limit` query params (default limit: 100, max: 500) and returns a `total` count for pagination.
