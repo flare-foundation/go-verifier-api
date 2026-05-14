@@ -14,6 +14,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
+	multisigxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
@@ -135,7 +136,8 @@ func classifyVerifyError(reqID string, err error) error {
 	msg := "Verification failed"
 	switch {
 	// 400 — bad request
-	case errors.Is(err, feeproofxrp.ErrNonceRangeTooLarge):
+	case errors.Is(err, feeproofxrp.ErrNonceRangeTooLarge),
+		errors.Is(err, multisigxrp.ErrInvalidRequest):
 		return warnHuma400(reqID, msg, err)
 	// 422 — data/validation errors
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),

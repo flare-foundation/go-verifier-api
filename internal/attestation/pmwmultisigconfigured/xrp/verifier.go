@@ -20,7 +20,12 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
-var ErrValidationFailed = errors.New("multisig account validation failed")
+var (
+	ErrValidationFailed = errors.New("multisig account validation failed")
+	// ErrInvalidRequest is returned when the request shape violates documented
+	// constraints (e.g. too many public keys, empty key entries). Maps to HTTP 400.
+	ErrInvalidRequest = errors.New("invalid multisig request")
+)
 
 type XRPVerifier struct {
 	Config *config.PMWMultisigAccountConfig
@@ -34,6 +39,11 @@ func NewXRPVerifier(cfg *config.PMWMultisigAccountConfig) *XRPVerifier {
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigAccountConfiguredRequestBody) (fdc2.IPMWMultisigAccountConfiguredResponseBody, error) {
+	// Enforce request shape here so direct ABI callers (verify / prepareResponseBody)
+	// cannot bypass the limits applied by the JSON ToInternal path.
+	if err := apitypes.ValidatePublicKeys(req.PublicKeys); err != nil {
+		return fdc2.IPMWMultisigAccountConfiguredResponseBody{}, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+	}
 	accountInfo, err := x.Client.FetchAccountInfo(ctx, req.AccountAddress)
 	if err != nil {
 		return fdc2.IPMWMultisigAccountConfiguredResponseBody{}, err

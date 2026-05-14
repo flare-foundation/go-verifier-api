@@ -1,13 +1,16 @@
 package xrpverifier
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"errors"
 	"testing"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/types"
 	"github.com/stretchr/testify/require"
 )
@@ -365,4 +368,41 @@ func paddedPubKey(priv *ecdsa.PrivateKey) []byte {
 	copy(pubkey[32-len(x):32], x)
 	copy(pubkey[64-len(y):64], y)
 	return pubkey
+}
+
+// TestVerifyRejectsInvalidRequestBeforeRPC checks that the publicKeys cap and
+// empty-entry checks fire at the verifier level — i.e. they cannot be bypassed
+// by a caller that submits ABI-encoded requests directly to verify or
+// prepareResponseBody. The verifier has a nil Client; if validation didn't
+// short-circuit, the test would panic on the FetchAccountInfo call.
+func TestVerifyRejectsInvalidRequestBeforeRPC(t *testing.T) {
+	verifier := &XRPVerifier{}
+
+	t.Run("over the public-key cap", func(t *testing.T) {
+		keys := make([][]byte, apitypes.MaxPublicKeys+1)
+		for i := range keys {
+			keys[i] = []byte{byte(i), 0x02}
+		}
+		req := fdc2.IPMWMultisigAccountConfiguredRequestBody{
+			AccountAddress: testAccountName,
+			PublicKeys:     keys,
+			Threshold:      1,
+		}
+		_, err := verifier.Verify(context.Background(), req)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrInvalidRequest), "expected ErrInvalidRequest, got %v", err)
+		require.ErrorContains(t, err, "too many public keys")
+	})
+
+	t.Run("empty public-key entry", func(t *testing.T) {
+		req := fdc2.IPMWMultisigAccountConfiguredRequestBody{
+			AccountAddress: testAccountName,
+			PublicKeys:     [][]byte{{0x01, 0x02}, nil, {0x03, 0x04}},
+			Threshold:      1,
+		}
+		_, err := verifier.Verify(context.Background(), req)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrInvalidRequest), "expected ErrInvalidRequest, got %v", err)
+		require.ErrorContains(t, err, "public key at index 1 is empty")
+	})
 }
