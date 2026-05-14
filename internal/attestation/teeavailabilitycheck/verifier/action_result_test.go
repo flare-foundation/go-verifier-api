@@ -30,11 +30,9 @@ func TestVerifyActionResult(t *testing.T) {
 	instructionID := common.HexToHash("0xdeadbeef")
 
 	validResult := teenodetypes.ActionResult{
-		ID:        instructionID,
-		Status:    1, // success for direct instructions (see tee-node direct/direct.go)
-		OPType:    expectedAvailabilityOPType,
-		OPCommand: expectedAvailabilityOPCommand,
-		Data:      []byte(`{"teeInfo":{}}`),
+		ID:     instructionID,
+		Status: 1, // success for direct instructions (see tee-node direct/direct.go)
+		Data:   []byte(`{"teeInfo":{}}`),
 	}
 
 	t.Run("valid action result", func(t *testing.T) {
@@ -92,35 +90,6 @@ func TestVerifyActionResult(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "status not success")
 		require.Contains(t, err.Error(), "status=3")
-	})
-
-	t.Run("OPType mismatch is rejected", func(t *testing.T) {
-		// Proxy serves a result whose OPType claims a different operation.
-		// OPType is not in Result.Hash(), so a malicious proxy can tamper
-		// with it without breaking the TEE signature.
-		mismatched := validResult
-		mismatched.OPType = common.HexToHash("0xdead")
-		sig := signActionResult(t, mismatched, teeKey)
-		resp := teenodetypes.ActionResponse{
-			Result:    mismatched,
-			Signature: sig,
-		}
-		err := verifyActionResult(resp, instructionID, teeID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "OPType mismatch")
-	})
-
-	t.Run("OPCommand mismatch is rejected", func(t *testing.T) {
-		mismatched := validResult
-		mismatched.OPCommand = common.HexToHash("0xbeef")
-		sig := signActionResult(t, mismatched, teeKey)
-		resp := teenodetypes.ActionResponse{
-			Result:    mismatched,
-			Signature: sig,
-		}
-		err := verifyActionResult(resp, instructionID, teeID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "OPCommand mismatch")
 	})
 
 	t.Run("missing TEE signature", func(t *testing.T) {

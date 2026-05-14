@@ -19,7 +19,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/machinemanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -51,13 +50,6 @@ const (
 var (
 	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
-
-	// Expected op pair for an availability-check action result. Set by the
-	// tee-node direct processor registered at op.Get / op.TEEInfo in
-	// tee-node/internal/router/routers.go. These fields are not covered by
-	// ActionResult.Hash(), so the verifier checks them explicitly.
-	expectedAvailabilityOPType    = op.Get.Hash()
-	expectedAvailabilityOPCommand = op.TEEInfo.Hash()
 
 	ErrInsufficientSamples  = errors.New("insufficient samples")
 	ErrTEEDataValidation    = errors.New("TEE data validation failed")
@@ -511,8 +503,10 @@ func FetchTEEChallengeResult(
 //
 // The TEE signature over Result.Hash() binds Data, ID, SubmissionTag, and
 // Status (see tee-node pkg/types/actions.go Hash()). OPType and OPCommand
-// are NOT bound by the signature, so they are checked explicitly against the
-// expected availability-response constants.
+// are NOT bound by the signature; the verifier currently does not check
+// them explicitly because the availability path can carry either
+// (op.Get, op.TEEInfo) or (op.Reg, op.TEEAttestation) and the response
+// Data shape (TeeInfoResponse) is constrained by JSON unmarshal downstream.
 func verifyActionResult(
 	actionResp teenodetypes.ActionResponse,
 	expectedInstructionID common.Hash,
@@ -528,16 +522,6 @@ func verifyActionResult(
 	if actionResp.Result.Status != 1 {
 		return fmt.Errorf("action result status not success: status=%d, log=%q, additionalStatus=%x",
 			actionResp.Result.Status, actionResp.Result.Log, []byte(actionResp.Result.AdditionalResultStatus))
-	}
-	// OPType/OPCommand are not in Result.Hash(), so we cannot rely on the TEE
-	// signature to cover them. Compare to the expected (op.Get, op.TEEInfo) pair.
-	if actionResp.Result.OPType != expectedAvailabilityOPType {
-		return fmt.Errorf("action result OPType mismatch: expected %s, got %s",
-			expectedAvailabilityOPType.Hex(), actionResp.Result.OPType.Hex())
-	}
-	if actionResp.Result.OPCommand != expectedAvailabilityOPCommand {
-		return fmt.Errorf("action result OPCommand mismatch: expected %s, got %s",
-			expectedAvailabilityOPCommand.Hex(), actionResp.Result.OPCommand.Hex())
 	}
 	if len(actionResp.Signature) == 0 {
 		return errors.New("missing TEE signature on action result")
