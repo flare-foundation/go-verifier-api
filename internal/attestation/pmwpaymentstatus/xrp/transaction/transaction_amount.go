@@ -67,11 +67,11 @@ func extractFromModifiedNode(mod *types.ModifiedNode) (*types.AddressAmount, err
 	if !ok1 || !ok2 || !ok3 {
 		return nil, nil
 	}
-	finalBal, err := helper.ParseBigInt(finalBalStr)
+	finalBal, err := helper.ParseNonNegativeBigInt(finalBalStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid final balance format for account %s: %s", account, finalBalStr)
 	}
-	prevBal, err := helper.ParseBigInt(prevBalStr)
+	prevBal, err := helper.ParseNonNegativeBigInt(prevBalStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid previous balance format for account %s: %s", account, prevBalStr)
 	}
@@ -98,7 +98,7 @@ func extractFromCreatedNode(created *types.CreatedNode) (*types.AddressAmount, e
 	if !ok1 || !ok2 {
 		return nil, nil
 	}
-	balance, err := helper.ParseBigInt(balanceStr)
+	balance, err := helper.ParseNonNegativeBigInt(balanceStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid balance format in CreatedNode for account %s: %s", account, balanceStr)
 	}

@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseBigInt(t *testing.T) {
+func TestParseNonNegativeBigInt(t *testing.T) {
 	t.Run("valid number", func(t *testing.T) {
 		input := "1234567890"
-		val, err := ParseBigInt(input)
+		val, err := ParseNonNegativeBigInt(input)
 		require.NoError(t, err)
 		expected := new(big.Int)
 		expected.SetString(input, 10)
@@ -21,7 +21,7 @@ func TestParseBigInt(t *testing.T) {
 	})
 	t.Run("leading zeros", func(t *testing.T) {
 		input := "00001234"
-		val, err := ParseBigInt(input)
+		val, err := ParseNonNegativeBigInt(input)
 		require.NoError(t, err)
 		expected := new(big.Int)
 		expected.SetString(input, 10)
@@ -31,7 +31,7 @@ func TestParseBigInt(t *testing.T) {
 	})
 	t.Run("leading and trailing whitespace", func(t *testing.T) {
 		input := "   1234  "
-		val, err := ParseBigInt(strings.TrimSpace(input))
+		val, err := ParseNonNegativeBigInt(strings.TrimSpace(input))
 		require.NoError(t, err)
 		expected := big.NewInt(1234)
 		if val.Cmp(expected) != 0 {
@@ -40,14 +40,30 @@ func TestParseBigInt(t *testing.T) {
 	})
 	t.Run("very large number", func(t *testing.T) {
 		input := strings.Repeat("9", 100)
-		val, err := ParseBigInt(input)
+		val, err := ParseNonNegativeBigInt(input)
 		require.NoError(t, err)
 		require.Equal(t, input, val.String())
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		input := "notanumber"
-		val, err := ParseBigInt(input)
+		val, err := ParseNonNegativeBigInt(input)
 		require.ErrorContains(t, err, "invalid big.Int string: notanumber")
+		require.Nil(t, val)
+	})
+	t.Run("negative value rejected", func(t *testing.T) {
+		val, err := ParseNonNegativeBigInt("-1")
+		require.ErrorContains(t, err, "expected non-negative big.Int, got -1")
+		require.Nil(t, val)
+	})
+	t.Run("zero accepted", func(t *testing.T) {
+		val, err := ParseNonNegativeBigInt("0")
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(0).String(), val.String())
+	})
+	t.Run("large negative rejected", func(t *testing.T) {
+		input := "-" + strings.Repeat("9", 50)
+		val, err := ParseNonNegativeBigInt(input)
+		require.ErrorContains(t, err, "expected non-negative big.Int")
 		require.Nil(t, val)
 	})
 }
