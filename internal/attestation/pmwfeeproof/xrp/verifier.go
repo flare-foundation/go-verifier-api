@@ -15,6 +15,7 @@ import (
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
@@ -211,9 +212,9 @@ func parseTxFee(response string) (*big.Int, error) {
 	if raw.Fee == "" {
 		return nil, errors.New("missing Fee in transaction response")
 	}
-	fee, ok := new(big.Int).SetString(raw.Fee, 10)
-	if !ok {
-		return nil, fmt.Errorf("cannot parse Fee %q as integer", raw.Fee)
+	fee, err := helper.ParseNonNegativeBigInt(raw.Fee)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse Fee %q: %w", raw.Fee, err)
 	}
 	return fee, nil
 }

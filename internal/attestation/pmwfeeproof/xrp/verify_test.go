@@ -170,6 +170,24 @@ func TestVerifyFeeProof(t *testing.T) {
 		require.ErrorContains(t, err, "cannot parse fee")
 	})
 
+	t.Run("negative tx fee rejected", func(t *testing.T) {
+		// Corrupted indexer row with a negative Fee value must not parse.
+		f := setupFeeProofFixture(t, "fp_negfee",
+			[]uint64{100},
+			[]int64{50},
+			[]string{"-1"},
+		)
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FromNonce:      100,
+			ToNonce:        100,
+			UntilTimestamp: 1800000000,
+		})
+		require.ErrorContains(t, err, "cannot parse fee")
+		require.ErrorContains(t, err, "expected non-negative big.Int")
+	})
+
 	t.Run("reissue scan at cap succeeds", func(t *testing.T) {
 		// Seed pay + exactly MaxReissuesPerNonce reissue events. The next
 		// reissueNumber (== MaxReissuesPerNonce) does NOT exist, so the loop
