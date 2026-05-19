@@ -169,6 +169,53 @@ func TestVerifyFeeProof(t *testing.T) {
 		})
 		require.ErrorContains(t, err, "cannot parse fee")
 	})
+
+	t.Run("reissue scan at cap succeeds", func(t *testing.T) {
+		// Seed pay + exactly MaxReissuesPerNonce reissue events. The next
+		// reissueNumber (== MaxReissuesPerNonce) does NOT exist, so the loop
+		// terminates cleanly at the cap.
+		f := setupFeeProofFixture(t, "fp_reissue_at_cap",
+			[]uint64{100},
+			[]int64{50}, // pay maxFee = 50
+			[]string{"10"},
+		)
+		for i := uint64(0); i < MaxReissuesPerNonce; i++ {
+			f.seedReissue(t, 100, i, 60, 1700000000) // reissue maxFee = 60 → residual 10 each
+		}
+		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FromNonce:      100,
+			ToNonce:        100,
+			UntilTimestamp: 1800000000,
+		})
+		require.NoError(t, err)
+		// pay 50 + 32 reissues × residual 10 = 50 + 320 = 370
+		require.Equal(t, big.NewInt(50+int64(MaxReissuesPerNonce)*10), resp.EstimatedFee)
+	})
+
+	t.Run("reissue scan over cap rejected", func(t *testing.T) {
+		// Seed pay + (MaxReissuesPerNonce + 1) sequential reissues. The next
+		// reissueNumber (== MaxReissuesPerNonce) exists in the indexer, so the
+		// loop must reject with ErrReissueLimitExceeded rather than silently
+		// truncate.
+		f := setupFeeProofFixture(t, "fp_reissue_over_cap",
+			[]uint64{100},
+			[]int64{50},
+			[]string{"10"},
+		)
+		for i := uint64(0); i <= MaxReissuesPerNonce; i++ {
+			f.seedReissue(t, 100, i, 60, 1700000000)
+		}
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FromNonce:      100,
+			ToNonce:        100,
+			UntilTimestamp: 1800000000,
+		})
+		require.ErrorIs(t, err, ErrReissueLimitExceeded)
+	})
 }
 
 func TestVerifyFeeProofConcurrentErrors(t *testing.T) {

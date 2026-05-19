@@ -244,12 +244,13 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 ### Request
 - `opType`, `senderAddress`, `fromNonce` (inclusive), `toNonce` (inclusive), `untilTimestamp` (Flare block timestamp cutoff for reissues).
 - Nonce range capped at 200 (`MaxNonceRange`); over → 400.
+- Reissue scan capped at 32 reissue events per nonce (`MaxReissuesPerNonce`). The contract has no on-chain cap on reissue count (only a per-batch timing gate), so this is a defense-in-depth backstop against indexer pollution / pathological retry behavior. Realistic legitimate flows reissue 0–3 times per nonce. Exceeding the cap → 400.
 
 ### Primary flow (`XRPVerifier.Verify`)
 1. Validate nonce range.
 2. Compute pay instruction IDs for all nonces; batch fetch C-chain events (`topic2 IN (?)`).
 3. Per nonce: verify pay event exists, extract `maxFee`.
-4. Per nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found or `blockTimestamp > untilTimestamp`). Add residual `max(0, reissue_maxFee - pay_maxFee)`.
+4. Per nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found, `blockTimestamp > untilTimestamp`, or `reissueNumber == MaxReissuesPerNonce`). If the loop hits the cap and the next reissueNumber still exists in the indexer, return `ErrReissueLimitExceeded`. Otherwise add residual `max(0, reissue_maxFee - pay_maxFee)` for each scanned reissue.
 5. Sum as `estimatedFee`.
 6. Batch fetch XRP transactions (`sequence IN (?)`), parse `Fee`, sum as `actualFee`.
 7. Return `{actualFee, estimatedFee}`.
@@ -258,6 +259,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 - Missing pay event for any nonce → 422 (`ErrMissingPayEvent`).
 - Missing XRP transaction for any nonce → 422 (`ErrMissingTransaction`).
 - Nonce range too large → 400 (`ErrNonceRangeTooLarge`).
+- Reissue scan exceeded the per-nonce cap → 400 (`ErrReissueLimitExceeded`).
 - DB infrastructure failure → 503 (via `ErrDatabase`).
 
 ### Data retention
@@ -279,6 +281,7 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
   - invalid request body
   - decode/encode request conversion issues
   - nonce range too large or invalid — `ErrNonceRangeTooLarge` (PMWFeeProof)
+  - reissue scan exceeded `MaxReissuesPerNonce` — `ErrReissueLimitExceeded` (PMWFeeProof)
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
 - `422 Unprocessable Entity`:

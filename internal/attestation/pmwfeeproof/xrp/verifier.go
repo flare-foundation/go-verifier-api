@@ -22,10 +22,19 @@ import (
 
 var MaxNonceRange uint64 = 200
 
+// MaxReissuesPerNonce caps how many reissue events the verifier will scan
+// per nonce. The contract has no on-chain cap on reissues; only a
+// per-batch timing gate. A polluted indexer could therefore make a single
+// request trigger arbitrary DB work. This cap is a defense-in-depth
+// backstop — well above any realistic retry count (typical wallets: 0–3
+// reissues, pathological: 5–10).
+const MaxReissuesPerNonce uint64 = 32
+
 var (
-	ErrNonceRangeTooLarge = errors.New("nonce range too large")
-	ErrMissingPayEvent    = errors.New("missing pay event for nonce")
-	ErrMissingTransaction = errors.New("missing transaction for nonce")
+	ErrNonceRangeTooLarge    = errors.New("nonce range too large")
+	ErrMissingPayEvent       = errors.New("missing pay event for nonce")
+	ErrMissingTransaction    = errors.New("missing transaction for nonce")
+	ErrReissueLimitExceeded  = errors.New("reissue scan limit exceeded")
 )
 
 type XRPVerifier struct {
@@ -111,8 +120,12 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 		payMaxFee := payMessage.MaxFee
 		estimatedFee.Add(estimatedFee, payMaxFee)
 
-		// Iteratively fetch reissue events for this nonce.
-		for reissueNum := uint64(0); ; reissueNum++ {
+		// Iteratively fetch reissue events for this nonce. Capped at
+		// MaxReissuesPerNonce to bound per-request DB work in the face of
+		// indexer pollution or pathological retry behavior. Exceeding the
+		// cap is treated as a request-level error (400 via classifyVerifyError).
+		var scanned uint64
+		for reissueNum := uint64(0); reissueNum < MaxReissuesPerNonce; reissueNum++ {
 			reissueID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, nonce, reissueNum)
 			if err != nil {
 				return nil, fmt.Errorf("cannot generate reissue instruction ID for nonce %d, reissue %d: %w", nonce, reissueNum, err)
@@ -140,6 +153,19 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 			residual := new(big.Int).Sub(reissueMessage.MaxFee, payMaxFee)
 			if residual.Sign() > 0 {
 				estimatedFee.Add(estimatedFee, residual)
+			}
+			scanned = reissueNum + 1
+		}
+		// If the loop ran to MaxReissuesPerNonce without finding a terminator
+		// (record-not-found or timestamp cutoff), the next reissueNumber exists
+		// in the indexer. Reject the request rather than silently truncate the
+		// scan (which would understate estimatedFee).
+		if scanned == MaxReissuesPerNonce {
+			nextID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, nonce, MaxReissuesPerNonce)
+			if err == nil {
+				if _, err := x.Repo.FetchInstructionLog(ctx, eventHash, nextID); err == nil {
+					return nil, fmt.Errorf("nonce %d: %w (cap %d)", nonce, ErrReissueLimitExceeded, MaxReissuesPerNonce)
+				}
 			}
 		}
 	}
