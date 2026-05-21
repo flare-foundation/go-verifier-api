@@ -13,55 +13,64 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFetchBytes(t *testing.T) {
+// pinnedAddrFor returns the dial address for a httptest server in the form
+// the FetchBytesPinned / FetchJSONPinned signatures expect.
+func pinnedAddrFor(t *testing.T, server *httptest.Server) string {
+	t.Helper()
+	dialAddr := server.Listener.Addr().String()
+	_, _, err := net.SplitHostPort(dialAddr)
+	require.NoError(t, err)
+	return dialAddr
+}
+
+func TestFetchBytesPinned(t *testing.T) {
 	ctx := context.Background()
 	t.Run("success", func(t *testing.T) {
 		expected := []byte("hello world")
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(expected)
 		}))
 		defer server.Close()
 
-		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytesPinned(ctx, server.URL, 5*time.Second, pinnedAddrFor(t, server), "", "")
 		require.NoError(t, err)
 		require.Equal(t, expected, data)
 	})
 	t.Run("404 returns ErrNotFound", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 		}))
 		defer server.Close()
 
-		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytesPinned(ctx, server.URL, 5*time.Second, pinnedAddrFor(t, server), "", "")
 		require.ErrorIs(t, err, ErrNotFound)
 		require.Nil(t, data)
 	})
 	t.Run("unexpected status code", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer server.Close()
 
-		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytesPinned(ctx, server.URL, 5*time.Second, pinnedAddrFor(t, server), "", "")
 		require.ErrorContains(t, err, "unexpected status code: 500")
 		require.Nil(t, data)
 	})
 	t.Run("response truncated at maxResponseSize", func(t *testing.T) {
-		// Serve more than maxResponseSize bytes
 		bigBody := strings.Repeat("x", maxResponseSize+100)
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(bigBody))
 		}))
 		defer server.Close()
 
-		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytesPinned(ctx, server.URL, 5*time.Second, pinnedAddrFor(t, server), "", "")
 		require.NoError(t, err)
 		require.Len(t, data, maxResponseSize)
 	})
 	t.Run("redirect is rejected", func(t *testing.T) {
-		target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("redirected"))
 		}))
@@ -72,20 +81,74 @@ func TestFetchBytes(t *testing.T) {
 		}))
 		defer server.Close()
 
-		data, err := FetchBytes(ctx, server.URL, 5*time.Second)
+		data, err := FetchBytesPinned(ctx, server.URL, 5*time.Second, pinnedAddrFor(t, server), "", "")
 		require.ErrorIs(t, err, ErrRedirect)
 		require.Nil(t, data)
 	})
 	t.Run("timeout", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			time.Sleep(2 * time.Second)
 			w.WriteHeader(http.StatusOK)
 		}))
 		defer server.Close()
 
-		data, err := FetchBytes(ctx, server.URL, 100*time.Millisecond)
+		data, err := FetchBytesPinned(ctx, server.URL, 100*time.Millisecond, pinnedAddrFor(t, server), "", "")
 		require.Error(t, err)
 		require.Nil(t, data)
+	})
+	t.Run("host header override and pinned dial", func(t *testing.T) {
+		wantHost := "example.com"
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Host != wantHost {
+				http.Error(w, "bad host", http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		}))
+		defer server.Close()
+
+		data, err := FetchBytesPinned(ctx, server.URL+"/", 2*time.Second, pinnedAddrFor(t, server), wantHost, "")
+		require.NoError(t, err)
+		require.Equal(t, []byte("ok"), data)
+	})
+}
+
+func TestFetchJSONPinned(t *testing.T) {
+	ctx := context.Background()
+	t.Run("decodes JSON body", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true}`))
+		}))
+		defer server.Close()
+
+		got, err := FetchJSONPinned[struct {
+			OK bool `json:"ok"`
+		}](ctx, server.URL+"/", 2*time.Second, pinnedAddrFor(t, server), "", "")
+		require.NoError(t, err)
+		require.True(t, got.OK)
+	})
+	t.Run("invalid JSON returns decode error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("not json"))
+		}))
+		defer server.Close()
+
+		_, err := FetchJSONPinned[struct {
+			OK bool `json:"ok"`
+		}](ctx, server.URL+"/", 2*time.Second, pinnedAddrFor(t, server), "", "")
+		require.ErrorContains(t, err, "decoding JSON")
+	})
+	t.Run("propagates underlying fetch errors", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		_, err := FetchJSONPinned[struct{}](ctx, server.URL, 2*time.Second, pinnedAddrFor(t, server), "", "")
+		require.ErrorIs(t, err, ErrNotFound)
 	})
 }
 
@@ -153,7 +216,7 @@ func TestRetry(t *testing.T) {
 			attempts++
 			return "", specialErr
 		}
-		got, err := Retry(ctx, 5, time.Millisecond, op, func(e error) bool {
+		got, err := Retry(ctx, 5, time.Millisecond, op, func(_ error) bool {
 			return true
 		})
 		require.ErrorIs(t, err, specialErr)
@@ -166,7 +229,7 @@ func TestRetry(t *testing.T) {
 		op := func() (int, error) {
 			attempts++
 			if attempts == 1 {
-				cancel() // cancel context after first failed attempt
+				cancel()
 			}
 			return 0, errors.New("fail")
 		}
@@ -174,28 +237,4 @@ func TestRetry(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 		require.Equal(t, 1, attempts, "should not retry after context cancellation")
 	})
-}
-
-func TestFetchJSONPinnedUsesHostHeader(t *testing.T) {
-	wantHost := "example.com"
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Host != wantHost {
-			http.Error(w, "bad host", http.StatusBadRequest)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"ok":true}`))
-	}))
-	defer server.Close()
-
-	dialAddr := server.Listener.Addr().String()
-	_, _, err := net.SplitHostPort(dialAddr)
-	require.NoError(t, err)
-
-	url := server.URL + "/"
-	got, err := FetchJSONPinned[struct {
-		OK bool `json:"ok"`
-	}](context.Background(), url, 2*time.Second, dialAddr, wantHost, "")
-	require.NoError(t, err)
-	require.True(t, got.OK)
 }
