@@ -19,7 +19,7 @@ Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded resp
 
 | Module | Constructs | Extra endpoint | Shutdown closers |
 |---|---|---|---|
-| `TeeAvailabilityCheck` | verifier + background poller | `GET /poller/tees` | poller, verifier |
+| `TeeAvailabilityCheck` | verifier | — | verifier |
 | `PMWPaymentStatus` | service + 2 DB connections + verifier | — | payment service (DB closer) |
 | `PMWMultisigAccountConfigured` | verifier | — | — |
 | `PMWFeeProof` | service + 2 DB connections + verifier | — | service (DB closer) |
@@ -36,8 +36,6 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 - `POST .../prepareRequestBody`
 - `POST .../prepareResponseBody`
 - `POST .../verify`
-
-TEE-only operational route: `GET /poller/tees`
 
 ### Request/response model
 - Requests include encoded attestation/source IDs (`common.Hash`) and either `requestData` (for prepare request) or `requestBody` ABI bytes (for verify / prepare response).
@@ -67,9 +65,8 @@ Required:
 
 Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false) — permissive flag. `false`: only production Confidential Space TEEs (`dbgstat == "disabled-since-boot"`) are accepted. `true`: production AND debug TEEs (`dbgstat != "disabled-since-boot"`) are both accepted; every debug admission emits a WARN log. Debug TEEs have the debugger attached and secrets can be extracted — never enable on production deployments. Intended for staging/E2E only.
-- `DISABLE_ATTESTATION_CHECK_E2E` (default false) — when enabled, skips all JWT attestation validation (PKI, claims, CRL) in both the verify flow and the poller, returning hardcoded OK with test values. Intended for E2E tests without real Google attestation.
+- `DISABLE_ATTESTATION_CHECK_E2E` (default false) — when enabled, skips all JWT attestation validation (PKI, claims, CRL) in the verify flow, returning hardcoded OK with test values. Intended for E2E tests without real Google attestation.
 - `ALLOW_PRIVATE_NETWORKS` (default false) — test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs and preserving DNS pinning. Useful for Docker bridge networking.
-- `MAX_POLLED_TEES` (default 0) — controls how many TEEs the poller monitors. Extension 0 TEEs are always polled regardless of this cap. When 0 (default), only extension 0 is polled. When >0, the poller also includes TEEs from other extensions up to this limit.
 
 Also loads embedded Google root certificate:
 - `internal/config/assets/google_confidential_space_root_20340116.crt`
@@ -104,11 +101,11 @@ Required:
    - Require `(actionResp.Result.OPType, actionResp.Result.OPCommand) == (op.Reg, op.TEEAttestation)` — emitted by `VerificationFacet.requestTeeAttestation` and `MachineManagerFacet` during admission, handled by tee-node's `regutils.TEEAttestation` (instruction processor, `immediateResult=true`). The FDC2 availability-check flow (`VerificationFacet.requestAvailabilityCheckAttestation` → `Verification.requestFdc2Attestation` → relay → verifier) embeds the prior admission `instructionId` in its request body, so the verifier always fetches the admission action result; `(op.Get, op.TEEInfo)` is the only other tee-node pair that produces a `TeeInfoResponse`, but it is reachable only via the proxy's API-key-gated `/direct` endpoint and is not part of the trusted attestation flow, so it is excluded from the allowlist.
    - Verify `actionResp.Signature` over `actionResp.Result.Hash()` against `req.teeId` (TEE proof-of-possession on the action result).
 
-   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand` — those are checked explicitly against `expectedAvailabilityOPType`/`expectedAvailabilityOPCommand`. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy; no separate verifier-side check is enforced because the submission convention is set by the proxy / relay client. The proof-of-possession here is over `Result.Hash()`, distinct from the poller path's proof-of-possession over `MachineData.Hash()` via `DataSignature` — the two paths consume different endpoints with different payload shapes.
+   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand` — those are checked explicitly against `expectedAvailabilityOPType`/`expectedAvailabilityOPCommand`. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy; no separate verifier-side check is enforced because the submission convention is set by the proxy / relay client.
 4. **In parallel** (both depend only on challenge response):
    - `DataVerification`: CRL fetch + PKI validation + TEE ID + claims.
    - `CheckSigningPolicies`: signing policy hashes against relay contract (2 concurrent RPC calls).
-5. Return status (`OK`/`OBSOLETE`/`DOWN`) + metadata.
+5. Return status (`OK`/`OBSOLETE`) + metadata. (`DOWN` is no longer producible — when the live fetch fails, the verifier returns the wrapped error and the caller / relay handles retry.)
 
 ### URL validation (`verifier/url_validation.go`)
 Pipeline: (1) scheme must be `http`/`https`; (2) userinfo rejected; (3) `localhost` / `*.localhost` rejected (strict mode only); (4) IP literal checked directly, hostname resolved via DNS (750ms timeout) with **all** resolved IPs checked; (5) first resolved IP pinned — HTTP connection dials pinned IP directly via custom `DialContext`, original hostname preserved in `Host` header and TLS SNI `ServerName` (prevents TOCTOU DNS rebinding).
@@ -183,23 +180,9 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - `CRLCache.Close()` added to shutdown closers.
 - Google CA Service only inserts the CDP extension when `publish_crl` is enabled (per-CA-pool setting). Currently the intermediate cert has a CDP but the leaf does not (no OCSP either). Google does not document CRL/OCSP checking for Confidential Space — the sample PKI token validation code only covers chain verification, root pinning, and signature checks; revocation checking must tolerate missing CDPs. See Google CA Service and Confidential Space PKI documentation for details.
 
-### Degraded flow when fetch fails
-- Uses poller samples (`SamplesToConsider = 5`) for the requested TEE.
-- Samples older than `MaxSampleStaleness` (`SamplesToConsider × SampleInterval`) → treated as insufficient → returns error.
-- All recent samples invalid → returns `DOWN`.
-- Insufficient samples → returns error.
-- Any sample valid or indeterminate → returns the original fetch error (TEE not confirmed DOWN).
-
-### Poller behavior
-- Runs on startup and every `SampleInterval = 1m`.
-- Fetches extension 0 TEEs via `getActiveTeeMachines(0)` (always polled). If `MAX_POLLED_TEES > 0`, also fetches remaining TEEs via `getAllActiveTeeMachines` and includes non-extension-0 TEEs up to the cap.
-- Fetches each `/info` via pinned connection; validates challenge freshness + claims + signing policies.
-- Rolling recent sample states in memory. After each cycle, a sorted snapshot is published via `atomic.Value`.
-- `GET /poller/tees` reads the pre-computed snapshot (no lock contention). Supports `offset` (default 0) and `limit` (default 100, max 500) query params; returns `total` count for pagination.
-
 ### TEE status semantics
-- Poller sample states: `VALID`, `INVALID`, `INDETERMINATE`.
-- Verification response status values: `0 = OK`, `1 = OBSOLETE`, `2 = DOWN`.
+- Verification response status values: `0 = OK`, `1 = OBSOLETE`. (`2 = DOWN` is defined in the response shape but the verifier no longer produces it; live-fetch failures surface as 500 with the wrapped error.)
+- Internal classification (used by `CheckSigningPolicies` / `CheckInfoChallengeIsValid`): `TeeSampleValid`, `TeeSampleInvalid`, `TeeSampleIndeterminate`.
 
 ## 7.2 PMWPaymentStatus
 
@@ -301,7 +284,6 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
 - `503 Service Unavailable`:
   - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrFetchAccountInfo` (PMWMultisig)
   - database infrastructure failure (connection, timeout) — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
-  - insufficient poller samples to determine TEE status — `ErrInsufficientSamples` (TEE)
   - network errors from RPC calls — `ErrNetwork` (TEE)
   - RPC server-side errors — `ErrRPC` (TEE)
   - context deadline/canceled — `ErrContext` (TEE)
@@ -313,8 +295,7 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 
 ## 10. Concurrency and State
 - **Parallelism**: TEE `Verify` runs `DataVerification` + `CheckSigningPolicies` concurrently after the challenge fetch; `CheckSigningPolicies` fetches initial + last signing policy hashes concurrently; CRL leaf + intermediate fetches run concurrently inside `GetCRLsForToken`.
-- **TEE poller**: worker pool (`defaultWorkerCount=10`) per cycle.
-- **Caches**: TEE sample cache guarded by RW mutex; active TEE list cached + reused when chain query fails; CRL cache uses `sync.RWMutex` (RLock fast path for hits, WLock for inserts/eviction) + `singleflight.Group` to dedupe concurrent fetches for the same URL.
+- **Caches**: CRL cache uses `sync.RWMutex` (RLock fast path for hits, WLock for inserts/eviction) + `singleflight.Group` to dedupe concurrent fetches for the same URL.
 - **Config loaders**: `sync.Once` singletons.
 
 ## 11. Testing Strategy in Repo
@@ -341,6 +322,6 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 - **ABI event data decoding** (`instruction_event.go`): `DecodeTeeInstructionsSentEventData` rejects `log.Data` larger than 1 MB (`maxEventDataSize`) before ABI decoding. Legitimate events are ~1–2 KB; the cap prevents OOM from corrupted indexer data.
 
 ## 13. Minimal Runtime Sequences
-**Start**: load env → validate common config → build module-specific config → build verifier/service dependencies → register endpoints + auth middleware → start HTTP server → (TEE only) start background poller.
+**Start**: load env → validate common config → build module-specific config → build verifier/service dependencies → register endpoints + auth middleware → start HTTP server.
 
-**Shutdown**: receive OS signal → HTTP graceful shutdown (`10s`) → close module resources (DB, poller, eth client, CRL cache).
+**Shutdown**: receive OS signal → HTTP graceful shutdown (`10s`) → close module resources (DB, eth client, CRL cache).
