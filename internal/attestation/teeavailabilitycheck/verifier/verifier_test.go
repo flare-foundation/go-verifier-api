@@ -285,89 +285,6 @@ func TestCheckSigningPolicies(t *testing.T) {
 	})
 }
 
-func TestIsTEEInfoDown(t *testing.T) {
-	teeID := common.HexToAddress("0x1")
-	now := time.Now()
-	t.Run("insufficient samples", func(t *testing.T) {
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeID: {{Timestamp: now, State: verifiertypes.TeeSampleValid}},
-			},
-		}
-		down, err := v.IsTEEInfoDown(teeID)
-		require.ErrorContains(t, err, "insufficient samples to determine TEE")
-		require.False(t, down)
-	})
-	t.Run("at least one valid sample", func(t *testing.T) {
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeID: {
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: now, State: verifiertypes.TeeSampleValid},
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: now, State: verifiertypes.TeeSampleIndeterminate},
-				},
-			},
-		}
-		down, err := v.IsTEEInfoDown(teeID)
-		require.NoError(t, err)
-		require.False(t, down)
-	})
-	t.Run("all samples invalid", func(t *testing.T) {
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeID: {
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: now, State: verifiertypes.TeeSampleInvalid},
-				},
-			},
-		}
-
-		down, err := v.IsTEEInfoDown(teeID)
-		require.NoError(t, err)
-		require.True(t, down)
-	})
-	t.Run("stale samples return insufficient", func(t *testing.T) {
-		staleTime := now.Add(-(verifier.MaxSampleStaleness + time.Second))
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeID: {
-					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: staleTime, State: verifiertypes.TeeSampleInvalid},
-				},
-			},
-		}
-		down, err := v.IsTEEInfoDown(teeID)
-		require.ErrorIs(t, err, verifier.ErrInsufficientSamples)
-		require.ErrorContains(t, err, "sample cache stale")
-		require.False(t, down)
-	})
-	t.Run("fresh all-invalid still returns DOWN", func(t *testing.T) {
-		freshTime := now.Add(-(verifier.MaxSampleStaleness - time.Second))
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeID: {
-					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
-					{Timestamp: freshTime, State: verifiertypes.TeeSampleInvalid},
-				},
-			},
-		}
-		down, err := v.IsTEEInfoDown(teeID)
-		require.NoError(t, err)
-		require.True(t, down)
-	})
-}
-
 func makeChallengeResultServer(t *testing.T, resp teenodetypes.ActionResponse) *httptest.Server {
 	t.Helper()
 	handler := http.NewServeMux()
@@ -508,17 +425,17 @@ func TestDataVerification(t *testing.T) {
 			Attestation: "magic_pass",
 		}
 		// First call: should log.
-		res, err := v.DataVerification(context.Background(), resp, teeID, true)
+		res, err := v.DataVerification(context.Background(), resp, teeID)
 		require.NoError(t, err)
 		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
 		// Second call: should not log (already tracked).
-		res, err = v.DataVerification(context.Background(), resp, teeID, true)
+		res, err = v.DataVerification(context.Background(), resp, teeID)
 		require.NoError(t, err)
 		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
 	})
 	t.Run("DisableAttestationCheckE2E", func(t *testing.T) {
 		v := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}
-		res, err := v.DataVerification(context.Background(), teenodetypes.TeeInfoResponse{}, common.Address{}, false)
+		res, err := v.DataVerification(context.Background(), teenodetypes.TeeInfoResponse{}, common.Address{})
 		require.NoError(t, err)
 		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
 		require.Equal(t, verifier.E2ETestPlatform, res.Platform)
@@ -552,7 +469,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey), false)
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
 		require.NoError(t, err)
 		require.Equal(t, verifier.OK, resp.Status)
 		require.Equal(t, verifier.E2ETestCodeHash, resp.CodeHash)
@@ -575,7 +492,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey), false)
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
 		require.Empty(t, resp)
 		require.ErrorContains(t, err, "cannot validate claims: expected exactly one EATNonce, got 0")
 	})
@@ -596,7 +513,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"), false)
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"))
 		require.Empty(t, resp)
 		require.ErrorContains(t, err, fmt.Sprintf("expected TEE ID %s, got: %s", common.HexToAddress("0x123"), crypto.PubkeyToAddress(privTEEKey.PublicKey)))
 	})
@@ -618,7 +535,7 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert},
 		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"), false)
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"))
 		require.Empty(t, resp)
 		require.ErrorContains(t, err, "cannot retrieve TEE ID from: invalid public key bytes")
 	})
@@ -638,22 +555,6 @@ func TestVerify(t *testing.T) {
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
 	require.True(t, ok, "verIface should be *TeeVerifier")
-	ver.TeeSamples = make(map[common.Address][]verifiertypes.TeeSampleValue)
-	t.Run("insufficient samples", func(t *testing.T) {
-		handler := http.NewServeMux()
-		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		})
-		server := httptest.NewServer(handler)
-		defer server.Close()
-
-		req := fdc2.ITeeAvailabilityCheckRequestBody{
-			Url: server.URL,
-		}
-		resp, err := ver.Verify(context.Background(), req)
-		require.ErrorContains(t, err, "insufficient samples to determine TEE")
-		require.Empty(t, resp)
-	})
 	t.Run("resource not found", func(t *testing.T) {
 		teeID := common.HexToAddress("0x123")
 		handler := http.NewServeMux()
@@ -667,35 +568,10 @@ func TestVerify(t *testing.T) {
 			TeeId: teeID,
 			Url:   server.URL,
 		}
-		now := time.Now()
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{Timestamp: now, State: verifiertypes.TeeSampleValid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}}
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot fetch TEE data for (TEE=0x0000000000000000000000000000000000000123")
-		require.ErrorContains(t, err, "and determine its status: action result not found: resource not found (404)")
+		require.ErrorContains(t, err, "action result not found: resource not found (404)")
 		require.Empty(t, resp)
-		// reset samples
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{}
-	})
-	t.Run("tee is down", func(t *testing.T) {
-		teeID := common.HexToAddress("0x123")
-		now := time.Now()
-		handler := http.NewServeMux()
-		handler.HandleFunc("/action/result", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		})
-		server := httptest.NewServer(handler)
-		defer server.Close()
-
-		req := fdc2.ITeeAvailabilityCheckRequestBody{
-			TeeId: teeID,
-			Url:   server.URL,
-		}
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{{Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}, {Timestamp: now, State: verifiertypes.TeeSampleInvalid}}
-		resp, err := ver.Verify(context.Background(), req)
-		require.NoError(t, err)
-		require.Equal(t, uint8(verifier.DOWN), resp.Status)
-		// reset samples
-		ver.TeeSamples[teeID] = []verifiertypes.TeeSampleValue{}
 	})
 	t.Run("signing policy check fails", func(t *testing.T) {
 		challengeHash := common.HexToHash("123")

@@ -1,26 +1,14 @@
 package types
 
-import (
-	"time"
-)
-
-type TeeSampleValue struct {
-	Timestamp time.Time      `json:"timestamp"`
-	State     TeeSampleState `json:"state"`
-}
-
+// TeeSampleState classifies the outcome of a TEE attestation check used by
+// the signing-policy and challenge-freshness paths.
 type TeeSampleState uint8
 
 const (
-	TeeSampleValid TeeSampleState = iota // successful and valid sample
-	TeeSampleInvalid
-	TeeSampleIndeterminate
+	TeeSampleValid         TeeSampleState = iota // successful and valid sample
+	TeeSampleInvalid                             // attestation produced a definitive failure
+	TeeSampleIndeterminate                       // could not determine (transient / verifier-side fault)
 )
-
-type TeeSample struct {
-	TeeID  string           `json:"tee_id"`
-	Values []TeeSampleValue `json:"values"`
-}
 
 func (s TeeSampleState) String() string {
 	switch s {

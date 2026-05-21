@@ -14,7 +14,6 @@ import (
 	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured"
 	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus"
 	teeavailabilityservice "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck"
-	teepoller "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/teepoller"
 	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -33,16 +32,12 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 
 		handler.RegisterVerificationHandler[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody, types.TeeAvailabilityCheckRequestBody, types.TeeAvailabilityCheckResponseBody](api, &config.EncodedAndABI, verifier)
 
-		// Start poller
+		// TeeVerifier owns the eth client and CRL cache; needs Close() on shutdown.
 		teeVerifier, ok := verifier.(*teeavailabilitycheck.TeeVerifier)
 		if !ok {
 			logger.Fatalf("Unexpected type for verifier instance")
 		}
-
-		poller := teepoller.NewTeePoller(teeVerifier)
-		poller.StartTeePoller(ctx)
-
-		closers = append(closers, poller, teeVerifier)
+		closers = append(closers, teeVerifier)
 	case fdc2.PMWPaymentStatus:
 		service, err := paymentservice.NewPaymentService(envConfig)
 		if err != nil {

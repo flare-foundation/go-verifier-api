@@ -151,7 +151,6 @@ func classifyVerifyError(reqID string, err error) error {
 	// 503 — infrastructure errors (retry)
 	case errors.Is(err, client.ErrFetchAccountInfo),
 		errors.Is(err, db.ErrDatabase),
-		errors.Is(err, verifier.ErrInsufficientSamples),
 		errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),
 		errors.Is(err, verifiertypes.ErrContext),

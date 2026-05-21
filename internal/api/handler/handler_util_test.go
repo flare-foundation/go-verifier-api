@@ -4,9 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -214,108 +212,6 @@ func loadTestEncodedAndABI(t *testing.T) *config.EncodedAndABI {
 	return &encodedAndABI
 }
 
-func TestPublishSnapshot(t *testing.T) {
-	t.Run("empty samples", func(t *testing.T) {
-		v := &verifier.TeeVerifier{
-			TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
-		}
-		v.PublishSnapshot()
-		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
-		require.Empty(t, snap)
-	})
-
-	t.Run("with samples", func(t *testing.T) {
-		teeAddr := common.HexToAddress("0x1234")
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeAddr: {
-					{State: verifiertypes.TeeSampleValid},
-					{State: verifiertypes.TeeSampleInvalid},
-				},
-			},
-		}
-		v.PublishSnapshot()
-		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
-		require.Len(t, snap, 1)
-		require.Equal(t, teeAddr.Hex(), snap[0].TeeID)
-		require.Len(t, snap[0].Values, 2)
-	})
-
-	t.Run("snapshot is sorted by TeeID", func(t *testing.T) {
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				common.HexToAddress("0xBBBB"): {{State: verifiertypes.TeeSampleValid}},
-				common.HexToAddress("0xAAAA"): {{State: verifiertypes.TeeSampleValid}},
-				common.HexToAddress("0xCCCC"): {{State: verifiertypes.TeeSampleValid}},
-			},
-		}
-		v.PublishSnapshot()
-		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
-		require.Len(t, snap, 3)
-		require.True(t, snap[0].TeeID < snap[1].TeeID)
-		require.True(t, snap[1].TeeID < snap[2].TeeID)
-	})
-
-	t.Run("snapshot is decoupled from internal storage", func(t *testing.T) {
-		teeAddr := common.HexToAddress("0xabcd")
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeAddr: {{State: verifiertypes.TeeSampleValid}},
-			},
-		}
-		v.PublishSnapshot()
-		snap := v.PollerSnapshot.Load().([]verifiertypes.TeeSample) //nolint:forcetypeassert // test-only, type guaranteed by PublishSnapshot
-		require.Len(t, snap, 1)
-		snap[0].Values[0].State = verifiertypes.TeeSampleInvalid
-
-		v.SamplesMu.RLock()
-		defer v.SamplesMu.RUnlock()
-		require.Equal(t, verifiertypes.TeeSampleValid, v.TeeSamples[teeAddr][0].State)
-	})
-
-	t.Run("concurrent publish and read do not race", func(t *testing.T) {
-		teeAddr := common.HexToAddress("0xdead")
-		v := &verifier.TeeVerifier{
-			TeeSamples: map[common.Address][]verifiertypes.TeeSampleValue{
-				teeAddr: {{State: verifiertypes.TeeSampleValid}},
-			},
-		}
-		v.PublishSnapshot()
-		stop := make(chan struct{})
-		var wg sync.WaitGroup
-
-		// Writer: simulate the poller appending samples + publishing.
-		wg.Go(func() {
-			for {
-				select {
-				case <-stop:
-					return
-				default:
-					v.SamplesMu.Lock()
-					v.TeeSamples[teeAddr] = append(v.TeeSamples[teeAddr], verifiertypes.TeeSampleValue{State: verifiertypes.TeeSampleValid})
-					v.SamplesMu.Unlock()
-					v.PublishSnapshot()
-				}
-			}
-		})
-
-		// Readers: many concurrent atomic loads (simulating /poller/tees endpoint).
-		for range 10 {
-			wg.Go(func() {
-				for range 100 {
-					_ = v.PollerSnapshot.Load()
-				}
-			})
-		}
-
-		go func() {
-			time.Sleep(50 * time.Millisecond)
-			close(stop)
-		}()
-		wg.Wait()
-	})
-}
-
 func TestClassifyVerifyError(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -377,11 +273,6 @@ func TestClassifyVerifyError(t *testing.T) {
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		// 503 — TEE infrastructure errors
-		{
-			name:           "ErrInsufficientSamples",
-			err:            fmt.Errorf("not enough data: %w", verifier.ErrInsufficientSamples),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
 		{
 			name:           "ErrNetwork",
 			err:            fmt.Errorf("rpc call failed: %w", verifiertypes.ErrNetwork),
