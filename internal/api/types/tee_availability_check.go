@@ -4,7 +4,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
-	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -76,9 +75,4 @@ func (t TeeAvailabilityCheckResponseBody) Log() {
 func LogTeeAvailabilityCheckRequestBody(req fdc2.ITeeAvailabilityCheckRequestBody) {
 	logger.Debugf("TeeAvailabilityCheck request: TeeID=%s, TeeProxyID=%s, URL=%s, Challenge=%x, InstructionID=%x",
 		req.TeeId, req.TeeProxyId, req.Url, req.Challenge, req.InstructionId)
-}
-
-type TeeSamplesResponse struct {
-	Samples []verifiertypes.TeeSample `json:"samples"`
-	Total   int                       `json:"total"`
 }

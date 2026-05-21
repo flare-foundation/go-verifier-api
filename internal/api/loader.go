@@ -38,7 +38,6 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		if !ok {
 			logger.Fatalf("Unexpected type for verifier instance")
 		}
-		handler.RegisterTeePoolingHandler(api, teeVerifier)
 
 		poller := teepoller.NewTeePoller(teeVerifier)
 		poller.StartTeePoller(ctx)

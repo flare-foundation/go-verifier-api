@@ -1,20 +1,15 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
-	"github.com/go-chi/chi/v5"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -318,93 +313,6 @@ func TestPublishSnapshot(t *testing.T) {
 			close(stop)
 		}()
 		wg.Wait()
-	})
-}
-
-func TestPollerTeesEndpointPagination(t *testing.T) {
-	router := chi.NewMux()
-	api := humachi.New(router, huma.DefaultConfig("test", "1.0"))
-
-	v := &verifier.TeeVerifier{
-		TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
-	}
-	// Populate 5 TEEs.
-	for i := range 5 {
-		addr := common.BigToAddress(big.NewInt(int64(i + 1)))
-		v.TeeSamples[addr] = []verifiertypes.TeeSampleValue{
-			{Timestamp: time.Now(), State: verifiertypes.TeeSampleValid},
-		}
-	}
-	v.PublishSnapshot()
-	RegisterTeePoolingHandler(api, v)
-
-	type samplesResponse struct {
-		Samples []struct {
-			TeeID  string `json:"tee_id"`
-			Values []struct {
-				State string `json:"state"`
-			} `json:"values"`
-		} `json:"samples"`
-		Total int `json:"total"`
-	}
-	get := func(t *testing.T, query string) samplesResponse {
-		t.Helper()
-		req := httptest.NewRequest(http.MethodGet, "/poller/tees"+query, nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		require.Equal(t, http.StatusOK, w.Code)
-		var resp samplesResponse
-		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-		return resp
-	}
-
-	t.Run("default returns all when under limit", func(t *testing.T) {
-		resp := get(t, "")
-		require.Len(t, resp.Samples, 5)
-		require.Equal(t, 5, resp.Total)
-	})
-
-	t.Run("limit restricts page size", func(t *testing.T) {
-		resp := get(t, "?limit=2")
-		require.Len(t, resp.Samples, 2)
-		require.Equal(t, 5, resp.Total)
-	})
-
-	t.Run("offset skips entries", func(t *testing.T) {
-		resp := get(t, "?offset=3&limit=10")
-		require.Len(t, resp.Samples, 2)
-		require.Equal(t, 5, resp.Total)
-	})
-
-	t.Run("offset beyond total returns empty", func(t *testing.T) {
-		resp := get(t, "?offset=100")
-		require.Empty(t, resp.Samples)
-		require.Equal(t, 5, resp.Total)
-	})
-
-	t.Run("results are sorted by TeeID", func(t *testing.T) {
-		resp := get(t, "")
-		for i := 1; i < len(resp.Samples); i++ {
-			require.True(t, resp.Samples[i-1].TeeID < resp.Samples[i].TeeID)
-		}
-	})
-
-	t.Run("before snapshot published returns empty", func(t *testing.T) {
-		emptyV := &verifier.TeeVerifier{
-			TeeSamples: make(map[common.Address][]verifiertypes.TeeSampleValue),
-		}
-		emptyRouter := chi.NewMux()
-		emptyAPI := humachi.New(emptyRouter, huma.DefaultConfig("test", "1.0"))
-		RegisterTeePoolingHandler(emptyAPI, emptyV)
-
-		req := httptest.NewRequest(http.MethodGet, "/poller/tees", nil)
-		w := httptest.NewRecorder()
-		emptyRouter.ServeHTTP(w, req)
-		require.Equal(t, http.StatusOK, w.Code)
-		var resp samplesResponse
-		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-		require.Empty(t, resp.Samples)
-		require.Equal(t, 0, resp.Total)
 	})
 }
 
