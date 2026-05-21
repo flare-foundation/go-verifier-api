@@ -512,6 +512,12 @@ func verifyActionResult(
 	expectedInstructionID common.Hash,
 	expectedTeeID common.Address,
 ) error {
+	logger.Debugf("verifying action result: instructionID=%s OPType=%s OPCommand=%s status=%d",
+		expectedInstructionID.Hex(),
+		actionResp.Result.OPType.Hex(),
+		actionResp.Result.OPCommand.Hex(),
+		actionResp.Result.Status,
+	)
 	if actionResp.Result.ID != expectedInstructionID {
 		return fmt.Errorf("action result instruction ID mismatch: expected %s, got %s",
 			expectedInstructionID.Hex(), actionResp.Result.ID.Hex())
