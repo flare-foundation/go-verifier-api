@@ -197,7 +197,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]int64{50}, // pay maxFee = 50
 			[]string{"10"},
 		)
-		for i := uint64(0); i < MaxReissuesPerNonce; i++ {
+		for i := range MaxReissuesPerNonce {
 			f.seedReissue(t, 100, i, 60, 1700000000) // reissue maxFee = 60 → residual 10 each
 		}
 		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{

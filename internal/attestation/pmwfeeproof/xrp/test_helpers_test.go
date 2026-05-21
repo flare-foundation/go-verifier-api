@@ -169,11 +169,7 @@ func (f feeProofFixture) seedReissue(tb testing.TB, nonce, reissueNumber uint64,
 	if err != nil {
 		tb.Fatal(err)
 	}
-	var sourceIDBytes [32]byte
-	copy(sourceIDBytes[:], f.sourceID[:])
-	var opTypeBytes [32]byte
-	copy(opTypeBytes[:], f.opType[:])
-	reissueID, err := instruction.GenerateReissueInstructionID(opTypeBytes, sourceIDBytes, "rSender", nonce, reissueNumber)
+	reissueID, err := instruction.GenerateReissueInstructionID(f.opType, f.sourceID, "rSender", nonce, reissueNumber)
 	if err != nil {
 		tb.Fatal(err)
 	}

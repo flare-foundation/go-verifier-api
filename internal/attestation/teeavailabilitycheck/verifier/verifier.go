@@ -52,14 +52,12 @@ var (
 	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 
-	// Expected (OPType, OPCommand) for an availability-check action result.
-	// Not bound by ActionResult.Hash(), so must be checked explicitly — a
-	// malicious proxy can tamper with them without breaking the TEE signature.
-	// Only (op.Reg, op.TEEAttestation) reaches the verifier: the FDC2 flow
-	// (requestAvailabilityCheckAttestation) embeds the prior admission
-	// instructionId, so the verifier always fetches the admission action
-	// result. (op.Get, op.TEEInfo) is reachable only via the proxy's
-	// API-key-gated /direct endpoint and is not part of the trusted flow.
+	// Expected (OPType, OPCommand) on an availability-check action result.
+	// Not covered by ActionResult.Hash(), so a malicious proxy can change
+	// them without breaking the TEE signature — checked explicitly here.
+	// (op.Get, op.TEEInfo) is intentionally not allowed: it is reachable
+	// only via the proxy's API-key-gated /direct endpoint, not the FDC2
+	// availability-check flow.
 	expectedAvailabilityOPType    = op.Reg.Hash()
 	expectedAvailabilityOPCommand = op.TEEAttestation.Hash()
 
