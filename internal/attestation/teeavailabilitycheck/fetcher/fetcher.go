@@ -40,47 +40,52 @@ func (e *HTTPStatusError) Error() string {
 
 func (e *HTTPStatusError) Unwrap() error { return ErrHTTPFetch }
 
-// noRedirects rejects any HTTP redirect. TEE proxy URLs are expected to resolve
-// directly; following redirects would bypass the SSRF controls applied to the
-// original URL.
+// noRedirects rejects any HTTP redirect. Following redirects would bypass the
+// SSRF controls applied to the original URL.
 var noRedirects = func(_ *http.Request, _ []*http.Request) error {
 	return ErrRedirect
 }
 
-var sharedHTTPClient = &http.Client{
-	Timeout:       10 * time.Second,
-	CheckRedirect: noRedirects,
-	Transport: &http.Transport{
-		MaxIdleConns:           100,
-		MaxConnsPerHost:        100,
-		MaxIdleConnsPerHost:    100,
-		IdleConnTimeout:        90 * time.Second,
-		TLSHandshakeTimeout:    10 * time.Second,
-		MaxResponseHeaderBytes: 1 << 20, // 1 MB
-		ResponseHeaderTimeout:  5 * time.Second,
-	},
+var sharedTransportTemplate = &http.Transport{
+	MaxIdleConns:           100,
+	MaxConnsPerHost:        100,
+	MaxIdleConnsPerHost:    100,
+	IdleConnTimeout:        90 * time.Second,
+	TLSHandshakeTimeout:    10 * time.Second,
+	MaxResponseHeaderBytes: 1 << 20, // 1 MB
+	ResponseHeaderTimeout:  5 * time.Second,
 }
 
 func cloneTransportConfig() *http.Transport {
-	base, ok := sharedHTTPClient.Transport.(*http.Transport)
-	if !ok {
-		return &http.Transport{}
-	}
 	return &http.Transport{
-		MaxIdleConns:           base.MaxIdleConns,
-		MaxConnsPerHost:        base.MaxConnsPerHost,
-		MaxIdleConnsPerHost:    base.MaxIdleConnsPerHost,
-		IdleConnTimeout:        base.IdleConnTimeout,
-		TLSHandshakeTimeout:    base.TLSHandshakeTimeout,
-		MaxResponseHeaderBytes: base.MaxResponseHeaderBytes,
-		ResponseHeaderTimeout:  base.ResponseHeaderTimeout,
+		MaxIdleConns:           sharedTransportTemplate.MaxIdleConns,
+		MaxConnsPerHost:        sharedTransportTemplate.MaxConnsPerHost,
+		MaxIdleConnsPerHost:    sharedTransportTemplate.MaxIdleConnsPerHost,
+		IdleConnTimeout:        sharedTransportTemplate.IdleConnTimeout,
+		TLSHandshakeTimeout:    sharedTransportTemplate.TLSHandshakeTimeout,
+		MaxResponseHeaderBytes: sharedTransportTemplate.MaxResponseHeaderBytes,
+		ResponseHeaderTimeout:  sharedTransportTemplate.ResponseHeaderTimeout,
 	}
 }
 
 const maxResponseSize = 2 * 1024 * 1024 // 2MB
 
-// FetchBytes fetches the given URL and returns the raw response body as bytes.
-func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]byte, error) {
+// FetchBytesPinned fetches raw bytes from url while pinning the connection to
+// dialAddr (host:port). hostHeader is used as the HTTP Host header; serverName
+// is used for TLS SNI. The caller is expected to have already resolved url to
+// a safe IP via ResolveExternalURL — this function only enforces the pinned
+// dial, response-size cap, and no-redirect policy.
+func FetchBytesPinned(ctx context.Context, url string, fetchTimeout time.Duration, dialAddr, hostHeader, serverName string) ([]byte, error) {
+	transport := cloneTransportConfig()
+	transport.DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		dialer := &net.Dialer{Timeout: 10 * time.Second}
+		return dialer.DialContext(ctx, network, dialAddr)
+	}
+	transport.TLSClientConfig = &tls.Config{ServerName: serverName}
+
+	client := &http.Client{Transport: transport, CheckRedirect: noRedirects}
+	defer transport.CloseIdleConnections()
+
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 
@@ -88,9 +93,12 @@ func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
 	}
-	resp, err := sharedHTTPClient.Do(req)
+	if hostHeader != "" {
+		req.Host = hostHeader
+	}
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("HTTP request failed for %s: %w", url, err)
+		return nil, fmt.Errorf("HTTP request failed for %s: %w: %w", url, err, ErrHTTPFetch)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -113,54 +121,15 @@ func FetchBytes(ctx context.Context, url string, fetchTimeout time.Duration) ([]
 	return data, nil
 }
 
-// FetchJSONPinned fetches JSON from url while pinning the connection to dialAddr (host:port).
-// hostHeader is used as the HTTP Host header; serverName is used for TLS SNI.
+// FetchJSONPinned fetches JSON from url with the same pinning + size + redirect
+// guarantees as FetchBytesPinned, then unmarshals into T.
 func FetchJSONPinned[T any](ctx context.Context, url string, fetchTimeout time.Duration, dialAddr, hostHeader, serverName string) (T, error) {
-	transport := cloneTransportConfig()
-	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		dialer := &net.Dialer{Timeout: 10 * time.Second}
-		return dialer.DialContext(ctx, network, dialAddr)
-	}
-	transport.TLSClientConfig = &tls.Config{ServerName: serverName}
-
-	client := &http.Client{Transport: transport, CheckRedirect: noRedirects}
-	defer transport.CloseIdleConnections()
-	return getJSONWithClient[T](ctx, url, fetchTimeout, client, hostHeader)
-}
-
-func getJSONWithClient[T any](ctx context.Context, url string, fetchTimeout time.Duration, client *http.Client, hostHeader string) (T, error) {
 	var zero T
-	// per-request timeout
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	body, err := FetchBytesPinned(ctx, url, fetchTimeout, dialAddr, hostHeader, serverName)
 	if err != nil {
-		return zero, fmt.Errorf("failed to create HTTP request for %s: %w", url, err)
+		return zero, err
 	}
-	if hostHeader != "" {
-		req.Host = hostHeader
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return zero, fmt.Errorf("HTTP request failed for %s: %w: %w", url, err, ErrHTTPFetch)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logger.Warnf("Failed to close response body for %s: %v", url, err)
-		}
-	}()
-	switch resp.StatusCode {
-	case http.StatusNotFound:
-		return zero, ErrNotFound
-	case http.StatusOK:
-		// proceed
-	default:
-		return zero, &HTTPStatusError{URL: url, Code: resp.StatusCode}
-	}
-	limitReader := io.LimitReader(resp.Body, maxResponseSize)
-	err = json.NewDecoder(limitReader).Decode(&zero)
-	if err != nil {
+	if err := json.Unmarshal(body, &zero); err != nil {
 		return zero, fmt.Errorf("decoding JSON from %s failed for type %s: %w", url, reflect.TypeOf(zero), err)
 	}
 	return zero, nil

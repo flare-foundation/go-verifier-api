@@ -10,6 +10,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
@@ -260,11 +262,11 @@ func TestGetOrFetchCRL(t *testing.T) {
 		caCert, caKey := generateTestCert(t, true, nil, nil, nil)
 		crlBytes := createTestCRL(t, caCert, caKey, time.Now().Add(time.Hour))
 
-		var fetchCount int64
+		var fetchCount atomic.Int64
 		cache := &CRLCache{
 			entries: make(map[string]*crlEntry),
 			fetchFn: func(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
-				atomic.AddInt64(&fetchCount, 1)
+				fetchCount.Add(1)
 				time.Sleep(50 * time.Millisecond) // simulate network latency
 				return crlBytes, nil
 			},
@@ -283,7 +285,7 @@ func TestGetOrFetchCRL(t *testing.T) {
 		}
 		wg.Wait()
 
-		require.Equal(t, int64(1), atomic.LoadInt64(&fetchCount), "singleflight should deduplicate concurrent fetches to a single call")
+		require.Equal(t, int64(1), fetchCount.Load(), "singleflight should deduplicate concurrent fetches to a single call")
 	})
 
 	t.Run("evicts oldest entry when cache is full and all entries are fresh", func(t *testing.T) {
@@ -544,6 +546,187 @@ func TestFetchCRLsForToken(t *testing.T) {
 		_, _, err := cache.FetchCRLsForToken(context.Background(), "not-a-jwt", nil)
 		require.ErrorContains(t, err, "parsing unverified token")
 	})
+
+	t.Run("rejects token whose intermediate is not signed by root", func(t *testing.T) {
+		// Build a chain where intermediate is signed by rootB, but x5c carries rootA.
+		// CheckSignatureFrom(rootA) must fail before any CRL is fetched.
+		rootA, _ := generateTestCert(t, true, nil, nil, nil)
+		rootB, rootBKey := generateTestCert(t, true, nil, nil, nil)
+		intermediate, intermediateKey := generateTestCert(t, true, rootB, rootBKey, nil)
+		leaf, leafKey := generateTestCert(t, false, intermediate, intermediateKey, []string{"http://example.com/leaf.crl"})
+
+		signedToken := buildTokenFromCerts(t, rootA, intermediate, leaf, leafKey)
+
+		var fetchCount atomic.Int32
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(_ context.Context, _ string, _ time.Duration) ([]byte, error) {
+				fetchCount.Add(1)
+				return nil, errors.New("should not be reached")
+			},
+		}
+
+		_, _, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
+		require.ErrorContains(t, err, "x5c chain validation failed")
+		require.ErrorContains(t, err, "intermediate not signed by root")
+		require.Equal(t, int32(0), fetchCount.Load(), "CRL fetch must not run when chain validation fails")
+	})
+
+	t.Run("rejects token whose leaf is not signed by intermediate", func(t *testing.T) {
+		// Two parallel chains: intermediate from chain A, leaf from chain B's intermediate.
+		// CheckSignatureFrom on the leaf must fail before any CRL is fetched.
+		rootA, rootAKey := generateTestCert(t, true, nil, nil, nil)
+		intermediateA, _ := generateTestCert(t, true, rootA, rootAKey, nil)
+
+		rootB, rootBKey := generateTestCert(t, true, nil, nil, nil)
+		intermediateB, intermediateBKey := generateTestCert(t, true, rootB, rootBKey, nil)
+		leaf, leafKey := generateTestCert(t, false, intermediateB, intermediateBKey, []string{"http://example.com/leaf.crl"})
+
+		signedToken := buildTokenFromCerts(t, rootA, intermediateA, leaf, leafKey)
+
+		var fetchCount atomic.Int32
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(_ context.Context, _ string, _ time.Duration) ([]byte, error) {
+				fetchCount.Add(1)
+				return nil, errors.New("should not be reached")
+			},
+		}
+
+		_, _, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
+		require.ErrorContains(t, err, "x5c chain validation failed")
+		require.ErrorContains(t, err, "leaf not signed by intermediate")
+		require.Equal(t, int32(0), fetchCount.Load(), "CRL fetch must not run when chain validation fails")
+	})
+
+	t.Run("rejects not-yet-valid intermediate certificate", func(t *testing.T) {
+		// Root is currently valid; intermediate has a NotBefore in the future.
+		// validateX5CChain must reject before any CRL fetch.
+		root, rootKey := generateTestCertWithValidity(t, true, nil, nil, time.Now().Add(-2*time.Hour), time.Now().Add(2*time.Hour), nil)
+		intermediate, intermediateKey := generateTestCertWithValidity(t, true, root, rootKey, time.Now().Add(time.Hour), time.Now().Add(3*time.Hour), nil)
+		leaf, leafKey := generateTestCertWithValidity(t, false, intermediate, intermediateKey, time.Now().Add(time.Hour), time.Now().Add(2*time.Hour), []string{"http://example.com/leaf.crl"})
+
+		signedToken := buildTokenFromCerts(t, root, intermediate, leaf, leafKey)
+
+		var fetchCount atomic.Int32
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(_ context.Context, _ string, _ time.Duration) ([]byte, error) {
+				fetchCount.Add(1)
+				return nil, errors.New("should not be reached")
+			},
+		}
+
+		_, _, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
+		require.ErrorContains(t, err, "x5c chain validation failed")
+		require.ErrorContains(t, err, "intermediate certificate not yet valid")
+		require.Equal(t, int32(0), fetchCount.Load(), "CRL fetch must not run when chain validation fails")
+	})
+
+	t.Run("rejects expired leaf certificate", func(t *testing.T) {
+		root, rootKey := generateTestCertWithValidity(t, true, nil, nil, time.Now().Add(-2*time.Hour), time.Now().Add(2*time.Hour), nil)
+		intermediate, intermediateKey := generateTestCertWithValidity(t, true, root, rootKey, time.Now().Add(-2*time.Hour), time.Now().Add(2*time.Hour), nil)
+		leaf, leafKey := generateTestCertWithValidity(t, false, intermediate, intermediateKey, time.Now().Add(-2*time.Hour), time.Now().Add(-time.Hour), []string{"http://example.com/leaf.crl"})
+
+		signedToken := buildTokenFromCerts(t, root, intermediate, leaf, leafKey)
+
+		var fetchCount atomic.Int32
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(_ context.Context, _ string, _ time.Duration) ([]byte, error) {
+				fetchCount.Add(1)
+				return nil, errors.New("should not be reached")
+			},
+		}
+
+		_, _, err := cache.FetchCRLsForToken(context.Background(), signedToken, nil)
+		require.ErrorContains(t, err, "x5c chain validation failed")
+		require.ErrorContains(t, err, "leaf certificate expired")
+		require.Equal(t, int32(0), fetchCount.Load(), "CRL fetch must not run when chain validation fails")
+	})
+}
+
+// generateTestCertWithValidity is like generateTestCert but allows custom NotBefore/NotAfter.
+func generateTestCertWithValidity(t *testing.T, isCA bool, parent *x509.Certificate, parentKey *rsa.PrivateKey, notBefore, notAfter time.Time, crlDistPoints []string) (*x509.Certificate, *rsa.PrivateKey) {
+	t.Helper()
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		SignatureAlgorithm:    x509.SHA256WithRSA,
+		IsCA:                  isCA,
+		BasicConstraintsValid: true,
+		CRLDistributionPoints: crlDistPoints,
+	}
+	if isCA {
+		template.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageCRLSign
+	} else {
+		template.KeyUsage = x509.KeyUsageDigitalSignature
+		template.Subject = pkix.Name{CommonName: "leaf"}
+	}
+
+	signer := parentKey
+	signerCert := parent
+	if parent == nil {
+		signer = priv
+		signerCert = template
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, template, signerCert, &priv.PublicKey, signer)
+	require.NoError(t, err)
+	cert, err := x509.ParseCertificate(certDER)
+	require.NoError(t, err)
+	return cert, priv
+}
+
+// buildTokenFromCerts constructs a JWT with x5c carrying the given certs (leaf first per RFC 7515).
+func buildTokenFromCerts(t *testing.T, root, intermediate, leaf *x509.Certificate, signingKey *rsa.PrivateKey) string {
+	t.Helper()
+	x5c := []string{
+		base64.StdEncoding.EncodeToString(leaf.Raw),
+		base64.StdEncoding.EncodeToString(intermediate.Raw),
+		base64.StdEncoding.EncodeToString(root.Raw),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{})
+	token.Header["x5c"] = x5c
+	signedToken, err := token.SignedString(signingKey)
+	require.NoError(t, err)
+	return signedToken
+}
+
+// TestFetchCRLBytesBlocksLocalhost verifies that the default CRL fetcher rejects URLs
+// resolving to localhost / private addresses via ResolveExternalURL, and that no HTTP
+// request is dispatched when the URL is blocked.
+func TestFetchCRLBytesBlocksLocalhost(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+	}))
+	defer server.Close()
+
+	_, err := fetchCRLBytes(context.Background(), server.URL+"/crl", 2*time.Second)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrURLValidation)
+	require.Equal(t, int32(0), requests.Load(), "HTTP request must not be made when URL validation rejects the URL")
+}
+
+// TestCRLCacheBlocksLocalhost verifies that a default-constructed CRLCache rejects
+// CRL URLs resolving to private addresses end-to-end through getOrFetchCRL.
+func TestCRLCacheBlocksLocalhost(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+	}))
+	defer server.Close()
+
+	cache := NewCRLCache()
+	_, err := cache.getOrFetchCRL(context.Background(), server.URL+"/crl", nil)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrURLValidation)
+	require.Equal(t, int32(0), requests.Load())
+	require.Empty(t, cache.entries, "blocked URL must not be cached")
 }
 
 func TestEvictStaleEntries(t *testing.T) {

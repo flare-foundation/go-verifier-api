@@ -36,17 +36,32 @@ type CRLCache struct {
 	fetchFn func(ctx context.Context, url string, timeout time.Duration) ([]byte, error)
 }
 
-// NewCRLCache creates a CRLCache that uses fetcher.FetchBytes for HTTP fetches.
+// NewCRLCache creates a CRLCache that fetches CRLs through SSRF-safe pinned URL resolution.
 func NewCRLCache() *CRLCache {
 	return &CRLCache{
 		entries: make(map[string]*crlEntry),
-		fetchFn: fetcher.FetchBytes,
+		fetchFn: fetchCRLBytes,
 	}
+}
+
+// fetchCRLBytes resolves the URL via ResolveExternalURL with allowPrivateNetworks=false
+// (CRL distribution points must never resolve to private/local addresses, independent of
+// ALLOW_PRIVATE_NETWORKS which is scoped to the TEE proxy), then fetches the body via a
+// connection pinned to the resolved IP.
+func fetchCRLBytes(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
+	resolved, err := ResolveExternalURL(ctx, url, false)
+	if err != nil {
+		return nil, fmt.Errorf("resolving CRL URL %s: %w", url, err)
+	}
+	dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
+	return fetcher.FetchBytesPinned(ctx, url, timeout, dialAddr, hostHeader, serverName)
 }
 
 // FetchCRLsForToken parses the attestation token without verification to extract
 // x5c certificates, then fetches/caches CRLs for the leaf and intermediate certificates.
-// The expectedRoot is the trusted root certificate — the token's root must match before CRLs are fetched.
+// The expectedRoot is the trusted root certificate — the token's root must match and the
+// full chain (intermediate signed by root, leaf signed by intermediate, validity windows
+// current) must be valid before any CRL distribution point URL is dereferenced.
 func (c *CRLCache) FetchCRLsForToken(ctx context.Context, attestationToken string, expectedRoot *x509.Certificate) (leafCRL, intermediateCRL *x509.RevocationList, err error) {
 	token, _, err := googlecloud.ParsePKITokenUnverified(attestationToken)
 	if err != nil {
@@ -69,6 +84,16 @@ func (c *CRLCache) FetchCRLsForToken(ctx context.Context, attestationToken strin
 
 	if expectedRoot != nil && !expectedRoot.Equal(certs.Root) {
 		return nil, nil, errors.New("token root certificate does not match trusted root")
+	}
+
+	// Pre-validate the x5c chain (signature + validity windows) before any
+	// CRL URL is dereferenced. Signature-only — CRLs are not yet fetched,
+	// so revocation is checked downstream in ParseAndValidatePKIToken.
+	// Rejecting bad chains here prevents attacker-supplied certs (with
+	// arbitrary CRL distribution point URLs) from triggering outbound
+	// requests.
+	if err := validateX5CChain(certs.Root, certs.Intermediate, certs.Leaf); err != nil {
+		return nil, nil, fmt.Errorf("x5c chain validation failed: %w", err)
 	}
 
 	type crlResult struct {
@@ -236,5 +261,38 @@ func (c *CRLCache) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.entries = make(map[string]*crlEntry)
+	return nil
+}
+
+// validateX5CChain checks intermediate is signed by root, leaf is signed by
+// intermediate, and all three are within their validity windows. Signature-only
+// — revocation is not checked here (CRLs are fetched downstream).
+func validateX5CChain(root, intermediate, leaf *x509.Certificate) error {
+	now := time.Now()
+	if err := checkCertValidity(root, "root", now); err != nil {
+		return err
+	}
+	if err := checkCertValidity(intermediate, "intermediate", now); err != nil {
+		return err
+	}
+	if err := checkCertValidity(leaf, "leaf", now); err != nil {
+		return err
+	}
+	if err := intermediate.CheckSignatureFrom(root); err != nil {
+		return fmt.Errorf("intermediate not signed by root: %w", err)
+	}
+	if err := leaf.CheckSignatureFrom(intermediate); err != nil {
+		return fmt.Errorf("leaf not signed by intermediate: %w", err)
+	}
+	return nil
+}
+
+func checkCertValidity(cert *x509.Certificate, name string, now time.Time) error {
+	if now.Before(cert.NotBefore) {
+		return fmt.Errorf("%s certificate not yet valid (NotBefore=%s)", name, cert.NotBefore.Format(time.RFC3339))
+	}
+	if now.After(cert.NotAfter) {
+		return fmt.Errorf("%s certificate expired (NotAfter=%s)", name, cert.NotAfter.Format(time.RFC3339))
+	}
 	return nil
 }
