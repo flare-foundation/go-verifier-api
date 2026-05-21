@@ -29,7 +29,7 @@ func BuildPaymentStatusResponse(
 	if err != nil {
 		return zero, fmt.Errorf("cannot parse transaction status: %w", err)
 	}
-	transactionFee, err := helper.ParseBigInt(raw.Fee)
+	transactionFee, err := helper.ParseNonNegativeBigInt(raw.Fee)
 	if err != nil {
 		return zero, fmt.Errorf("invalid transaction fee %q: %w", raw.Fee, err)
 	}

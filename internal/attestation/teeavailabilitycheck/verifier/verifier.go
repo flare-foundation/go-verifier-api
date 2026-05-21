@@ -19,6 +19,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/machinemanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -50,6 +51,15 @@ const (
 var (
 	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
+
+	// Expected (OPType, OPCommand) on an availability-check action result.
+	// Not covered by ActionResult.Hash(), so a malicious proxy can change
+	// them without breaking the TEE signature — checked explicitly here.
+	// (op.Get, op.TEEInfo) is intentionally not allowed: it is reachable
+	// only via the proxy's API-key-gated /direct endpoint, not the FDC2
+	// availability-check flow.
+	expectedAvailabilityOPType    = op.Reg.Hash()
+	expectedAvailabilityOPCommand = op.TEEAttestation.Hash()
 
 	ErrInsufficientSamples  = errors.New("insufficient samples")
 	ErrTEEDataValidation    = errors.New("TEE data validation failed")
@@ -503,31 +513,31 @@ func FetchTEEChallengeResult(
 //
 // The TEE signature over Result.Hash() binds Data, ID, SubmissionTag, and
 // Status (see tee-node pkg/types/actions.go Hash()). OPType and OPCommand
-// are NOT bound by the signature; the verifier currently does not check
-// them explicitly because the availability path can carry either
-// (op.Get, op.TEEInfo) or (op.Reg, op.TEEAttestation) and the response
-// Data shape (TeeInfoResponse) is constrained by JSON unmarshal downstream.
+// are NOT bound by the signature, so they are checked explicitly against the
+// expected (op.Reg, op.TEEAttestation) pair — the only pair that legitimately
+// reaches the verifier via the FDC2 availability-check flow.
 func verifyActionResult(
 	actionResp teenodetypes.ActionResponse,
 	expectedInstructionID common.Hash,
 	expectedTeeID common.Address,
 ) error {
-	logger.Debugf("verifying action result: instructionID=%s OPType=%s OPCommand=%s status=%d",
-		expectedInstructionID.Hex(),
-		actionResp.Result.OPType.Hex(),
-		actionResp.Result.OPCommand.Hex(),
-		actionResp.Result.Status,
-	)
 	if actionResp.Result.ID != expectedInstructionID {
 		return fmt.Errorf("action result instruction ID mismatch: expected %s, got %s",
 			expectedInstructionID.Hex(), actionResp.Result.ID.Hex())
 	}
-	// Availability check is processed as a direct instruction; success is Status=1
-	// (see tee-node internal/processors/direct/direct.go). Status=0 is
-	// processorutils.Invalid (failure), Status=3 is DeadlineExceeded.
+	// regutils.TEEAttestation returns Status=1 on success. Status=0 is
+	// processorutils.Invalid, Status=3 is DeadlineExceeded.
 	if actionResp.Result.Status != 1 {
 		return fmt.Errorf("action result status not success: status=%d, log=%q, additionalStatus=%x",
 			actionResp.Result.Status, actionResp.Result.Log, []byte(actionResp.Result.AdditionalResultStatus))
+	}
+	if actionResp.Result.OPType != expectedAvailabilityOPType {
+		return fmt.Errorf("action result OPType mismatch: expected %s, got %s",
+			expectedAvailabilityOPType.Hex(), actionResp.Result.OPType.Hex())
+	}
+	if actionResp.Result.OPCommand != expectedAvailabilityOPCommand {
+		return fmt.Errorf("action result OPCommand mismatch: expected %s, got %s",
+			expectedAvailabilityOPCommand.Hex(), actionResp.Result.OPCommand.Hex())
 	}
 	if len(actionResp.Signature) == 0 {
 		return errors.New("missing TEE signature on action result")

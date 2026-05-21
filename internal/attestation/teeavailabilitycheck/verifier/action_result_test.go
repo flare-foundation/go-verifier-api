@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
 )
@@ -29,19 +30,41 @@ func TestVerifyActionResult(t *testing.T) {
 
 	instructionID := common.HexToHash("0xdeadbeef")
 
+	// (op.Reg, op.TEEAttestation) is the only pair that reaches the verifier
+	// via the FDC2 availability-check flow (the embedded instructionId in the
+	// request body always points to a prior admission action result).
 	validResult := teenodetypes.ActionResult{
-		ID:     instructionID,
-		Status: 1, // success for direct instructions (see tee-node direct/direct.go)
-		Data:   []byte(`{"teeInfo":{}}`),
+		ID:        instructionID,
+		Status:    1, // regutils.TEEAttestation sets Status=1 on success
+		OPType:    op.Reg.Hash(),
+		OPCommand: op.TEEAttestation.Hash(),
+		Data:      []byte(`{"teeInfo":{}}`),
 	}
 
-	t.Run("valid action result", func(t *testing.T) {
+	t.Run("valid (Reg, TEEAttestation) — admission action result", func(t *testing.T) {
 		sig := signActionResult(t, validResult, teeKey)
 		resp := teenodetypes.ActionResponse{
 			Result:    validResult,
 			Signature: sig,
 		}
 		require.NoError(t, verifyActionResult(resp, instructionID, teeID))
+	})
+
+	t.Run("(Get, TEEInfo) is rejected — not reachable via FDC2 flow", func(t *testing.T) {
+		// tee-node's getutils.TEEInfo direct processor exists but is not on
+		// the trusted attestation path. A proxy returning it for an
+		// availability-check verify is suspect.
+		mismatched := validResult
+		mismatched.OPType = op.Get.Hash()
+		mismatched.OPCommand = op.TEEInfo.Hash()
+		sig := signActionResult(t, mismatched, teeKey)
+		resp := teenodetypes.ActionResponse{
+			Result:    mismatched,
+			Signature: sig,
+		}
+		err := verifyActionResult(resp, instructionID, teeID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "OPType mismatch")
 	})
 
 	t.Run("Result.ID mismatch is a replay", func(t *testing.T) {
@@ -90,6 +113,36 @@ func TestVerifyActionResult(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "status not success")
 		require.Contains(t, err.Error(), "status=3")
+	})
+
+	t.Run("OPType mismatch is rejected", func(t *testing.T) {
+		// OPType is not bound by Result.Hash(), so a malicious proxy can
+		// tamper with it without breaking the TEE signature.
+		mismatched := validResult
+		mismatched.OPType = op.XRP.Hash() // payment op, not an availability response
+		sig := signActionResult(t, mismatched, teeKey)
+		resp := teenodetypes.ActionResponse{
+			Result:    mismatched,
+			Signature: sig,
+		}
+		err := verifyActionResult(resp, instructionID, teeID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "OPType mismatch")
+	})
+
+	t.Run("OPCommand mismatch is rejected", func(t *testing.T) {
+		// OPType matches but OPCommand doesn't (e.g. Reg / KeyGenerate
+		// instead of Reg / TEEAttestation).
+		mismatched := validResult
+		mismatched.OPCommand = op.KeyGenerate.Hash()
+		sig := signActionResult(t, mismatched, teeKey)
+		resp := teenodetypes.ActionResponse{
+			Result:    mismatched,
+			Signature: sig,
+		}
+		err := verifyActionResult(resp, instructionID, teeID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "OPCommand mismatch")
 	})
 
 	t.Run("missing TEE signature", func(t *testing.T) {

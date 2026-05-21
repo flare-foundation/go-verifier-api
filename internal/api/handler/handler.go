@@ -137,6 +137,7 @@ func classifyVerifyError(reqID string, err error) error {
 	switch {
 	// 400 — bad request
 	case errors.Is(err, feeproofxrp.ErrNonceRangeTooLarge),
+		errors.Is(err, feeproofxrp.ErrReissueLimitExceeded),
 		errors.Is(err, multisigxrp.ErrInvalidRequest):
 		return warnHuma400(reqID, msg, err)
 	// 422 — data/validation errors

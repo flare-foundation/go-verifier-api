@@ -100,10 +100,11 @@ Required:
 3. Verify action-result integrity:
    - Recover proxy signer from `actionResp.ProxySignature` over `keccak256(actionResp.Result.Data)`; require it to equal `req.teeProxyId`.
    - Require `actionResp.Result.ID == req.instructionId`.
-   - Require `actionResp.Result.Status == 1` (successful direct action; tee-node's direct processor emits `Status: 1` on success and `0` on `Invalid`).
+   - Require `actionResp.Result.Status == 1` (success for both availability-response producers in tee-node).
+   - Require `(actionResp.Result.OPType, actionResp.Result.OPCommand) == (op.Reg, op.TEEAttestation)` — emitted by `VerificationFacet.requestTeeAttestation` and `MachineManagerFacet` during admission, handled by tee-node's `regutils.TEEAttestation` (instruction processor, `immediateResult=true`). The FDC2 availability-check flow (`VerificationFacet.requestAvailabilityCheckAttestation` → `Verification.requestFdc2Attestation` → relay → verifier) embeds the prior admission `instructionId` in its request body, so the verifier always fetches the admission action result; `(op.Get, op.TEEInfo)` is the only other tee-node pair that produces a `TeeInfoResponse`, but it is reachable only via the proxy's API-key-gated `/direct` endpoint and is not part of the trusted attestation flow, so it is excluded from the allowlist.
    - Verify `actionResp.Signature` over `actionResp.Result.Hash()` against `req.teeId` (TEE proof-of-possession on the action result).
 
-   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand`. The verifier currently does not enforce specific values for `OPType`/`OPCommand` because the availability path can carry either `(op.Get, op.TEEInfo)` (direct query for an admitted TEE) or `(op.Reg, op.TEEAttestation)` (registration attestation when a TEE is being added), and the response `Data` shape (`TeeInfoResponse`) is constrained by JSON unmarshal downstream. Adding an explicit allowlist of OP pairs is a defense-in-depth follow-up. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy. The proof-of-possession here is over `Result.Hash()`, distinct from the poller path's proof-of-possession over `MachineData.Hash()` via `DataSignature` — the two paths consume different endpoints with different payload shapes.
+   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand` — those are checked explicitly against `expectedAvailabilityOPType`/`expectedAvailabilityOPCommand`. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy; no separate verifier-side check is enforced because the submission convention is set by the proxy / relay client. The proof-of-possession here is over `Result.Hash()`, distinct from the poller path's proof-of-possession over `MachineData.Hash()` via `DataSignature` — the two paths consume different endpoints with different payload shapes.
 4. **In parallel** (both depend only on challenge response):
    - `DataVerification`: CRL fetch + PKI validation + TEE ID + claims.
    - `CheckSigningPolicies`: signing policy hashes against relay contract (2 concurrent RPC calls).
@@ -241,12 +242,13 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 ### Request
 - `opType`, `senderAddress`, `fromNonce` (inclusive), `toNonce` (inclusive), `untilTimestamp` (Flare block timestamp cutoff for reissues).
 - Nonce range capped at 200 (`MaxNonceRange`); over → 400.
+- Reissue scan capped at 32 reissue events per nonce (`MaxReissuesPerNonce`). The contract has no on-chain cap on reissue count (only a per-batch timing gate), so this is a defense-in-depth backstop against indexer pollution / pathological retry behavior. Realistic legitimate flows reissue 0–3 times per nonce. Exceeding the cap → 400.
 
 ### Primary flow (`XRPVerifier.Verify`)
 1. Validate nonce range.
 2. Compute pay instruction IDs for all nonces; batch fetch C-chain events (`topic2 IN (?)`).
 3. Per nonce: verify pay event exists, extract `maxFee`.
-4. Per nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found or `blockTimestamp > untilTimestamp`). Add residual `max(0, reissue_maxFee - pay_maxFee)`.
+4. Per nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found, `blockTimestamp > untilTimestamp`, or `reissueNumber == MaxReissuesPerNonce`). If the loop hits the cap and the next reissueNumber still exists in the indexer, return `ErrReissueLimitExceeded`. Otherwise add residual `max(0, reissue_maxFee - pay_maxFee)` for each scanned reissue.
 5. Sum as `estimatedFee`.
 6. Batch fetch XRP transactions (`sequence IN (?)`), parse `Fee`, sum as `actualFee`.
 7. Return `{actualFee, estimatedFee}`.
@@ -255,6 +257,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 - Missing pay event for any nonce → 422 (`ErrMissingPayEvent`).
 - Missing XRP transaction for any nonce → 422 (`ErrMissingTransaction`).
 - Nonce range too large → 400 (`ErrNonceRangeTooLarge`).
+- Reissue scan exceeded the per-nonce cap → 400 (`ErrReissueLimitExceeded`).
 - DB infrastructure failure → 503 (via `ErrDatabase`).
 
 ### Data retention
@@ -276,6 +279,7 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
   - invalid request body
   - decode/encode request conversion issues
   - nonce range too large or invalid — `ErrNonceRangeTooLarge` (PMWFeeProof)
+  - reissue scan exceeded `MaxReissuesPerNonce` — `ErrReissueLimitExceeded` (PMWFeeProof)
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
 - `422 Unprocessable Entity`:

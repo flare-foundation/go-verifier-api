@@ -21,6 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
+	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
+	multisigxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
@@ -412,6 +414,22 @@ func TestClassifyVerifyError(t *testing.T) {
 		err            error
 		expectedStatus int
 	}{
+		// 400 — bad request
+		{
+			name:           "ErrNonceRangeTooLarge",
+			err:            fmt.Errorf("range exceeds max: %w", feeproofxrp.ErrNonceRangeTooLarge),
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "ErrReissueLimitExceeded",
+			err:            fmt.Errorf("nonce 100: %w (cap 32)", feeproofxrp.ErrReissueLimitExceeded),
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "ErrInvalidRequest (multisig)",
+			err:            fmt.Errorf("too many keys: %w", multisigxrp.ErrInvalidRequest),
+			expectedStatus: http.StatusBadRequest,
+		},
 		// 422 — PMW errors
 		{
 			name:           "ErrRPCNonSuccess",

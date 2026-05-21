@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
@@ -732,8 +733,10 @@ func TestVerify(t *testing.T) {
 		require.NoError(t, err)
 
 		actionResult := teenodetypes.ActionResult{
-			Status: 1, // success for direct instructions (tee-node)
-			Data:   data,
+			Status:    1, // success for direct instructions (tee-node)
+			OPType:    op.Reg.Hash(),
+			OPCommand: op.TEEAttestation.Hash(),
+			Data:      data,
 		}
 		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
 		require.NoError(t, err)
@@ -785,8 +788,10 @@ func TestVerify(t *testing.T) {
 		require.NoError(t, err)
 
 		actionResult := teenodetypes.ActionResult{
-			Status: 1, // success for direct instructions (tee-node)
-			Data:   data,
+			Status:    1, // success for direct instructions (tee-node)
+			OPType:    op.Reg.Hash(),
+			OPCommand: op.TEEAttestation.Hash(),
+			Data:      data,
 		}
 		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
 		require.NoError(t, err)

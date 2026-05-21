@@ -126,6 +126,16 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "invalid big.Int string: fee")
 	})
+	t.Run("negative fee field rejected", func(t *testing.T) {
+		// Corrupted or malicious indexer data with a negative Fee must not
+		// propagate into the FDC2 response (XRPL fees are unsigned drops).
+		modRawTransactionData := rawTransactionData
+		modRawTransactionData.Fee = "-1"
+		val, err := builder.BuildPaymentStatusResponse(modRawTransactionData, &paymentMessageInstruction, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorContains(t, err, "invalid transaction fee")
+		require.ErrorContains(t, err, "expected non-negative big.Int")
+	})
 	t.Run("invalid tx hash field", func(t *testing.T) {
 		txFromDB := db.DBTransaction{
 			Hash: "0x1234",

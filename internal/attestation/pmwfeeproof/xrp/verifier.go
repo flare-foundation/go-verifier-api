@@ -15,6 +15,7 @@ import (
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
@@ -22,10 +23,19 @@ import (
 
 var MaxNonceRange uint64 = 200
 
+// MaxReissuesPerNonce caps how many reissue events the verifier will scan
+// per nonce. The contract has no on-chain cap on reissues; only a
+// per-batch timing gate. A polluted indexer could therefore make a single
+// request trigger arbitrary DB work. This cap is a defense-in-depth
+// backstop — well above any realistic retry count (typical wallets: 0–3
+// reissues, pathological: 5–10).
+const MaxReissuesPerNonce uint64 = 32
+
 var (
-	ErrNonceRangeTooLarge = errors.New("nonce range too large")
-	ErrMissingPayEvent    = errors.New("missing pay event for nonce")
-	ErrMissingTransaction = errors.New("missing transaction for nonce")
+	ErrNonceRangeTooLarge   = errors.New("nonce range too large")
+	ErrMissingPayEvent      = errors.New("missing pay event for nonce")
+	ErrMissingTransaction   = errors.New("missing transaction for nonce")
+	ErrReissueLimitExceeded = errors.New("reissue scan limit exceeded")
 )
 
 type XRPVerifier struct {
@@ -111,23 +121,23 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 		payMaxFee := payMessage.MaxFee
 		estimatedFee.Add(estimatedFee, payMaxFee)
 
-		// Iteratively fetch reissue events for this nonce.
-		for reissueNum := uint64(0); ; reissueNum++ {
+		terminatedEarly := false
+		for reissueNum := range MaxReissuesPerNonce {
 			reissueID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, nonce, reissueNum)
 			if err != nil {
 				return nil, fmt.Errorf("cannot generate reissue instruction ID for nonce %d, reissue %d: %w", nonce, reissueNum, err)
 			}
 
 			reissueResult, err := x.Repo.FetchInstructionLog(ctx, eventHash, reissueID)
+			if errors.Is(err, paymentdb.ErrRecordNotFound) {
+				terminatedEarly = true
+				break
+			}
 			if err != nil {
-				if errors.Is(err, paymentdb.ErrRecordNotFound) {
-					break // No more reissues for this nonce.
-				}
 				return nil, fmt.Errorf("cannot fetch reissue event for nonce %d, reissue %d: %w", nonce, reissueNum, err)
 			}
-
-			// Skip reissue events after untilTimestamp (inclusive).
 			if reissueResult.BlockTimestamp > req.UntilTimestamp {
+				terminatedEarly = true
 				break
 			}
 
@@ -142,6 +152,24 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 				estimatedFee.Add(estimatedFee, residual)
 			}
 		}
+		if terminatedEarly {
+			continue
+		}
+		// Loop ran to MaxReissuesPerNonce. Probe the next reissueNumber to
+		// distinguish "exactly cap reissues exist" (legitimate, accept) from
+		// ">cap exist" (would silently undercount estimatedFee, reject).
+		nextID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, nonce, MaxReissuesPerNonce)
+		if err != nil {
+			return nil, fmt.Errorf("cannot generate reissue instruction ID for nonce %d, reissue %d: %w", nonce, MaxReissuesPerNonce, err)
+		}
+		_, err = x.Repo.FetchInstructionLog(ctx, eventHash, nextID)
+		if errors.Is(err, paymentdb.ErrRecordNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("cannot probe reissue cap for nonce %d: %w", nonce, err)
+		}
+		return nil, fmt.Errorf("nonce %d: %w (cap %d)", nonce, ErrReissueLimitExceeded, MaxReissuesPerNonce)
 	}
 	return estimatedFee, nil
 }
@@ -185,9 +213,9 @@ func parseTxFee(response string) (*big.Int, error) {
 	if raw.Fee == "" {
 		return nil, errors.New("missing Fee in transaction response")
 	}
-	fee, ok := new(big.Int).SetString(raw.Fee, 10)
-	if !ok {
-		return nil, fmt.Errorf("cannot parse Fee %q as integer", raw.Fee)
+	fee, err := helper.ParseNonNegativeBigInt(raw.Fee)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse Fee %q: %w", raw.Fee, err)
 	}
 	return fee, nil
 }
