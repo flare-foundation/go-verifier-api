@@ -53,8 +53,8 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		actionResult := teenodetypes.ActionResult{
 			ID:        instructionId,
 			Status:    1, // success for direct instructions (tee-node)
-			OPType:    op.Get.Hash(),
-			OPCommand: op.TEEInfo.Hash(),
+			OPType:    op.Reg.Hash(),
+			OPCommand: op.TEEAttestation.Hash(),
 			Data:      teeInfoBytes,
 		}
 		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)

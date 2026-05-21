@@ -52,25 +52,16 @@ var (
 	E2ETestPlatform = common.HexToHash("544553545f504c4154464f524d00000000000000000000000000000000000000")
 	E2ETestCodeHash = common.HexToHash("194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 
-	// availabilityResponseOPPairs lists the (OPType, OPCommand) pairs that
-	// legitimately produce a TeeInfoResponse for the TeeAvailabilityCheck path.
-	// Verified against tee-node/internal/router/routers.go and the contracts:
-	//   - (op.Reg, op.TEEAttestation) — initial TEE admission. Emitted by
-	//     VerificationFacet.requestTeeAttestation and MachineManagerFacet
-	//     during registration. Handled by tee-node's regutils.TEEAttestation
-	//     (instruction processor, immediateResult=true → Status=1).
-	//   - (op.Get, op.TEEInfo)        — routine liveness/uptime proof for an
-	//     already-admitted TEE. Triggered via
-	//     VerificationFacet.requestAvailabilityCheckAttestation; the relay
-	//     submits the action to the TEE. Handled by tee-node's getutils.TEEInfo
-	//     (direct processor → Status=1).
-	// These fields are not bound by ActionResult.Hash(), so they must be
-	// checked explicitly here — a malicious proxy can tamper with them
-	// without breaking the TEE signature.
-	availabilityResponseOPPairs = map[common.Hash]common.Hash{
-		op.Reg.Hash(): op.TEEAttestation.Hash(),
-		op.Get.Hash(): op.TEEInfo.Hash(),
-	}
+	// Expected (OPType, OPCommand) for an availability-check action result.
+	// Not bound by ActionResult.Hash(), so must be checked explicitly — a
+	// malicious proxy can tamper with them without breaking the TEE signature.
+	// Only (op.Reg, op.TEEAttestation) reaches the verifier: the FDC2 flow
+	// (requestAvailabilityCheckAttestation) embeds the prior admission
+	// instructionId, so the verifier always fetches the admission action
+	// result. (op.Get, op.TEEInfo) is reachable only via the proxy's
+	// API-key-gated /direct endpoint and is not part of the trusted flow.
+	expectedAvailabilityOPType    = op.Reg.Hash()
+	expectedAvailabilityOPCommand = op.TEEAttestation.Hash()
 
 	ErrInsufficientSamples  = errors.New("insufficient samples")
 	ErrTEEDataValidation    = errors.New("TEE data validation failed")
@@ -524,39 +515,31 @@ func FetchTEEChallengeResult(
 //
 // The TEE signature over Result.Hash() binds Data, ID, SubmissionTag, and
 // Status (see tee-node pkg/types/actions.go Hash()). OPType and OPCommand
-// are NOT bound by the signature, so they are checked explicitly against
-// availabilityResponseOPPairs — the allowlist of pairs that legitimately
-// produce a TeeInfoResponse for this verifier path.
+// are NOT bound by the signature, so they are checked explicitly against the
+// expected (op.Reg, op.TEEAttestation) pair — the only pair that legitimately
+// reaches the verifier via the FDC2 availability-check flow.
 func verifyActionResult(
 	actionResp teenodetypes.ActionResponse,
 	expectedInstructionID common.Hash,
 	expectedTeeID common.Address,
 ) error {
-	logger.Debugf("verifying action result: instructionID=%s OPType=%s OPCommand=%s status=%d",
-		expectedInstructionID.Hex(),
-		actionResp.Result.OPType.Hex(),
-		actionResp.Result.OPCommand.Hex(),
-		actionResp.Result.Status,
-	)
 	if actionResp.Result.ID != expectedInstructionID {
 		return fmt.Errorf("action result instruction ID mismatch: expected %s, got %s",
 			expectedInstructionID.Hex(), actionResp.Result.ID.Hex())
 	}
-	// Availability check producers (regutils + getutils) both return Status=1
-	// on success. Status=0 is processorutils.Invalid (failure),
-	// Status=3 is DeadlineExceeded.
+	// regutils.TEEAttestation returns Status=1 on success. Status=0 is
+	// processorutils.Invalid, Status=3 is DeadlineExceeded.
 	if actionResp.Result.Status != 1 {
 		return fmt.Errorf("action result status not success: status=%d, log=%q, additionalStatus=%x",
 			actionResp.Result.Status, actionResp.Result.Log, []byte(actionResp.Result.AdditionalResultStatus))
 	}
-	expectedCommand, ok := availabilityResponseOPPairs[actionResp.Result.OPType]
-	if !ok {
-		return fmt.Errorf("action result OPType is not an allowed availability-response type: got %s",
-			actionResp.Result.OPType.Hex())
+	if actionResp.Result.OPType != expectedAvailabilityOPType {
+		return fmt.Errorf("action result OPType mismatch: expected %s, got %s",
+			expectedAvailabilityOPType.Hex(), actionResp.Result.OPType.Hex())
 	}
-	if actionResp.Result.OPCommand != expectedCommand {
-		return fmt.Errorf("action result OPCommand mismatch for OPType %s: expected %s, got %s",
-			actionResp.Result.OPType.Hex(), expectedCommand.Hex(), actionResp.Result.OPCommand.Hex())
+	if actionResp.Result.OPCommand != expectedAvailabilityOPCommand {
+		return fmt.Errorf("action result OPCommand mismatch: expected %s, got %s",
+			expectedAvailabilityOPCommand.Hex(), actionResp.Result.OPCommand.Hex())
 	}
 	if len(actionResp.Signature) == 0 {
 		return errors.New("missing TEE signature on action result")

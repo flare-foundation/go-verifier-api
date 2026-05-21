@@ -30,16 +30,18 @@ func TestVerifyActionResult(t *testing.T) {
 
 	instructionID := common.HexToHash("0xdeadbeef")
 
-	// Routine liveness/uptime proof for an admitted TEE.
+	// (op.Reg, op.TEEAttestation) is the only pair that reaches the verifier
+	// via the FDC2 availability-check flow (the embedded instructionId in the
+	// request body always points to a prior admission action result).
 	validResult := teenodetypes.ActionResult{
 		ID:        instructionID,
-		Status:    1, // success for direct instructions (see tee-node direct/direct.go)
-		OPType:    op.Get.Hash(),
-		OPCommand: op.TEEInfo.Hash(),
+		Status:    1, // regutils.TEEAttestation sets Status=1 on success
+		OPType:    op.Reg.Hash(),
+		OPCommand: op.TEEAttestation.Hash(),
 		Data:      []byte(`{"teeInfo":{}}`),
 	}
 
-	t.Run("valid (Get, TEEInfo) — routine availability", func(t *testing.T) {
+	t.Run("valid (Reg, TEEAttestation) — admission action result", func(t *testing.T) {
 		sig := signActionResult(t, validResult, teeKey)
 		resp := teenodetypes.ActionResponse{
 			Result:    validResult,
@@ -48,16 +50,21 @@ func TestVerifyActionResult(t *testing.T) {
 		require.NoError(t, verifyActionResult(resp, instructionID, teeID))
 	})
 
-	t.Run("valid (Reg, TEEAttestation) — initial admission", func(t *testing.T) {
-		regResult := validResult
-		regResult.OPType = op.Reg.Hash()
-		regResult.OPCommand = op.TEEAttestation.Hash()
-		sig := signActionResult(t, regResult, teeKey)
+	t.Run("(Get, TEEInfo) is rejected — not reachable via FDC2 flow", func(t *testing.T) {
+		// tee-node's getutils.TEEInfo direct processor exists but is not on
+		// the trusted attestation path. A proxy returning it for an
+		// availability-check verify is suspect.
+		mismatched := validResult
+		mismatched.OPType = op.Get.Hash()
+		mismatched.OPCommand = op.TEEInfo.Hash()
+		sig := signActionResult(t, mismatched, teeKey)
 		resp := teenodetypes.ActionResponse{
-			Result:    regResult,
+			Result:    mismatched,
 			Signature: sig,
 		}
-		require.NoError(t, verifyActionResult(resp, instructionID, teeID))
+		err := verifyActionResult(resp, instructionID, teeID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "OPType mismatch")
 	})
 
 	t.Run("Result.ID mismatch is a replay", func(t *testing.T) {
@@ -108,7 +115,7 @@ func TestVerifyActionResult(t *testing.T) {
 		require.Contains(t, err.Error(), "status=3")
 	})
 
-	t.Run("OPType not in allowlist is rejected", func(t *testing.T) {
+	t.Run("OPType mismatch is rejected", func(t *testing.T) {
 		// OPType is not bound by Result.Hash(), so a malicious proxy can
 		// tamper with it without breaking the TEE signature.
 		mismatched := validResult
@@ -120,14 +127,14 @@ func TestVerifyActionResult(t *testing.T) {
 		}
 		err := verifyActionResult(resp, instructionID, teeID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "OPType is not an allowed availability-response type")
+		require.Contains(t, err.Error(), "OPType mismatch")
 	})
 
-	t.Run("OPCommand mismatch for allowed OPType is rejected", func(t *testing.T) {
-		// OPType is allowed, but OPCommand doesn't match the expected
-		// command for that type (e.g. Get / KeyInfo instead of Get / TEEInfo).
+	t.Run("OPCommand mismatch is rejected", func(t *testing.T) {
+		// OPType matches but OPCommand doesn't (e.g. Reg / KeyGenerate
+		// instead of Reg / TEEAttestation).
 		mismatched := validResult
-		mismatched.OPCommand = op.KeyInfo.Hash()
+		mismatched.OPCommand = op.KeyGenerate.Hash()
 		sig := signActionResult(t, mismatched, teeKey)
 		resp := teenodetypes.ActionResponse{
 			Result:    mismatched,
