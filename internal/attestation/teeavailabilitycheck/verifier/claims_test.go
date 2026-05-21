@@ -33,25 +33,36 @@ func TestValidateClaims(t *testing.T) {
 		},
 	}
 
-	t.Run("valid", func(t *testing.T) {
-		_, err := verifier.ValidateClaims(baseClaims, teeInfoData, false)
+	t.Run("prod TEE accepted with ALLOW_TEE_DEBUG=false", func(t *testing.T) {
+		val, err := verifier.ValidateClaims(baseClaims, teeInfoData, false)
 		require.NoError(t, err)
+		require.Equal(t, verifier.OK, val.Status)
 	})
-	t.Run("valid in debug mode", func(t *testing.T) {
+	t.Run("prod TEE still accepted with ALLOW_TEE_DEBUG=true (permissive)", func(t *testing.T) {
+		val, err := verifier.ValidateClaims(baseClaims, teeInfoData, true)
+		require.NoError(t, err)
+		require.Equal(t, verifier.OK, val.Status)
+	})
+	t.Run("debug TEE accepted with ALLOW_TEE_DEBUG=true", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.DebugStatus = "enabled"
-		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, true)
+		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, true)
 		require.NoError(t, err)
+		require.Equal(t, verifier.OK, val.Status)
 	})
-	t.Run("production TEE not allowed in debug mode", func(t *testing.T) {
-		_, err := verifier.ValidateClaims(baseClaims, teeInfoData, true)
-		require.ErrorContains(t, err, "production TEE not allowed when ALLOW_TEE_DEBUG=true")
-	})
-	t.Run("debug TEE not allowed in production mode", func(t *testing.T) {
+	t.Run("debug TEE rejected with ALLOW_TEE_DEBUG=false", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.DebugStatus = "enabled"
 		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
 		require.ErrorContains(t, err, "not running in production mode")
+	})
+	t.Run("prod path applies STABLE check even when ALLOW_TEE_DEBUG=true", func(t *testing.T) {
+		// Permissive mode must not weaken the prod path: a prod TEE without STABLE still downgrades to OBSOLETE.
+		modClaims := *baseClaims
+		modClaims.SubMods.ConfidentialSpace.SupportAttributes = []string{}
+		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, true)
+		require.NoError(t, err)
+		require.Equal(t, verifier.OBSOLETE, val.Status)
 	})
 	t.Run("expect one EATNonce", func(t *testing.T) {
 		modClaims := *baseClaims

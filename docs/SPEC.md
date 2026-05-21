@@ -66,7 +66,7 @@ Required:
 - `FLARE_TEE_MANAGER_CONTRACT_ADDRESS`
 
 Optional test/E2E flags:
-- `ALLOW_TEE_DEBUG` (default false) — when enabled, only accepts Google Confidential Space TEEs running in debug mode (`dbgstat != "disabled-since-boot"`) and rejects production TEEs. Intended for development/testing with debug TEE images.
+- `ALLOW_TEE_DEBUG` (default false) — permissive flag. `false`: only production Confidential Space TEEs (`dbgstat == "disabled-since-boot"`) are accepted. `true`: production AND debug TEEs (`dbgstat != "disabled-since-boot"`) are both accepted; every debug admission emits a WARN log. Debug TEEs have the debugger attached and secrets can be extracted — never enable on production deployments. Intended for staging/E2E only.
 - `DISABLE_ATTESTATION_CHECK_E2E` (default false) — when enabled, skips all JWT attestation validation (PKI, claims, CRL) in both the verify flow and the poller, returning hardcoded OK with test values. Intended for E2E tests without real Google attestation.
 - `ALLOW_PRIVATE_NETWORKS` (default false) — test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs and preserving DNS pinning. Useful for Docker bridge networking.
 - `MAX_POLLED_TEES` (default 0) — controls how many TEEs the poller monitors. Extension 0 TEEs are always polled regardless of this cap. When 0 (default), only extension 0 is polled. When >0, the poller also includes TEEs from other extensions up to this limit.
