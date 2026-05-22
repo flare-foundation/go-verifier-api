@@ -32,6 +32,6 @@ func TestDataVerification_CRLFetchFailure(t *testing.T) {
 		Attestation: signedToken,
 	}
 
-	_, err := v.DataVerification(context.Background(), resp, common.Address{}, false)
+	_, err := v.DataVerification(context.Background(), resp, common.Address{})
 	require.ErrorContains(t, err, "CRL fetch failed")
 }

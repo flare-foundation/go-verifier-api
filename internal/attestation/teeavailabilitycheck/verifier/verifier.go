@@ -9,14 +9,10 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"sort"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/machinemanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -24,7 +20,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
@@ -37,15 +32,10 @@ import (
 )
 
 const (
-	fetchChallengeTimeout   = 4 * time.Second
-	BlockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
-	chainMaxAttempts        = 1
-	chainRetryDelay         = 400 * time.Millisecond
-	chainFetchTimeout       = 3 * time.Second
-	blockStalenessThreshold = 120             // seconds — warn if latest block is older than this
-	SamplesToConsider       = 5               // NOTE: SamplesToConsider and SampleInterval need to be correlated.
-	SampleInterval          = 1 * time.Minute // NOTE: SamplesToConsider and SampleInterval need to be correlated.
-	MaxSampleStaleness      = time.Duration(SamplesToConsider) * SampleInterval
+	fetchChallengeTimeout = 4 * time.Second
+	chainMaxAttempts      = 1
+	chainRetryDelay       = 400 * time.Millisecond
+	chainFetchTimeout     = 3 * time.Second
 )
 
 var (
@@ -61,43 +51,19 @@ var (
 	expectedAvailabilityOPType    = op.Reg.Hash()
 	expectedAvailabilityOPCommand = op.TEEAttestation.Hash()
 
-	ErrInsufficientSamples  = errors.New("insufficient samples")
 	ErrTEEDataValidation    = errors.New("TEE data validation failed")
 	ErrActionResultNotFound = errors.New("action result not found")
 )
 
 type TeeVerifier struct {
-	Cfg                  *config.TeeAvailabilityCheckConfig
-	EthClient            EthClient
-	MachineManagerCaller MachineManagerCallerInterface
-	RelayCaller          RelayCallerInterface
-	ValidateURL          bool
-	CRLCache             *CRLCache
-	TeeSamples           map[common.Address][]verifiertypes.TeeSampleValue
-	SamplesMu            sync.RWMutex
-	PollerSnapshot       atomic.Value // stores []verifiertypes.TeeSample
-	magicPassLogged      sync.Map     // tracks TEE IDs that have already logged a MagicPass warning
-}
-
-type EthClient interface {
-	BlockByHash(ctx context.Context, hash common.Hash) (*ethtypes.Block, error)
-	BlockByNumber(ctx context.Context, number *big.Int) (*ethtypes.Block, error)
+	Cfg         *config.TeeAvailabilityCheckConfig
+	EthClient   *ethclient.Client
+	RelayCaller RelayCallerInterface
+	CRLCache    *CRLCache
 }
 
 type RelayCallerInterface interface {
 	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
-}
-
-type MachineManagerCallerInterface interface {
-	GetAllActiveTeeMachines(opts *bind.CallOpts, start *big.Int, end *big.Int) (struct {
-		TeeIds      []common.Address
-		Urls        []string
-		TotalLength *big.Int
-	}, error)
-	GetActiveTeeMachines(opts *bind.CallOpts, extensionId *big.Int) (struct {
-		TeeIds []common.Address
-		Urls   []string
-	}, error)
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody], error) {
@@ -105,23 +71,16 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[f
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
 	}
-	machineManagerCaller, err := machinemanager.NewMachineManagerCaller(cfg.FlareTeeManagerContractAddress, client)
-	if err != nil {
-		client.Close()
-		return nil, fmt.Errorf("cannot create MachineManager caller at %s: %w", cfg.FlareTeeManagerContractAddress.Hex(), err)
-	}
 	relayCaller, err := relay.NewRelayCaller(cfg.RelayContractAddress, client)
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress.Hex(), err)
 	}
 	return &TeeVerifier{
-		Cfg:                  cfg,
-		EthClient:            client,
-		MachineManagerCaller: machineManagerCaller,
-		RelayCaller:          relayCaller,
-		CRLCache:             NewCRLCache(),
-		TeeSamples:           make(map[common.Address][]verifiertypes.TeeSampleValue),
+		Cfg:         cfg,
+		EthClient:   client,
+		RelayCaller: relayCaller,
+		CRLCache:    NewCRLCache(),
 	}, nil
 }
 
@@ -130,15 +89,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	// Fetch from TEE proxy /action/result/<instructionID>
 	actionResp, response, dataSigner, err := FetchTEEChallengeResult(ctx, v.FormatProxyURL(req.Url), req.InstructionId, v.Cfg.AllowPrivateNetworks)
 	if err != nil {
-		// check polled data
-		isDown, infoErr := v.IsTEEInfoDown(req.TeeId)
-		if infoErr != nil { // Not enough data has been polled
-			return zero, infoErr
-		}
-		if isDown {
-			return fdc2.ITeeAvailabilityCheckResponseBody{Status: uint8(DOWN)}, nil
-		}
-		return zero, fmt.Errorf("cannot fetch TEE data for (TEE=%s, URL=%s, instruction=%x) and determine its status: %w", req.TeeId, req.Url, req.InstructionId[:], err)
+		return zero, fmt.Errorf("cannot fetch TEE data for (TEE=%s, URL=%s, instruction=%x): %w", req.TeeId, req.Url, req.InstructionId[:], err)
 	}
 	// Check corresponding challenge.
 	challengeHex := common.BytesToHash(req.Challenge[:])
@@ -167,7 +118,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	spCh := make(chan sigPolicyResult, 1)
 
 	go func() {
-		info, err := v.DataVerification(ctx, response, req.TeeId, false)
+		info, err := v.DataVerification(ctx, response, req.TeeId)
 		dvCh <- dataVerResult{info, err}
 	}()
 	go func() {
@@ -202,7 +153,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	}, nil
 }
 
-func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetypes.TeeInfoResponse, expectedTeeID common.Address, pollerContext bool) (StatusInfo, error) {
+func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (StatusInfo, error) {
 	if v.Cfg.DisableAttestationCheckE2E {
 		platform := E2ETestPlatform
 		codeHash := E2ETestCodeHash
@@ -222,24 +173,13 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	// This exists to support hackathon and development environments where real Google
 	// Confidential Space attestation is unavailable.
 	if response.Attestation == teeattestation.MagicPass {
-		platform := E2ETestPlatform
-		codeHash := E2ETestCodeHash
-		if pollerContext {
-			if _, alreadyLogged := v.magicPassLogged.LoadOrStore(expectedTeeID, true); !alreadyLogged {
-				logger.Warnf("TEE %s: MagicPass bypass active (non-production mode). Skipping all attestation validation. Do not use in production.", expectedTeeID.Hex())
-			}
-		} else {
-			logger.Warnf("TEE %s: MagicPass bypass active (non-production mode). Skipping all attestation validation. Do not use in production.", expectedTeeID.Hex())
-		}
+		logger.Warnf("TEE %s: MagicPass bypass active (non-production mode). Skipping all attestation validation. Do not use in production.", expectedTeeID.Hex())
 		return StatusInfo{
 			Status:   OK,
-			CodeHash: codeHash,
-			Platform: platform,
+			CodeHash: E2ETestCodeHash,
+			Platform: E2ETestPlatform,
 		}, nil
 	}
-
-	// TEE returned a real attestation — clear MagicPass tracking so it re-logs if it switches back.
-	v.magicPassLogged.Delete(expectedTeeID)
 
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
@@ -365,90 +305,14 @@ func (v *TeeVerifier) FetchSigningPolicyHashFromChainWithRetry(
 	return hash, finalState, nil
 }
 
-func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (verifiertypes.TeeSampleState, error) {
-	ctx, cancel := context.WithTimeout(ctx, chainFetchTimeout)
-	defer cancel()
-
-	challengeBlock, err := v.EthClient.BlockByHash(ctx, blockHash)
-	if err != nil {
-		return verifiertypes.MapFetchErrorToState("fetch challenge block", err)
-	}
-	latestBlock, err := v.EthClient.BlockByNumber(ctx, nil)
-	if err != nil {
-		return verifiertypes.MapFetchErrorToState("fetch latest block", err)
-	}
-	now := time.Now().Unix()
-	blockAge := now - int64(latestBlock.Time())
-	if blockAge > int64(blockStalenessThreshold) {
-		return verifiertypes.TeeSampleIndeterminate, fmt.Errorf(
-			"RPC head is stale: %d seconds behind wall clock (block %d, time %d)",
-			blockAge, latestBlock.NumberU64(), latestBlock.Time())
-	}
-	if latestBlock.Time()-challengeBlock.Time() <= BlockFreshnessInSeconds {
-		return verifiertypes.TeeSampleValid, nil
-	}
-	return verifiertypes.TeeSampleInvalid, fmt.Errorf("challenge too old: %d seconds old (challenge: %d, latest: %d)", latestBlock.Time()-challengeBlock.Time(), challengeBlock.NumberU64(), latestBlock.NumberU64())
-}
-
-func (v *TeeVerifier) IsTEEInfoDown(teeID common.Address) (bool, error) {
-	v.SamplesMu.RLock()
-	samples := v.TeeSamples[teeID]
-	v.SamplesMu.RUnlock()
-
-	if len(samples) < SamplesToConsider {
-		return false, fmt.Errorf("insufficient samples to determine TEE %s status: %w", teeID.Hex(), ErrInsufficientSamples)
-	}
-	newest := samples[len(samples)-1].Timestamp
-	if time.Since(newest) > MaxSampleStaleness {
-		return false, fmt.Errorf("sample cache stale for TEE %s (newest %v ago): %w",
-			teeID.Hex(), time.Since(newest).Round(time.Second), ErrInsufficientSamples)
-	}
-	for _, sample := range samples {
-		if sample.State == verifiertypes.TeeSampleValid || sample.State == verifiertypes.TeeSampleIndeterminate {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-// PublishSnapshot builds a sorted snapshot of TeeSamples and stores it in
-// PollerSnapshot. Called after each poller cycle so the /poller/tees endpoint
-// reads a pre-computed snapshot without lock contention.
-func (v *TeeVerifier) PublishSnapshot() {
-	v.SamplesMu.RLock()
-	samples := make([]verifiertypes.TeeSample, 0, len(v.TeeSamples))
-	for teeID, values := range v.TeeSamples {
-		copied := make([]verifiertypes.TeeSampleValue, len(values))
-		copy(copied, values)
-		samples = append(samples, verifiertypes.TeeSample{
-			TeeID:  teeID.Hex(),
-			Values: copied,
-		})
-	}
-	v.SamplesMu.RUnlock()
-
-	sort.Slice(samples, func(i, j int) bool {
-		return samples[i].TeeID < samples[j].TeeID
-	})
-	v.PollerSnapshot.Store(samples)
-}
-
-// ClearMagicPassLogged removes the MagicPass log tracking for a TEE,
-// allowing the warning to fire again if the TEE returns MagicPass in the future.
-func (v *TeeVerifier) ClearMagicPassLogged(teeID common.Address) {
-	v.magicPassLogged.Delete(teeID)
-}
-
 func (v *TeeVerifier) Close() error {
-	var ethErr error
-	if closer, ok := v.EthClient.(io.Closer); ok {
-		ethErr = closer.Close()
+	if v.EthClient != nil {
+		v.EthClient.Close()
 	}
-	var crlErr error
 	if v.CRLCache != nil {
-		crlErr = v.CRLCache.Close()
+		return v.CRLCache.Close()
 	}
-	return errors.Join(ethErr, crlErr)
+	return nil
 }
 
 func (v *TeeVerifier) FormatProxyURL(url string) string {

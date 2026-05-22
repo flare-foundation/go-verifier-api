@@ -142,41 +142,13 @@ type TeeAvailabilityCheckTeeState struct {
 ```
 | Field                  | Description          |
 |------------------------|----------------------|
-| Status                 | Enum AvailabilityCheckStatus { OK, OBSOLETE, DOWN }
+| Status                 | Enum AvailabilityCheckStatus { OK, OBSOLETE }
 | TeeTimestamp           | Timestamp reported by the TEE
 | CodeHash               | Hex-encoded 32-byte SHA-256 digest of the workload container image (from JWT)
 | Platform               | Hex-encoded 32-byte hwmodel (from JWT)
 | InitialSigningPolicyID | ID of the initial signing policy
 | LastSigningPolicyID    | ID of the last signing policy
 | State                  | Current TEE state
-
-## Additional helper endpoint `GET /poller/tees`
-Lists all TEEs currently being monitored by the poller along with their recent status samples.
-
-Example response:
-```json
-{
-  "samples": [
-    {
-      "tee_id": "0xb0351006C48162bB692f00Bfb988c6E622F7bD6f",
-      "values": [
-        {
-          "timestamp": "2025-09-30T09:05:33.794872Z",
-          "state": "VALID"
-        },
-		{
-          "timestamp": "2025-09-30T09:06:33.794872Z",
-          "state": "INVALID"
-        },
-		{
-          "timestamp": "2025-09-30T09:07:33.794872Z",
-          "state": "INDETERMINATE"
-        }
-      ]
-    }
-  ]
-}
-```
 
 - Attestation type `PMWPaymentStatus`.
 ```go

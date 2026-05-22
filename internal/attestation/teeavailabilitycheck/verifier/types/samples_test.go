@@ -3,12 +3,11 @@ package types
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestTeePollerSampleState_String(t *testing.T) {
+func TestTeeSampleStateString(t *testing.T) {
 	tests := []struct {
 		state    TeeSampleState
 		expected string
@@ -24,7 +23,7 @@ func TestTeePollerSampleState_String(t *testing.T) {
 	}
 }
 
-func TestTeePollerSampleState_MarshalJSON(t *testing.T) {
+func TestTeeSampleStateMarshalJSON(t *testing.T) {
 	tests := []struct {
 		state    TeeSampleState
 		expected string
@@ -40,15 +39,4 @@ func TestTeePollerSampleState_MarshalJSON(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, tt.expected, string(b))
 	}
-}
-
-func TestTeePollerSample_StructJSON(t *testing.T) {
-	sample := TeeSampleValue{
-		Timestamp: time.Date(2025, 11, 10, 0, 0, 0, 0, time.UTC),
-		State:     TeeSampleValid,
-	}
-
-	b, err := json.Marshal(sample)
-	require.NoError(t, err)
-	require.Contains(t, string(b), `"VALID"`)
 }

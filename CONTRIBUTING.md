@@ -62,7 +62,6 @@ Full Scope of all files in repository for review and audits:
 internal/api/handler/handler_util.go
 internal/api/handler/handler.go
 internal/api/handler/health.go
-internal/api/handler/pooling.go
 internal/api/types/common.go
 internal/api/types/pmw_fee_proof.go
 internal/api/types/pmw_multisig_account_configured.go
@@ -88,6 +87,7 @@ internal/attestation/pmwpaymentstatus/db/db.go
 internal/attestation/pmwpaymentstatus/db/repo.go
 internal/attestation/pmwpaymentstatus/helper/abi.go
 internal/attestation/pmwpaymentstatus/helper/convert.go
+internal/attestation/pmwpaymentstatus/helper/xaddress.go
 internal/attestation/pmwpaymentstatus/instruction/instruction_event.go
 internal/attestation/pmwpaymentstatus/instruction/instruction_id.go
 internal/attestation/pmwpaymentstatus/verifier/verifier.go
@@ -98,7 +98,6 @@ internal/attestation/pmwpaymentstatus/xrp/verifier.go
 internal/attestation/pmwpaymentstatus/service.go
 
 internal/attestation/teeavailabilitycheck/fetcher/fetcher.go
-internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go
 internal/attestation/teeavailabilitycheck/verifier/types/error.go
 internal/attestation/teeavailabilitycheck/verifier/types/samples.go
 internal/attestation/teeavailabilitycheck/verifier/claims.go

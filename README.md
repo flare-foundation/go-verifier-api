@@ -30,16 +30,12 @@ Environment variables:
 VERIFIER_TYPE=TeeAvailabilityCheck
 SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
-FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
 
 # Test/E2E-only flags (optional, default to false):
 ALLOW_TEE_DEBUG=false
 DISABLE_ATTESTATION_CHECK_E2E=false
 ALLOW_PRIVATE_NETWORKS=false
-
-# Poller configuration (optional):
-MAX_POLLED_TEES=0  # Extension 0 TEEs are always polled. 0 = extension 0 only (default). >0 = also poll extra TEEs from other extensions, up to this total.
 ```
 
 > **NOTE**: `ALLOW_TEE_DEBUG`, `DISABLE_ATTESTATION_CHECK_E2E`, and `ALLOW_PRIVATE_NETWORKS` are test/E2E-only flags. In production, you should leave them unset (they default to false). `ALLOW_TEE_DEBUG=true` *additionally* accepts debug-mode TEEs alongside production TEEs (every debug admission logs a WARN); debug TEEs have the debugger attached and secrets are extractable, so this must never be set on production deployments. `ALLOW_PRIVATE_NETWORKS` permits private/loopback IPs (e.g. Docker bridge `172.17.0.1`) while still blocking dangerous IPs (link-local/metadata, multicast, Teredo, 6to4) and preserving DNS pinning.
@@ -119,12 +115,8 @@ FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
-## TEE Poller
-The `TeeAvailabilityCheck` attestation type initiates a process called [`teepoller`](internal/attestation/teeavailabilitycheck/teepoller/tee_poller.go). The purpose of the `teepoller` is to continuously ping all available TEEs (retrieved via the `MachineManager` interface on the `FlareTeeManager` diamond), verify the freshness of the challenge and the correctness of the attestation, and detect whether any TEEs are no longer available, which enables the system to provide a proof that a TEE machine is DOWN.
-
-Samples retrieved by the poller can be VALID, INVALID or INDETERMINATE (the latter case occurs when the check fails due to verifier fault, e.g. being unable to connect to RPC).
-
-Samples are stored in memory. The number of samples is defined by the constant `SamplesToConsider`, which is closely related to the constant `SampleInterval`, determining the polling interval. See [verifier file](internal/attestation/teeavailabilitycheck/verifier/verifier.go) for reference.
+## Historical: TEE poller
+An earlier version of `TeeAvailabilityCheck` ran a background poller that pinged active TEEs and maintained in-memory liveness samples. It was removed in favor of live-only verification. The last commit containing the full poller implementation is [`70d8c33`](../../commit/70d8c33a8c9cb886252e2e2413df7c530a4b05b6); check that commit out to inspect or restore the code.
 
 ## Attestation Request Submission
 The process of submitting an attestation requests is as follows:
@@ -199,14 +191,14 @@ This is the simplest way to run everything without worrying about Docker manuall
 
     Load tests are gated behind the `load` build tag and don't run during normal `go test` or `gencover.sh`:
     ```bash
-    go test -tags load -run TestLoad -v ./internal/attestation/teeavailabilitycheck/verifier/ ./internal/attestation/teeavailabilitycheck/teepoller/ ./internal/attestation/pmwmultisigconfigured/xrp/ ./internal/attestation/pmwpaymentstatus/db/ ./internal/attestation/pmwpaymentstatus/xrp/ ./internal/attestation/pmwfeeproof/db/ ./internal/attestation/pmwfeeproof/xrp/
+    go test -tags load -run TestLoad -v ./internal/attestation/teeavailabilitycheck/verifier/ ./internal/attestation/pmwmultisigconfigured/xrp/ ./internal/attestation/pmwpaymentstatus/db/ ./internal/attestation/pmwpaymentstatus/xrp/ ./internal/attestation/pmwfeeproof/db/ ./internal/attestation/pmwfeeproof/xrp/
     ```
 
 6. Running stress tests
 
     Stress tests are gated behind the `stress` build tag. They take longer (~70s) and push beyond normal load:
     ```bash
-    go test -tags stress -run TestStress -v ./internal/attestation/teeavailabilitycheck/verifier/ ./internal/attestation/teeavailabilitycheck/teepoller/
+    go test -tags stress -run TestStress -v ./internal/attestation/teeavailabilitycheck/verifier/
     ```
 
     For detailed results, findings, and test parameters, see [docs/load-and-stress-tests.md](docs/load-and-stress-tests.md).
@@ -216,9 +208,6 @@ This is the simplest way to run everything without worrying about Docker manuall
 - TEEAvailabilityCheck currently supports only "google". When support for other platforms is added, TeeInfo.Platform needs to be added in order to know, how to decode the data.
 - PMWFeeProof: Confirm with FAsset team that the `estimatedFee` formula (`pay_maxFee + sum(max(0, reissue_maxFee - pay_maxFee))`) is suitable for their fee reconciliation use case.
 - `go.mod` pins `github.com/jackc/pgx/v5 v5.9.1` as an explicit indirect override because `gorm.io/driver/postgres v1.6.0` pulls the unpatched v5.6.0 (CVE-2026-33815, CVE-2026-33816). Drop the explicit pgx require once a newer `gorm.io/driver/postgres` ships that pulls pgx >= v5.9.0.
-
-### Monitoring
-- When the `TeeAvailabilityCheck` verifier is running, poller samples should be monitored via the `/poller/tees` route to ensure that timestamps are recent enough, allowing early detection of poller failures. The endpoint supports `offset` and `limit` query params (default limit: 100, max: 500) and returns a `total` count for pagination.
 
 ## Technical Specification
 See [docs/SPEC.md](docs/SPEC.md) for the full technical specification covering architecture, verification flows, error model, and configuration.

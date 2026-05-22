@@ -185,7 +185,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
-	t.Run("verify: not enough TEE poller data", func(t *testing.T) {
+	t.Run("verify: action result not found", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.InstructionId = common.HexToHash("0x11")
 		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, modifiedReqBody)
@@ -207,14 +207,5 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.Equal(t, uint8(verifier.OK), result.Status)
 		require.Equal(t, verifier.E2ETestCodeHash[:], result.CodeHash[:])
 		require.Equal(t, verifier.E2ETestPlatform[:], result.Platform[:])
-	})
-	t.Run("polledTees", func(t *testing.T) {
-		resp, err := helpers.Get(t, "http://localhost:"+setup.Port+"/poller/tees", setup.APIKey)
-		require.NoError(t, err)
-		require.NotEmpty(t, resp)
-
-		var response types.TeeSamplesResponse
-		require.NoError(t, json.Unmarshal(resp, &response))
-		require.Empty(t, response.Samples)
 	})
 }
