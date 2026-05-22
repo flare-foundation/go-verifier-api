@@ -30,7 +30,6 @@ Environment variables:
 VERIFIER_TYPE=TeeAvailabilityCheck
 SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
-FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 RPC_URL=https://<flare>
 
 # Test/E2E-only flags (optional, default to false):

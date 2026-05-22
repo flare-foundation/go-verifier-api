@@ -17,12 +17,12 @@ Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded resp
 ### Module loading
 `internal/api/loader.go` switches on `VERIFIER_TYPE`:
 
-| Module | Constructs | Extra endpoint | Shutdown closers |
-|---|---|---|---|
-| `TeeAvailabilityCheck` | verifier | — | verifier |
-| `PMWPaymentStatus` | service + 2 DB connections + verifier | — | payment service (DB closer) |
-| `PMWMultisigAccountConfigured` | verifier | — | — |
-| `PMWFeeProof` | service + 2 DB connections + verifier | — | service (DB closer) |
+| Module | Constructs | Shutdown closers |
+|---|---|---|
+| `TeeAvailabilityCheck` | verifier | verifier |
+| `PMWPaymentStatus` | service + 2 DB connections + verifier | payment service (DB closer) |
+| `PMWMultisigAccountConfigured` | verifier | — |
+| `PMWFeeProof` | service + 2 DB connections + verifier | service (DB closer) |
 
 All modules register `verify` / `prepareRequestBody` / `prepareResponseBody`.
 
@@ -61,7 +61,6 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 Required:
 - `RPC_URL`
 - `RELAY_CONTRACT_ADDRESS`
-- `FLARE_TEE_MANAGER_CONTRACT_ADDRESS`
 
 Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false) — permissive flag. `false`: only production Confidential Space TEEs (`dbgstat == "disabled-since-boot"`) are accepted. `true`: production AND debug TEEs (`dbgstat != "disabled-since-boot"`) are both accepted; every debug admission emits a WARN log. Debug TEEs have the debugger attached and secrets can be extracted — never enable on production deployments. Intended for staging/E2E only.

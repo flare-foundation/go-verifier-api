@@ -28,17 +28,12 @@ func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckC
 func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckConfig, error) {
 	err := CheckMissingFields(envConfig, []string{
 		EnvRelayContractAddress,
-		EnvFlareTeeManagerContractAddress,
 		EnvRPCURL,
 	})
 	if err != nil {
 		return nil, err
 	}
 	relayAddr, err := parseContractAddress(envConfig.RelayContractAddress, EnvRelayContractAddress)
-	if err != nil {
-		return nil, err
-	}
-	flareTeeManagerAddr, err := parseContractAddress(envConfig.FlareTeeManagerContractAddress, EnvFlareTeeManagerContractAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -62,29 +57,15 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	if allowPrivateNetworks {
 		logger.Warnf("%s is enabled. This flag is meant for test/E2E environments only and should NOT be used in production. Private/loopback IPs will be allowed but dangerous IPs (link-local, metadata, multicast) are still blocked.", EnvAllowPrivateNetworks)
 	}
-	maxPolledTees := 0
-	if envConfig.MaxPolledTees != "" {
-		parsed, err := strconv.Atoi(envConfig.MaxPolledTees)
-		if err != nil || parsed < 0 {
-			logger.Warnf("%s has invalid value %q, defaulting to 0 (extension 0 only)", EnvMaxPolledTees, envConfig.MaxPolledTees)
-		} else {
-			maxPolledTees = parsed
-			if maxPolledTees > 0 {
-				logger.Infof("%s set to %d", EnvMaxPolledTees, maxPolledTees)
-			}
-		}
-	}
 
 	return &TeeAvailabilityCheckConfig{
-		EncodedAndABI:                  commonConfig,
-		RelayContractAddress:           relayAddr,
-		FlareTeeManagerContractAddress: flareTeeManagerAddr,
-		AllowTeeDebug:                  allowTeeDebug,
-		DisableAttestationCheckE2E:     disableAttestationCheckE2E,
-		AllowPrivateNetworks:           allowPrivateNetworks,
-		MaxPolledTees:                  maxPolledTees,
-		RPCURL:                         envConfig.RPCURL,
-		GoogleRootCertificate:          googleRootCert,
+		EncodedAndABI:              commonConfig,
+		RelayContractAddress:       relayAddr,
+		AllowTeeDebug:              allowTeeDebug,
+		DisableAttestationCheckE2E: disableAttestationCheckE2E,
+		AllowPrivateNetworks:       allowPrivateNetworks,
+		RPCURL:                     envConfig.RPCURL,
+		GoogleRootCertificate:      googleRootCert,
 	}, nil
 }
 

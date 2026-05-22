@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/machinemanager"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -60,12 +59,11 @@ var (
 )
 
 type TeeVerifier struct {
-	Cfg                  *config.TeeAvailabilityCheckConfig
-	EthClient            EthClient
-	MachineManagerCaller MachineManagerCallerInterface
-	RelayCaller          RelayCallerInterface
-	ValidateURL          bool
-	CRLCache             *CRLCache
+	Cfg         *config.TeeAvailabilityCheckConfig
+	EthClient   EthClient
+	RelayCaller RelayCallerInterface
+	ValidateURL bool
+	CRLCache    *CRLCache
 }
 
 type EthClient interface {
@@ -77,27 +75,10 @@ type RelayCallerInterface interface {
 	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
 }
 
-type MachineManagerCallerInterface interface {
-	GetAllActiveTeeMachines(opts *bind.CallOpts, start *big.Int, end *big.Int) (struct {
-		TeeIds      []common.Address
-		Urls        []string
-		TotalLength *big.Int
-	}, error)
-	GetActiveTeeMachines(opts *bind.CallOpts, extensionId *big.Int) (struct {
-		TeeIds []common.Address
-		Urls   []string
-	}, error)
-}
-
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.RPCURL)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
-	}
-	machineManagerCaller, err := machinemanager.NewMachineManagerCaller(cfg.FlareTeeManagerContractAddress, client)
-	if err != nil {
-		client.Close()
-		return nil, fmt.Errorf("cannot create MachineManager caller at %s: %w", cfg.FlareTeeManagerContractAddress.Hex(), err)
 	}
 	relayCaller, err := relay.NewRelayCaller(cfg.RelayContractAddress, client)
 	if err != nil {
@@ -105,11 +86,10 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[f
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress.Hex(), err)
 	}
 	return &TeeVerifier{
-		Cfg:                  cfg,
-		EthClient:            client,
-		MachineManagerCaller: machineManagerCaller,
-		RelayCaller:          relayCaller,
-		CRLCache:             NewCRLCache(),
+		Cfg:         cfg,
+		EthClient:   client,
+		RelayCaller: relayCaller,
+		CRLCache:    NewCRLCache(),
 	}, nil
 }
 
