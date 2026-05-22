@@ -18,7 +18,6 @@ type AvailabilityCheckStatus uint8
 const (
 	OK AvailabilityCheckStatus = iota
 	OBSOLETE
-	DOWN
 )
 
 type StatusInfo struct {

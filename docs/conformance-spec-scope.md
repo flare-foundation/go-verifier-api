@@ -42,9 +42,7 @@ A prose document describing what each verifier does, with no Go-specific referen
 - T5 — CRL handling (fetch, parse, verify, cache, staleness, all-or-nothing semantics)
 - T6 — Signing policy check (relay contract hashes, initial + last, parallel RPC)
 - T7 — Bypasses (`DISABLE_ATTESTATION_CHECK_E2E`, `ALLOW_TEE_DEBUG`, `magic_pass`)
-- T8 — Degraded flow (poller samples fallback when fetch fails)
-- T9 — Poller behavior (sample interval, worker pool, extension 0 priority, `MAX_POLLED_TEES`)
-- T10 — TEE status semantics (`OK` / `OBSOLETE` / `DOWN`)
+- T8 — TEE status semantics (`OK` / `OBSOLETE`)
 
 **PMWPaymentStatus**:
 - P1 — Instruction ID build (ABI pack + keccak of `opType, PAY, sourceID, senderAddress, nonce`)
@@ -97,7 +95,6 @@ docs/conformance/
       bypass_flags.json
       eat_nonce_binding.json
       signing_policy.json
-      poller_fallback.json
   pmw-payment-status/
     fixtures/
       chain_logs/...           # canned topic0/1/2 event logs
@@ -136,17 +133,17 @@ docs/conformance/
 **Test case format:**
 ```json
 {
-  "name": "rejects production TEE when ALLOW_TEE_DEBUG=true",
+  "name": "rejects debug TEE when ALLOW_TEE_DEBUG=false",
   "verifier": "TeeAvailabilityCheck",
   "input": {
-    "jwt": "fixtures/sample_jwts/valid_production.jwt",
+    "jwt": "fixtures/sample_jwts/valid_debug.jwt",
     "teeInfo": "fixtures/teeinfo/sample_0.json",
     "rootCert": "fixtures/google_root_cert.pem",
-    "config": { "allowTeeDebug": true, "disableAttestationCheckE2E": false }
+    "config": { "allowTeeDebug": false, "disableAttestationCheckE2E": false }
   },
   "expected": {
     "result": "reject",
-    "errorContains": "production TEE not allowed when ALLOW_TEE_DEBUG=true"
+    "errorContains": "TEE is not running in production mode"
   }
 }
 ```
@@ -261,7 +258,6 @@ The spec should state: "implementations MUST provide a way to inject these for t
 - Performance / load testing — separate concern
 - Wire-level HTTP fuzzing — separate concern
 - Replication of `go-flare-common`'s ABI encoding internals — that lives in a shared library, not the verifier
-- The TEE poller's chain-fetch retry behavior — verified at integration level
 - DB schema migrations — implementations choose their own DB stack
 
 ---

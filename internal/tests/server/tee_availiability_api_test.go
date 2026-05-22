@@ -185,7 +185,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
 	})
-	t.Run("verify: not enough TEE poller data", func(t *testing.T) {
+	t.Run("verify: action result not found", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.InstructionId = common.HexToHash("0x11")
 		reqBody := helpers.EncodeRequestBody(t, fdc2.AvailabilityCheck, modifiedReqBody)

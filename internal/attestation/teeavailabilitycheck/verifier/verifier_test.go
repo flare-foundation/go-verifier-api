@@ -418,20 +418,16 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 func TestDataVerification(t *testing.T) {
 	rootCert, leafKey, x5c := generateTestCertificateChain(t)
 	challengeHash := common.HexToHash("123")
-	t.Run("MagicPass poller context logs once", func(t *testing.T) {
+	t.Run("MagicPass bypass returns test values", func(t *testing.T) {
 		v := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{}}
 		teeID := common.HexToAddress("0x1234")
 		resp := teenodetypes.TeeInfoResponse{
 			Attestation: "magic_pass",
 		}
-		// First call: should log.
 		res, err := v.DataVerification(context.Background(), resp, teeID)
 		require.NoError(t, err)
 		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
-		// Second call: should not log (already tracked).
-		res, err = v.DataVerification(context.Background(), resp, teeID)
-		require.NoError(t, err)
-		require.Equal(t, verifier.E2ETestCodeHash, res.CodeHash)
+		require.Equal(t, verifier.E2ETestPlatform, res.Platform)
 	})
 	t.Run("DisableAttestationCheckE2E", func(t *testing.T) {
 		v := &verifier.TeeVerifier{Cfg: &config.TeeAvailabilityCheckConfig{DisableAttestationCheckE2E: true}}

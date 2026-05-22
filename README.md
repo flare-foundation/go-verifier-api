@@ -115,10 +115,8 @@ FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 
 See [API reference](docs/api.md) for endpoint definitions and examples.
 
-## TEE Poller (removed)
-The `TeeAvailabilityCheck` attestation type previously ran a background poller (`teepoller`) that continuously pinged all active TEEs to maintain in-memory liveness samples. The poller backed a `GET /poller/tees` operational endpoint and a `DOWN` fallback in the `Verify` path. It was removed to simplify the verifier — `Verify` now validates live attestations only and returns the wrapped fetch error when a TEE is unreachable; the relay client / data providers handle retry.
-
-The last commit containing the full poller implementation is [`70d8c33`](../../commit/70d8c33a8c9cb886252e2e2413df7c530a4b05b6) (`fix: harden CRL fetch path against SSRF + chain forgery`). Check out that commit to inspect or restore the poller code.
+## Historical: TEE poller
+An earlier version of `TeeAvailabilityCheck` ran a background poller that pinged active TEEs and maintained in-memory liveness samples. It was removed in favor of live-only verification. The last commit containing the full poller implementation is [`70d8c33`](../../commit/70d8c33a8c9cb886252e2e2413df7c530a4b05b6); check that commit out to inspect or restore the code.
 
 ## Attestation Request Submission
 The process of submitting an attestation requests is as follows:

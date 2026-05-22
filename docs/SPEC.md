@@ -104,7 +104,7 @@ Required:
 4. **In parallel** (both depend only on challenge response):
    - `DataVerification`: CRL fetch + PKI validation + TEE ID + claims.
    - `CheckSigningPolicies`: signing policy hashes against relay contract (2 concurrent RPC calls).
-5. Return status (`OK`/`OBSOLETE`) + metadata. (`DOWN` is no longer producible — when the live fetch fails, the verifier returns the wrapped error and the caller / relay handles retry.)
+5. Return status (`OK`/`OBSOLETE`) + metadata. When the live fetch fails, the verifier returns the wrapped error; the caller / relay handles retry.
 
 ### URL validation (`verifier/url_validation.go`)
 Pipeline: (1) scheme must be `http`/`https`; (2) userinfo rejected; (3) `localhost` / `*.localhost` rejected (strict mode only); (4) IP literal checked directly, hostname resolved via DNS (750ms timeout) with **all** resolved IPs checked; (5) first resolved IP pinned — HTTP connection dials pinned IP directly via custom `DialContext`, original hostname preserved in `Host` header and TLS SNI `ServerName` (prevents TOCTOU DNS rebinding).
@@ -165,7 +165,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 **Validation** (in `go-flare-common`, `pkg/tee/attestation/googlecloud/google_cloud.go`): `ParseAndValidatePKIToken(attestationToken, rootCert, leafCRL, intermediateCRL)` accepts pre-fetched CRLs (nil when unavailable). `PKICertificates.Verify()` calls `verifyCRL()` after chain/lifetime checks; per cert (leaf against intermediate, intermediate against root): if CRL nil → log + skip; else validate time window (`ThisUpdate` ≤ now ≤ `NextUpdate`), verify CRL signature (`CheckSignatureFrom(issuer)`), reject if serial in `RevokedCertificateEntries`.
 
 **Fetching and caching** (`verifier/crl_cache.go`):
-- Request-driven (not a poller). `CRLCache.GetCRLsForToken()` runs inline with request `ctx` before `ParseAndValidatePKIToken`.
+- Request-driven. `CRLCache.GetCRLsForToken()` runs inline with request `ctx` before `ParseAndValidatePKIToken`.
 - **Strict all-or-nothing**: if all CRL distribution points fail for either cert, verification fails.
 - Parses token unverified (`ParsePKITokenUnverified`) to extract x5c. Before any CRL URL is dereferenced:
   - **Root match**: token's root must equal the embedded Google root.
@@ -180,7 +180,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - Google CA Service only inserts the CDP extension when `publish_crl` is enabled (per-CA-pool setting). Currently the intermediate cert has a CDP but the leaf does not (no OCSP either). Google does not document CRL/OCSP checking for Confidential Space — the sample PKI token validation code only covers chain verification, root pinning, and signature checks; revocation checking must tolerate missing CDPs. See Google CA Service and Confidential Space PKI documentation for details.
 
 ### TEE status semantics
-- Verification response status values: `0 = OK`, `1 = OBSOLETE`. (`2 = DOWN` is defined in the response shape but the verifier no longer produces it; live-fetch failures surface as 500 with the wrapped error.)
+- Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface as 500 with the wrapped error.
 - Internal classification (used by `CheckSigningPolicies` / `CheckInfoChallengeIsValid`): `TeeSampleValid`, `TeeSampleInvalid`, `TeeSampleIndeterminate`.
 
 ## 7.2 PMWPaymentStatus
@@ -305,7 +305,6 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 - TEE availability server tests set `ALLOW_PRIVATE_NETWORKS=true` to allow `httptest` localhost URLs.
 
 ## 12. Operational Notes and Risks
-- Poller sample cache is in-memory only by design choice (lost on restart).
 - `PMWPaymentStatus` request includes `subNonce`, but current DB query path keys by source address + nonce. Single payment per `instructionId` is enforced on the contract side (`TeePayments`), so each `instructionId` maps to exactly one message and one XRP transaction; the verifier therefore does not need to filter logs by `subNonce`. SubNonce filtering will be needed when UTXO chains are supported, or if contract-side batching is later enabled (`batchSize > 1`).
 
 ### Accepted risks
