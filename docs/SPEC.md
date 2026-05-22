@@ -124,9 +124,9 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 
 **Claims validation (`ValidateClaims`):**
 1. **EATNonce** — Exactly one nonce must be present and must equal the hex-encoded hash of the TeeInfo data.
-2. **Debug status** — If `AllowTeeDebug=false` (production): requires `debugStatus == "disabled-since-boot"`. If `AllowTeeDebug=true` (testing): rejects production TEEs.
+2. **Debug status** — `AllowTeeDebug=false` (default, production): only production TEEs (`debugStatus == "disabled-since-boot"`) are accepted. `AllowTeeDebug=true` (staging/E2E): production AND debug TEEs are both accepted; every debug admission emits a WARN log.
 3. **Software name** — Must equal `"CONFIDENTIAL_SPACE"`.
-4. **Stability** — If `SupportAttributes` is nil → hard error (verification fails). If present but `"STABLE"` not in the list → returns status `OBSOLETE`.
+4. **Stability** — Production path only. If `SupportAttributes` is nil → hard error (verification fails). If present but `"STABLE"` not in the list → returns status `OBSOLETE`. Debug-mode TEEs (admitted via `AllowTeeDebug=true`) skip this check and always return `OK`.
 5. **CodeHash** — Extracted from `SubMods.Container.ImageID` (sha256 digest → 32-byte hash).
 6. **Platform** — Extracted from `HWModel` claim (e.g. `"GCP_INTEL_TDX"` → 32-byte hash).
 
@@ -181,7 +181,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 
 ### TEE status semantics
 - Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface as 500 with the wrapped error.
-- Internal classification (used by `CheckSigningPolicies` / `CheckInfoChallengeIsValid`): `TeeSampleValid`, `TeeSampleInvalid`, `TeeSampleIndeterminate`.
+- Internal classification (used by `CheckSigningPolicies`): `TeeSampleValid`, `TeeSampleInvalid`, `TeeSampleIndeterminate`.
 
 ## 7.2 PMWPaymentStatus
 

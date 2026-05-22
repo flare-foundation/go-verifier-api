@@ -20,7 +20,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
@@ -33,12 +32,10 @@ import (
 )
 
 const (
-	fetchChallengeTimeout   = 4 * time.Second
-	BlockFreshnessInSeconds = 150 // verifier polling every minute + proxy polling every minute + retrieve result buffer 30s
-	chainMaxAttempts        = 1
-	chainRetryDelay         = 400 * time.Millisecond
-	chainFetchTimeout       = 3 * time.Second
-	blockStalenessThreshold = 120 // seconds — warn if latest block is older than this
+	fetchChallengeTimeout = 4 * time.Second
+	chainMaxAttempts      = 1
+	chainRetryDelay       = 400 * time.Millisecond
+	chainFetchTimeout     = 3 * time.Second
 )
 
 var (
@@ -60,15 +57,9 @@ var (
 
 type TeeVerifier struct {
 	Cfg         *config.TeeAvailabilityCheckConfig
-	EthClient   EthClient
+	EthClient   *ethclient.Client
 	RelayCaller RelayCallerInterface
-	ValidateURL bool
 	CRLCache    *CRLCache
-}
-
-type EthClient interface {
-	BlockByHash(ctx context.Context, hash common.Hash) (*ethtypes.Block, error)
-	BlockByNumber(ctx context.Context, number *big.Int) (*ethtypes.Block, error)
 }
 
 type RelayCallerInterface interface {
@@ -314,41 +305,14 @@ func (v *TeeVerifier) FetchSigningPolicyHashFromChainWithRetry(
 	return hash, finalState, nil
 }
 
-func (v *TeeVerifier) CheckInfoChallengeIsValid(ctx context.Context, blockHash common.Hash) (verifiertypes.TeeSampleState, error) {
-	ctx, cancel := context.WithTimeout(ctx, chainFetchTimeout)
-	defer cancel()
-
-	challengeBlock, err := v.EthClient.BlockByHash(ctx, blockHash)
-	if err != nil {
-		return verifiertypes.MapFetchErrorToState("fetch challenge block", err)
-	}
-	latestBlock, err := v.EthClient.BlockByNumber(ctx, nil)
-	if err != nil {
-		return verifiertypes.MapFetchErrorToState("fetch latest block", err)
-	}
-	now := time.Now().Unix()
-	blockAge := now - int64(latestBlock.Time())
-	if blockAge > int64(blockStalenessThreshold) {
-		return verifiertypes.TeeSampleIndeterminate, fmt.Errorf(
-			"RPC head is stale: %d seconds behind wall clock (block %d, time %d)",
-			blockAge, latestBlock.NumberU64(), latestBlock.Time())
-	}
-	if latestBlock.Time()-challengeBlock.Time() <= BlockFreshnessInSeconds {
-		return verifiertypes.TeeSampleValid, nil
-	}
-	return verifiertypes.TeeSampleInvalid, fmt.Errorf("challenge too old: %d seconds old (challenge: %d, latest: %d)", latestBlock.Time()-challengeBlock.Time(), challengeBlock.NumberU64(), latestBlock.NumberU64())
-}
-
 func (v *TeeVerifier) Close() error {
-	var ethErr error
-	if closer, ok := v.EthClient.(io.Closer); ok {
-		ethErr = closer.Close()
+	if v.EthClient != nil {
+		v.EthClient.Close()
 	}
-	var crlErr error
 	if v.CRLCache != nil {
-		crlErr = v.CRLCache.Close()
+		return v.CRLCache.Close()
 	}
-	return errors.Join(ethErr, crlErr)
+	return nil
 }
 
 func (v *TeeVerifier) FormatProxyURL(url string) string {

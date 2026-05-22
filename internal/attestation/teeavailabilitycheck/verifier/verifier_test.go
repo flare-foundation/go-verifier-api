@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -35,109 +34,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-func TestCheckInfoChallenge(t *testing.T) {
-	// #nosec G115: only used in test, integer overflow not a concern
-	now := uint64(time.Now().Unix())
-	challengeHash := common.HexToHash("0x123")
-
-	t.Run("valid", func(t *testing.T) {
-		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - 10})
-		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
-		mockClient := &helpers.MockEthClient{
-			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
-				return challengeBlock, nil
-			},
-			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return latestBlock, nil
-			},
-		}
-		v := &verifier.TeeVerifier{EthClient: mockClient}
-
-		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.NoError(t, err)
-		require.Equal(t, verifiertypes.TeeSampleValid, state)
-	})
-	t.Run("challenge block fetch fails", func(t *testing.T) {
-		mockClient := &helpers.MockEthClient{
-			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
-				return nil, errors.New("rpc error")
-			},
-			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return types.NewBlockWithHeader(&types.Header{Time: now}), nil
-			},
-		}
-		v := &verifier.TeeVerifier{EthClient: mockClient}
-		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.ErrorContains(t, err, "fetch challenge block: unknown error")
-		require.NotEqual(t, verifiertypes.TeeSampleValid, state)
-	})
-	t.Run("latest block fetch fails with ErrUnknown", func(t *testing.T) {
-		mockClient := &helpers.MockEthClient{
-			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
-				return types.NewBlockWithHeader(&types.Header{Time: now - 10}), nil
-			},
-			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return nil, verifiertypes.ErrUnknown
-			},
-		}
-		v := &verifier.TeeVerifier{EthClient: mockClient}
-		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.ErrorContains(t, err, "fetch latest block: unknown error")
-		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
-	})
-	t.Run("latest block fetch fails with other error", func(t *testing.T) {
-		mockClient := &helpers.MockEthClient{
-			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
-				return types.NewBlockWithHeader(&types.Header{Time: now - 10}), nil
-			},
-			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return nil, errors.New("rpc failure")
-			},
-		}
-		v := &verifier.TeeVerifier{EthClient: mockClient}
-		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.ErrorContains(t, err, "fetch latest block: unknown error")
-		require.NotEqual(t, verifiertypes.TeeSampleValid, state)
-	})
-	t.Run("challenge too old", func(t *testing.T) {
-		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - (verifier.BlockFreshnessInSeconds + 10)})
-		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now})
-		mockClient := &helpers.MockEthClient{
-			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
-				return challengeBlock, nil
-			},
-			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return latestBlock, nil
-			},
-		}
-		v := &verifier.TeeVerifier{EthClient: mockClient}
-		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.ErrorContains(t, err, "challenge too old")
-		require.Equal(t, verifiertypes.TeeSampleInvalid, state)
-	})
-	t.Run("stale RPC head returns indeterminate", func(t *testing.T) {
-		// Latest block is >blockStalenessThreshold (120s) behind wall clock.
-		// The challenge is fresh relative to the latest block, but because
-		// the RPC head is stale we cannot trust the comparison — return
-		// INDETERMINATE rather than silently accepting.
-		staleOffset := uint64(150) // >120s behind wall clock
-		challengeBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset - 10})
-		latestBlock := types.NewBlockWithHeader(&types.Header{Time: now - staleOffset})
-		mockClient := &helpers.MockEthClient{
-			BlockByHashFn: func(ctx context.Context, hash common.Hash) (*types.Block, error) {
-				return challengeBlock, nil
-			},
-			BlockByNumberFn: func(ctx context.Context, number *big.Int) (*types.Block, error) {
-				return latestBlock, nil
-			},
-		}
-		v := &verifier.TeeVerifier{EthClient: mockClient}
-		state, err := v.CheckInfoChallengeIsValid(context.Background(), challengeHash)
-		require.ErrorContains(t, err, "RPC head is stale")
-		require.Equal(t, verifiertypes.TeeSampleIndeterminate, state)
-	})
-}
 
 func TestFetchSigningPolicyHashFromChain(t *testing.T) {
 	t.Run("success", func(t *testing.T) {

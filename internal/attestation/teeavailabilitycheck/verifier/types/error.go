@@ -57,8 +57,8 @@ func MapFetchErrorToState(op string, err error) (TeeSampleState, error) {
 	if state, classified, ok := MapTransportError(err); ok {
 		return state, wrapErr(classified)
 	}
-	// Deterministic "not found" from go-ethereum (e.g. BlockByHash of a nonexistent block)
-	// indicates invalid input, not a transport problem.
+	// Deterministic "not found" from go-ethereum (e.g. a contract call against a
+	// nonexistent ID) indicates invalid input, not a transport problem.
 	if errors.Is(err, ethereum.NotFound) {
 		return TeeSampleInvalid, wrapErr(ErrInvalidInput)
 	}
