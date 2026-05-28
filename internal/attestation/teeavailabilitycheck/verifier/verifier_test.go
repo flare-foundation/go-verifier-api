@@ -201,13 +201,12 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		privKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		address := crypto.PubkeyToAddress(privKey.PublicKey)
-		hash := crypto.Keccak256(data)
-		ethHash := accounts.TextHash(hash)
-		signature, err := crypto.Sign(ethHash, privKey)
+		actionResult := teenodetypes.ActionResult{Data: data}
+		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privKey)
 		require.NoError(t, err)
 
 		fullResp := teenodetypes.ActionResponse{
-			Result:         teenodetypes.ActionResult{Data: data},
+			Result:         actionResult,
 			ProxySignature: signature,
 		}
 		server := makeChallengeResultServer(t, fullResp)
@@ -537,10 +536,6 @@ func TestVerify(t *testing.T) {
 
 		privProxyKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
-		hash := crypto.Keccak256(data)
-		ethHash := accounts.TextHash(hash)
-		signature, err := crypto.Sign(ethHash, privProxyKey)
-		require.NoError(t, err)
 
 		actionResult := teenodetypes.ActionResult{
 			Status:    1, // success for direct instructions (tee-node)
@@ -548,6 +543,8 @@ func TestVerify(t *testing.T) {
 			OPCommand: op.TEEAttestation.Hash(),
 			Data:      data,
 		}
+		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privProxyKey)
+		require.NoError(t, err)
 		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
 		require.NoError(t, err)
 
@@ -592,10 +589,6 @@ func TestVerify(t *testing.T) {
 
 		privProxyKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
-		hash := crypto.Keccak256(data)
-		ethHash := accounts.TextHash(hash)
-		signature, err := crypto.Sign(ethHash, privProxyKey)
-		require.NoError(t, err)
 
 		actionResult := teenodetypes.ActionResult{
 			Status:    1, // success for direct instructions (tee-node)
@@ -603,6 +596,8 @@ func TestVerify(t *testing.T) {
 			OPCommand: op.TEEAttestation.Hash(),
 			Data:      data,
 		}
+		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privProxyKey)
+		require.NoError(t, err)
 		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
 		require.NoError(t, err)
 

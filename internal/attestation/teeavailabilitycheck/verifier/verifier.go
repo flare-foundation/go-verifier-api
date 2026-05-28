@@ -21,7 +21,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
@@ -368,7 +367,7 @@ func FetchTEEChallengeResult(
 		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
 	// recover signer
-	signer, err := utils.SignatureToSignersAddress(crypto.Keccak256(actionResp.Result.Data), actionResp.ProxySignature)
+	signer, err := utils.SignatureToSignersAddress(actionResp.Result.Hash(), actionResp.ProxySignature)
 	if err != nil {
 		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("recover signer: %w", err)
 	}
