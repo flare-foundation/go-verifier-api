@@ -194,8 +194,19 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 		}
 	}
 
+	teeInfoHash, err := infoData.Hash()
+	if err != nil {
+		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %w", err)
+	}
+	policy := googlecloud.Policy{
+		Audience:        v.Cfg.TeeAudience,
+		AllowedImageIDs: v.Cfg.TeeAllowedImageIDs,
+		EATNonce:        hex.EncodeToString(teeInfoHash),
+		AllowDebug:      v.Cfg.AllowTeeDebug,
+		Issuer:          googlecloud.ConfidentialSpaceIssuer,
+	}
 	// Certificate checks - check if we can trust the data in token
-	_, claims, err := googlecloud.ParseAndValidatePKIToken(attestationToken, v.Cfg.GoogleRootCertificate, leafCRL, intermediateCRL)
+	_, claims, err := googlecloud.ParseAndValidatePKIToken(attestationToken, v.Cfg.GoogleRootCertificate, leafCRL, intermediateCRL, policy)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot validate certificate signature: %w", err)
 	}
@@ -208,7 +219,7 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 		return StatusInfo{}, fmt.Errorf("expected TEE ID %s, got: %s", expectedTeeID.Hex(), receivedTeeIDs[0].Hex())
 	}
 	// Check claims
-	statusInfo, err := ValidateClaims(claims, infoData, v.Cfg.AllowTeeDebug)
+	statusInfo, err := ValidateClaims(claims)
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot validate claims: %w", err)
 	}

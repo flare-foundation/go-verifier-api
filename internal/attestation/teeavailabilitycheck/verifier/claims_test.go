@@ -1,27 +1,18 @@
 package verifier_test
 
 import (
-	"encoding/hex"
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
-	teenodetype "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestValidateClaims(t *testing.T) {
-	teeInfoData := teenodetype.TeeInfo{
-		Challenge: common.HexToHash("0x1"),
-	}
-	teeInfoHash, err := teeInfoData.Hash()
-	require.NoError(t, err)
 	baseClaims := &googlecloud.GoogleTeeClaims{
 		HWModel:     "GCP_INTEL_TDX",
 		SWName:      "CONFIDENTIAL_SPACE",
-		EATNonce:    []string{hex.EncodeToString(teeInfoHash)},
 		DebugStatus: "disabled-since-boot",
 		SubMods: googlecloud.SubMods{
 			ConfidentialSpace: googlecloud.ConfidentialSpaceInfo{
@@ -33,80 +24,50 @@ func TestValidateClaims(t *testing.T) {
 		},
 	}
 
-	t.Run("prod TEE accepted with ALLOW_TEE_DEBUG=false", func(t *testing.T) {
-		val, err := verifier.ValidateClaims(baseClaims, teeInfoData, false)
+	t.Run("prod TEE with STABLE returns OK", func(t *testing.T) {
+		val, err := verifier.ValidateClaims(baseClaims)
 		require.NoError(t, err)
 		require.Equal(t, verifier.OK, val.Status)
 	})
-	t.Run("prod TEE still accepted with ALLOW_TEE_DEBUG=true (permissive)", func(t *testing.T) {
-		val, err := verifier.ValidateClaims(baseClaims, teeInfoData, true)
-		require.NoError(t, err)
-		require.Equal(t, verifier.OK, val.Status)
-	})
-	t.Run("debug TEE accepted with ALLOW_TEE_DEBUG=true", func(t *testing.T) {
+	t.Run("debug TEE bypasses STABLE check", func(t *testing.T) {
+		// Reached only when ParseAndValidatePKIToken ran with AllowDebug=true,
+		// so STABLE downgrade is intentionally skipped.
 		modClaims := *baseClaims
 		modClaims.DebugStatus = "enabled"
-		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, true)
+		modClaims.SubMods.ConfidentialSpace.SupportAttributes = nil
+		val, err := verifier.ValidateClaims(&modClaims)
 		require.NoError(t, err)
 		require.Equal(t, verifier.OK, val.Status)
 	})
-	t.Run("debug TEE rejected with ALLOW_TEE_DEBUG=false", func(t *testing.T) {
-		modClaims := *baseClaims
-		modClaims.DebugStatus = "enabled"
-		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
-		require.ErrorContains(t, err, "not running in production mode")
-	})
-	t.Run("prod path applies STABLE check even when ALLOW_TEE_DEBUG=true", func(t *testing.T) {
-		// Permissive mode must not weaken the prod path: a prod TEE without STABLE still downgrades to OBSOLETE.
+	t.Run("prod TEE without STABLE downgrades to OBSOLETE", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = []string{}
-		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, true)
+		val, err := verifier.ValidateClaims(&modClaims)
 		require.NoError(t, err)
 		require.Equal(t, verifier.OBSOLETE, val.Status)
 	})
-	t.Run("expect one EATNonce", func(t *testing.T) {
-		modClaims := *baseClaims
-		modClaims.EATNonce = []string{}
-		val, err := verifier.ValidateClaims(&modClaims, teenodetype.TeeInfo{}, true)
-		require.Equal(t, verifier.StatusInfo{}, val)
-		require.ErrorContains(t, err, "expected exactly one EATNonce, got 0")
-	})
-	t.Run("EATNonce does not match", func(t *testing.T) {
-		modClaims := *baseClaims
-		modClaims.EATNonce = []string{"123"}
-		val, err := verifier.ValidateClaims(&modClaims, teenodetype.TeeInfo{}, true)
-		require.Equal(t, verifier.StatusInfo{}, val)
-		require.ErrorContains(t, err, "EATNonce does not match hash of teeInfo")
-	})
-	t.Run("no supported attributes", func(t *testing.T) {
+	t.Run("prod TEE with nil supported attributes errors", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = nil
-		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
+		_, err := verifier.ValidateClaims(&modClaims)
 		require.ErrorContains(t, err, "ConfidentialSpace component has no supported attributes")
 	})
-	t.Run("empty supported attributes returns OBSOLETE", func(t *testing.T) {
-		modClaims := *baseClaims
-		modClaims.SubMods.ConfidentialSpace.SupportAttributes = []string{}
-		val, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
-		require.NoError(t, err)
-		require.Equal(t, verifier.OBSOLETE, val.Status)
-	})
-	t.Run("no confidential space", func(t *testing.T) {
+	t.Run("SWName must be CONFIDENTIAL_SPACE", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SWName = "CONF"
-		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
+		_, err := verifier.ValidateClaims(&modClaims)
 		require.ErrorContains(t, err, "SWName check failed: expected CONFIDENTIAL_SPACE")
 	})
-	t.Run("cannot retrieve hash of hwmodel", func(t *testing.T) {
+	t.Run("invalid hwmodel rejected", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.HWModel = "0x" + strings.Repeat("ff", 33)
-		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
+		_, err := verifier.ValidateClaims(&modClaims)
 		require.ErrorContains(t, err, "cannot convert HWMode")
 	})
-	t.Run("cannot retrieve hash of container.image_id", func(t *testing.T) {
+	t.Run("invalid container.image_id rejected", func(t *testing.T) {
 		modClaims := *baseClaims
 		modClaims.SubMods.Container.ImageID = "0x" + strings.Repeat("ff", 33)
-		_, err := verifier.ValidateClaims(&modClaims, teeInfoData, false)
+		_, err := verifier.ValidateClaims(&modClaims)
 		require.ErrorContains(t, err, "cannot convert container.image_id")
 	})
 }

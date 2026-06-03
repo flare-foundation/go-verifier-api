@@ -7,8 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
@@ -67,6 +70,19 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 		logger.Warnf("%s is enabled. This flag is meant for test/E2E environments only and should NOT be used in production. Private/loopback IPs will be allowed but dangerous IPs (link-local, metadata, multicast) are still blocked.", EnvAllowPrivateNetworks)
 	}
 
+	allowedImageIDs, err := parseAllowedImageIDs(envConfig.TeeAllowedImageIDs)
+	if err != nil {
+		return nil, err
+	}
+	if !disableAttestationCheckE2E {
+		if envConfig.TeeAudience == "" {
+			return nil, fmt.Errorf("missing environment variables: %s", EnvTeeAudience)
+		}
+		if len(allowedImageIDs) == 0 {
+			return nil, fmt.Errorf("missing environment variables: %s", EnvTeeAllowedImageIDs)
+		}
+	}
+
 	return &TeeAvailabilityCheckConfig{
 		EncodedAndABI:              commonConfig,
 		RelayContractAddress:       relayAddr,
@@ -75,7 +91,28 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 		AllowPrivateNetworks:       allowPrivateNetworks,
 		RPCURL:                     envConfig.RPCURL,
 		GoogleRootCertificate:      googleRootCert,
+		TeeAudience:                envConfig.TeeAudience,
+		TeeAllowedImageIDs:         allowedImageIDs,
 	}, nil
+}
+
+// parseAllowedImageIDs parses a comma-separated list of 32-byte hex hashes
+// (with or without 0x prefix) into a set for googlecloud.Policy.AllowedImageIDs.
+// An empty input returns an empty set without error.
+func parseAllowedImageIDs(raw string) (map[common.Hash]struct{}, error) {
+	out := map[common.Hash]struct{}{}
+	for entry := range strings.SplitSeq(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		h, err := convert.Hex32StringToCommonHash(entry)
+		if err != nil {
+			return nil, fmt.Errorf("%s entry %q: %w", EnvTeeAllowedImageIDs, entry, err)
+		}
+		out[h] = struct{}{}
+	}
+	return out, nil
 }
 
 // parseOptionalBool parses an optional boolean env flag. An unset (empty) value

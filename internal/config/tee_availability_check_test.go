@@ -78,12 +78,18 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 }
 
 func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
+	const (
+		validAudience   = "test-audience"
+		validImageIDHex = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
+	)
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:             SourceTEE,
 			AttestationType:      fdc2.AvailabilityCheck,
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
 			RPCURL:               "https://rpc.example.com",
+			TeeAudience:          validAudience,
+			TeeAllowedImageIDs:   validImageIDHex,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -94,6 +100,8 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.NotEqual(t, cfg.RelayContractAddress, [20]byte{})
 		require.Equal(t, "https://rpc.example.com", cfg.RPCURL)
 		require.NotNil(t, cfg.GoogleRootCertificate)
+		require.Equal(t, validAudience, cfg.TeeAudience)
+		require.Len(t, cfg.TeeAllowedImageIDs, 1)
 	})
 	t.Run("allow private networks enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
@@ -102,13 +110,15 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
 			RPCURL:               "https://rpc.example.com",
 			AllowPrivateNetworks: "true",
+			TeeAudience:          validAudience,
+			TeeAllowedImageIDs:   validImageIDHex,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 		require.True(t, cfg.AllowPrivateNetworks)
 	})
-	t.Run("all flags enabled", func(t *testing.T) {
+	t.Run("all flags enabled skips audience/image-id requirement", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                   SourceTEE,
 			AttestationType:            fdc2.AvailabilityCheck,
@@ -124,6 +134,34 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.True(t, cfg.AllowTeeDebug)
 		require.True(t, cfg.DisableAttestationCheckE2E)
 		require.True(t, cfg.AllowPrivateNetworks)
+	})
+}
+
+func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
+	base := EnvConfig{
+		SourceID:             SourceTEE,
+		AttestationType:      fdc2.AvailabilityCheck,
+		RelayContractAddress: "0x0000000000000000000000000000000000000001",
+		RPCURL:               "https://rpc.example.com",
+	}
+	t.Run("missing TEE_AUDIENCE", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "missing environment variables: TEE_AUDIENCE")
+	})
+	t.Run("missing TEE_ALLOWED_IMAGE_IDS", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "aud"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "missing environment variables: TEE_ALLOWED_IMAGE_IDS")
+	})
+	t.Run("invalid hex in allowlist", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "aud"
+		envConfig.TeeAllowedImageIDs = "not-hex"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "TEE_ALLOWED_IMAGE_IDS entry")
 	})
 }
 func TestParseOptionalBool(t *testing.T) {

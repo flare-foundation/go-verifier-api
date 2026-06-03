@@ -22,7 +22,7 @@ func TeeInfoResponse(t *testing.T, chainChallenge common.Hash) (teenodetypes.Tee
 	machineData := teenodetypes.MachineData{
 		PublicKey: pubKey,
 	}
-	mdHash, err := machineData.Hash()
+	mdHash, err := machineData.DataHash()
 	require.NoError(t, err)
 	mdSignature, err := teenodeutils.Sign(mdHash[:], privTEEKey)
 	require.NoError(t, err)
