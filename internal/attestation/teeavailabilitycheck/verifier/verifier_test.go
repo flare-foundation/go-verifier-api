@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	csigning "github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
@@ -571,7 +572,9 @@ func TestVerify(t *testing.T) {
 		}
 		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privProxyKey)
 		require.NoError(t, err)
-		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
+		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		teeSignature, err := crypto.Sign(accounts.TextHash(teeSignHash[:]), privTEEKey)
 		require.NoError(t, err)
 
 		handler := http.NewServeMux()
@@ -625,7 +628,9 @@ func TestVerify(t *testing.T) {
 		}
 		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privProxyKey)
 		require.NoError(t, err)
-		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
+		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		teeSignature, err := crypto.Sign(accounts.TextHash(teeSignHash[:]), privTEEKey)
 		require.NoError(t, err)
 
 		handler := http.NewServeMux()

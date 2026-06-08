@@ -6,7 +6,7 @@ require (
 	github.com/Peersyst/xrpl-go v0.1.18
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/ethereum/go-ethereum v1.17.2
-	github.com/flare-foundation/go-flare-common v1.2.2-0.20260601150237-cffb4cbd5b3e
+	github.com/flare-foundation/go-flare-common v1.2.2-0.20260608123407-c16dc616c462
 	github.com/flare-foundation/tee-node v0.0.20
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0

@@ -15,6 +15,7 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	csigning "github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
@@ -101,7 +102,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s: %w", req.TeeProxyId.Hex(), dataSigner.Hex(), ErrTEEDataValidation)
 	}
 	// Verify the action result is from the expected TEE and bound to this instruction.
-	if err := verifyActionResult(actionResp, req.InstructionId, req.TeeId); err != nil {
+	if err := verifyActionResult(actionResp, req.InstructionId, req.TeeId, response.TeeInfo.ChainID); err != nil {
 		return zero, fmt.Errorf("%w: %w", ErrTEEDataValidation, err)
 	}
 	// Run DataVerification and CheckSigningPolicies in parallel (independent after challenge fetch).
@@ -198,12 +199,20 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	if err != nil {
 		return StatusInfo{}, fmt.Errorf("cannot create hash of teeInfo: %w", err)
 	}
+	// go-flare-common replaced the AllowDebug bool with an AllowedDebugStatuses
+	// allowlist. Preserve prior semantics: when TEE debug is not allowed (production),
+	// require the production dbgstat "disabled-since-boot"; otherwise leave the
+	// allowlist empty to skip the dbgstat check.
+	var allowedDebugStatuses []string
+	if !v.Cfg.AllowTeeDebug {
+		allowedDebugStatuses = []string{"disabled-since-boot"}
+	}
 	policy := googlecloud.Policy{
-		Audience:        v.Cfg.TeeAudience,
-		AllowedImageIDs: v.Cfg.TeeAllowedImageIDs,
-		EATNonce:        hex.EncodeToString(teeInfoHash),
-		AllowDebug:      v.Cfg.AllowTeeDebug,
-		Issuer:          googlecloud.ConfidentialSpaceIssuer,
+		Audience:             v.Cfg.TeeAudience,
+		AllowedImageIDs:      v.Cfg.TeeAllowedImageIDs,
+		EATNonce:             hex.EncodeToString(teeInfoHash),
+		AllowedDebugStatuses: allowedDebugStatuses,
+		Issuer:               googlecloud.ConfidentialSpaceIssuer,
 	}
 	// Certificate checks - check if we can trust the data in token
 	_, claims, err := googlecloud.ParseAndValidatePKIToken(attestationToken, v.Cfg.GoogleRootCertificate, leafCRL, intermediateCRL, policy)
@@ -392,15 +401,19 @@ func FetchTEEChallengeResult(
 // result itself, preventing a malicious proxy from replaying an older valid
 // result or serving a different TEE's response.
 //
-// The TEE signature over Result.Hash() binds Data, ID, SubmissionTag, and
-// Status (see tee-node pkg/types/actions.go Hash()). OPType and OPCommand
-// are NOT bound by the signature, so they are checked explicitly against the
-// expected (op.Reg, op.TEEAttestation) pair — the only pair that legitimately
-// reaches the verifier via the FDC2 availability-check flow.
+// The TEE signs DomainHash(TEE_ACTION_RESULT, chainID, Result.Hash()), which
+// binds Data, ID, SubmissionTag, and Status (see tee-node pkg/types/actions.go
+// Hash()) plus the chain ID. OPType and OPCommand are NOT bound by the
+// signature, so they are checked explicitly against the expected
+// (op.Reg, op.TEEAttestation) pair — the only pair that legitimately reaches
+// the verifier via the FDC2 availability-check flow. chainID is the TEE's
+// reported TeeInfo.ChainID; a wrong value simply fails recovery (fail-closed),
+// since only the genuine TEE can produce a signature over its real chain ID.
 func verifyActionResult(
 	actionResp teenodetypes.ActionResponse,
 	expectedInstructionID common.Hash,
 	expectedTeeID common.Address,
+	chainID uint64,
 ) error {
 	if actionResp.Result.ID != expectedInstructionID {
 		return fmt.Errorf("action result instruction ID mismatch: expected %s, got %s",
@@ -423,7 +436,11 @@ func verifyActionResult(
 	if len(actionResp.Signature) == 0 {
 		return errors.New("missing TEE signature on action result")
 	}
-	if err := utils.VerifySignature(actionResp.Result.Hash(), actionResp.Signature, expectedTeeID); err != nil {
+	signHash, err := csigning.NewPayload(csigning.TEEActionResult, chainID, common.BytesToHash(actionResp.Result.Hash())).Hash()
+	if err != nil {
+		return fmt.Errorf("computing action result sign hash: %w", err)
+	}
+	if err := utils.VerifySignature(signHash[:], actionResp.Signature, expectedTeeID); err != nil {
 		return fmt.Errorf("TEE signature on action result does not match expected TEE %s: %w",
 			expectedTeeID.Hex(), err)
 	}
