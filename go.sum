@@ -70,8 +70,6 @@ github.com/ethereum/go-ethereum v1.17.2 h1:ag6geu0kn8Hv5FLKTpH+Hm2DHD+iuFtuqKxEu
 github.com/ethereum/go-ethereum v1.17.2/go.mod h1:KHcRXfGOUfUmKg51IhQ0IowiqZ6PqZf08CMtk0g5K1o=
 github.com/ferranbt/fastssz v0.1.4 h1:OCDB+dYDEQDvAgtAGnTSidK1Pe2tW3nFV40XyMkTeDY=
 github.com/ferranbt/fastssz v0.1.4/go.mod h1:Ea3+oeoRGGLGm5shYAeDgu6PGUlcvQhE2fILyD9+tGg=
-github.com/flare-foundation/go-flare-common v1.2.2-0.20260608123407-c16dc616c462 h1:hQfZMCbQc81iy62FOWwy2tcCxi9Gvz2mXiciLIXTu50=
-github.com/flare-foundation/go-flare-common v1.2.2-0.20260608123407-c16dc616c462/go.mod h1:DVq/pSJsf3Y5/zdGKFVWOg7ps87Riw+pVtcKTfIaufc=
 github.com/flare-foundation/go-flare-common v1.2.2-0.20260609083321-f543cf2ef2c3 h1:RbKyWzhNW0/zP3MuNMcyziG+j2aBGIgLV2NpL+6hNkM=
 github.com/flare-foundation/go-flare-common v1.2.2-0.20260609083321-f543cf2ef2c3/go.mod h1:DVq/pSJsf3Y5/zdGKFVWOg7ps87Riw+pVtcKTfIaufc=
 github.com/flare-foundation/tee-node v0.0.21-0.20260609092747-452baee87250 h1:pjqecoY4zTPiiq8KJO5Acglr/rcm8KC5YIKw9WSJB9Q=
