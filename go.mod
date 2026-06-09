@@ -6,8 +6,8 @@ require (
 	github.com/Peersyst/xrpl-go v0.1.18
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/ethereum/go-ethereum v1.17.2
-	github.com/flare-foundation/go-flare-common v1.2.2-0.20260608123407-c16dc616c462
-	github.com/flare-foundation/tee-node v0.0.20
+	github.com/flare-foundation/go-flare-common v1.2.2-0.20260609083321-f543cf2ef2c3
+	github.com/flare-foundation/tee-node v0.0.21-0.20260609092747-452baee87250
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -92,5 +92,3 @@ tool (
 	golang.org/x/vuln/cmd/govulncheck
 	honnef.co/go/tools/cmd/staticcheck
 )
-
-replace github.com/flare-foundation/tee-node => ../tee-node

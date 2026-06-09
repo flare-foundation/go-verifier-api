@@ -386,8 +386,13 @@ func FetchTEEChallengeResult(
 	if err != nil {
 		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
 	}
-	// recover signer
-	signer, err := utils.SignatureToSignersAddress(actionResp.Result.Hash(), actionResp.ProxySignature)
+	// recover signer over the domain-separated PROXY_ACTION_RESULT preimage,
+	// chain-bound with the chainID carried inside the attestation payload.
+	proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, teeInfo.TeeInfo.ChainID, common.BytesToHash(actionResp.Result.Hash())).Hash()
+	if err != nil {
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("hashing proxy signature payload: %w", err)
+	}
+	signer, err := utils.SignatureToSignersAddress(proxySignHash[:], actionResp.ProxySignature)
 	if err != nil {
 		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("recover signer: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	csigning "github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
@@ -45,10 +46,6 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 
 		teeInfoBytes, err := json.Marshal(teeInfo)
 		require.NoError(t, err)
-		hash := crypto.Keccak256(teeInfoBytes)
-		ethHash := accounts.TextHash(hash)
-		proxySignature, err := crypto.Sign(ethHash, privProxyKey)
-		require.NoError(t, err)
 
 		actionResult := teenodetypes.ActionResult{
 			ID:        instructionId,
@@ -57,7 +54,18 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 			OPCommand: op.TEEAttestation.Hash(),
 			Data:      teeInfoBytes,
 		}
-		teeSignature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privTEEKey)
+
+		// helpers.TeeInfoResponse leaves ChainID unset, so both signatures bind
+		// chainID 0 — matching what FetchTEEChallengeResult (proxy) and
+		// verifyActionResult (TEE) reconstruct on the recovery side.
+		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		proxySignature, err := crypto.Sign(accounts.TextHash(proxySignHash[:]), privProxyKey)
+		require.NoError(t, err)
+
+		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		teeSignature, err := crypto.Sign(accounts.TextHash(teeSignHash[:]), privTEEKey)
 		require.NoError(t, err)
 
 		resp := teenodetypes.ActionResponse{

@@ -203,7 +203,10 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.NoError(t, err)
 		address := crypto.PubkeyToAddress(privKey.PublicKey)
 		actionResult := teenodetypes.ActionResult{Data: data}
-		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privKey)
+		// validJSON carries no chainId, so teeInfo.TeeInfo.ChainID is 0 on the recovery side.
+		signHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		signature, err := crypto.Sign(accounts.TextHash(signHash[:]), privKey)
 		require.NoError(t, err)
 
 		fullResp := teenodetypes.ActionResponse{
@@ -570,7 +573,11 @@ func TestVerify(t *testing.T) {
 			OPCommand: op.TEEAttestation.Hash(),
 			Data:      data,
 		}
-		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privProxyKey)
+		// helpers.TeeInfoResponse leaves ChainID unset, so the proxy-signature
+		// preimage is bound to chainID 0 (matching the recovery side).
+		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		signature, err := crypto.Sign(accounts.TextHash(proxySignHash[:]), privProxyKey)
 		require.NoError(t, err)
 		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
@@ -626,7 +633,11 @@ func TestVerify(t *testing.T) {
 			OPCommand: op.TEEAttestation.Hash(),
 			Data:      data,
 		}
-		signature, err := crypto.Sign(accounts.TextHash(actionResult.Hash()), privProxyKey)
+		// helpers.TeeInfoResponse leaves ChainID unset, so the proxy-signature
+		// preimage is bound to chainID 0 (matching the recovery side).
+		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		signature, err := crypto.Sign(accounts.TextHash(proxySignHash[:]), privProxyKey)
 		require.NoError(t, err)
 		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
