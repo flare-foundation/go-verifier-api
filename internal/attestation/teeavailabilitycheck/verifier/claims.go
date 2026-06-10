@@ -26,7 +26,7 @@ type StatusInfo struct {
 // ValidateClaims performs the verifier-specific checks left after
 // googlecloud.ParseAndValidatePKIToken applies the Policy. The Policy
 // already enforces JWT signature, iss/aud, eat_nonce binding, image_id
-// allowlist, and (when AllowDebug is false) secboot/dbgstat. This function
+// allowlist, and (when AllowDebug is false) the dbgstat allowlist. This function
 // covers what the Policy does not: SWName must be CONFIDENTIAL_SPACE, the
 // STABLE support_attribute downgrade-to-OBSOLETE rule on the production
 // path, and extraction of CodeHash/Platform.
