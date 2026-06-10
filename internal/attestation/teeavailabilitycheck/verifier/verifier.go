@@ -97,6 +97,12 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	if response.TeeInfo.Challenge != challengeHex {
 		return zero, fmt.Errorf("challenge does not match: expected %s, got %s: %w", challengeHex.Hex(), response.TeeInfo.Challenge.Hex(), ErrTEEDataValidation)
 	}
+	// Pin the attestation to the chain this verifier serves (cross-chain replay
+	// defense). Enforced unconditionally: E2E/MagicPass bypass attestation
+	// validation, not chain identity.
+	if response.TeeInfo.ChainID != v.Cfg.ChainID {
+		return zero, fmt.Errorf("chainID does not match: attestation reports %d, verifier serves %d: %w", response.TeeInfo.ChainID, v.Cfg.ChainID, ErrTEEDataValidation)
+	}
 	// Check proxy signature.
 	if dataSigner != req.TeeProxyId {
 		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s: %w", req.TeeProxyId.Hex(), dataSigner.Hex(), ErrTEEDataValidation)

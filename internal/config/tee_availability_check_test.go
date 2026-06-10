@@ -81,6 +81,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	const (
 		validAudience   = "test-audience"
 		validImageIDHex = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
+		validChainID    = "16"
 	)
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
@@ -90,6 +91,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			RPCURL:               "https://rpc.example.com",
 			TeeAudience:          validAudience,
 			TeeAllowedImageIDs:   validImageIDHex,
+			ChainID:              validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -102,6 +104,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.NotNil(t, cfg.GoogleRootCertificate)
 		require.Equal(t, validAudience, cfg.TeeAudience)
 		require.Len(t, cfg.TeeAllowedImageIDs, 1)
+		require.Equal(t, uint64(16), cfg.ChainID)
 	})
 	t.Run("allow private networks enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
@@ -112,13 +115,14 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			AllowPrivateNetworks: "true",
 			TeeAudience:          validAudience,
 			TeeAllowedImageIDs:   validImageIDHex,
+			ChainID:              validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 		require.True(t, cfg.AllowPrivateNetworks)
 	})
-	t.Run("all flags enabled skips audience/image-id requirement", func(t *testing.T) {
+	t.Run("all flags enabled skips audience/image-id requirement but still requires CHAIN_ID", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                   SourceTEE,
 			AttestationType:            fdc2.AvailabilityCheck,
@@ -127,6 +131,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			AllowTeeDebug:              "true",
 			DisableAttestationCheckE2E: "true",
 			AllowPrivateNetworks:       "true",
+			ChainID:                    validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -134,6 +139,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.True(t, cfg.AllowTeeDebug)
 		require.True(t, cfg.DisableAttestationCheckE2E)
 		require.True(t, cfg.AllowPrivateNetworks)
+		require.Equal(t, uint64(16), cfg.ChainID)
 	})
 }
 
@@ -143,6 +149,7 @@ func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 		AttestationType:      fdc2.AvailabilityCheck,
 		RelayContractAddress: "0x0000000000000000000000000000000000000001",
 		RPCURL:               "https://rpc.example.com",
+		ChainID:              "16",
 	}
 	t.Run("missing TEE_AUDIENCE", func(t *testing.T) {
 		envConfig := base
@@ -162,6 +169,30 @@ func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 		envConfig.TeeAllowedImageIDs = "not-hex"
 		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.ErrorContains(t, err, "TEE_ALLOWED_IMAGE_IDS entry")
+	})
+	t.Run("missing CHAIN_ID", func(t *testing.T) {
+		envConfig := base
+		envConfig.ChainID = ""
+		envConfig.TeeAudience = "aud"
+		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "missing environment variables: CHAIN_ID")
+	})
+	t.Run("invalid CHAIN_ID", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "aud"
+		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
+		envConfig.ChainID = "not-a-number"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "CHAIN_ID must be a base-10 uint64")
+	})
+	t.Run("zero CHAIN_ID rejected", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "aud"
+		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
+		envConfig.ChainID = "0"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "CHAIN_ID must be non-zero")
 	})
 }
 func TestParseOptionalBool(t *testing.T) {

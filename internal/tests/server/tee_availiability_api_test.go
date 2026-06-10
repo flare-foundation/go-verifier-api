@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -30,6 +31,7 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 		AllowTeeDebug:                  "true",
 		DisableAttestationCheckE2E:     "true",
 		AllowPrivateNetworks:           "true",
+		ChainID:                        strconv.FormatUint(helpers.TestChainID, 10),
 	})
 	defer setup.Stop()
 
@@ -55,15 +57,15 @@ func TestTEEAvailabilityCheck(t *testing.T) {
 			Data:      teeInfoBytes,
 		}
 
-		// helpers.TeeInfoResponse leaves ChainID unset, so both signatures bind
-		// chainID 0 — matching what FetchTEEChallengeResult (proxy) and
-		// verifyActionResult (TEE) reconstruct on the recovery side.
-		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		// Both signatures bind helpers.TestChainID — matching the attested
+		// TeeInfo.ChainID that FetchTEEChallengeResult (proxy) and verifyActionResult
+		// (TEE) reconstruct on the recovery side, and the verifier's CHAIN_ID.
+		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, helpers.TestChainID, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
 		proxySignature, err := crypto.Sign(accounts.TextHash(proxySignHash[:]), privProxyKey)
 		require.NoError(t, err)
 
-		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, helpers.TestChainID, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
 		teeSignature, err := crypto.Sign(accounts.TextHash(teeSignHash[:]), privTEEKey)
 		require.NoError(t, err)

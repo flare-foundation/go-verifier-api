@@ -361,11 +361,14 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		privKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 		address := crypto.PubkeyToAddress(privKey.PublicKey)
-		ethHash := accounts.TextHash(crypto.Keccak256(data))
-		signature, err := crypto.Sign(ethHash, privKey)
+		actionResult := teenodetypes.ActionResult{Data: data}
+		// validJSON carries no chainId, so teeInfo.TeeInfo.ChainID is 0 on the recovery side.
+		signHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		signature, err := crypto.Sign(accounts.TextHash(signHash[:]), privKey)
 		require.NoError(t, err)
 		resp := teenodetypes.ActionResponse{
-			Result:         teenodetypes.ActionResult{Data: data},
+			Result:         actionResult,
 			ProxySignature: signature,
 		}
 
@@ -588,6 +591,7 @@ func TestVerify(t *testing.T) {
 		GoogleRootCertificate:      rootCert,
 		TeeAudience:                testAudience,
 		TeeAllowedImageIDs:         allowedImageIDsForTest(),
+		ChainID:                    helpers.TestChainID,
 	})
 	require.NoError(t, err)
 	ver, ok := verIface.(*verifier.TeeVerifier)
@@ -608,6 +612,52 @@ func TestVerify(t *testing.T) {
 		resp, err := ver.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot fetch TEE data for (TEE=0x0000000000000000000000000000000000000123")
 		require.ErrorContains(t, err, "action result not found: resource not found (404)")
+		require.Empty(t, resp)
+	})
+	t.Run("chainID mismatch rejected", func(t *testing.T) {
+		// Attestation reports a chain other than the one the verifier serves
+		// (helpers.TestChainID). The unconditional chain pin rejects before
+		// signatures are even compared.
+		challengeHash := common.HexToHash("0xc4a1")
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
+		teeInfoResponse.TeeInfo.ChainID = helpers.TestChainID + 1
+		data, err := json.Marshal(teeInfoResponse)
+		require.NoError(t, err)
+
+		privProxyKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		actionResult := teenodetypes.ActionResult{
+			Status:    1,
+			OPType:    op.Reg.Hash(),
+			OPCommand: op.TEEAttestation.Hash(),
+			Data:      data,
+		}
+		// Sign over the (mismatched) attested chain so proxy signer recovery
+		// succeeds; the chainID pin rejects before the signer is checked.
+		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, teeInfoResponse.TeeInfo.ChainID, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		signature, err := crypto.Sign(accounts.TextHash(proxySignHash[:]), privProxyKey)
+		require.NoError(t, err)
+
+		handler := http.NewServeMux()
+		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			require.NoError(t, json.NewEncoder(w).Encode(teenodetypes.ActionResponse{
+				Result:         actionResult,
+				ProxySignature: signature,
+			}))
+		})
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		req := fdc2.ITeeAvailabilityCheckRequestBody{
+			TeeId:      crypto.PubkeyToAddress(privTEEKey.PublicKey),
+			Url:        server.URL,
+			TeeProxyId: crypto.PubkeyToAddress(privProxyKey.PublicKey),
+			Challenge:  challengeHash,
+		}
+		resp, err := ver.Verify(context.Background(), req)
+		require.ErrorContains(t, err, "chainID does not match")
 		require.Empty(t, resp)
 	})
 	t.Run("signing policy check fails", func(t *testing.T) {
@@ -634,13 +684,13 @@ func TestVerify(t *testing.T) {
 			OPCommand: op.TEEAttestation.Hash(),
 			Data:      data,
 		}
-		// helpers.TeeInfoResponse leaves ChainID unset, so the proxy-signature
-		// preimage is bound to chainID 0 (matching the recovery side).
-		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		// Signatures bind helpers.TestChainID, matching the attested TeeInfo.ChainID
+		// reconstructed on the recovery side and the verifier's CHAIN_ID.
+		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, helpers.TestChainID, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
 		signature, err := crypto.Sign(accounts.TextHash(proxySignHash[:]), privProxyKey)
 		require.NoError(t, err)
-		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, helpers.TestChainID, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
 		teeSignature, err := crypto.Sign(accounts.TextHash(teeSignHash[:]), privTEEKey)
 		require.NoError(t, err)
@@ -694,13 +744,13 @@ func TestVerify(t *testing.T) {
 			OPCommand: op.TEEAttestation.Hash(),
 			Data:      data,
 		}
-		// helpers.TeeInfoResponse leaves ChainID unset, so the proxy-signature
-		// preimage is bound to chainID 0 (matching the recovery side).
-		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		// Signatures bind helpers.TestChainID, matching the attested TeeInfo.ChainID
+		// reconstructed on the recovery side and the verifier's CHAIN_ID.
+		proxySignHash, err := csigning.NewPayload(csigning.ProxyActionResult, helpers.TestChainID, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
 		signature, err := crypto.Sign(accounts.TextHash(proxySignHash[:]), privProxyKey)
 		require.NoError(t, err)
-		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, 0, common.BytesToHash(actionResult.Hash())).Hash()
+		teeSignHash, err := csigning.NewPayload(csigning.TEEActionResult, helpers.TestChainID, common.BytesToHash(actionResult.Hash())).Hash()
 		require.NoError(t, err)
 		teeSignature, err := crypto.Sign(accounts.TextHash(teeSignHash[:]), privTEEKey)
 		require.NoError(t, err)

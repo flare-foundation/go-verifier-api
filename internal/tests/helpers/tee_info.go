@@ -11,6 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestChainID is the chain ID stamped into test TeeInfo and used by callers to
+// bind signatures and set the verifier's expected CHAIN_ID consistently.
+// 16 is Coston, the chain the availability tests point their RPC at.
+const TestChainID uint64 = 16
+
 func TeeInfoResponse(t *testing.T, chainChallenge common.Hash) (teenodetypes.TeeInfoResponse, *ecdsa.PrivateKey) {
 	t.Helper()
 	privTEEKey, err := crypto.GenerateKey()
@@ -29,6 +34,7 @@ func TeeInfoResponse(t *testing.T, chainChallenge common.Hash) (teenodetypes.Tee
 	teeInfoResponse := teenodetypes.TeeInfoResponse{
 		TeeInfo: teenodetypes.TeeInfo{
 			Challenge:                chainChallenge,
+			ChainID:                  TestChainID,
 			InitialSigningPolicyID:   initPolicy,
 			InitialSigningPolicyHash: common.HexToHash("0x78042a0613055ef7112c2385946ff2eef3d83bad9d67b5e2d825f0b30fa8aef3"),
 			LastSigningPolicyID:      lastPolicy,

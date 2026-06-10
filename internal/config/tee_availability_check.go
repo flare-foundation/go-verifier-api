@@ -74,6 +74,20 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	if err != nil {
 		return nil, err
 	}
+	// CHAIN_ID is required unconditionally: the chain pin in Verify runs even under
+	// the E2E/MagicPass bypasses (those disable Google attestation, not chain
+	// identity), and 0 is not a valid EVM chain ID, so there is no usable default.
+	if envConfig.ChainID == "" {
+		return nil, fmt.Errorf("missing environment variables: %s", EnvChainID)
+	}
+	chainID, err := strconv.ParseUint(envConfig.ChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be a base-10 uint64: %q: %w", EnvChainID, envConfig.ChainID, err)
+	}
+	if chainID == 0 {
+		return nil, fmt.Errorf("%s must be non-zero", EnvChainID)
+	}
+
 	if !disableAttestationCheckE2E {
 		if envConfig.TeeAudience == "" {
 			return nil, fmt.Errorf("missing environment variables: %s", EnvTeeAudience)
@@ -93,6 +107,7 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 		GoogleRootCertificate:      googleRootCert,
 		TeeAudience:                envConfig.TeeAudience,
 		TeeAllowedImageIDs:         allowedImageIDs,
+		ChainID:                    chainID,
 	}, nil
 }
 
