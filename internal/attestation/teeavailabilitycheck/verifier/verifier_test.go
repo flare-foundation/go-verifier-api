@@ -223,6 +223,36 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, fullResp.ProxySignature, actionResp.ProxySignature)
 		require.Equal(t, fullResp.Result.Data, actionResp.Result.Data)
 	})
+	t.Run("signature bound to a different chainID recovers a foreign signer", func(t *testing.T) {
+		// The proxy signs over DomainHash(PROXY_ACTION_RESULT, 1, …) but the
+		// transmitted TeeInfo claims chainId 2. Recovery rebuilds the preimage
+		// from the transmitted chainId, so it yields an address other than the
+		// true proxy key — Verify then rejects it on the dataSigner != TeeProxyId
+		// check. This is the cross-chain replay protection the binding provides.
+		const signedChainID, claimedChainID uint64 = 1, 2
+		validJSON := `{"teeInfo":{"chainId":2}}`
+		data := hexutil.Bytes([]byte(validJSON))
+
+		privKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		address := crypto.PubkeyToAddress(privKey.PublicKey)
+		actionResult := teenodetypes.ActionResult{Data: data}
+		signHash, err := csigning.NewPayload(csigning.ProxyActionResult, signedChainID, common.BytesToHash(actionResult.Hash())).Hash()
+		require.NoError(t, err)
+		signature, err := crypto.Sign(accounts.TextHash(signHash[:]), privKey)
+		require.NoError(t, err)
+
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result:         actionResult,
+			ProxySignature: signature,
+		})
+		defer server.Close()
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		require.NoError(t, err)
+		require.Equal(t, claimedChainID, teeInfo.TeeInfo.ChainID)
+		// Recovery succeeds but returns a foreign address, never the true signer.
+		require.NotEqual(t, address, signer)
+	})
 	t.Run("fetch error", func(t *testing.T) {
 		handler := http.NewServeMux()
 		handler.HandleFunc("/action/result/", func(w http.ResponseWriter, r *http.Request) {

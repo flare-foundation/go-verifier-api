@@ -185,4 +185,19 @@ func TestVerifyActionResult(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "TEE signature on action result")
 	})
+
+	t.Run("signature bound to a different chainID is rejected", func(t *testing.T) {
+		// The TEE signs over DomainHash(TEE_ACTION_RESULT, testChainID, …);
+		// verifying against a different chainID changes the preimage, so signer
+		// recovery yields an address other than the expected TEE. This is the
+		// cross-chain replay protection the chainID binding provides.
+		sig := signActionResult(t, validResult, teeKey) // signed with testChainID
+		resp := teenodetypes.ActionResponse{
+			Result:    validResult,
+			Signature: sig,
+		}
+		err := verifyActionResult(resp, instructionID, teeID, testChainID+1)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "TEE signature on action result does not match expected TEE")
+	})
 }
