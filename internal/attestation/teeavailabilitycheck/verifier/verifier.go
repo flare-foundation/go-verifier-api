@@ -185,6 +185,17 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 
+	// Defense-in-depth: an empty Audience or AllowedImageIDs makes the Policy
+	// SKIP that check (fail-open), not reject. Fail closed here — before any CRL
+	// work — so a future refactor that lets the empty-config case (E2E) reach this
+	// point can't silently disable enforcement.
+	if v.Cfg.TeeAudience == "" {
+		return StatusInfo{}, errors.New("refusing to build attestation policy with empty TeeAudience: would skip audience enforcement")
+	}
+	if len(v.Cfg.TeeAllowedImageIDs) == 0 {
+		return StatusInfo{}, errors.New("refusing to build attestation policy with empty AllowedImageIDs: would skip image_id enforcement")
+	}
+
 	// Fetch CRLs for revocation checking (strict: fail verification if CRL fetch fails)
 	var leafCRL, intermediateCRL *x509.RevocationList
 	if v.CRLCache != nil {

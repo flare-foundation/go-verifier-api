@@ -472,6 +472,37 @@ func TestDataVerification(t *testing.T) {
 		require.Equal(t, verifier.E2ETestCodeHash, resp.CodeHash)
 		require.Equal(t, verifier.E2ETestPlatform, resp.Platform)
 	})
+	t.Run("empty AllowedImageIDs fails closed (no fail-open skip)", func(t *testing.T) {
+		// Defense-in-depth: in the non-E2E path, an empty AllowedImageIDs would
+		// make the Policy skip the image_id check. DataVerification must refuse to
+		// build the Policy rather than silently disabling enforcement.
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
+		v := &verifier.TeeVerifier{
+			Cfg: &config.TeeAvailabilityCheckConfig{
+				DisableAttestationCheckE2E: false,
+				GoogleRootCertificate:      rootCert,
+				TeeAudience:                testAudience,
+				TeeAllowedImageIDs:         map[common.Hash]struct{}{}, // empty
+			},
+		}
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
+		require.Empty(t, resp)
+		require.ErrorContains(t, err, "empty AllowedImageIDs")
+	})
+	t.Run("empty TeeAudience fails closed (no fail-open skip)", func(t *testing.T) {
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
+		v := &verifier.TeeVerifier{
+			Cfg: &config.TeeAvailabilityCheckConfig{
+				DisableAttestationCheckE2E: false,
+				GoogleRootCertificate:      rootCert,
+				TeeAudience:                "", // empty
+				TeeAllowedImageIDs:         allowedImageIDsForTest(),
+			},
+		}
+		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
+		require.Empty(t, resp)
+		require.ErrorContains(t, err, "empty TeeAudience")
+	})
 	t.Run("policy rejects mismatched eat_nonce", func(t *testing.T) {
 		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
 		// Claims advertise a nonce that does not match the teeInfo hash the
