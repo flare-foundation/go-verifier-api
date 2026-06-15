@@ -63,7 +63,8 @@ Required:
 - `RELAY_CONTRACT_ADDRESS`
 - `CHAIN_ID` — EVM chain ID this verifier serves; the attested `TeeInfo.ChainID` must equal it. Required and must be non-zero (the chain pin is enforced unconditionally; see §7.1).
 
-- `TEE_AUDIENCE` — expected `aud` claim on Confidential Space attestation tokens. Required unless `DISABLE_ATTESTATION_CHECK_E2E=true`.
+Optional:
+- `TEE_AUDIENCE` — override for the expected `aud` claim on Confidential Space attestation tokens. Defaults to `config.DefaultTeeAudience` (`"https://sts.google.com"`, the audience tee-node requests) when unset; set it only if tee-node's requested audience diverges.
 
 Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false) — permissive flag. `false`: only production Confidential Space TEEs (`dbgstat == "disabled-since-boot"`) are accepted. `true`: production AND debug TEEs (`dbgstat != "disabled-since-boot"`) are both accepted; every debug admission emits a WARN log. Debug TEEs have the debugger attached and secrets can be extracted — never enable on production deployments. Intended for staging/E2E only.
@@ -135,7 +136,7 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 | Field | Value | Source |
 |---|---|---|
 | `Issuer` | `googlecloud.ConfidentialSpaceIssuer` | constant |
-| `Audience` | `v.Cfg.TeeAudience` | `TEE_AUDIENCE` env var |
+| `Audience` | `v.Cfg.TeeAudience` | `TEE_AUDIENCE` env var, or `config.DefaultTeeAudience` when unset |
 | `EATNonce` | `hex.EncodeToString(teeInfoData.Hash())` | computed per request |
 | `AllowedDebugStatuses` | `["disabled-since-boot"]` when `!AllowTeeDebug`, else empty (skips dbgstat check) | derived from `ALLOW_TEE_DEBUG` |
 
@@ -149,7 +150,7 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 | CRL revocation | leaf + intermediate CRLs | nil CRL → warn + skip (verifier doesn't set `Policy.RequireCRL`). See §7.1 CRL revocation checking. |
 | `iss` claim | `Policy.Issuer` (defaults to `ConfidentialSpaceIssuer`) | always checked. |
 | `exp` claim | token | `jwt.WithExpirationRequired()` — expiry must be present and unexpired. |
-| `aud` claim | `Policy.Audience` (= `TEE_AUDIENCE`) | the audience the TEE requested its token for; rejects tokens issued for a different consumer. Skipped if empty. |
+| `aud` claim | `Policy.Audience` (= `TEE_AUDIENCE`, or `DefaultTeeAudience`) | the audience the TEE requested its token for; rejects tokens issued for a different consumer. Always populated (config defaults it), so the empty-skip path is not reachable in normal operation. |
 | Clock skew | `Policy.Leeway` (defaults to 30s) | applied to `exp`/`iat`/`nbf`. |
 | `dbgstat` | `Policy.AllowedDebugStatuses` | `["disabled-since-boot"]` in production; empty when `ALLOW_TEE_DEBUG=true` (skipped). |
 | `eat_nonce` | `Policy.EATNonce` (= `hex.EncodeToString(teeInfoData.Hash())`) | **containment**, not equality (see below). |

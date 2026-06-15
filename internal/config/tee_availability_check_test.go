@@ -147,10 +147,18 @@ func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 		RPCURL:               "https://rpc.example.com",
 		ChainID:              "16",
 	}
-	t.Run("missing TEE_AUDIENCE", func(t *testing.T) {
+	t.Run("unset TEE_AUDIENCE defaults to DefaultTeeAudience", func(t *testing.T) {
 		envConfig := base
-		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
-		require.ErrorContains(t, err, "missing environment variables: TEE_AUDIENCE")
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.Equal(t, DefaultTeeAudience, cfg.TeeAudience)
+	})
+	t.Run("explicit TEE_AUDIENCE overrides the default", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "custom-audience"
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.Equal(t, "custom-audience", cfg.TeeAudience)
 	})
 	t.Run("missing CHAIN_ID", func(t *testing.T) {
 		envConfig := base

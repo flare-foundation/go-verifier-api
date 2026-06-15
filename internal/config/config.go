@@ -24,9 +24,16 @@ const (
 	EnvAllowTeeDebug                  = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
 	EnvDisableAttestationCheckE2E     = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
 	EnvAllowPrivateNetworks           = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
-	EnvTeeAudience                    = "TEE_AUDIENCE"                  // Expected aud claim on Confidential Space attestation tokens. Required unless DISABLE_ATTESTATION_CHECK_E2E=true.
+	EnvTeeAudience                    = "TEE_AUDIENCE"                  // Optional override for the expected aud claim on Confidential Space attestation tokens. Defaults to DefaultTeeAudience when unset.
 	EnvChainID                        = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
 )
+
+// DefaultTeeAudience is the aud claim the verifier expects on Confidential Space
+// attestation tokens when TEE_AUDIENCE is not set. It must match the audience
+// tee-node requests its token for, which tee-node currently hardcodes (see
+// tee-node/internal/attestation/attestation_token.go). Override via TEE_AUDIENCE
+// only if that value diverges.
+const DefaultTeeAudience = "https://sts.google.com"
 
 type EnvConfig struct {
 	RPCURL                         string

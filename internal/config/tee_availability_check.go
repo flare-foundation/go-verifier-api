@@ -81,8 +81,12 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 		return nil, fmt.Errorf("%s must be non-zero", EnvChainID)
 	}
 
-	if !disableAttestationCheckE2E && envConfig.TeeAudience == "" {
-		return nil, fmt.Errorf("missing environment variables: %s", EnvTeeAudience)
+	// TEE_AUDIENCE is an optional override, not a required per-deployment var: the
+	// expected aud is the constant tee-node requests its token for, so default to it
+	// when unset. Operators only set TEE_AUDIENCE if tee-node's audience diverges.
+	teeAudience := envConfig.TeeAudience
+	if teeAudience == "" {
+		teeAudience = DefaultTeeAudience
 	}
 
 	return &TeeAvailabilityCheckConfig{
@@ -93,7 +97,7 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 		AllowPrivateNetworks:       allowPrivateNetworks,
 		RPCURL:                     envConfig.RPCURL,
 		GoogleRootCertificate:      googleRootCert,
-		TeeAudience:                envConfig.TeeAudience,
+		TeeAudience:                teeAudience,
 		ChainID:                    chainID,
 	}, nil
 }
