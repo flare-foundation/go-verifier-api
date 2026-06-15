@@ -28,6 +28,12 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot load PMWPaymentStatus config: %w", err)
 	}
+	// Resolve the source before opening DB connections so a misconfigured
+	// SOURCE_ID fails fast with a clear error instead of a DB failure.
+	construct, err := pmwpaymentstatusverifier.ConstructorForSource(string(cfg.SourceIDPair.SourceID))
+	if err != nil {
+		return nil, fmt.Errorf("unsupported SOURCE_ID %q for PMWPaymentStatus: %w", cfg.SourceIDPair.SourceID, err)
+	}
 	dataBase, err := db.InitSourceDB(cfg.SourceDatabaseURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Source DB: %w", err)
@@ -37,12 +43,8 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 		_ = db.CloseDB(dataBase)
 		return nil, fmt.Errorf("cannot connect to CChain DB: %w", err)
 	}
-	verifierImpl, err := pmwpaymentstatusverifier.NewVerifier(cfg, dataBase, cchainDB)
-	if err != nil {
-		_ = db.CloseDB(dataBase)
-		_ = db.CloseDB(cchainDB)
-		return nil, fmt.Errorf("cannot initialize PMWPaymentStatus verifier: %w", err)
-	}
+	// Source already resolved above, so construction cannot fail.
+	verifierImpl := construct(cfg, dataBase, cchainDB)
 	return &PaymentService{verifier: verifierImpl, config: cfg, db: dataBase, cdb: cchainDB}, nil
 }
 

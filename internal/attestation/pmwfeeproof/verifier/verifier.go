@@ -10,18 +10,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// VerifierConstructor builds a verifier once the source is resolved and the DB
+// connections are open. Resolving the source (ConstructorForSource) is fallible;
+// construction itself is not.
 type VerifierConstructor func(
 	cfg *config.PMWFeeProofConfig,
 	db, cChainDB *gorm.DB,
-) (attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody], error)
+) attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody]
 
 var xrpConstructor = func(
 	cfg *config.PMWFeeProofConfig,
 	db, cChainDB *gorm.DB,
-) (
-	attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody], error,
-) {
-	return xrpverifier.NewXRPVerifier(cfg, db, cChainDB), nil
+) attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody] {
+	return xrpverifier.NewXRPVerifier(cfg, db, cChainDB)
 }
 
 var registry = map[string]VerifierConstructor{
@@ -29,16 +30,14 @@ var registry = map[string]VerifierConstructor{
 	string(config.SourceTestXRP): xrpConstructor,
 }
 
-func NewVerifier(
-	cfg *config.PMWFeeProofConfig,
-	db, cChainDB *gorm.DB,
-) (
-	attestation.Verifier[fdc2.IPMWFeeProofRequestBody, fdc2.IPMWFeeProofResponseBody], error,
-) {
-	sourceIDStr := string(cfg.SourceIDPair.SourceID)
-	constructor, ok := registry[sourceIDStr]
+// ConstructorForSource returns the verifier constructor for the given source ID,
+// or an error if the source is unsupported. Services resolve this BEFORE opening
+// DB connections, so a misconfigured SOURCE_ID fails fast with a clear error
+// instead of a DB failure; the returned constructor then cannot fail.
+func ConstructorForSource(sourceID string) (VerifierConstructor, error) {
+	constructor, ok := registry[sourceID]
 	if !ok {
-		return nil, fmt.Errorf("no verifier for sourceID: %s", sourceIDStr)
+		return nil, fmt.Errorf("no verifier for sourceID: %s", sourceID)
 	}
-	return constructor(cfg, db, cChainDB)
+	return constructor, nil
 }
