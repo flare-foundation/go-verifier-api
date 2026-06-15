@@ -78,12 +78,18 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 }
 
 func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
+	const (
+		validAudience = "test-audience"
+		validChainID  = "16"
+	)
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:             SourceTEE,
 			AttestationType:      fdc2.AvailabilityCheck,
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
 			RPCURL:               "https://rpc.example.com",
+			TeeAudience:          validAudience,
+			ChainID:              validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -94,6 +100,8 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.NotEqual(t, cfg.RelayContractAddress, [20]byte{})
 		require.Equal(t, "https://rpc.example.com", cfg.RPCURL)
 		require.NotNil(t, cfg.GoogleRootCertificate)
+		require.Equal(t, validAudience, cfg.TeeAudience)
+		require.Equal(t, uint64(16), cfg.ChainID)
 	})
 	t.Run("allow private networks enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
@@ -102,13 +110,15 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
 			RPCURL:               "https://rpc.example.com",
 			AllowPrivateNetworks: "true",
+			TeeAudience:          validAudience,
+			ChainID:              validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
 		require.NotNil(t, cfg)
 		require.True(t, cfg.AllowPrivateNetworks)
 	})
-	t.Run("all flags enabled", func(t *testing.T) {
+	t.Run("all flags enabled skips audience requirement but still requires CHAIN_ID", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                   SourceTEE,
 			AttestationType:            fdc2.AvailabilityCheck,
@@ -117,6 +127,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			AllowTeeDebug:              "true",
 			DisableAttestationCheckE2E: "true",
 			AllowPrivateNetworks:       "true",
+			ChainID:                    validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -124,6 +135,51 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.True(t, cfg.AllowTeeDebug)
 		require.True(t, cfg.DisableAttestationCheckE2E)
 		require.True(t, cfg.AllowPrivateNetworks)
+		require.Equal(t, uint64(16), cfg.ChainID)
+	})
+}
+
+func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
+	base := EnvConfig{
+		SourceID:             SourceTEE,
+		AttestationType:      fdc2.AvailabilityCheck,
+		RelayContractAddress: "0x0000000000000000000000000000000000000001",
+		RPCURL:               "https://rpc.example.com",
+		ChainID:              "16",
+	}
+	t.Run("unset TEE_AUDIENCE defaults to DefaultTeeAudience", func(t *testing.T) {
+		envConfig := base
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.Equal(t, DefaultTeeAudience, cfg.TeeAudience)
+	})
+	t.Run("explicit TEE_AUDIENCE overrides the default", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "custom-audience"
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.Equal(t, "custom-audience", cfg.TeeAudience)
+	})
+	t.Run("missing CHAIN_ID", func(t *testing.T) {
+		envConfig := base
+		envConfig.ChainID = ""
+		envConfig.TeeAudience = "aud"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "missing environment variables: CHAIN_ID")
+	})
+	t.Run("invalid CHAIN_ID", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "aud"
+		envConfig.ChainID = "not-a-number"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "CHAIN_ID must be a base-10 uint64")
+	})
+	t.Run("zero CHAIN_ID rejected", func(t *testing.T) {
+		envConfig := base
+		envConfig.TeeAudience = "aud"
+		envConfig.ChainID = "0"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "CHAIN_ID must be non-zero")
 	})
 }
 func TestParseOptionalBool(t *testing.T) {

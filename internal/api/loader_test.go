@@ -34,6 +34,8 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 		FlareTeeManagerContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 		AllowTeeDebug:                  "false",
 		DisableAttestationCheckE2E:     "false",
+		TeeAudience:                    "test-audience",
+		ChainID:                        "16",
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
 	require.ErrorContains(t, err, "cannot connect to Flare node")

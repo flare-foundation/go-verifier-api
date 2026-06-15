@@ -164,10 +164,10 @@ func classifyVerifyError(reqID string, err error) error {
 	}
 }
 
-var reqIDCounter uint64
+var reqIDCounter atomic.Uint64
 
 func generateRequestID() string {
-	return fmt.Sprintf("%08x", atomic.AddUint64(&reqIDCounter, 1))
+	return fmt.Sprintf("%08x", reqIDCounter.Add(1))
 }
 
 func logRequestBody[T any](requestData T) {

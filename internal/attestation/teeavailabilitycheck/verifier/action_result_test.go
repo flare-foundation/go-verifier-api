@@ -7,17 +7,24 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	csigning "github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
-// signActionResult signs result.Hash() with the given key using the same
-// eth-personal-sign scheme that utils.VerifySignature expects.
+// testChainID is bound into the action-result signing preimage in these tests
+// and must match the chainID passed to verifyActionResult.
+const testChainID uint64 = 14
+
+// signActionResult signs the domain-separated action-result preimage
+// DomainHash(TEE_ACTION_RESULT, testChainID, result.Hash()) with the given key
+// using the eth-personal-sign scheme that utils.VerifySignature expects.
 func signActionResult(t *testing.T, result teenodetypes.ActionResult, key *ecdsa.PrivateKey) []byte {
 	t.Helper()
-	hash := result.Hash()
-	ethHash := accounts.TextHash(hash)
+	signHash, err := csigning.NewPayload(csigning.TEEActionResult, testChainID, common.BytesToHash(result.Hash())).Hash()
+	require.NoError(t, err)
+	ethHash := accounts.TextHash(signHash[:])
 	sig, err := crypto.Sign(ethHash, key)
 	require.NoError(t, err)
 	return sig
@@ -47,7 +54,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    validResult,
 			Signature: sig,
 		}
-		require.NoError(t, verifyActionResult(resp, instructionID, teeID))
+		require.NoError(t, verifyActionResult(resp, instructionID, teeID, testChainID))
 	})
 
 	t.Run("(Get, TEEInfo) is rejected — not reachable via FDC2 flow", func(t *testing.T) {
@@ -62,7 +69,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    mismatched,
 			Signature: sig,
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "OPType mismatch")
 	})
@@ -77,7 +84,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    other,
 			Signature: sig,
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "instruction ID mismatch")
 	})
@@ -92,7 +99,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    failed,
 			Signature: sig,
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "status not success")
 		require.Contains(t, err.Error(), "status=0")
@@ -109,7 +116,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    failed,
 			Signature: sig,
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "status not success")
 		require.Contains(t, err.Error(), "status=3")
@@ -125,7 +132,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    mismatched,
 			Signature: sig,
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "OPType mismatch")
 	})
@@ -140,7 +147,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    mismatched,
 			Signature: sig,
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "OPCommand mismatch")
 	})
@@ -150,7 +157,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    validResult,
 			Signature: nil,
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing TEE signature")
 	})
@@ -164,7 +171,7 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    validResult,
 			Signature: sig,
 		}
-		err = verifyActionResult(resp, instructionID, teeID)
+		err = verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "TEE signature on action result does not match expected TEE")
 	})
@@ -174,8 +181,23 @@ func TestVerifyActionResult(t *testing.T) {
 			Result:    validResult,
 			Signature: []byte("not-a-real-signature"),
 		}
-		err := verifyActionResult(resp, instructionID, teeID)
+		err := verifyActionResult(resp, instructionID, teeID, testChainID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "TEE signature on action result")
+	})
+
+	t.Run("signature bound to a different chainID is rejected", func(t *testing.T) {
+		// The TEE signs over DomainHash(TEE_ACTION_RESULT, testChainID, …);
+		// verifying against a different chainID changes the preimage, so signer
+		// recovery yields an address other than the expected TEE. This is the
+		// cross-chain replay protection the chainID binding provides.
+		sig := signActionResult(t, validResult, teeKey) // signed with testChainID
+		resp := teenodetypes.ActionResponse{
+			Result:    validResult,
+			Signature: sig,
+		}
+		err := verifyActionResult(resp, instructionID, teeID, testChainID+1)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "TEE signature on action result does not match expected TEE")
 	})
 }

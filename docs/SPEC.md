@@ -61,6 +61,10 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 Required:
 - `RPC_URL`
 - `RELAY_CONTRACT_ADDRESS`
+- `CHAIN_ID` — EVM chain ID this verifier serves; the attested `TeeInfo.ChainID` must equal it. Required and must be non-zero (the chain pin is enforced unconditionally; see §7.1).
+
+Optional:
+- `TEE_AUDIENCE` — override for the expected `aud` claim on Confidential Space attestation tokens. Defaults to `config.DefaultTeeAudience` (`"https://sts.google.com"`, the audience tee-node requests) when unset; set it only if tee-node's requested audience diverges.
 
 Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false) — permissive flag. `false`: only production Confidential Space TEEs (`dbgstat == "disabled-since-boot"`) are accepted. `true`: production AND debug TEEs (`dbgstat != "disabled-since-boot"`) are both accepted; every debug admission emits a WARN log. Debug TEEs have the debugger attached and secrets can be extracted — never enable on production deployments. Intended for staging/E2E only.
@@ -93,14 +97,19 @@ Required:
 ### Primary flow (`Verify`)
 1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, metadata, multicast, Teredo, 6to4) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
 2. Validate challenge equals request challenge.
+   - **Chain pin**: require `response.TeeInfo.ChainID == CHAIN_ID`. The signatures are reconstructed using the attested `ChainID`, so this is the explicit check that it is the chain we serve (not merely internally consistent), closing cross-chain replay beyond the per-request challenge binding. Enforced **unconditionally** — the `DISABLE_ATTESTATION_CHECK_E2E` and `magic_pass` bypasses disable Google attestation validation, not chain identity. `CHAIN_ID` is required and non-zero for every deployment (0 is not a valid EVM chain ID, so there is no default).
 3. Verify action-result integrity:
-   - Recover proxy signer from `actionResp.ProxySignature` over `keccak256(actionResp.Result.Data)`; require it to equal `req.teeProxyId`.
+   - Recover proxy signer from `actionResp.ProxySignature` over `csigning.NewPayload(ProxyActionResult, chainID, Result.Hash()).Hash()`; require it to equal `req.teeProxyId`. `chainID` is `response.TeeInfo.ChainID` from the attestation payload.
    - Require `actionResp.Result.ID == req.instructionId`.
    - Require `actionResp.Result.Status == 1` (success for both availability-response producers in tee-node).
    - Require `(actionResp.Result.OPType, actionResp.Result.OPCommand) == (op.Reg, op.TEEAttestation)` — emitted by `VerificationFacet.requestTeeAttestation` and `MachineManagerFacet` during admission, handled by tee-node's `regutils.TEEAttestation` (instruction processor, `immediateResult=true`). The FDC2 availability-check flow (`VerificationFacet.requestAvailabilityCheckAttestation` → `Verification.requestFdc2Attestation` → relay → verifier) embeds the prior admission `instructionId` in its request body, so the verifier always fetches the admission action result; `(op.Get, op.TEEInfo)` is the only other tee-node pair that produces a `TeeInfoResponse`, but it is reachable only via the proxy's API-key-gated `/direct` endpoint and is not part of the trusted attestation flow, so it is excluded from the allowlist.
-   - Verify `actionResp.Signature` over `actionResp.Result.Hash()` against `req.teeId` (TEE proof-of-possession on the action result).
+   - Verify `actionResp.Signature` over `csigning.NewPayload(TEEActionResult, chainID, Result.Hash()).Hash()` against `req.teeId` (TEE proof-of-possession on the action result).
 
-   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status` via the TEE signature, but **not** `OPType` or `OPCommand` — those are checked explicitly against `expectedAvailabilityOPType`/`expectedAvailabilityOPCommand`. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy; no separate verifier-side check is enforced because the submission convention is set by the proxy / relay client.
+   Both signatures use domain-separated, chain-bound preimages from `go-flare-common/pkg/signing`:
+   - Domain tags (`TEEActionResult`, `ProxyActionResult`) prevent cross-purpose replay — a TEE signature can't be passed off as a proxy signature over the same bytes, or vice versa.
+   - `chainID` binding prevents cross-chain replay — an action result signed on chain A can't be replayed on chain B. The chainID is read from `response.TeeInfo.ChainID` (carried inside the attestation payload, not trusted from the request). A wrong chainID simply fails signer recovery (fail-closed), since only the genuine TEE/proxy can sign over its real chain ID.
+
+   `Result.Hash()` binds `Data`, `ID`, `SubmissionTag`, and `Status`, but **not** `OPType` or `OPCommand` — those are checked explicitly against `expectedAvailabilityOPType`/`expectedAvailabilityOPCommand`. `SubmissionTag` is signature-bound so it cannot be tampered with by the proxy; no separate verifier-side check is enforced because the submission convention is set by the proxy / relay client.
 4. **In parallel** (both depend only on challenge response):
    - `DataVerification`: CRL fetch + PKI validation + TEE ID + claims.
    - `CheckSigningPolicies`: signing policy hashes against relay contract (2 concurrent RPC calls).
@@ -120,15 +129,43 @@ Pipeline: (1) scheme must be `http`/`https`; (2) userinfo rejected; (3) `localho
 ### JWT attestation token validation (`DataVerification`)
 The attestation token is a JWT signed by Google for Confidential Space TEEs.
 
-**PKI validation**: `googlecloud.ParseAndValidatePKIToken()` using the embedded Google root (`internal/config/assets/google_confidential_space_root_20340116.crt`). Verifies full chain back to root; intermediate + leaf checked against cached CRLs.
+**PKI validation**: `googlecloud.ParseAndValidatePKIToken(token, rootCert, leafCRL, intermediateCRL, policy)` using the embedded Google root (`internal/config/assets/google_confidential_space_root_20340116.crt`). Verifies full chain back to root; intermediate + leaf checked against cached CRLs. The 5th argument is a `googlecloud.Policy` that drives JWT-level acceptance.
 
-**Claims validation (`ValidateClaims`):**
-1. **EATNonce** — Exactly one nonce must be present and must equal the hex-encoded hash of the TeeInfo data.
-2. **Debug status** — `AllowTeeDebug=false` (default, production): only production TEEs (`debugStatus == "disabled-since-boot"`) are accepted. `AllowTeeDebug=true` (staging/E2E): production AND debug TEEs are both accepted; every debug admission emits a WARN log.
-3. **Software name** — Must equal `"CONFIDENTIAL_SPACE"`.
-4. **Stability** — Production path only. If `SupportAttributes` is nil → hard error (verification fails). If present but `"STABLE"` not in the list → returns status `OBSOLETE`. Debug-mode TEEs (admitted via `AllowTeeDebug=true`) skip this check and always return `OK`.
-5. **CodeHash** — Extracted from `SubMods.Container.ImageID` (sha256 digest → 32-byte hash).
-6. **Platform** — Extracted from `HWModel` claim (e.g. `"GCP_INTEL_TDX"` → 32-byte hash).
+**`googlecloud.Policy` construction** (in `DataVerification`):
+
+| Field | Value | Source |
+|---|---|---|
+| `Issuer` | `googlecloud.ConfidentialSpaceIssuer` | constant |
+| `Audience` | `v.Cfg.TeeAudience` | `TEE_AUDIENCE` env var, or `config.DefaultTeeAudience` when unset |
+| `EATNonce` | `hex.EncodeToString(teeInfoData.Hash())` | computed per request |
+| `AllowedDebugStatuses` | `["disabled-since-boot"]` when `!AllowTeeDebug`, else empty (skips dbgstat check) | derived from `ALLOW_TEE_DEBUG` |
+
+**What `ParseAndValidatePKIToken` enforces under this Policy** (in order):
+
+| Check | Source | Notes |
+|---|---|---|
+| JWT signature | x5c leaf key | RS256 only (`jwt.WithValidMethods`). Other algs rejected. |
+| x5c chain | embedded Google root | leaf → intermediate → root; root compared via `x509.Certificate.Equal`. |
+| Leaf Extended Key Usage | leaf cert's own `ExtKeyUsage` | Chain verification pins `KeyUsages` to the leaf's declared EKUs (no longer the permissive `ExtKeyUsageAny`). `Policy.AllowedLeafEKUs` can override; verifier doesn't set it. |
+| CRL revocation | leaf + intermediate CRLs | nil CRL → warn + skip (verifier doesn't set `Policy.RequireCRL`). See §7.1 CRL revocation checking. |
+| `iss` claim | `Policy.Issuer` (defaults to `ConfidentialSpaceIssuer`) | always checked. |
+| `exp` claim | token | `jwt.WithExpirationRequired()` — expiry must be present and unexpired. |
+| `aud` claim | `Policy.Audience` (= `TEE_AUDIENCE`, or `DefaultTeeAudience`) | the audience the TEE requested its token for; rejects tokens issued for a different consumer. Always populated (config defaults it), so the empty-skip path is not reachable in normal operation. |
+| Clock skew | `Policy.Leeway` (defaults to 30s) | applied to `exp`/`iat`/`nbf`. |
+| `dbgstat` | `Policy.AllowedDebugStatuses` | `["disabled-since-boot"]` in production; empty when `ALLOW_TEE_DEBUG=true` (skipped). |
+| `eat_nonce` | `Policy.EATNonce` (= `hex.EncodeToString(teeInfoData.Hash())`) | **containment**, not equality (see below). |
+
+`image_id` is **not** enforced at the JWT layer: the verifier leaves `Policy.AllowedImageIDs` unset, so `ValidateClaims` skips the image_id check. The accepted workload code hash is enforced on-chain by the `ExtensionManager` (`isCodeHashPlatformSupported`).
+
+EAT-nonce binding is **containment**, not equality: the token's `eat_nonce` list must contain the expected `Policy.EATNonce` value (`hex.EncodeToString(teeInfoData.Hash())`), but the list is not required to have exactly one entry. Empty `Policy.EATNonce` silently skips replay binding — the verifier always populates it from the request's `teeInfoData`, so the skip path is not reachable in normal operation.
+
+**Policy fields the verifier currently does not set**: `RequireSecBoot` (could reject `secboot=false` Confidential Space VMs), `AllowedHWModels` (could restrict to e.g. `GCP_INTEL_TDX`), `AllowedLeafEKUs` (could pin to a specific EKU set), `RequireCRL` (would fail closed when a cert declares DPs but no CRL is supplied). Each defaults to "skip"; enabling them would tighten the surface further.
+
+**Claims validation (`ValidateClaims`):** Runs only after the Policy has accepted the token. Covers what the Policy does not:
+1. **Software name** — Must equal `"CONFIDENTIAL_SPACE"`.
+2. **Stability** — Production path only (reached when the token's `dbgstat == "disabled-since-boot"`; only path possible when `AllowTeeDebug=false`). If `SupportAttributes` is nil → hard error (verification fails). If present but `"STABLE"` not in the list → returns status `OBSOLETE`. Debug-mode TEEs (admitted when `AllowTeeDebug=true` and the Policy's dbgstat allowlist is empty) skip this check and always return `OK`.
+3. **CodeHash** — Extracted from `SubMods.Container.ImageID` (sha256 digest → 32-byte hash).
+4. **Platform** — Extracted from `HWModel` claim (e.g. `"GCP_INTEL_TDX"` → 32-byte hash).
 
 **Bypasses**:
 - `DISABLE_ATTESTATION_CHECK_E2E=true` — skips JWT validation entirely (E2E only).
@@ -162,7 +199,7 @@ Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handl
 ### CRL revocation checking
 Intermediate + leaf certs from the x5c chain are checked for revocation.
 
-**Validation** (in `go-flare-common`, `pkg/tee/attestation/googlecloud/google_cloud.go`): `ParseAndValidatePKIToken(attestationToken, rootCert, leafCRL, intermediateCRL)` accepts pre-fetched CRLs (nil when unavailable). `PKICertificates.Verify()` calls `verifyCRL()` after chain/lifetime checks; per cert (leaf against intermediate, intermediate against root): if CRL nil → log + skip; else validate time window (`ThisUpdate` ≤ now ≤ `NextUpdate`), verify CRL signature (`CheckSignatureFrom(issuer)`), reject if serial in `RevokedCertificateEntries`.
+**Validation** (in `go-flare-common`, `pkg/tee/attestation/googlecloud/google_cloud.go`): `ParseAndValidatePKIToken(attestationToken, rootCert, leafCRL, intermediateCRL, policy)` accepts pre-fetched CRLs (nil when unavailable) and a `Policy` (see §7.1 JWT validation). `PKICertificates.Verify()` calls `verifyCRL()` after chain/lifetime checks; per cert (leaf against intermediate, intermediate against root): if CRL nil → log + skip; else validate time window (`ThisUpdate` ≤ now ≤ `NextUpdate`), verify CRL signature (`CheckSignatureFrom(issuer)`), reject if serial in `RevokedCertificateEntries`.
 
 **Fetching and caching** (`verifier/crl_cache.go`):
 - Request-driven. `CRLCache.GetCRLsForToken()` runs inline with request `ctx` before `ParseAndValidatePKIToken`.

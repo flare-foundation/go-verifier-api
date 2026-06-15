@@ -14,6 +14,8 @@ var envConfig = config.EnvConfig{
 	FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
 	SourceID:                       config.SourceTEE,
 	AttestationType:                fdc2.AvailabilityCheck,
+	TeeAudience:                    "test-audience",
+	ChainID:                        "16",
 }
 
 func TestTeeAvailabilityService(t *testing.T) {
