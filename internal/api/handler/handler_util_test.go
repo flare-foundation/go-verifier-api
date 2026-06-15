@@ -61,8 +61,8 @@ func TestPrepareRequestBody(t *testing.T) {
 		req := helpers.CreateAttestationRequestData(t, encodedAndABI.AttestationTypePair.AttestationTypeEncoded, encodedAndABI.SourceIDPair.SourceIDEncoded, reqBody)
 		encodedAndABICopy := encodedAndABI
 		encodedAndABICopy.ABIPair.Request = abi.Argument{}
-		val, err := prepareRequestBody(req, encodedAndABI)
-		require.ErrorContains(t, err, "encoding request data failed: encoding type fdc2.IPMWMultisigAccountConfiguredRequestBody: abi: cannot use struct as type ptr as argument")
+		val, err := prepareRequestBody(req, encodedAndABICopy)
+		require.ErrorContains(t, err, "encoding request data failed: uninitialized abi argument: zero abi.Type")
 		require.Nil(t, val)
 	})
 }

@@ -155,11 +155,11 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 | `aud` claim | `Policy.Audience` (= `TEE_AUDIENCE`, or `DefaultTeeAudience`) | the audience the TEE requested its token for; rejects tokens issued for a different consumer. Always populated (config defaults it), so the empty-skip path is not reachable in normal operation. |
 | Clock skew | `Policy.Leeway` (defaults to 30s) | applied to `exp`/`iat`/`nbf`. |
 | `dbgstat` | `Policy.AllowedDebugStatuses` | `["disabled-since-boot"]` in production; empty when `ALLOW_TEE_DEBUG=true` (skipped). |
-| `eat_nonce` | `Policy.EATNonce` (= `hex.EncodeToString(teeInfoData.Hash())`) | **containment**, not equality (see below). |
+| `eat_nonce` | `Policy.EATNonce` (= `hex.EncodeToString(teeInfoData.Hash())`) | the token's `eat_nonce` must be **exactly one** entry equal to this value (see below). |
 
 `image_id` is **not** enforced at the JWT layer: the verifier leaves `Policy.AllowedImageIDs` unset, so `ValidateClaims` skips the image_id check. The accepted workload code hash is enforced on-chain by the `ExtensionManager` (`isCodeHashPlatformSupported`).
 
-EAT-nonce binding is **containment**, not equality: the token's `eat_nonce` list must contain the expected `Policy.EATNonce` value (`hex.EncodeToString(teeInfoData.Hash())`), but the list is not required to have exactly one entry. Empty `Policy.EATNonce` silently skips replay binding — the verifier always populates it from the request's `teeInfoData`, so the skip path is not reachable in normal operation.
+EAT-nonce binding requires the token's `eat_nonce` to be **exactly one** entry equal to `Policy.EATNonce` (`hex.EncodeToString(teeInfoData.Hash())`) — a different count or value is rejected. tee-node requests its attestation token with a single nonce (the same teeInfo hash), so the token carries exactly one `eat_nonce`. Binding is enforced **by default (fail closed)**: it is only skipped when `Policy.SkipNonceCheck` is set, which the verifier never does — so an empty/missing nonce now fails verification rather than silently skipping (the pre-`ae050b4` go-flare-common did containment and skipped on an empty `EATNonce`).
 
 **Policy fields the verifier currently does not set**: `RequireSecBoot` (could reject `secboot=false` Confidential Space VMs), `AllowedHWModels` (could restrict to e.g. `GCP_INTEL_TDX`), `AllowedLeafEKUs` (could pin to a specific EKU set), `RequireCRL` (would fail closed when a cert declares DPs but no CRL is supplied). Each defaults to "skip"; enabling them would tighten the surface further.
 
