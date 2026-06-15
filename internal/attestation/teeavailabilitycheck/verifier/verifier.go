@@ -191,15 +191,14 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	attestationToken := response.Attestation
 	infoData := response.TeeInfo
 
-	// Defense-in-depth: an empty Audience or AllowedImageIDs makes the Policy
-	// SKIP that check (fail-open), not reject. Fail closed here — before any CRL
-	// work — so a future refactor that lets the empty-config case (E2E) reach this
-	// point can't silently disable enforcement.
+	// Defense-in-depth: an empty Audience makes the Policy SKIP the aud check
+	// (fail-open), not reject. Fail closed here — before any CRL work — so a future
+	// refactor that lets the empty-config case (E2E) reach this point can't silently
+	// disable audience enforcement. The accepted workload code hash is NOT enforced
+	// here: that is the on-chain ExtensionManager's responsibility, so the Policy
+	// leaves AllowedImageIDs unset and image_id enforcement is delegated to the chain.
 	if v.Cfg.TeeAudience == "" {
 		return StatusInfo{}, errors.New("refusing to build attestation policy with empty TeeAudience: would skip audience enforcement")
-	}
-	if len(v.Cfg.TeeAllowedImageIDs) == 0 {
-		return StatusInfo{}, errors.New("refusing to build attestation policy with empty AllowedImageIDs: would skip image_id enforcement")
 	}
 
 	// Fetch CRLs for revocation checking (strict: fail verification if CRL fetch fails)
@@ -226,7 +225,6 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 	}
 	policy := googlecloud.Policy{
 		Audience:             v.Cfg.TeeAudience,
-		AllowedImageIDs:      v.Cfg.TeeAllowedImageIDs,
 		EATNonce:             hex.EncodeToString(teeInfoHash),
 		AllowedDebugStatuses: allowedDebugStatuses,
 		Issuer:               googlecloud.ConfidentialSpaceIssuer,

@@ -79,9 +79,8 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 
 func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	const (
-		validAudience   = "test-audience"
-		validImageIDHex = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
-		validChainID    = "16"
+		validAudience = "test-audience"
+		validChainID  = "16"
 	)
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
@@ -90,7 +89,6 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
 			RPCURL:               "https://rpc.example.com",
 			TeeAudience:          validAudience,
-			TeeAllowedImageIDs:   validImageIDHex,
 			ChainID:              validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -103,7 +101,6 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.Equal(t, "https://rpc.example.com", cfg.RPCURL)
 		require.NotNil(t, cfg.GoogleRootCertificate)
 		require.Equal(t, validAudience, cfg.TeeAudience)
-		require.Len(t, cfg.TeeAllowedImageIDs, 1)
 		require.Equal(t, uint64(16), cfg.ChainID)
 	})
 	t.Run("allow private networks enabled", func(t *testing.T) {
@@ -114,7 +111,6 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			RPCURL:               "https://rpc.example.com",
 			AllowPrivateNetworks: "true",
 			TeeAudience:          validAudience,
-			TeeAllowedImageIDs:   validImageIDHex,
 			ChainID:              validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -122,7 +118,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.NotNil(t, cfg)
 		require.True(t, cfg.AllowPrivateNetworks)
 	})
-	t.Run("all flags enabled skips audience/image-id requirement but still requires CHAIN_ID", func(t *testing.T) {
+	t.Run("all flags enabled skips audience requirement but still requires CHAIN_ID", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:                   SourceTEE,
 			AttestationType:            fdc2.AvailabilityCheck,
@@ -153,35 +149,19 @@ func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 	}
 	t.Run("missing TEE_AUDIENCE", func(t *testing.T) {
 		envConfig := base
-		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
 		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.ErrorContains(t, err, "missing environment variables: TEE_AUDIENCE")
-	})
-	t.Run("missing TEE_ALLOWED_IMAGE_IDS", func(t *testing.T) {
-		envConfig := base
-		envConfig.TeeAudience = "aud"
-		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
-		require.ErrorContains(t, err, "missing environment variables: TEE_ALLOWED_IMAGE_IDS")
-	})
-	t.Run("invalid hex in allowlist", func(t *testing.T) {
-		envConfig := base
-		envConfig.TeeAudience = "aud"
-		envConfig.TeeAllowedImageIDs = "not-hex"
-		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
-		require.ErrorContains(t, err, "TEE_ALLOWED_IMAGE_IDS entry")
 	})
 	t.Run("missing CHAIN_ID", func(t *testing.T) {
 		envConfig := base
 		envConfig.ChainID = ""
 		envConfig.TeeAudience = "aud"
-		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
 		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.ErrorContains(t, err, "missing environment variables: CHAIN_ID")
 	})
 	t.Run("invalid CHAIN_ID", func(t *testing.T) {
 		envConfig := base
 		envConfig.TeeAudience = "aud"
-		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
 		envConfig.ChainID = "not-a-number"
 		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.ErrorContains(t, err, "CHAIN_ID must be a base-10 uint64")
@@ -189,7 +169,6 @@ func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 	t.Run("zero CHAIN_ID rejected", func(t *testing.T) {
 		envConfig := base
 		envConfig.TeeAudience = "aud"
-		envConfig.TeeAllowedImageIDs = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2"
 		envConfig.ChainID = "0"
 		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.ErrorContains(t, err, "CHAIN_ID must be non-zero")

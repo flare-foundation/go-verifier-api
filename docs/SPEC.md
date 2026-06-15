@@ -64,7 +64,6 @@ Required:
 - `CHAIN_ID` — EVM chain ID this verifier serves; the attested `TeeInfo.ChainID` must equal it. Required and must be non-zero (the chain pin is enforced unconditionally; see §7.1).
 
 - `TEE_AUDIENCE` — expected `aud` claim on Confidential Space attestation tokens. Required unless `DISABLE_ATTESTATION_CHECK_E2E=true`.
-- `TEE_ALLOWED_IMAGE_IDS` — comma-separated 32-byte hex hashes (with or without `0x` prefix) of accepted workload container image_ids. Parsed into a set and passed to `googlecloud.Policy.AllowedImageIDs`. Required unless `DISABLE_ATTESTATION_CHECK_E2E=true`.
 
 Optional test/E2E flags:
 - `ALLOW_TEE_DEBUG` (default false) — permissive flag. `false`: only production Confidential Space TEEs (`dbgstat == "disabled-since-boot"`) are accepted. `true`: production AND debug TEEs (`dbgstat != "disabled-since-boot"`) are both accepted; every debug admission emits a WARN log. Debug TEEs have the debugger attached and secrets can be extracted — never enable on production deployments. Intended for staging/E2E only.
@@ -137,7 +136,6 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 |---|---|---|
 | `Issuer` | `googlecloud.ConfidentialSpaceIssuer` | constant |
 | `Audience` | `v.Cfg.TeeAudience` | `TEE_AUDIENCE` env var |
-| `AllowedImageIDs` | `v.Cfg.TeeAllowedImageIDs` | `TEE_ALLOWED_IMAGE_IDS` env var (parsed set) |
 | `EATNonce` | `hex.EncodeToString(teeInfoData.Hash())` | computed per request |
 | `AllowedDebugStatuses` | `["disabled-since-boot"]` when `!AllowTeeDebug`, else empty (skips dbgstat check) | derived from `ALLOW_TEE_DEBUG` |
 
@@ -154,8 +152,9 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 | `aud` claim | `Policy.Audience` (= `TEE_AUDIENCE`) | the audience the TEE requested its token for; rejects tokens issued for a different consumer. Skipped if empty. |
 | Clock skew | `Policy.Leeway` (defaults to 30s) | applied to `exp`/`iat`/`nbf`. |
 | `dbgstat` | `Policy.AllowedDebugStatuses` | `["disabled-since-boot"]` in production; empty when `ALLOW_TEE_DEBUG=true` (skipped). |
-| `image_id` | `Policy.AllowedImageIDs` (= `TEE_ALLOWED_IMAGE_IDS`) | workload container image hash must be in the allowlist. |
 | `eat_nonce` | `Policy.EATNonce` (= `hex.EncodeToString(teeInfoData.Hash())`) | **containment**, not equality (see below). |
+
+`image_id` is **not** enforced at the JWT layer: the verifier leaves `Policy.AllowedImageIDs` unset, so `ValidateClaims` skips the image_id check. The accepted workload code hash is enforced on-chain by the `ExtensionManager` (`isCodeHashPlatformSupported`).
 
 EAT-nonce binding is **containment**, not equality: the token's `eat_nonce` list must contain the expected `Policy.EATNonce` value (`hex.EncodeToString(teeInfoData.Hash())`), but the list is not required to have exactly one entry. Empty `Policy.EATNonce` silently skips replay binding — the verifier always populates it from the request's `teeInfoData`, so the skip path is not reachable in normal operation.
 

@@ -25,11 +25,12 @@ type StatusInfo struct {
 
 // ValidateClaims performs the verifier-specific checks left after
 // googlecloud.ParseAndValidatePKIToken applies the Policy. The Policy
-// already enforces JWT signature, iss/aud, eat_nonce binding, image_id
-// allowlist, and (when AllowDebug is false) the dbgstat allowlist. This function
-// covers what the Policy does not: SWName must be CONFIDENTIAL_SPACE, the
-// STABLE support_attribute downgrade-to-OBSOLETE rule on the production
-// path, and extraction of CodeHash/Platform.
+// already enforces JWT signature, iss/aud, eat_nonce binding, and (when
+// AllowDebug is false) the dbgstat allowlist. This function covers what the
+// Policy does not: SWName must be CONFIDENTIAL_SPACE, the STABLE
+// support_attribute downgrade-to-OBSOLETE rule on the production path, and
+// extraction of CodeHash (from container.image_id) and Platform. The image_id
+// is not allowlisted here — the accepted CodeHash is enforced on-chain.
 func ValidateClaims(claims *googlecloud.GoogleTeeClaims) (StatusInfo, error) {
 	var statusInfo StatusInfo
 	if claims.SWName != "CONFIDENTIAL_SPACE" {

@@ -25,7 +25,6 @@ const (
 	EnvDisableAttestationCheckE2E     = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
 	EnvAllowPrivateNetworks           = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
 	EnvTeeAudience                    = "TEE_AUDIENCE"                  // Expected aud claim on Confidential Space attestation tokens. Required unless DISABLE_ATTESTATION_CHECK_E2E=true.
-	EnvTeeAllowedImageIDs             = "TEE_ALLOWED_IMAGE_IDS"         // Comma-separated 32-byte hex hashes of accepted workload container image_ids. Required unless DISABLE_ATTESTATION_CHECK_E2E=true.
 	EnvChainID                        = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
 )
 
@@ -39,7 +38,6 @@ type EnvConfig struct {
 	DisableAttestationCheckE2E     string
 	AllowPrivateNetworks           string
 	TeeAudience                    string
-	TeeAllowedImageIDs             string
 	ChainID                        string
 	Port                           string
 	APIKeys                        []string
@@ -79,7 +77,6 @@ type TeeAvailabilityCheckConfig struct {
 	RPCURL                     string
 	GoogleRootCertificate      *x509.Certificate
 	TeeAudience                string
-	TeeAllowedImageIDs         map[common.Hash]struct{}
 	ChainID                    uint64
 }
 

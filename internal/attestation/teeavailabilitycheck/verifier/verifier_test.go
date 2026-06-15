@@ -396,16 +396,9 @@ const testAudience = "test-audience"
 // testImageHash matches the sha256 image_id used in the test claims below.
 var testImageHash = common.HexToHash("0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 
-// allowedImageIDsForTest is the AllowedImageIDs map used across tests that
-// must satisfy the Confidential Space Policy.
-func allowedImageIDsForTest() map[common.Hash]struct{} {
-	return map[common.Hash]struct{}{testImageHash: {}}
-}
-
 // validTestClaims builds GoogleTeeClaims that pass the Policy enforced by
 // ParseAndValidatePKIToken: matching audience and issuer, secboot enabled,
-// production dbgstat, an image_id in the test allowlist, and an eat_nonce
-// containing the supplied value.
+// production dbgstat, and an eat_nonce containing the supplied value.
 func validTestClaims(eatNonce string) *googlecloud.GoogleTeeClaims {
 	return &googlecloud.GoogleTeeClaims{
 		HWModel:     "TEST_PLATFORM",
@@ -466,7 +459,6 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert,
 				TeeAudience:                testAudience,
-				TeeAllowedImageIDs:         allowedImageIDsForTest(),
 			},
 		}
 		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -475,23 +467,6 @@ func TestDataVerification(t *testing.T) {
 		require.Equal(t, verifier.E2ETestCodeHash, resp.CodeHash)
 		require.Equal(t, verifier.E2ETestPlatform, resp.Platform)
 	})
-	t.Run("empty AllowedImageIDs fails closed (no fail-open skip)", func(t *testing.T) {
-		// Defense-in-depth: in the non-E2E path, an empty AllowedImageIDs would
-		// make the Policy skip the image_id check. DataVerification must refuse to
-		// build the Policy rather than silently disabling enforcement.
-		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
-		v := &verifier.TeeVerifier{
-			Cfg: &config.TeeAvailabilityCheckConfig{
-				DisableAttestationCheckE2E: false,
-				GoogleRootCertificate:      rootCert,
-				TeeAudience:                testAudience,
-				TeeAllowedImageIDs:         map[common.Hash]struct{}{}, // empty
-			},
-		}
-		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
-		require.Empty(t, resp)
-		require.ErrorContains(t, err, "empty AllowedImageIDs")
-	})
 	t.Run("empty TeeAudience fails closed (no fail-open skip)", func(t *testing.T) {
 		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
 		v := &verifier.TeeVerifier{
@@ -499,7 +474,6 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert,
 				TeeAudience:                "", // empty
-				TeeAllowedImageIDs:         allowedImageIDsForTest(),
 			},
 		}
 		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -522,7 +496,6 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert,
 				TeeAudience:                testAudience,
-				TeeAllowedImageIDs:         allowedImageIDsForTest(),
 			},
 		}
 		resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
@@ -545,7 +518,6 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert,
 				TeeAudience:                testAudience,
-				TeeAllowedImageIDs:         allowedImageIDsForTest(),
 			},
 		}
 		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"))
@@ -571,7 +543,6 @@ func TestDataVerification(t *testing.T) {
 				DisableAttestationCheckE2E: false,
 				GoogleRootCertificate:      rootCert,
 				TeeAudience:                testAudience,
-				TeeAllowedImageIDs:         allowedImageIDsForTest(),
 			},
 		}
 		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"))
@@ -590,7 +561,6 @@ func TestVerify(t *testing.T) {
 		AllowPrivateNetworks:       true,
 		GoogleRootCertificate:      rootCert,
 		TeeAudience:                testAudience,
-		TeeAllowedImageIDs:         allowedImageIDsForTest(),
 		ChainID:                    helpers.TestChainID,
 	})
 	require.NoError(t, err)

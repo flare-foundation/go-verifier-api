@@ -19,11 +19,10 @@ func TestDataVerification_CRLFetchFailure(t *testing.T) {
 	)
 
 	v := &TeeVerifier{
-		// Non-empty Policy inputs so DataVerification reaches the CRL fetch
-		// (the guard above it rejects empty Audience/AllowedImageIDs first).
+		// Non-empty Audience so DataVerification reaches the CRL fetch
+		// (the guard above it rejects an empty Audience first).
 		Cfg: &config.TeeAvailabilityCheckConfig{
-			TeeAudience:        "test-audience",
-			TeeAllowedImageIDs: map[common.Hash]struct{}{{0x01}: {}},
+			TeeAudience: "test-audience",
 		},
 		CRLCache: &CRLCache{
 			entries: make(map[string]*crlEntry),

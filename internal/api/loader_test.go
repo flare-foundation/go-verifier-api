@@ -35,7 +35,6 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 		AllowTeeDebug:                  "false",
 		DisableAttestationCheckE2E:     "false",
 		TeeAudience:                    "test-audience",
-		TeeAllowedImageIDs:             "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2",
 		ChainID:                        "16",
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
