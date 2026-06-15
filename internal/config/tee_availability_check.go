@@ -45,9 +45,18 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	if err != nil {
 		return nil, err
 	}
-	allowTeeDebug := getBoolOrSetFalse(EnvAllowTeeDebug, envConfig.AllowTeeDebug)
-	disableAttestationCheckE2E := getBoolOrSetFalse(EnvDisableAttestationCheckE2E, envConfig.DisableAttestationCheckE2E)
-	allowPrivateNetworks := getBoolOrSetFalse(EnvAllowPrivateNetworks, envConfig.AllowPrivateNetworks)
+	allowTeeDebug, err := parseOptionalBool(EnvAllowTeeDebug, envConfig.AllowTeeDebug)
+	if err != nil {
+		return nil, err
+	}
+	disableAttestationCheckE2E, err := parseOptionalBool(EnvDisableAttestationCheckE2E, envConfig.DisableAttestationCheckE2E)
+	if err != nil {
+		return nil, err
+	}
+	allowPrivateNetworks, err := parseOptionalBool(EnvAllowPrivateNetworks, envConfig.AllowPrivateNetworks)
+	if err != nil {
+		return nil, err
+	}
 	if allowTeeDebug {
 		logger.Warnf("%s is enabled. This flag is meant for TEE debug mode or testing only and should NOT be used in production.", EnvAllowTeeDebug)
 	}
@@ -69,17 +78,20 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	}, nil
 }
 
-func getBoolOrSetFalse(key, val string) bool {
+// parseOptionalBool parses an optional boolean env flag. An unset (empty) value
+// defaults to false, but a non-empty value that is not a valid bool is a
+// misconfiguration and fails the boot — rather than being silently swallowed to
+// false, which would discard operator intent (e.g. a typo'd ALLOW_TEE_DEBUG).
+func parseOptionalBool(key, val string) (bool, error) {
 	if val == "" {
 		logger.Infof("%s not set, defaulting to false", key)
-		return false
+		return false, nil
 	}
 	b, err := strconv.ParseBool(val)
 	if err != nil {
-		logger.Warnf("%s has invalid value %q, defaulting to false", key, val)
-		return false
+		return false, fmt.Errorf("%s has invalid bool value %q: %w", key, val, err)
 	}
-	return b
+	return b, nil
 }
 
 //go:embed assets/google_confidential_space_root_20340116.crt

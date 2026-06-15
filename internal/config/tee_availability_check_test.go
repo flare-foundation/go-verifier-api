@@ -40,6 +40,41 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "no ABI struct names defined for attestation type UnknownType")
 	})
+	boolFlagCases := []struct {
+		name    string
+		mutate  func(*EnvConfig)
+		wantErr string
+	}{
+		{
+			name:    "invalid ALLOW_TEE_DEBUG fails the boot",
+			mutate:  func(c *EnvConfig) { c.AllowTeeDebug = "ture" },
+			wantErr: `ALLOW_TEE_DEBUG has invalid bool value "ture"`,
+		},
+		{
+			name:    "invalid DISABLE_ATTESTATION_CHECK_E2E fails the boot",
+			mutate:  func(c *EnvConfig) { c.DisableAttestationCheckE2E = "nope" },
+			wantErr: `DISABLE_ATTESTATION_CHECK_E2E has invalid bool value "nope"`,
+		},
+		{
+			name:    "invalid ALLOW_PRIVATE_NETWORKS fails the boot",
+			mutate:  func(c *EnvConfig) { c.AllowPrivateNetworks = "yes" },
+			wantErr: `ALLOW_PRIVATE_NETWORKS has invalid bool value "yes"`,
+		},
+	}
+	for _, tc := range boolFlagCases {
+		t.Run(tc.name, func(t *testing.T) {
+			envConfig := EnvConfig{
+				SourceID:             SourceTEE,
+				AttestationType:      fdc2.AvailabilityCheck,
+				RelayContractAddress: "0x0000000000000000000000000000000000000001",
+				RPCURL:               "https://rpc.example.com",
+			}
+			tc.mutate(&envConfig)
+			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+			require.Nil(t, cfg)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
 }
 
 func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
@@ -91,19 +126,23 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.True(t, cfg.AllowPrivateNetworks)
 	})
 }
-func TestGetBoolOrSetFalse(t *testing.T) {
-	t.Run("empty value", func(t *testing.T) {
-		res := getBoolOrSetFalse("KEY", "")
+func TestParseOptionalBool(t *testing.T) {
+	t.Run("empty value defaults to false", func(t *testing.T) {
+		res, err := parseOptionalBool("KEY", "")
+		require.NoError(t, err)
 		require.False(t, res)
 	})
-	t.Run("not bool", func(t *testing.T) {
-		res := getBoolOrSetFalse("KEY", "fals")
+	t.Run("invalid value errors", func(t *testing.T) {
+		res, err := parseOptionalBool("KEY", "fals")
+		require.ErrorContains(t, err, `KEY has invalid bool value "fals"`)
 		require.False(t, res)
 	})
-	t.Run("valid", func(t *testing.T) {
-		res := getBoolOrSetFalse("KEY", "true")
+	t.Run("valid values parse", func(t *testing.T) {
+		res, err := parseOptionalBool("KEY", "true")
+		require.NoError(t, err)
 		require.True(t, res)
-		res = getBoolOrSetFalse("KEY", "false")
+		res, err = parseOptionalBool("KEY", "false")
+		require.NoError(t, err)
 		require.False(t, res)
 	})
 }
