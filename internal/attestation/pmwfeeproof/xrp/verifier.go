@@ -188,6 +188,12 @@ func (x *XRPVerifier) computeActualFee(ctx context.Context, senderAddress string
 			return nil, fmt.Errorf("nonce %d: %w", nonce, ErrMissingTransaction)
 		}
 
+		// Bind the Response blob to its DB row before trusting its Fee: a partial
+		// write or targeted tamper could otherwise feed a foreign transaction's fee
+		// into the sum. Mirrors PMWPaymentStatus's check (db.CheckRowConsistency).
+		if err := checkTxRowConsistency(tx); err != nil {
+			return nil, fmt.Errorf("nonce %d: %w", nonce, err)
+		}
 		fee, err := parseTxFee(tx.Response)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse fee for nonce %d: %w", nonce, err)
@@ -198,6 +204,24 @@ func (x *XRPVerifier) computeActualFee(ctx context.Context, senderAddress string
 }
 
 const maxResponseSize = 1 << 20
+
+// checkTxRowConsistency confirms the transaction's Response JSON describes the
+// same row as the canonical DB columns (hash/account/sequence) before its Fee
+// is used.
+func checkTxRowConsistency(tx paymentdb.DBTransaction) error {
+	if len(tx.Response) > maxResponseSize {
+		return fmt.Errorf("XRP transaction response too large: %d bytes (max %d): %w", len(tx.Response), maxResponseSize, paymentdb.ErrDatabase)
+	}
+	var id struct {
+		Account  string `json:"Account"`
+		Sequence uint64 `json:"Sequence"`
+		Hash     string `json:"hash"`
+	}
+	if err := json.Unmarshal([]byte(tx.Response), &id); err != nil {
+		return fmt.Errorf("cannot unmarshal transaction response: %w", err)
+	}
+	return paymentdb.CheckRowConsistency(id.Hash, id.Account, id.Sequence, tx)
+}
 
 func parseTxFee(response string) (*big.Int, error) {
 	if len(response) > maxResponseSize {

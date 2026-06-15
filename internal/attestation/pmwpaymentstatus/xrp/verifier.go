@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -62,7 +61,7 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	}
 	// Cross-check: JSON payload must describe the same XRPL transaction as the canonical DB columns.
 	// A row where they disagree is evidence of indexer corruption or partial write — refuse the attestation.
-	if err := checkRowConsistency(rawTransactionData, dbTransaction); err != nil {
+	if err := db.CheckRowConsistency(rawTransactionData.Hash, rawTransactionData.Account, uint64(rawTransactionData.Sequence), dbTransaction); err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	// Validate transaction and build response
@@ -71,23 +70,6 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 		return fdc2.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot build payment status response: %w", err)
 	}
 	return resp, nil
-}
-
-// checkRowConsistency verifies that the JSON fields parsed from DBTransaction.Response
-// agree with the canonical DB columns. Protects against partial writes or targeted
-// tampering of a subset of a row's fields; does not protect against a fully compromised
-// indexer (acknowledged trust boundary, see L-02 in audit.md).
-func checkRowConsistency(raw types.RawTransactionData, dbTx db.DBTransaction) error {
-	if !strings.EqualFold(raw.Hash, dbTx.Hash) {
-		return fmt.Errorf("DB inconsistency: JSON hash %q != column Hash %q: %w", raw.Hash, dbTx.Hash, db.ErrDatabase)
-	}
-	if raw.Account != dbTx.SourceAddress {
-		return fmt.Errorf("DB inconsistency: JSON Account %q != column SourceAddress %q: %w", raw.Account, dbTx.SourceAddress, db.ErrDatabase)
-	}
-	if uint64(raw.Sequence) != dbTx.Sequence {
-		return fmt.Errorf("DB inconsistency: JSON Sequence %d != column Sequence %d: %w", raw.Sequence, dbTx.Sequence, db.ErrDatabase)
-	}
-	return nil
 }
 
 const maxResponseSize = 1 << 20

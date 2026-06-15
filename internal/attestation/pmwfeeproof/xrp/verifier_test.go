@@ -58,6 +58,48 @@ func TestParseTxFee(t *testing.T) {
 	})
 }
 
+func TestCheckTxRowConsistency(t *testing.T) {
+	row := func(response string) paymentdb.DBTransaction {
+		return paymentdb.DBTransaction{Hash: "txhash7", SourceAddress: "rSender", Sequence: 7, Response: response}
+	}
+
+	t.Run("matching blob accepted", func(t *testing.T) {
+		require.NoError(t, checkTxRowConsistency(row(`{"Fee":"12","Account":"rSender","Sequence":7,"hash":"txhash7"}`)))
+	})
+	t.Run("hash case-insensitive", func(t *testing.T) {
+		require.NoError(t, checkTxRowConsistency(row(`{"Account":"rSender","Sequence":7,"hash":"TXHASH7"}`)))
+	})
+	t.Run("hash mismatch rejected", func(t *testing.T) {
+		err := checkTxRowConsistency(row(`{"Account":"rSender","Sequence":7,"hash":"deadbeef"}`))
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON hash")
+	})
+	t.Run("account mismatch rejected", func(t *testing.T) {
+		err := checkTxRowConsistency(row(`{"Account":"rOther","Sequence":7,"hash":"txhash7"}`))
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Account")
+	})
+	t.Run("sequence mismatch rejected", func(t *testing.T) {
+		err := checkTxRowConsistency(row(`{"Account":"rSender","Sequence":99,"hash":"txhash7"}`))
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "JSON Sequence")
+	})
+	t.Run("fee-only blob (no identity) rejected", func(t *testing.T) {
+		// The exact gap this fixes: a Response carrying only Fee no longer passes.
+		err := checkTxRowConsistency(row(`{"Fee":"12"}`))
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+	})
+	t.Run("invalid JSON rejected", func(t *testing.T) {
+		err := checkTxRowConsistency(row(`not json`))
+		require.ErrorContains(t, err, "cannot unmarshal")
+	})
+	t.Run("oversized response rejected", func(t *testing.T) {
+		err := checkTxRowConsistency(row(`{"_pad":"` + strings.Repeat("x", 1<<20+1) + `"}`))
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "too large")
+	})
+}
+
 func TestNonceRangeValidation(t *testing.T) {
 	// We can't call Verify directly without a full config/DB setup,
 	// but we can test the validation logic by checking error types.

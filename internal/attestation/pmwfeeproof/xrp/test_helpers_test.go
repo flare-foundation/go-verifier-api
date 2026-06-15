@@ -135,7 +135,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 			Hash:          fmt.Sprintf("txhash%d", nonce),
 			BlockNumber:   100,
 			Timestamp:     1700000000,
-			Response:      fmt.Sprintf(`{"Fee":"%s"}`, txFees[i]),
+			Response:      fmt.Sprintf(`{"Fee":"%s","Account":"%s","Sequence":%d,"hash":"txhash%d"}`, txFees[i], senderAddress, nonce, nonce),
 			SourceAddress: senderAddress,
 			Sequence:      nonce,
 		}).Error; err != nil {

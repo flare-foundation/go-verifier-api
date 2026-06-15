@@ -404,7 +404,7 @@ func TestCheckRowConsistency(t *testing.T) {
 	}
 
 	t.Run("all match", func(t *testing.T) {
-		require.NoError(t, checkRowConsistency(raw, dbTx))
+		require.NoError(t, paymentdb.CheckRowConsistency(raw.Hash, raw.Account, uint64(raw.Sequence), dbTx))
 	})
 
 	t.Run("hash case-insensitive match", func(t *testing.T) {
@@ -414,13 +414,13 @@ func TestCheckRowConsistency(t *testing.T) {
 		r.Hash = "ABC123"
 		d := dbTx
 		d.Hash = "abc123"
-		require.NoError(t, checkRowConsistency(r, d))
+		require.NoError(t, paymentdb.CheckRowConsistency(r.Hash, r.Account, uint64(r.Sequence), d))
 	})
 
 	t.Run("empty JSON hash rejected", func(t *testing.T) {
 		r := raw
 		r.Hash = ""
-		err := checkRowConsistency(r, dbTx)
+		err := paymentdb.CheckRowConsistency(r.Hash, r.Account, uint64(r.Sequence), dbTx)
 		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 		require.ErrorContains(t, err, "JSON hash")
 	})
@@ -428,7 +428,7 @@ func TestCheckRowConsistency(t *testing.T) {
 	t.Run("hash mismatch", func(t *testing.T) {
 		r := raw
 		r.Hash = "deadbeef"
-		err := checkRowConsistency(r, dbTx)
+		err := paymentdb.CheckRowConsistency(r.Hash, r.Account, uint64(r.Sequence), dbTx)
 		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 		require.ErrorContains(t, err, "JSON hash")
 	})
@@ -436,7 +436,7 @@ func TestCheckRowConsistency(t *testing.T) {
 	t.Run("account mismatch", func(t *testing.T) {
 		r := raw
 		r.Account = "rOther"
-		err := checkRowConsistency(r, dbTx)
+		err := paymentdb.CheckRowConsistency(r.Hash, r.Account, uint64(r.Sequence), dbTx)
 		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 		require.ErrorContains(t, err, "JSON Account")
 	})
@@ -444,7 +444,7 @@ func TestCheckRowConsistency(t *testing.T) {
 	t.Run("sequence mismatch", func(t *testing.T) {
 		r := raw
 		r.Sequence = 99
-		err := checkRowConsistency(r, dbTx)
+		err := paymentdb.CheckRowConsistency(r.Hash, r.Account, uint64(r.Sequence), dbTx)
 		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 		require.ErrorContains(t, err, "JSON Sequence")
 	})

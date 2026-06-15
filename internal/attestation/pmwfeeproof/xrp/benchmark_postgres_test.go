@@ -84,7 +84,7 @@ func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sour
 
 		if err := xrpDB.Exec(
 			`INSERT INTO transactions (hash, block_number, "timestamp", response, is_native_payment, sequence, ticket_sequence, source_address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			fmt.Sprintf("benchhash%d", nonce), 999999, 1700000000, `{"Fee":"12"}`, false, nonce, 0, benchSender,
+			fmt.Sprintf("benchhash%d", nonce), 999999, 1700000000, fmt.Sprintf(`{"Fee":"12","Account":"%s","Sequence":%d,"hash":"benchhash%d"}`, benchSender, nonce, nonce), false, nonce, 0, benchSender,
 		).Error; err != nil {
 			tb.Fatal(err)
 		}

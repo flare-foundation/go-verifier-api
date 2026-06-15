@@ -148,7 +148,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 			Hash:          fmt.Sprintf("txhash%d", nonce),
 			BlockNumber:   100,
 			Timestamp:     1700000000,
-			Response:      fmt.Sprintf(`{"Fee":"%d"}`, 10+nonce-fromNonce),
+			Response:      fmt.Sprintf(`{"Fee":"%d","Account":"%s","Sequence":%d,"hash":"txhash%d"}`, 10+nonce-fromNonce, senderAddress, nonce, nonce),
 			SourceAddress: senderAddress,
 			Sequence:      nonce,
 		}
