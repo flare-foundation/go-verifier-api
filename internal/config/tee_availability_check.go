@@ -26,6 +26,12 @@ func LoadTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckC
 }
 
 func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheckConfig, error) {
+	// TeeAvailabilityCheck only serves the TEE source. Preflight SOURCE_ID so a
+	// mismatched source fails fast at boot with a clear message, instead of booting
+	// clean and then rejecting every request with a 400 source-id mismatch.
+	if envConfig.SourceID != SourceTEE {
+		return nil, fmt.Errorf("unsupported SOURCE_ID %q for TeeAvailabilityCheck: expected %q", envConfig.SourceID, SourceTEE)
+	}
 	err := CheckMissingFields(envConfig, []string{
 		EnvRelayContractAddress,
 		EnvRPCURL,

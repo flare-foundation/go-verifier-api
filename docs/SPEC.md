@@ -56,6 +56,8 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 - `VERIFIER_TYPE` (`TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`)
 - `SOURCE_ID` (`TEE`, `XRP`, `testXRP`)
 
+**`VERIFIER_TYPE` × `SOURCE_ID`:** `VERIFIER_TYPE` and `SOURCE_ID` are first validated independently against the allowlists above, then each module preflights its `SOURCE_ID` at config/service construction and fails the boot on an unsupported value: TeeAvailabilityCheck accepts only `TEE`; the PMW modules accept only `XRP`/`testXRP`. A mismatched pair therefore fails fast at startup with a clear error rather than booting clean and rejecting every request with a 400 source-id mismatch. (Valid pairings: `TeeAvailabilityCheck`↔`TEE`; `PMWPaymentStatus`/`PMWMultisigAccountConfigured`/`PMWFeeProof`↔`XRP`/`testXRP`.)
+
 ## 6.2 Attestation-specific env vars
 ### TeeAvailabilityCheck
 Required:
@@ -176,8 +178,8 @@ EAT-nonce binding is **containment**, not equality: the token's `eat_nonce` list
   *Contract-side admission chain* (`flare-smart-contracts-v2`):
   - `contracts/tee/facets/VerificationFacet.sol#confirmAvailability` is the on-chain entry point for committing an availability proof.
   - `MachineManager.checkTeeMachineInProduction(teeId)` — only PRODUCTION-status TEEs are accepted (`contracts/tee/library/MachineManager.sol`).
-  - `MachineManager.checkCodeHashPlatformSupported(extensionId, teeMachine.codeHash, teeMachine.platform)` — the registered pair must be in both `ExtensionManager.systemSupportedPlatforms` and the extension's `platforms` set (`contracts/tee/library/ExtensionManager.sol`).
-  - `Verification.verifyAvailabilityCheckProof` → `verifyMatchingAttestation` requires `responseBody.codeHash == registered.codeHash` and `responseBody.platform == registered.platform` (`contracts/tee/library/Verification.sol`).
+  - `MachineManager.checkCodeHashPlatformSupported(extensionId, teeMachine.codeHash, teeMachine.platform)` → `ExtensionManager.isCodeHashPlatformSupported` — at confirm time the `(codeHash, platform)` pair must not be disabled (`codeHashPlatformDisabled`) and must be present in the extension's `codeHashToVersion[codeHash].platforms` set (`contracts/tee/library/ExtensionManager.sol`). (`systemSupportedPlatforms` is enforced when a TEE version is *added*, not during `confirmAvailability`.)
+  - `Verification.verifyAvailabilityCheckProof` → `_validateResponseBody` requires `responseBody.codeHash == registered.codeHash` and `responseBody.platform == registered.platform` (`contracts/tee/library/Verification.sol`).
 
   For magic_pass to actually admit on-chain, governance would have to register a TEE with `codeHash = E2ETestCodeHash` AND `platform = E2ETestPlatform`, whitelist that pair in `systemSupportedPlatforms` and the extension's `platforms` set, and move that TEE to `PRODUCTION` status. Every step is on-chain and visible; the sequence is operationally absurd on mainnet. In normal production a misconfigured magic_pass response silently fails on-chain confirmation — wasting DP/relay work but never producing a valid admission. Operators must not register test code hashes or whitelist `TEST_PLATFORM` on production networks.
 
@@ -202,7 +204,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 **Validation** (in `go-flare-common`, `pkg/tee/attestation/googlecloud/google_cloud.go`): `ParseAndValidatePKIToken(attestationToken, rootCert, leafCRL, intermediateCRL, policy)` accepts pre-fetched CRLs (nil when unavailable) and a `Policy` (see §7.1 JWT validation). `PKICertificates.Verify()` calls `verifyCRL()` after chain/lifetime checks; per cert (leaf against intermediate, intermediate against root): if CRL nil → log + skip; else validate time window (`ThisUpdate` ≤ now ≤ `NextUpdate`), verify CRL signature (`CheckSignatureFrom(issuer)`), reject if serial in `RevokedCertificateEntries`.
 
 **Fetching and caching** (`verifier/crl_cache.go`):
-- Request-driven. `CRLCache.GetCRLsForToken()` runs inline with request `ctx` before `ParseAndValidatePKIToken`.
+- Request-driven. `CRLCache.FetchCRLsForToken()` runs inline with request `ctx` before `ParseAndValidatePKIToken`.
 - **Strict all-or-nothing**: if all CRL distribution points fail for either cert, verification fails.
 - Parses token unverified (`ParsePKITokenUnverified`) to extract x5c. Before any CRL URL is dereferenced:
   - **Root match**: token's root must equal the embedded Google root.
@@ -217,7 +219,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - Google CA Service only inserts the CDP extension when `publish_crl` is enabled (per-CA-pool setting). Currently the intermediate cert has a CDP but the leaf does not (no OCSP either). Google does not document CRL/OCSP checking for Confidential Space — the sample PKI token validation code only covers chain verification, root pinning, and signature checks; revocation checking must tolerate missing CDPs. See Google CA Service and Confidential Space PKI documentation for details.
 
 ### TEE status semantics
-- Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface as 500 with the wrapped error.
+- Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface per the error model (§9): TEE-proxy HTTP/non-OK (`ErrHTTPFetch`) and not-yet-available action results (`ErrActionResultNotFound`, 404) map to **503**; only ambiguous URL-validation / JSON-decode errors fall through to 500.
 - Internal classification (used by `CheckSigningPolicies`): `TeeSampleValid`, `TeeSampleInvalid`, `TeeSampleIndeterminate`.
 
 ## 7.2 PMWPaymentStatus
@@ -229,7 +231,8 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 4. Decode tee instruction message payload.
 5. Query source DB transaction by `(source_address, sequence=nonce)`.
 6. Parse raw source-chain transaction JSON. Reject if `TransactionType != "Payment"` — non-payment types (e.g. `AccountSet`, `TrustSet`) at the same `(sourceAddress, sequence)` cannot produce a payment status attestation.
-7. Build FDC2 response:
+7. **Row-consistency check** (`db.CheckRowConsistency`): the identity fields parsed from the response JSON (`hash`, `Account`, `Sequence`) must match the row's indexed columns (`Hash`, `SourceAddress`, `Sequence`) before the response is trusted; a mismatch is treated as a DB inconsistency (`ErrDatabase` → 503). Response rows over `maxResponseSize` are rejected the same way.
+8. Build FDC2 response:
    - recipient/token/amount/fee/reference from instruction message
    - status/revert reason from raw tx result
    - received amount for recipient — computed from `AffectedNodes` `AccountRoot` balance changes regardless of tx status (typically 0 for reverted txs, but computed from on-chain data rather than hardcoded). Native XRP only; issued-currency (IOU) payments that modify `RippleState` trust lines are not supported. Recipient address normalized from X-address to classic format before matching (XRPL metadata uses classic).
@@ -272,7 +275,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 3. Per nonce: verify pay event exists, extract `maxFee`.
 4. Per nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found, `blockTimestamp > untilTimestamp`, or `reissueNumber == MaxReissuesPerNonce`). If the loop hits the cap and the next reissueNumber still exists in the indexer, return `ErrReissueLimitExceeded`. Otherwise add residual `max(0, reissue_maxFee - pay_maxFee)` for each scanned reissue.
 5. Sum as `estimatedFee`.
-6. Batch fetch XRP transactions (`sequence IN (?)`), parse `Fee`, sum as `actualFee`.
+6. Batch fetch XRP transactions (`sequence IN (?)`), parse `Fee`, sum as `actualFee`. Before trusting each `Fee`, the row passes the same consistency check as PMWPaymentStatus (`db.CheckRowConsistency`: parsed JSON `hash`/`Account`/`Sequence` must equal the row's columns) and a `maxResponseSize` cap; a mismatch or oversize row is a DB inconsistency (`ErrDatabase` → 503).
 7. Return `{actualFee, estimatedFee}`.
 
 ### Error handling
@@ -280,7 +283,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 - Missing XRP transaction for any nonce → 422 (`ErrMissingTransaction`).
 - Nonce range too large → 400 (`ErrNonceRangeTooLarge`).
 - Reissue scan exceeded the per-nonce cap → 400 (`ErrReissueLimitExceeded`).
-- DB infrastructure failure → 503 (via `ErrDatabase`).
+- DB infrastructure failure, DB-row inconsistency (parsed JSON identity fields ≠ indexed columns), or oversize response row → 503 (via `ErrDatabase`).
 
 ### Data retention
 Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no chain/RPC fallback). The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production); the C-chain indexer has its own retention policy. Requests outside retention → 422 for missing data. FDC2 attestation requests are tied to reward epochs with short deadlines, so out-of-retention requests indicate a protocol-level delay, not normal operation.
@@ -319,7 +322,7 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
   - fallback for unexpected verifier errors (should not occur for PMWMultisig in practice)
 - `503 Service Unavailable`:
   - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrFetchAccountInfo` (PMWMultisig)
-  - database infrastructure failure (connection, timeout) — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
+  - database infrastructure failure (connection, timeout), DB-row inconsistency (`CheckRowConsistency`: parsed JSON `hash`/`account`/`sequence` ≠ indexed columns), or response row exceeding `maxResponseSize` — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
   - network errors from RPC calls — `ErrNetwork` (TEE)
   - RPC server-side errors — `ErrRPC` (TEE)
   - context deadline/canceled — `ErrContext` (TEE)
@@ -330,7 +333,7 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
 Notes: PMWMultisig's `500` default branch is defensive and not reachable under normal operation. PMWMultisig validation failures (wrong signers, wrong flags, etc.) return a `200` with `status=ERROR`, not an HTTP error.
 
 ## 10. Concurrency and State
-- **Parallelism**: TEE `Verify` runs `DataVerification` + `CheckSigningPolicies` concurrently after the challenge fetch; `CheckSigningPolicies` fetches initial + last signing policy hashes concurrently; CRL leaf + intermediate fetches run concurrently inside `GetCRLsForToken`.
+- **Parallelism**: TEE `Verify` runs `DataVerification` + `CheckSigningPolicies` concurrently after the challenge fetch; `CheckSigningPolicies` fetches initial + last signing policy hashes concurrently; CRL leaf + intermediate fetches run concurrently inside `FetchCRLsForToken`.
 - **Caches**: CRL cache uses `sync.RWMutex` (RLock fast path for hits, WLock for inserts/eviction) + `singleflight.Group` to dedupe concurrent fetches for the same URL.
 - **Config loaders**: `sync.Once` singletons.
 
@@ -349,7 +352,7 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
   - *What it is*: TEE nodes in non-production mode return `"magic_pass"`; the verifier accepts it and returns `OK` with `E2ETestCodeHash` / `E2ETestPlatform`. No verifier-side toggle; gated by the TEE's `settings.Mode`.
   - *Compensating controls*:
     1. Production TEE nodes never set `Mode != 0`.
-    2. On-chain confirmation rejects the proof unless the registered TEE's `codeHash`/`platform` match the response — see the chain documented in §7.1 (`VerificationFacet.confirmAvailability` → `Verification.verifyMatchingAttestation` + `MachineManager.checkCodeHashPlatformSupported`).
+    2. On-chain confirmation rejects the proof unless the registered TEE's `codeHash`/`platform` match the response — see the chain documented in §7.1 (`VerificationFacet.confirmAvailability` → `Verification.verifyAvailabilityCheckProof` → `_validateResponseBody` + `MachineManager.checkCodeHashPlatformSupported`).
   - *Residual risk*: a misconfigured magic_pass response on mainnet wastes DP/relay work and surfaces as a failed on-chain confirmation; it does not produce a valid admission. Operators must not register the test code hash or whitelist `TEST_PLATFORM` on production networks.
 - **Unauthenticated Swagger UI** (`/api-doc`): The OpenAPI documentation endpoint is intentionally exempt from API key auth to allow internal developers and auditors to browse the API. Compensating control: service is deployed behind internal infrastructure, not exposed to the public internet. No sensitive data is served on this endpoint.
 - **HTTP redirects disabled** (`fetcher.go`): HTTP clients reject all redirects (`CheckRedirect` returns `ErrRedirect`). TEE proxy URLs are expected to resolve directly — TEE nodes cannot follow redirects on their POST-based proxy communication, so operators already configure non-redirecting URLs. Eliminates the SSRF bypass vector where a redirect target could point to a private/metadata IP.

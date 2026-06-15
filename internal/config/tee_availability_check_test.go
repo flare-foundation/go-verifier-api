@@ -9,6 +9,21 @@ import (
 )
 
 func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
+	for _, src := range []SourceName{SourceXRP, SourceTestXRP, ""} {
+		t.Run("unsupported SOURCE_ID "+string(src)+" fails the boot", func(t *testing.T) {
+			envConfig := EnvConfig{
+				SourceID:             src,
+				AttestationType:      fdc2.AvailabilityCheck,
+				RelayContractAddress: "0x0000000000000000000000000000000000000001",
+				RPCURL:               "https://rpc.example.com",
+				ChainID:              "16",
+			}
+			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+			require.Nil(t, cfg)
+			require.ErrorContains(t, err, "unsupported SOURCE_ID")
+			require.ErrorContains(t, err, "for TeeAvailabilityCheck")
+		})
+	}
 	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:        SourceTEE,
