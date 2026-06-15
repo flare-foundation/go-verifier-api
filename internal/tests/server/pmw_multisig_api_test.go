@@ -93,7 +93,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	})
 	t.Run("prepareResponseBody: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove 4 for chars.
+		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove first 4 chars.
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -151,7 +151,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 	})
 	t.Run("verify: invalid address - failed to get account info", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove 4 for chars.
+		modifiedReqBody.AccountAddress = modifiedReqBody.AccountAddress[4:] // Remove first 4 chars.
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWMultisigAccountConfigured, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.

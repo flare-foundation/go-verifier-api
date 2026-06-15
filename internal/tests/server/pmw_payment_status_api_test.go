@@ -107,7 +107,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("prepareResponseBody: verification failed", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove 4 for chars.
+		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove first 4 chars.
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -175,7 +175,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("verify: verification failed - not found in c-chain indexer", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove 4 for chars.
+		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove first 4 chars.
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.

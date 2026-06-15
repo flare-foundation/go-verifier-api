@@ -143,7 +143,7 @@ func loadGoogleRootCertFromBytes(data []byte) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-// ClearTeeAvailabilityCheckConfigForTest is a test utility function that resets the tee availability check config.
+// ClearTeeAvailabilityCheckConfigForTest resets the TEE availability check config for tests.
 func ClearTeeAvailabilityCheckConfigForTest() {
 	teeAvailabilityCheckConfig = nil
 	errTeeAvailabilityCheckConfig = nil

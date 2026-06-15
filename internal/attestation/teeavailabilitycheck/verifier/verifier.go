@@ -258,7 +258,6 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 	}
 	initialSigningCh := make(chan result, 1)
 	lastSigningCh := make(chan result, 1)
-	// Fetch policies
 	go func() {
 		hash, state, err := v.FetchSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.InitialSigningPolicyID, chainMaxAttempts, chainRetryDelay)
 		initialSigningCh <- result{hash, state, err}
@@ -267,10 +266,8 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 		hash, state, err := v.FetchSigningPolicyHashFromChainWithRetry(ctx, teeInfoData.LastSigningPolicyID, chainMaxAttempts, chainRetryDelay)
 		lastSigningCh <- result{hash, state, err}
 	}()
-	// Wait for results
 	initialSigningRes := <-initialSigningCh
 	lastSigningRes := <-lastSigningCh
-	// Check
 	if initialSigningRes.err != nil {
 		return initialSigningRes.state, fmt.Errorf("cannot retrieve initial signing policy hash for ID %d: %w", teeInfoData.InitialSigningPolicyID, initialSigningRes.err)
 	}

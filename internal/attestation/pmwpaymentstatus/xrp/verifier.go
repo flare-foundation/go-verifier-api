@@ -30,12 +30,10 @@ func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequestBody) (fdc2.IPMWPaymentStatusResponseBody, error) {
-	// Build instruction ID
 	instructionID, err := teeinstruction.GenerateInstructionID(req.OpType, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.Nonce)
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction ID: %w", err)
 	}
-	// Event log
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
@@ -44,17 +42,14 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
-	// Decode event data
 	paymentMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(chainLog, x.Config.ParsedTeeInstructionsABI, op.Pay)
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
-	// Query underlying chain for transaction
 	dbTransaction, err := x.Repo.FetchTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
-	// Parse transaction response JSON into structured data
 	rawTransactionData, err := x.parseRawTransactionData(req.SenderAddress, req.Nonce, dbTransaction.Response)
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
