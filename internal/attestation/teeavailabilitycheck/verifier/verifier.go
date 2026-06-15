@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net/url"
 	"strings"
 	"time"
 
@@ -331,13 +332,19 @@ func FetchTEEChallengeResult(
 	var zeroAction teenodetypes.ActionResponse
 	var zeroInfo teenodetypes.TeeInfoResponse
 	var zeroAdd common.Address
-	url := fmt.Sprintf("%s/action/result/%s", baseURL, hex.EncodeToString(challengeInstructionID.Bytes()))
+	// Compose the path safely instead of string concatenation: url.JoinPath handles
+	// a trailing slash on baseURL, escapes the path segment, and rejects a malformed
+	// base URL — while preserving any path prefix the operator configured.
+	reqURL, err := url.JoinPath(baseURL, "action", "result", hex.EncodeToString(challengeInstructionID.Bytes()))
+	if err != nil {
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("invalid proxy URL %q: %w", baseURL, err)
+	}
 	resolved, err := ResolveExternalURL(ctx, baseURL, allowPrivateNetworks)
 	if err != nil {
 		return zeroAction, zeroInfo, zeroAdd, err
 	}
 	dialAddr, hostHeader, serverName := BuildPinnedAddr(resolved)
-	actionResp, err := fetcher.FetchJSONPinned[teenodetypes.ActionResponse](ctx, url, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
+	actionResp, err := fetcher.FetchJSONPinned[teenodetypes.ActionResponse](ctx, reqURL, fetchChallengeTimeout, dialAddr, hostHeader, serverName)
 	if err != nil {
 		if errors.Is(err, fetcher.ErrNotFound) {
 			return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)

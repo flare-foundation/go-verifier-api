@@ -309,6 +309,49 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "URL host is required")
 	})
+	t.Run("unparseable base URL fails path composition", func(t *testing.T) {
+		// An invalid percent-escape makes url.JoinPath reject the base URL, so the
+		// request URL can never be composed (covers the JoinPath error branch).
+		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://%xx", challengeID, true)
+		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
+		require.Equal(t, common.Address{}, signer)
+		require.ErrorContains(t, err, "invalid proxy URL")
+	})
+	t.Run("base URL with path prefix and trailing slash", func(t *testing.T) {
+		// Regression for the url.JoinPath composition: a baseURL carrying a path
+		// prefix must be preserved and a trailing slash must not produce a double
+		// slash. The handler is mounted under the prefix and the request path is
+		// asserted exactly.
+		validJSON := `{"teeInfo":{"InitialSigningPolicyID":1}}`
+		data := hexutil.Bytes([]byte(validJSON))
+
+		privKey, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		address := crypto.PubkeyToAddress(privKey.PublicKey)
+		ethHash := accounts.TextHash(crypto.Keccak256(data))
+		signature, err := crypto.Sign(ethHash, privKey)
+		require.NoError(t, err)
+		resp := teenodetypes.ActionResponse{
+			Result:         teenodetypes.ActionResult{Data: data},
+			ProxySignature: signature,
+		}
+
+		var gotPath string
+		handler := http.NewServeMux()
+		handler.HandleFunc("/proxy/action/result/", func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+		})
+		server := httptest.NewServer(handler)
+		defer server.Close()
+
+		_, _, signer, err := verifier.FetchTEEChallengeResult(ctx, server.URL+"/proxy/", challengeID, true)
+		require.NoError(t, err)
+		require.Equal(t, address, signer)
+		wantPath := "/proxy/action/result/" + hex.EncodeToString(challengeID.Bytes())
+		require.Equal(t, wantPath, gotPath)
+	})
 }
 
 func TestDataVerification(t *testing.T) {
