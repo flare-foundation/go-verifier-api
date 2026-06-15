@@ -1,3 +1,5 @@
+//go:build integration
+
 package paymentservice
 
 import (
@@ -17,8 +19,10 @@ var envConfig = config.EnvConfig{
 	SourceID:                       "testXRP",
 }
 
-// Docker-dependent test: Requires Docker services.
-// See README.md, section "Running specific tests manually" for details.
+// Docker-dependent test: gated behind the `integration` build tag and requires the
+// DB fixtures (see README.md, "Running Tests"). Run with `go test -tags integration`.
+// Non-DB constructor cases (missing config, unsupported source) live in the untagged
+// service_preflight_test.go so they run in the default suite.
 func TestNewPaymentService(t *testing.T) {
 	t.Run("should successfully create PaymentService", func(t *testing.T) {
 		service, err := NewPaymentService(envConfig)
@@ -26,29 +30,6 @@ func TestNewPaymentService(t *testing.T) {
 		require.NotNil(t, service)
 		require.NotNil(t, service.Verifier())
 		require.NotNil(t, service.Config())
-	})
-	t.Run("missing fields in env config", func(t *testing.T) {
-		config.ClearPMWPaymentStatusConfigForTest()
-		badEnvConfig := config.EnvConfig{
-			SourceDatabaseURL: "",
-			CChainDatabaseURL: "",
-		}
-		service, err := NewPaymentService(badEnvConfig)
-		require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS")
-		require.Nil(t, service)
-	})
-	t.Run("using unsupported source ID", func(t *testing.T) {
-		config.ClearPMWPaymentStatusConfigForTest()
-		badEnvConfig := config.EnvConfig{
-			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
-			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
-			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
-			SourceID:                       "UNSUPPORTED_SOURCE",
-			AttestationType:                fdc2.PMWPaymentStatus,
-		}
-		service, err := NewPaymentService(badEnvConfig)
-		require.ErrorContains(t, err, "cannot initialize PMWPaymentStatus verifier: no verifier for sourceID: UNSUPPORTED_SOURCE")
-		require.Nil(t, service)
 	})
 	t.Run("misconfigured Source DB", func(t *testing.T) {
 		config.ClearPMWPaymentStatusConfigForTest()

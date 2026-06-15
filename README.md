@@ -152,15 +152,14 @@ This is the simplest way to run everything without worrying about Docker manuall
         ```bash
         go test -v <path_to_test>
         ```
-- A few tests, related to **PMWPaymentStatus attestation type** are **Docker dependant tests** (e.g., tests that access the indexer databases).
-    > Note: These tests include a comment in the test file marking them as Docker-dependent.
+- A few tests (PMWPaymentStatus / PMWFeeProof) access the indexer databases and are **Docker-dependent**. They are gated behind the `integration` build tag, so a bare `go test ./...` skips them and stays green without Docker.
     - Start Docker manually:
         ```bash
         docker compose -f internal/tests/docker/docker-compose.yaml up -d
         ```
-    - Run the test:
+    - Run the integration tests (note `-tags integration`):
         ```bash
-        go test -v <path_to_test>
+        go test -tags integration -v <path_to_test>
         ```
     - Stop Docker after finishing:
         ```bash
@@ -210,12 +209,6 @@ This is the simplest way to run everything without worrying about Docker manuall
 - `go.mod` pins `github.com/jackc/pgx/v5 v5.9.1` as an explicit indirect override because `gorm.io/driver/postgres v1.6.0` pulls the unpatched v5.6.0 (CVE-2026-33815, CVE-2026-33816). Drop the explicit pgx require once a newer `gorm.io/driver/postgres` ships that pulls pgx >= v5.9.0.
 
 ### Review findings to address (from code review, not yet fixed)
-
-- **[Low] PMWPaymentStatus & PMWFeeProof: validate `SOURCE_ID` support *before* opening DB connections.**
-  Both services open the source + C-chain DBs first (`internal/attestation/pmwpaymentstatus/service.go:31`, `internal/attestation/pmwfeeproof/service.go:31`), and only reject an unsupported `SOURCE_ID` later, inside `NewVerifier` via the `registry` map lookup (`internal/attestation/pmwpaymentstatus/verifier/verifier.go:38`, `internal/attestation/pmwfeeproof/verifier/verifier.go:38`). A misconfigured `SOURCE_ID` therefore surfaces as a DB connection failure (or requires live DBs to even reach the real error) instead of a clear "unsupported source" message, and triggers needless external connection attempts at startup. Suggested fix: add a preflight support check (e.g. `registry[sourceID]` lookup or a shared `IsSupportedSource`) at the top of `New*Service` / during config load, before `InitSourceDB`. Bonus: this also lets the "unsupported source ID" unit tests in both `service_test.go` files run without Docker (today they expect the registry error, which is only reachable after both DBs open — see next item).
-
-- **[Low] Docker-dependent tests are gated only by a comment, so `go test ./...` fails or stalls without the DB fixtures running.**
-  Affected files mark the dependency in prose but have no machine-enforced gate: `internal/attestation/pmwpaymentstatus/service_test.go:20`, `internal/attestation/pmwfeeproof/service_test.go:11`, `internal/tests/server/pmw_payment_status_api_test.go:19`, `internal/tests/server/pmw_fee_proof_api_test.go:20`. They dial `localhost:5432` (Postgres) / `127.0.0.1:3306` (MySQL) and hang/fail when the fixtures aren't up. Suggested fix: gate them behind a build tag (e.g. `//go:build integration`, matching the existing `docker_bench` / `load` / `stress` convention) so a bare `go test ./...` stays green, and add a make/script target that brings up `internal/tests/docker/docker-compose.yaml` before running the tagged set. `testing.Short()` skips are a lighter alternative but invert the default (everyone must remember `-short`).
 
 - **[Low/cosmetic] `FetchTEEChallengeResult` builds the request URL by string concatenation, assuming `baseURL` is a bare origin.**
   `internal/attestation/teeavailabilitycheck/verifier/verifier.go:353` does `url := fmt.Sprintf("%s/action/result/%s", baseURL, ...)`, while the dial target / Host header / TLS SNI are derived separately by parsing the same `baseURL` via `ResolveExternalURL` + `BuildPinnedAddr` (lines 354–358). This is **not** a security issue: the connection is always pinned to the IP that `ResolveExternalURL(baseURL)` validated, `Host`/SNI come from the resolved struct (not from `url`), and `url` is only used after validation passes (no TOCTOU). The fragility is purely in the path composition — a `baseURL` carrying a path prefix (`https://proxy.example.com/v1`) flows into the path (probably intended but undocumented), a trailing slash yields a double slash (`//action/result/...`), and a query/fragment in `baseURL` produces a malformed path. All require unusual operator config and at worst cause a failed request. Suggested fix: parse `baseURL` once with `url.Parse` and compose the path with `ResolveReference`/`path.Join` (also avoids parsing `baseURL` twice), **or** have `ResolveExternalURL` reject a non-empty `Path`/`RawQuery` and document that `baseURL` must be `scheme://host[:port]`. Pre-existing; not introduced by the new-signatures work.

@@ -36,8 +36,10 @@ wait_for_health() {
 wait_for_health c-chain-db
 wait_for_health xrp-indexer-db
 
-# Run Go tests (-count=1 disables test caching for accurate coverage)
-go test -count=1 -v -coverpkg=./... -coverprofile=coverage.out ./...
+# Run Go tests (-count=1 disables test caching for accurate coverage).
+# -tags integration includes the Docker-dependent tests (DB fixtures are up above);
+# a bare `go test ./...` without the tag stays green without Docker.
+go test -tags integration -count=1 -v -coverpkg=./... -coverprofile=coverage.out ./...
 # go tool cover -html=coverage.out # This opens coverage for each file in the browser.
 
 # Run go-test-coverage
