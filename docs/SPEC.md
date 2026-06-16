@@ -252,11 +252,13 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 
 ### Primary flow (`XRPVerifier.Verify`)
 1. Call XRPL `account_info` with `ledger_index=validated`, `signer_lists=true`.
-2. Resolve signer lists from response. XRPL API v1 (rippled) returns `signer_lists` inside `account_data`; API v2 and Clio return it at the `result` level — both layouts supported.
-3. Validate signer list exists and matches provided pubkeys + threshold. Set-based comparison — duplicate `publicKeys` cannot mask extra on-chain signers.
-4. Validate account flags: master key disabled; deposit auth disabled; destination tag requirement disabled; incoming XRP disallow disabled.
-5. Validate no regular key set.
-6. Success → `{status=OK, sequence}`; validation failure → `{status=ERROR, sequence=0}`.
+2. **Bind the response to the request**: `account_data.Account` must equal `req.AccountAddress` (both normalized X-address→classic) before any field is trusted. A misbehaving/compromised RPC returning another (validly-configured) account's data is rejected here, so it cannot yield `OK` for the requested account. Mismatch → validation failure.
+3. Require the response is from a validated ledger (`validated == true`).
+4. Resolve signer lists from response. XRPL API v1 (rippled) returns `signer_lists` inside `account_data`; API v2 and Clio return it at the `result` level — both layouts supported.
+5. Validate signer list exists and matches provided pubkeys + threshold. Set-based comparison — duplicate `publicKeys` cannot mask extra on-chain signers.
+6. Validate account flags: master key disabled; deposit auth disabled; destination tag requirement disabled; incoming XRP disallow disabled.
+7. Validate no regular key set.
+8. Success → `{status=OK, sequence}`; validation failure → `{status=ERROR, sequence=0}`.
 
 ### Public key handling
 - Parsed and compressed secp256k1; converted to XRPL address for signer-set comparison.

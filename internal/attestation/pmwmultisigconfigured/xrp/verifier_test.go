@@ -48,6 +48,20 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, seq, sequence)
 	})
+	t.Run("account_info for a different account is rejected", func(t *testing.T) {
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			2,
+		)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 2)
+		flags := accountFlags(t, true, false, false, false)
+		accountInfo := makeAccountInfo(t, signerList, flags, "")
+		// Simulate a misbehaving RPC returning another (validly-configured) account's data.
+		accountInfo.Result.AccountData.Account = "rSomeOtherAccount"
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "account_info returned account")
+	})
 	t.Run("wrong signer weights", func(t *testing.T) {
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,

@@ -17,6 +17,7 @@ import (
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/types"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -62,6 +63,22 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigAccountCo
 }
 
 func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountInfoResponse, req fdc2.IPMWMultisigAccountConfiguredRequestBody) (uint64, error) {
+	// Bind the response back to the requested account before trusting any of its
+	// fields: a misbehaving/compromised RPC must not be able to answer with a
+	// different (correctly-configured) account's data and have it accepted for
+	// req.AccountAddress. XRPL returns the classic address in account_data.Account;
+	// normalize the request (which may be an X-address) to classic before comparing.
+	reqAddr, err := helper.NormalizeAddress(req.AccountAddress)
+	if err != nil {
+		return 0, fmt.Errorf("invalid request account address %q: %w", req.AccountAddress, ErrValidationFailed)
+	}
+	respAddr, err := helper.NormalizeAddress(accountInfo.Result.AccountData.Account)
+	if err != nil {
+		return 0, fmt.Errorf("invalid account_info account %q: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
+	}
+	if reqAddr != respAddr {
+		return 0, fmt.Errorf("account_info returned account %q for requested %q: %w", accountInfo.Result.AccountData.Account, req.AccountAddress, ErrValidationFailed)
+	}
 	if accountInfo.Result.Validated == nil || !*accountInfo.Result.Validated {
 		return 0, fmt.Errorf("account_info response is not from a validated ledger for %s: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
 	}
