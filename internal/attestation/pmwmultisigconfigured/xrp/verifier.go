@@ -17,7 +17,6 @@ import (
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/types"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
@@ -66,17 +65,11 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	// Bind the response back to the requested account before trusting any of its
 	// fields: a misbehaving/compromised RPC must not be able to answer with a
 	// different (correctly-configured) account's data and have it accepted for
-	// req.AccountAddress. XRPL returns the classic address in account_data.Account;
-	// normalize the request (which may be an X-address) to classic before comparing.
-	reqAddr, err := helper.NormalizeAddress(req.AccountAddress)
-	if err != nil {
-		return 0, fmt.Errorf("invalid request account address %q: %w", req.AccountAddress, ErrValidationFailed)
-	}
-	respAddr, err := helper.NormalizeAddress(accountInfo.Result.AccountData.Account)
-	if err != nil {
-		return 0, fmt.Errorf("invalid account_info account %q: %w", accountInfo.Result.AccountData.Account, ErrValidationFailed)
-	}
-	if reqAddr != respAddr {
+	// req.AccountAddress. The on-chain wallet is keyed by the raw accountAddress
+	// (TeePayments._toAccountHash), and XRPL echoes the classic address in
+	// account_data.Account, so a byte-for-byte comparison is the correct
+	// canonical-form check (normalizing here but not in the contract would diverge).
+	if accountInfo.Result.AccountData.Account != req.AccountAddress {
 		return 0, fmt.Errorf("account_info returned account %q for requested %q: %w", accountInfo.Result.AccountData.Account, req.AccountAddress, ErrValidationFailed)
 	}
 	if accountInfo.Result.Validated == nil || !*accountInfo.Result.Validated {

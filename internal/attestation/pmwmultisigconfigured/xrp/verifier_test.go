@@ -9,6 +9,7 @@ import (
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
+	addresscodec "github.com/Peersyst/xrpl-go/address-codec"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/types"
@@ -59,6 +60,27 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		accountInfo := makeAccountInfo(t, signerList, flags, "")
 		// Simulate a misbehaving RPC returning another (validly-configured) account's data.
 		accountInfo.Result.AccountData.Account = "rSomeOtherAccount"
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "account_info returned account")
+	})
+	t.Run("X-address request is rejected (binding is raw-string, classic only)", func(t *testing.T) {
+		// The account binding compares the raw request string against account_data.Account,
+		// matching the contract's _toAccountHash(rawAccountAddress). XRPL returns the classic
+		// form, so a request that uses the X-address form of the SAME account is intentionally
+		// rejected — callers must submit the classic address. This pins that behavior.
+		const classic = "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK"
+		xAddr, err := addresscodec.ClassicAddressToXAddress(classic, 0, false, false)
+		require.NoError(t, err)
+		req := makeIPMWMultisigAccountConfiguredRequestBody(
+			t,
+			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey},
+			2,
+		)
+		req.AccountAddress = xAddr
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 2)
+		flags := accountFlags(t, true, false, false, false)
+		accountInfo := makeAccountInfo(t, signerList, flags, "")
+		accountInfo.Result.AccountData.Account = classic
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "account_info returned account")
 	})

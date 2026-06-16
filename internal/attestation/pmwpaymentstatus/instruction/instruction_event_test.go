@@ -173,6 +173,18 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		require.ErrorContains(t, err, "event OpCommand")
 	})
 
+	t.Run("unconvertible command is rejected", func(t *testing.T) {
+		msg := payments.ITeePaymentsPaymentInstructionMessage{
+			SenderAddress: "rSender", Amount: big.NewInt(1000), MaxFee: big.NewInt(50),
+			TokenId: []byte{}, FeeSchedule: []byte{}, Nonce: 42, SubNonce: 42,
+		}
+		log := &ethtypes.Log{Data: encodeTestEvent(t, teeABI, opType, msg)}
+		// A command longer than 32 bytes cannot be hashed to a Bytes32 — exercises the
+		// guard between the OpType and OpCommand checks.
+		_, err := instruction.DecodeTeeInstructionsSentEventData(log, teeABI, op.Command(strings.Repeat("x", 33)), opType)
+		require.ErrorContains(t, err, "cannot convert command")
+	})
+
 	t.Run("oversized log data rejected", func(t *testing.T) {
 		log := &ethtypes.Log{Data: make([]byte, 1<<20+1)}
 		_, err := instruction.DecodeTeeInstructionsSentEventData(log, teeABI, op.Pay, opType)
