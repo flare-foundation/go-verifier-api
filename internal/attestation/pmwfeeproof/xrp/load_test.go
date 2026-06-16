@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -54,18 +55,22 @@ func loadABI(t *testing.T) abi.ABI {
 	return parsed
 }
 
-func encodePaymentEventData(t *testing.T, teeABI abi.ABI, command op.Command, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
+func encodePaymentEventData(t *testing.T, teeABI abi.ABI, command op.Command, opType common.Hash, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
 	msgArg := payments.MessageArguments[command]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	if err != nil {
 		t.Fatalf("cannot encode message: %v", err)
 	}
+	opCommand, err := convert.StringToCommonHash(string(command))
+	if err != nil {
+		t.Fatalf("cannot hash command: %v", err)
+	}
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
 		[]instructions.IMachineManagerTeeMachine{},
-		[32]byte{},
-		[32]byte{},
+		[32]byte(opType),
+		[32]byte(opCommand),
 		msgBytes,
 		[]common.Address{},
 		uint64(0),
@@ -118,6 +123,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 		}
 
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
+			SourceId:         sourceID,
 			SenderAddress:    senderAddress,
 			RecipientAddress: "rRecipient",
 			Amount:           big.NewInt(1000),
@@ -127,7 +133,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 			Nonce:            nonce,
 			SubNonce:         nonce,
 		}
-		eventData := encodePaymentEventData(t, teeABI, op.Pay, msg)
+		eventData := encodePaymentEventData(t, teeABI, op.Pay, opType, msg)
 
 		log := database.Log{
 			Topic0:          removeHexPrefix(eventHash),

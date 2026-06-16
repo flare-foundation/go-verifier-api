@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -52,7 +53,7 @@ func loadABI(t *testing.T) abi.ABI {
 	return parsed
 }
 
-func encodePaymentEventData(t *testing.T, teeABI abi.ABI, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
+func encodePaymentEventData(t *testing.T, teeABI abi.ABI, opType common.Hash, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
 
 	msgArg := payments.MessageArguments[op.Pay]
@@ -60,17 +61,21 @@ func encodePaymentEventData(t *testing.T, teeABI abi.ABI, msg payments.ITeePayme
 	if err != nil {
 		t.Fatalf("cannot encode payment message: %v", err)
 	}
+	opCommand, err := convert.StringToCommonHash(string(op.Pay))
+	if err != nil {
+		t.Fatalf("cannot hash command: %v", err)
+	}
 
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
 		[]instructions.IMachineManagerTeeMachine{}, // TeeMachines
-		[32]byte{},         // OpType
-		[32]byte{},         // OpCommand
-		msgBytes,           // Message
-		[]common.Address{}, // Cosigners
-		uint64(0),          // CosignersThreshold
-		common.Address{},   // ClaimBackAddress
-		big.NewInt(0),      // Fee
+		[32]byte(opType),    // OpType
+		[32]byte(opCommand), // OpCommand
+		msgBytes,            // Message
+		[]common.Address{},  // Cosigners
+		uint64(0),           // CosignersThreshold
+		common.Address{},    // ClaimBackAddress
+		big.NewInt(0),       // Fee
 	)
 	if err != nil {
 		t.Fatalf("cannot pack event data: %v", err)
@@ -88,6 +93,8 @@ func seedTestData(
 	xrpDB, cChainDB *gorm.DB,
 	eventHash string,
 	instructionID common.Hash,
+	sourceID common.Hash,
+	opType common.Hash,
 	senderAddress string,
 	recipientAddress string,
 	nonce uint64,
@@ -98,6 +105,7 @@ func seedTestData(
 	t.Helper()
 
 	msg := payments.ITeePaymentsPaymentInstructionMessage{
+		SourceId:         sourceID,
 		SenderAddress:    senderAddress,
 		RecipientAddress: recipientAddress,
 		Amount:           amount,
@@ -107,7 +115,7 @@ func seedTestData(
 		Nonce:            nonce,
 		SubNonce:         nonce,
 	}
-	eventData := encodePaymentEventData(t, teeABI, msg)
+	eventData := encodePaymentEventData(t, teeABI, opType, msg)
 
 	log := database.Log{
 		Topic0:          removeHexPrefix(eventHash),
@@ -174,7 +182,7 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	seedTestData(t, teeABI, xrpDB, cChainDB, eventHash, instructionID,
+	seedTestData(t, teeABI, xrpDB, cChainDB, eventHash, instructionID, sourceID, opType,
 		senderAddress, "rRecipient", nonce, big.NewInt(1000), big.NewInt(50), "12")
 
 	req := fdc2.IPMWPaymentStatusRequestBody{

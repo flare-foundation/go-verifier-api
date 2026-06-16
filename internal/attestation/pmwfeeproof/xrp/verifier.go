@@ -113,9 +113,14 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 			return nil, fmt.Errorf("nonce %d: %w", nonce, ErrMissingPayEvent)
 		}
 
-		payMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(payLog, x.Config.ParsedTeeInstructionsABI, op.Pay)
+		payMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(payLog, x.Config.ParsedTeeInstructionsABI, op.Pay, req.OpType)
 		if err != nil {
 			return nil, fmt.Errorf("cannot decode pay event for nonce %d: %w", nonce, err)
+		}
+		// Bind the decoded event to the request: instructionId commits to these
+		// fields, so a mismatch is C-chain index inconsistency.
+		if err := paymentdb.CheckInstructionConsistency(payMessage, common.Hash(sourceID), req.SenderAddress, nonce); err != nil {
+			return nil, fmt.Errorf("nonce %d: %w", nonce, err)
 		}
 
 		payMaxFee := payMessage.MaxFee
@@ -141,9 +146,14 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 				break
 			}
 
-			reissueMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(reissueResult.Log, x.Config.ParsedTeeInstructionsABI, op.Reissue)
+			reissueMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(reissueResult.Log, x.Config.ParsedTeeInstructionsABI, op.Reissue, req.OpType)
 			if err != nil {
 				return nil, fmt.Errorf("cannot decode reissue event for nonce %d, reissue %d: %w", nonce, reissueNum, err)
+			}
+			// Reissue instructionId commits to (sourceId, sender, nonce) too; bind the
+			// decoded event back to the request.
+			if err := paymentdb.CheckInstructionConsistency(reissueMessage, common.Hash(sourceID), req.SenderAddress, nonce); err != nil {
+				return nil, fmt.Errorf("nonce %d, reissue %d: %w", nonce, reissueNum, err)
 			}
 
 			// Residual: max(0, reissue_maxFee - pay_maxFee)

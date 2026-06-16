@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -51,15 +52,17 @@ func testABI(t *testing.T) abi.ABI {
 	return parsed
 }
 
-func encodeEventData(t *testing.T, teeABI abi.ABI, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
+func encodeEventData(t *testing.T, teeABI abi.ABI, opType common.Hash, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
 	msgArg := payments.MessageArguments[op.Pay]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	require.NoError(t, err)
+	opCommand, err := convert.StringToCommonHash(string(op.Pay))
+	require.NoError(t, err)
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
 		[]instructions.IMachineManagerTeeMachine{},
-		[32]byte{}, [32]byte{},
+		[32]byte(opType), [32]byte(opCommand),
 		msgBytes,
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),
 	)
@@ -99,6 +102,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 	require.NoError(t, err)
 
 	msg := payments.ITeePaymentsPaymentInstructionMessage{
+		SourceId:         sourceID,
 		SenderAddress:    senderAddress,
 		RecipientAddress: "rRecipient",
 		Amount:           big.NewInt(1000),
@@ -108,7 +112,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		Nonce:            nonce,
 		SubNonce:         nonce,
 	}
-	eventData := encodeEventData(t, teeABI, msg)
+	eventData := encodeEventData(t, teeABI, opType, msg)
 
 	require.NoError(t, cChainDB.Create(&database.Log{
 		Topic0:          stripHexPrefix(eventHash),
@@ -143,6 +147,59 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 			SubNonce:      nonce,
 		},
 	}
+}
+
+func TestVerifyEventInconsistency(t *testing.T) {
+	// A C-chain event whose decoded message disagrees with its own topic2
+	// (instruction ID) — simulating index corruption/tampering — must be
+	// rejected as a DB inconsistency before any response is built.
+	teeABI := testABI(t)
+	xrpDB := newTestDB(t, "inconsist_xrp", &paymentdb.DBTransaction{})
+	cChainDB := newTestDB(t, "inconsist_cchain", &database.Log{})
+
+	sourceID := common.HexToHash("0x1")
+	opType := common.HexToHash("0xAA")
+	senderAddress := "rSender"
+	nonce := uint64(42)
+
+	instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
+	require.NoError(t, err)
+	eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
+	require.NoError(t, err)
+
+	// Topic2 commits to nonce, but the stored message carries a different nonce.
+	msg := payments.ITeePaymentsPaymentInstructionMessage{
+		SourceId:      sourceID,
+		SenderAddress: senderAddress,
+		Amount:        big.NewInt(1000),
+		MaxFee:        big.NewInt(50),
+		TokenId:       []byte{},
+		FeeSchedule:   []byte{},
+		Nonce:         nonce + 1, // mismatch vs topic2 / request
+		SubNonce:      nonce,
+	}
+	require.NoError(t, cChainDB.Create(&database.Log{
+		Topic0:          stripHexPrefix(eventHash),
+		Topic1:          stripHexPrefix(common.HexToHash("").Hex()),
+		Topic2:          stripHexPrefix(instructionID.Hex()),
+		Data:            hex.EncodeToString(encodeEventData(t, teeABI, opType, msg)),
+		Address:         testContractAddressStored,
+		TransactionHash: fmt.Sprintf("%064x", nonce),
+		LogIndex:        nonce,
+	}).Error)
+
+	v := &XRPVerifier{
+		Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+		Config: &config.PMWPaymentStatusConfig{
+			ParsedTeeInstructionsABI: teeABI,
+			EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+		},
+	}
+	_, err = v.Verify(context.Background(), fdc2.IPMWPaymentStatusRequestBody{
+		OpType: opType, SenderAddress: senderAddress, Nonce: nonce, SubNonce: nonce,
+	})
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+	require.ErrorContains(t, err, "event Nonce")
 }
 
 func TestVerifyConcurrentErrors(t *testing.T) {
@@ -267,6 +324,7 @@ func TestVerify(t *testing.T) {
 		require.NoError(t, err)
 
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
+			SourceId:      sourceID,
 			SenderAddress: senderAddress,
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(50),
@@ -275,7 +333,7 @@ func TestVerify(t *testing.T) {
 			Nonce:         nonce,
 			SubNonce:      nonce,
 		}
-		eventData := encodeEventData(t, teeABI, msg)
+		eventData := encodeEventData(t, teeABI, opType, msg)
 
 		require.NoError(t, cChainDB.Create(&database.Log{
 			Topic0:          stripHexPrefix(eventHash),

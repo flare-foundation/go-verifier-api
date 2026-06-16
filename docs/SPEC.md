@@ -228,7 +228,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 1. Build instruction ID from `(opType, PAY, sourceID, senderAddress, nonce)` using ABI packing + keccak.
 2. Resolve `TeeInstructionsSent` event signature.
 3. Fetch matching event log from C-chain index DB (`topic0`, `topic1=0`, `topic2=instructionID`).
-4. Decode tee instruction message payload.
+4. Decode tee instruction message payload, binding the event back to the request against all instruction-ID inputs. The decoder (`DecodeTeeInstructionsSentEventData`) first checks the event wrapper's `OpType == req.OpType` and `OpCommand == PAY` (the PAY/REISSUE message schema alone does not prove the op), then `db.CheckInstructionConsistency` checks the decoded message's `SourceId`/`SenderAddress`/`Nonce` equal the values the instruction ID was built from. The `topic2 = keccak(opType, op, sourceId, sender, nonce)` query already commits to all of these, so any mismatch means the indexed event data disagrees with its own topic — a C-chain index inconsistency (`ErrDatabase` → 503). (`subNonce` is not checked: it is not part of the instruction ID and, under `maxBatchSize=1`, each instruction ID maps to a single payment — see §12.)
 5. Query source DB transaction by `(source_address, sequence=nonce)`.
 6. Parse raw source-chain transaction JSON. Reject if `TransactionType != "Payment"` — non-payment types (e.g. `AccountSet`, `TrustSet`) at the same `(sourceAddress, sequence)` cannot produce a payment status attestation.
 7. **Row-consistency check** (`db.CheckRowConsistency`): the identity fields parsed from the response JSON (`hash`, `Account`, `Sequence`) must match the row's indexed columns (`Hash`, `SourceAddress`, `Sequence`) before the response is trusted; a mismatch is treated as a DB inconsistency (`ErrDatabase` → 503). Response rows over `maxResponseSize` are rejected the same way.
@@ -272,7 +272,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 ### Primary flow (`XRPVerifier.Verify`)
 1. Validate nonce range.
 2. Compute pay instruction IDs for all nonces; batch fetch C-chain events (`topic2 IN (?)`).
-3. Per nonce: verify pay event exists, extract `maxFee`.
+3. Per nonce: verify pay event exists, extract `maxFee`. Each decoded pay and reissue event is bound back to the request against all instruction-ID inputs: the decoder checks the wrapper `OpType == req.OpType` and `OpCommand == PAY`/`REISSUE`, and `db.CheckInstructionConsistency` checks the message's `SourceId`/`SenderAddress`/`Nonce`; a mismatch is a C-chain index inconsistency (`ErrDatabase` → 503).
 4. Per nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found, `blockTimestamp > untilTimestamp`, or `reissueNumber == MaxReissuesPerNonce`). If the loop hits the cap and the next reissueNumber still exists in the indexer, return `ErrReissueLimitExceeded`. Otherwise add residual `max(0, reissue_maxFee - pay_maxFee)` for each scanned reissue.
 5. Sum as `estimatedFee`.
 6. Batch fetch XRP transactions (`sequence IN (?)`), parse `Fee`, sum as `actualFee`. Before trusting each `Fee`, the row passes the same consistency check as PMWPaymentStatus (`db.CheckRowConsistency`: parsed JSON `hash`/`Account`/`Sequence` must equal the row's columns) and a `maxResponseSize` cap; a mismatch or oversize row is a DB inconsistency (`ErrDatabase` → 503).
@@ -322,7 +322,7 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
   - fallback for unexpected verifier errors (should not occur for PMWMultisig in practice)
 - `503 Service Unavailable`:
   - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrFetchAccountInfo` (PMWMultisig)
-  - database infrastructure failure (connection, timeout), DB-row inconsistency (`CheckRowConsistency`: parsed JSON `hash`/`account`/`sequence` ≠ indexed columns), or response row exceeding `maxResponseSize` — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
+  - database infrastructure failure (connection, timeout); DB-row inconsistency (`CheckRowConsistency`: parsed JSON `hash`/`account`/`sequence` ≠ indexed columns); C-chain event-data inconsistency (decoder `OpType`/`OpCommand` and `CheckInstructionConsistency` `SourceId`/`SenderAddress`/`Nonce` ≠ the instruction ID inputs); or response row exceeding `maxResponseSize` — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
   - network errors from RPC calls — `ErrNetwork` (TEE)
   - RPC server-side errors — `ErrRPC` (TEE)
   - context deadline/canceled — `ErrContext` (TEE)
@@ -345,7 +345,7 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 - TEE availability server tests set `ALLOW_PRIVATE_NETWORKS=true` to allow `httptest` localhost URLs.
 
 ## 12. Operational Notes and Risks
-- `PMWPaymentStatus` request includes `subNonce`, but current DB query path keys by source address + nonce. Single payment per `instructionId` is enforced on the contract side (`TeePayments`), so each `instructionId` maps to exactly one message and one XRP transaction; the verifier therefore does not need to filter logs by `subNonce`. SubNonce filtering will be needed when UTXO chains are supported, or if contract-side batching is later enabled (`batchSize > 1`).
+- `PMWPaymentStatus` request includes `subNonce`, but the current DB query path keys by source address + nonce. Single payment per `instructionId` holds because of **deployment config**, not contract logic: `TeePayments` supports batching in general (`batchSize` payments share one `nonce`/`instructionId`, since `instructionId = keccak(opType, PAY, sourceId, sender, nonce)` excludes `subNonce`), but a per-instance `maxBatchSize` caps it (`setBatchSettings` requires `batchSize <= maxBatchSize`). The XRP/testXRP `TeePayments` instance is deployed with `maxBatchSize = 1`, so batching cannot be enabled and each `instructionId` maps to exactly one message and one XRP transaction; the verifier therefore does not need to filter logs by `subNonce`. If multiple events ever share an `instructionId`, `FetchInstructionLog` fails closed (`ErrDatabase`) rather than picking one. SubNonce filtering would be needed if a source's `maxBatchSize` is ever raised above 1, or for batched/UTXO sources.
 
 ### Accepted risks
 - **MagicPass bypass** (`verifier.go`): cannot admit a rogue TEE on-chain in a normal production deployment.

@@ -42,8 +42,15 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
-	paymentMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(chainLog, x.Config.ParsedTeeInstructionsABI, op.Pay)
+	paymentMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(chainLog, x.Config.ParsedTeeInstructionsABI, op.Pay, req.OpType)
 	if err != nil {
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
+	}
+	// Bind the decoded event back to the request. The instruction-ID topic already
+	// commits to these fields, so a mismatch means the indexed event data disagrees
+	// with its own topic — a C-chain index inconsistency (counterpart to the XRP row
+	// consistency check below).
+	if err := db.CheckInstructionConsistency(paymentMessage, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.Nonce); err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	dbTransaction, err := x.Repo.FetchTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})

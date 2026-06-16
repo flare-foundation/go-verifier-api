@@ -3,6 +3,9 @@ package db
 import (
 	"fmt"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 )
 
 // CheckRowConsistency verifies that the identity fields parsed from a row's
@@ -20,6 +23,30 @@ func CheckRowConsistency(jsonHash, jsonAccount string, jsonSequence uint64, tx D
 	}
 	if jsonSequence != tx.Sequence {
 		return fmt.Errorf("DB inconsistency: JSON Sequence %d != column Sequence %d: %w", jsonSequence, tx.Sequence, ErrDatabase)
+	}
+	return nil
+}
+
+// CheckInstructionConsistency verifies that the identity fields decoded from a
+// TeeInstructionsSent event agree with the (sourceID, senderAddress, nonce) the
+// verifier resolved the instruction ID from. Because instructionId is
+// keccak(opType, op, sourceId, senderAddress, nonce), a legitimately matched
+// event always agrees; a mismatch means the indexed event data disagrees with
+// its own topic — evidence of C-chain index corruption or partial write. This
+// is the C-chain-event counterpart to CheckRowConsistency for XRP rows; same
+// trust boundary (does not protect against a fully compromised indexer).
+// subNonce is intentionally not checked here: it is not part of the instruction
+// ID, and under maxBatchSize=1 each instruction ID maps to a single payment, so
+// there is nothing to disambiguate (see SPEC §12).
+func CheckInstructionConsistency(msg *payments.ITeePaymentsPaymentInstructionMessage, sourceID common.Hash, senderAddress string, nonce uint64) error {
+	if common.Hash(msg.SourceId) != sourceID {
+		return fmt.Errorf("DB inconsistency: event SourceId %s != expected %s: %w", common.Hash(msg.SourceId).Hex(), sourceID.Hex(), ErrDatabase)
+	}
+	if msg.SenderAddress != senderAddress {
+		return fmt.Errorf("DB inconsistency: event SenderAddress %q != expected %q: %w", msg.SenderAddress, senderAddress, ErrDatabase)
+	}
+	if msg.Nonce != nonce {
+		return fmt.Errorf("DB inconsistency: event Nonce %d != expected %d: %w", msg.Nonce, nonce, ErrDatabase)
 	}
 	return nil
 }

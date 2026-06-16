@@ -58,6 +58,7 @@ func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sour
 		}
 
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
+			SourceId:      sourceID,
 			SenderAddress: benchSender,
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(500),
@@ -66,7 +67,7 @@ func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sour
 			Nonce:         nonce,
 			SubNonce:      nonce,
 		}
-		eventData := testEncodeEvent(tb, teeABI, op.Pay, msg)
+		eventData := testEncodeEvent(tb, teeABI, op.Pay, opType, msg)
 
 		if err := cchainDB.Create(&database.Log{
 			Topic0:          trimHex(eventHash),

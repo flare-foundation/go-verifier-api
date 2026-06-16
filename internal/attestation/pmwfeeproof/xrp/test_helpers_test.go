@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -53,17 +54,21 @@ func testTeeABI(tb testing.TB) abi.ABI {
 	return parsed
 }
 
-func testEncodeEvent(tb testing.TB, teeABI abi.ABI, command op.Command, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
+func testEncodeEvent(tb testing.TB, teeABI abi.ABI, command op.Command, opType common.Hash, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	tb.Helper()
 	msgArg := payments.MessageArguments[command]
 	msgBytes, err := structs.Encode(msgArg, msg)
 	if err != nil {
 		tb.Fatalf("cannot encode message: %v", err)
 	}
+	opCommand, err := convert.StringToCommonHash(string(command))
+	if err != nil {
+		tb.Fatalf("cannot hash command: %v", err)
+	}
 	eventABI := teeABI.Events["TeeInstructionsSent"]
 	data, err := eventABI.Inputs.NonIndexed().Pack(
 		[]instructions.IMachineManagerTeeMachine{},
-		[32]byte{}, [32]byte{},
+		[32]byte(opType), [32]byte(opCommand),
 		msgBytes,
 		[]common.Address{}, uint64(0), common.Address{}, big.NewInt(0),
 	)
@@ -107,6 +112,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 		}
 
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
+			SourceId:      sourceID,
 			SenderAddress: senderAddress,
 			Amount:        big.NewInt(1000),
 			MaxFee:        big.NewInt(maxFees[i]),
@@ -115,7 +121,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 			Nonce:         nonce,
 			SubNonce:      nonce,
 		}
-		eventData := testEncodeEvent(tb, teeABI, op.Pay, msg)
+		eventData := testEncodeEvent(tb, teeABI, op.Pay, opType, msg)
 
 		if err := cChainDB.Create(&database.Log{
 			Topic0:          trimHex(eventHash),
@@ -174,6 +180,7 @@ func (f feeProofFixture) seedReissue(tb testing.TB, nonce, reissueNumber uint64,
 		tb.Fatal(err)
 	}
 	msg := payments.ITeePaymentsPaymentInstructionMessage{
+		SourceId:      f.sourceID,
 		SenderAddress: "rSender",
 		Amount:        big.NewInt(1000),
 		MaxFee:        big.NewInt(maxFee),
@@ -182,7 +189,7 @@ func (f feeProofFixture) seedReissue(tb testing.TB, nonce, reissueNumber uint64,
 		Nonce:         nonce,
 		SubNonce:      nonce,
 	}
-	eventData := testEncodeEvent(tb, f.teeABI, op.Reissue, msg)
+	eventData := testEncodeEvent(tb, f.teeABI, op.Reissue, f.opType, msg)
 	logIdx := nonce*1_000_000 + reissueNumber
 	if err := f.cChainDB.Create(&database.Log{
 		Topic0:          trimHex(eventHash),
