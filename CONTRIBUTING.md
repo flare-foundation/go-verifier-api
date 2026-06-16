@@ -59,6 +59,8 @@ golangci-lint run
 Full Scope of all files in repository for review and audits:
 
 ```
+cmd/main.go
+
 internal/api/handler/handler_util.go
 internal/api/handler/handler.go
 internal/api/handler/health.go
