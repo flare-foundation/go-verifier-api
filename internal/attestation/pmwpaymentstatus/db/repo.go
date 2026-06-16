@@ -76,17 +76,27 @@ func normalizeAddress(addr common.Address) string {
 }
 
 func (r *DBRepo) FetchTransactionBySourceAndSequence(ctx context.Context, query ChainQuery) (DBTransaction, error) {
-	var tx DBTransaction
+	// (source_address, sequence) is consumed exactly once per validated XRPL ledger,
+	// so this is expected to match at most one row. Fetch up to two (ordered by the
+	// Hash primary key) so a hypothetical indexer duplicate surfaces as an explicit
+	// error instead of a silently arbitrary pick — mirrors FetchInstructionLog and the
+	// PMWFeeProof batch fetch, both of which fail closed on duplicates.
+	var txs []DBTransaction
 	err := r.db.WithContext(ctx).
 		Where("source_address = ? AND sequence = ?", query.SourceAddress, query.Nonce).
-		First(&tx).Error
+		Order("hash ASC").
+		Limit(2).
+		Find(&txs).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return DBTransaction{}, fmt.Errorf("cannot fetch transaction for source %s, nonce %d: %w", query.SourceAddress, query.Nonce, ErrRecordNotFound)
-		}
 		return DBTransaction{}, fmt.Errorf("cannot fetch transaction for source %s, nonce %d: %w: %w", query.SourceAddress, query.Nonce, ErrDatabase, err)
 	}
-	return tx, nil
+	if len(txs) == 0 {
+		return DBTransaction{}, fmt.Errorf("cannot fetch transaction for source %s, nonce %d: %w", query.SourceAddress, query.Nonce, ErrRecordNotFound)
+	}
+	if len(txs) > 1 {
+		return DBTransaction{}, fmt.Errorf("duplicate transactions for source %s, nonce %d: %w", query.SourceAddress, query.Nonce, ErrDatabase)
+	}
+	return txs[0], nil
 }
 
 func removeHexPrefix(s string) string {

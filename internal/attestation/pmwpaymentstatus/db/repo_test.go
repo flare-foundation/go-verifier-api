@@ -166,3 +166,25 @@ func TestFetchTransactionBySourceAndSequence_Success(t *testing.T) {
 	require.Equal(t, "hash1", tx.Hash)
 	require.Equal(t, uint64(42), tx.Sequence)
 }
+
+func TestFetchTransactionBySourceAndSequence_DuplicateRowsAreRejected(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&DBTransaction{}))
+	// Two rows for the same (source_address, sequence) but different Hash — an
+	// honest XRPL indexer can't produce this (sequence is consumed once), so it
+	// must fail closed rather than silently pick one.
+	for _, h := range []string{"hashA", "hashB"} {
+		require.NoError(t, db.Create(&DBTransaction{
+			Hash:          h,
+			SourceAddress: "rSender",
+			Sequence:      42,
+			Response:      `{"Fee":"12"}`,
+		}).Error)
+	}
+
+	repo := NewDBRepo(db, nil, testContractAddress)
+	_, err = repo.FetchTransactionBySourceAndSequence(context.Background(), ChainQuery{SourceAddress: "rSender", Nonce: 42})
+	require.ErrorIs(t, err, ErrDatabase)
+	require.ErrorContains(t, err, "duplicate transactions")
+}
