@@ -131,7 +131,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 			TokenId:          []byte{},
 			FeeSchedule:      []byte{},
 			Nonce:            nonce,
-			SubNonce:         nonce,
+			PaymentId:        nonce,
 		}
 		eventData := encodePaymentEventData(t, teeABI, op.Pay, opType, msg)
 

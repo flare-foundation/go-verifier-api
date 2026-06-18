@@ -53,7 +53,7 @@ func PMWPaymentStatusRequestBody(t *testing.T, data fdc2.IPMWPaymentStatusReques
 		OpType:        data.OpType,
 		SenderAddress: data.SenderAddress,
 		Nonce:         data.Nonce,
-		SubNonce:      data.SubNonce,
+		PaymentId:     data.PaymentId,
 	}
 }
 

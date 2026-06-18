@@ -12,7 +12,7 @@ type PMWPaymentStatusRequestBody struct {
 	OpType        common.Hash `json:"opType" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	SenderAddress string      `json:"senderAddress" validate:"required" example:"abcdef"`
 	Nonce         uint64      `json:"nonce" validate:"required" example:"1"`
-	SubNonce      uint64      `json:"subNonce" validate:"required" example:"1"`
+	PaymentId     uint64      `json:"paymentId" validate:"required" example:"1"`
 }
 
 func (requestBody PMWPaymentStatusRequestBody) ToInternal() (fdc2.IPMWPaymentStatusRequestBody, error) {
@@ -20,7 +20,7 @@ func (requestBody PMWPaymentStatusRequestBody) ToInternal() (fdc2.IPMWPaymentSta
 		OpType:        requestBody.OpType,
 		SenderAddress: requestBody.SenderAddress,
 		Nonce:         requestBody.Nonce,
-		SubNonce:      requestBody.SubNonce,
+		PaymentId:     requestBody.PaymentId,
 	}, nil
 }
 
@@ -74,6 +74,6 @@ func (s PMWPaymentStatusResponseBody) Log() {
 }
 
 func LogPMWPaymentStatusRequestBody(req fdc2.IPMWPaymentStatusRequestBody) {
-	logger.Debugf("PMWPaymentStatus request: OpType=%s, SenderAddress=%s, Nonce=%d, SubNonce=%d",
-		convert.CommonHashToString(req.OpType), req.SenderAddress, req.Nonce, req.SubNonce)
+	logger.Debugf("PMWPaymentStatus request: OpType=%s, SenderAddress=%s, Nonce=%d, PaymentId=%d",
+		convert.CommonHashToString(req.OpType), req.SenderAddress, req.Nonce, req.PaymentId)
 }

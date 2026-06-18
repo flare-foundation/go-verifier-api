@@ -156,7 +156,7 @@ type PMWPaymentStatusRequestBody struct {
 	OpType 		  [32]byte
 	SenderAddress string
 	Nonce    	  uint64
-	SubNonce 	  uint64
+	PaymentId 	  uint64
 }
 ```
 | Field    		| Description
@@ -164,7 +164,7 @@ type PMWPaymentStatusRequestBody struct {
 | OpType   		| Hex-encoded 32-byte operational type
 | SenderAddress | Sender address
 | Nonce    		| Batch nonce of the payment instruction
-| SubNonce 		| Sequence number of the payment instruction
+| PaymentId 		| Sequence number of the payment instruction
 
 ```go
 type IPMWPaymentStatusResponseBody struct {

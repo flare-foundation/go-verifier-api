@@ -77,7 +77,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 			TokenId:          []byte{},
 			FeeSchedule:      []byte{},
 			Nonce:            42,
-			SubNonce:         42,
+			PaymentId:        42,
 		}
 		eventData := encodeTestEvent(t, teeABI, opType, msg)
 
@@ -90,7 +90,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		require.Equal(t, big.NewInt(1000), decoded.Amount)
 		require.Equal(t, big.NewInt(50), decoded.MaxFee)
 		require.Equal(t, uint64(42), decoded.Nonce)
-		require.Equal(t, uint64(42), decoded.SubNonce)
+		require.Equal(t, uint64(42), decoded.PaymentId)
 	})
 
 	t.Run("nil log data returns error", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 	t.Run("OpType mismatch fails closed", func(t *testing.T) {
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: "rSender", Amount: big.NewInt(1000), MaxFee: big.NewInt(50),
-			TokenId: []byte{}, FeeSchedule: []byte{}, Nonce: 42, SubNonce: 42,
+			TokenId: []byte{}, FeeSchedule: []byte{}, Nonce: 42, PaymentId: 42,
 		}
 		log := &ethtypes.Log{Data: encodeTestEvent(t, teeABI, opType, msg)}
 		// Event was encoded with opType 0xAA; decode expecting a different opType.
@@ -164,7 +164,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 	t.Run("OpCommand mismatch fails closed", func(t *testing.T) {
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: "rSender", Amount: big.NewInt(1000), MaxFee: big.NewInt(50),
-			TokenId: []byte{}, FeeSchedule: []byte{}, Nonce: 42, SubNonce: 42,
+			TokenId: []byte{}, FeeSchedule: []byte{}, Nonce: 42, PaymentId: 42,
 		}
 		// Event encoded with OpCommand=PAY; decode expecting REISSUE.
 		log := &ethtypes.Log{Data: encodeTestEvent(t, teeABI, opType, msg)}
@@ -176,7 +176,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 	t.Run("unconvertible command is rejected", func(t *testing.T) {
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SenderAddress: "rSender", Amount: big.NewInt(1000), MaxFee: big.NewInt(50),
-			TokenId: []byte{}, FeeSchedule: []byte{}, Nonce: 42, SubNonce: 42,
+			TokenId: []byte{}, FeeSchedule: []byte{}, Nonce: 42, PaymentId: 42,
 		}
 		log := &ethtypes.Log{Data: encodeTestEvent(t, teeABI, opType, msg)}
 		// A command longer than 32 bytes cannot be hashed to a Bytes32 — exercises the

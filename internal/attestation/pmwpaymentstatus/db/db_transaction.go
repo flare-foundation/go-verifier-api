@@ -35,7 +35,7 @@ func CheckRowConsistency(jsonHash, jsonAccount string, jsonSequence uint64, tx D
 // its own topic — evidence of C-chain index corruption or partial write. This
 // is the C-chain-event counterpart to CheckRowConsistency for XRP rows; same
 // trust boundary (does not protect against a fully compromised indexer).
-// subNonce is intentionally not checked here: it is not part of the instruction
+// paymentId is intentionally not checked here: it is not part of the instruction
 // ID, and under maxBatchSize=1 each instruction ID maps to a single payment, so
 // there is nothing to disambiguate (see SPEC §12).
 func CheckInstructionConsistency(msg *payments.ITeePaymentsPaymentInstructionMessage, sourceID common.Hash, senderAddress string, nonce uint64) error {

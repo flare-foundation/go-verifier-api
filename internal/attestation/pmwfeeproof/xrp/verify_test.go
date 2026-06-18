@@ -74,7 +74,7 @@ func TestVerifyFeeProof(t *testing.T) {
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SourceId: common.HexToHash("0x2"), SenderAddress: "rSender",
 			Amount: big.NewInt(1000), MaxFee: big.NewInt(50), TokenId: []byte{}, FeeSchedule: []byte{},
-			Nonce: nonce, SubNonce: nonce,
+			Nonce: nonce, PaymentId: nonce,
 		}
 		require.NoError(t, cChainDB.Create(&database.Log{
 			Topic0: trimHex(eventHash), Topic1: trimHex(common.HexToHash("").Hex()), Topic2: trimHex(payID.Hex()),
@@ -103,7 +103,7 @@ func TestVerifyFeeProof(t *testing.T) {
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SourceId: common.HexToHash("0x2"), SenderAddress: "rSender", // SourceId mismatch
 			Amount: big.NewInt(1000), MaxFee: big.NewInt(60), TokenId: []byte{}, FeeSchedule: []byte{},
-			Nonce: 100, SubNonce: 100,
+			Nonce: 100, PaymentId: 100,
 		}
 		require.NoError(t, f.cChainDB.Create(&database.Log{
 			Topic0: trimHex(eventHash), Topic1: trimHex(common.HexToHash("").Hex()), Topic2: trimHex(reissueID.Hex()),
@@ -158,7 +158,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			TokenId:       []byte{},
 			FeeSchedule:   []byte{},
 			Nonce:         nonce,
-			SubNonce:      nonce,
+			PaymentId:     nonce,
 		}
 		eventData := testEncodeEvent(t, teeABI, op.Pay, opType, msg)
 

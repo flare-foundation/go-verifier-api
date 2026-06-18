@@ -65,7 +65,7 @@ func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sour
 			TokenId:       []byte{},
 			FeeSchedule:   []byte{},
 			Nonce:         nonce,
-			SubNonce:      nonce,
+			PaymentId:     nonce,
 		}
 		eventData := testEncodeEvent(tb, teeABI, op.Pay, opType, msg)
 

@@ -110,7 +110,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		TokenId:          []byte{},
 		FeeSchedule:      []byte{},
 		Nonce:            nonce,
-		SubNonce:         nonce,
+		PaymentId:        nonce,
 	}
 	eventData := encodeEventData(t, teeABI, opType, msg)
 
@@ -144,7 +144,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 			OpType:        opType,
 			SenderAddress: senderAddress,
 			Nonce:         nonce,
-			SubNonce:      nonce,
+			PaymentId:     nonce,
 		},
 	}
 }
@@ -176,7 +176,7 @@ func TestVerifyEventInconsistency(t *testing.T) {
 		TokenId:       []byte{},
 		FeeSchedule:   []byte{},
 		Nonce:         nonce + 1, // mismatch vs topic2 / request
-		SubNonce:      nonce,
+		PaymentId:     nonce,
 	}
 	require.NoError(t, cChainDB.Create(&database.Log{
 		Topic0:          stripHexPrefix(eventHash),
@@ -196,7 +196,7 @@ func TestVerifyEventInconsistency(t *testing.T) {
 		},
 	}
 	_, err = v.Verify(context.Background(), fdc2.IPMWPaymentStatusRequestBody{
-		OpType: opType, SenderAddress: senderAddress, Nonce: nonce, SubNonce: nonce,
+		OpType: opType, SenderAddress: senderAddress, Nonce: nonce, PaymentId: nonce,
 	})
 	require.ErrorIs(t, err, paymentdb.ErrDatabase)
 	require.ErrorContains(t, err, "event Nonce")
@@ -331,7 +331,7 @@ func TestVerify(t *testing.T) {
 			TokenId:       []byte{},
 			FeeSchedule:   []byte{},
 			Nonce:         nonce,
-			SubNonce:      nonce,
+			PaymentId:     nonce,
 		}
 		eventData := encodeEventData(t, teeABI, opType, msg)
 
@@ -354,7 +354,7 @@ func TestVerify(t *testing.T) {
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
-			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, SubNonce: nonce,
+			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, PaymentId: nonce,
 		}
 		_, err = v.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "record not found")
@@ -394,7 +394,7 @@ func TestVerify(t *testing.T) {
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
-			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, SubNonce: nonce,
+			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, PaymentId: nonce,
 		}
 		_, err = v.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot decode event")

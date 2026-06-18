@@ -113,7 +113,7 @@ func seedTestData(
 		TokenId:          []byte{},
 		FeeSchedule:      []byte{},
 		Nonce:            nonce,
-		SubNonce:         nonce,
+		PaymentId:        nonce,
 	}
 	eventData := encodePaymentEventData(t, teeABI, opType, msg)
 
@@ -189,7 +189,7 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 		OpType:        opType,
 		SenderAddress: senderAddress,
 		Nonce:         nonce,
-		SubNonce:      nonce,
+		PaymentId:     nonce,
 	}
 
 	const (

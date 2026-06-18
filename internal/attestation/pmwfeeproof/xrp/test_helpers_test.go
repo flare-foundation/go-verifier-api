@@ -119,7 +119,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 			TokenId:       []byte{},
 			FeeSchedule:   []byte{},
 			Nonce:         nonce,
-			SubNonce:      nonce,
+			PaymentId:     nonce,
 		}
 		eventData := testEncodeEvent(tb, teeABI, op.Pay, opType, msg)
 
@@ -187,7 +187,7 @@ func (f feeProofFixture) seedReissue(tb testing.TB, nonce, reissueNumber uint64,
 		TokenId:       []byte{},
 		FeeSchedule:   []byte{},
 		Nonce:         nonce,
-		SubNonce:      nonce,
+		PaymentId:     nonce,
 	}
 	eventData := testEncodeEvent(tb, f.teeABI, op.Reissue, f.opType, msg)
 	logIdx := nonce*1_000_000 + reissueNumber

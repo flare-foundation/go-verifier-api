@@ -41,7 +41,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		OpType:        opType,
 		SenderAddress: testSenderAddress,
 		Nonce:         nonce,
-		SubNonce:      nonce,
+		PaymentId:     nonce,
 	}
 	desiredURL := setup.URL + "/prepareRequestBody"
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
@@ -187,7 +187,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: verification failed - not found in xrp indexer", func(t *testing.T) { // Using fake entry log (19) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 10
-		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 10
+		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 10
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -199,7 +199,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: verification failed - cannot decode event data (ABI unpack)", func(t *testing.T) { // Using fake entry log (20) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 1
-		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 1
+		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -211,7 +211,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: verification failed - cannot unmarshal XRP transaction", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 2
-		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 2
+		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 2
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -223,7 +223,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: verification failed - missing transaction result", func(t *testing.T) { // Using fake entry log (22) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c5.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 3
-		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 3
+		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 3
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -235,7 +235,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: verification failed - cannot build payment status response", func(t *testing.T) { // Using fake entry log (23) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c6.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 4
-		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 4
+		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 4
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
@@ -247,7 +247,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: verification failed - cannot decode event data message", func(t *testing.T) { // Using fake entry log (24) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.Nonce = baseReqBody.Nonce + 5
-		modifiedReqBody.SubNonce = baseReqBody.SubNonce + 5
+		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 5
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
