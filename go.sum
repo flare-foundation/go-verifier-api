@@ -72,8 +72,16 @@ github.com/ferranbt/fastssz v0.1.4 h1:OCDB+dYDEQDvAgtAGnTSidK1Pe2tW3nFV40XyMkTeD
 github.com/ferranbt/fastssz v0.1.4/go.mod h1:Ea3+oeoRGGLGm5shYAeDgu6PGUlcvQhE2fILyD9+tGg=
 github.com/flare-foundation/go-flare-common v1.2.2-0.20260618121118-68e23d2e1f2d h1:pB5QGE1P6VZ5HIJdYWQJ2SeYhixpaJA2Sfeb4pA6wXg=
 github.com/flare-foundation/go-flare-common v1.2.2-0.20260618121118-68e23d2e1f2d/go.mod h1:H9I3pwQAyiOK+jC7tFHYRZa5qxDeOldW+5VpRiUs6rA=
+github.com/flare-foundation/go-flare-common v1.2.2-0.20260619073901-63749179eaf9 h1:gpTc+kkG2yCt+JNqpc5NtyjW+8acwMXG1F9QCbFX7Iw=
+github.com/flare-foundation/go-flare-common v1.2.2-0.20260619073901-63749179eaf9/go.mod h1:H9I3pwQAyiOK+jC7tFHYRZa5qxDeOldW+5VpRiUs6rA=
+github.com/flare-foundation/go-flare-common v1.2.2-0.20260619084703-2db6dc601980 h1:8Fp7GV0H9EA9AM0qBSqo1BBy1Fb8w++VhRC7LKfoVN4=
+github.com/flare-foundation/go-flare-common v1.2.2-0.20260619084703-2db6dc601980/go.mod h1:H9I3pwQAyiOK+jC7tFHYRZa5qxDeOldW+5VpRiUs6rA=
+github.com/flare-foundation/go-flare-common v1.2.2-0.20260619092858-10bd8c2bb674 h1:MkhqBj37HSCzElwGXATDWYj0Nryony/8KPvInLpaN+o=
+github.com/flare-foundation/go-flare-common v1.2.2-0.20260619092858-10bd8c2bb674/go.mod h1:H9I3pwQAyiOK+jC7tFHYRZa5qxDeOldW+5VpRiUs6rA=
 github.com/flare-foundation/tee-node v0.0.21-0.20260615093907-0f5dc559529e h1:JNS2A3hfXTyo64DSAndhxo/e8B6+e2R4XmykfG3TloI=
 github.com/flare-foundation/tee-node v0.0.21-0.20260615093907-0f5dc559529e/go.mod h1:M3dgxCp3Zr9y3I2VanUJYNTN2uJm8RUt95gLxzN79Vc=
+github.com/flare-foundation/tee-node v0.0.21-0.20260619113727-bd174a5aa450 h1:Zsd3mThItMv0ozOdJOGRdaRiuiXaDLWYK+07ZT++bVk=
+github.com/flare-foundation/tee-node v0.0.21-0.20260619113727-bd174a5aa450/go.mod h1:PRlIEYbM+EcsLpnaDYHbnNruLBy8neWxKZE7v23zn0M=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
 github.com/fsnotify/fsnotify v1.5.4/go.mod h1:OVB6XrOHzAwXMpEM7uPOzcehqUV2UqJxmVXmkdnm1bU=
