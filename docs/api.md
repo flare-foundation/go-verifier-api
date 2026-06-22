@@ -169,9 +169,9 @@ type PMWPaymentStatusRequestBody struct {
 ```go
 type IPMWPaymentStatusResponseBody struct {
 	RecipientAddress  string
-	TokenID 		  [32]byte
+	TokenID 		  []byte
 	Amount            *big.Int
-	Fee               *big.Int
+	MaxFee            *big.Int
 	PaymentReference  [32]byte
 	TransactionStatus uint8
 	RevertReason      string
@@ -185,9 +185,9 @@ type IPMWPaymentStatusResponseBody struct {
 | Field             | Description          |
 |-------------------|----------------------|
 | RecipientAddress  | Recipient from the payment instruction message
-| TokenID			| Token ID (e.g. address) for the payment, bytes32(0) represents native token
+| TokenID			| Token ID for the payment; empty represents the native token
 | Amount            | Amount from the payment instruction message
-| Fee               | Fee from the payment instruction message
+| MaxFee            | Max fee from the payment instruction message
 | PaymentReference  | Payment reference from the payment instruction message
 | TransactionStatus | Enum 	TransactionStatus { Success, Reverted }
 | RevertReason      | Reason for transaction failure (blockchain-specific)
