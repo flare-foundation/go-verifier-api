@@ -52,7 +52,6 @@ func PMWPaymentStatusRequestBody(t *testing.T, data fdc2.IPMWPaymentStatusReques
 	return types.PMWPaymentStatusRequestBody{
 		OpType:        data.OpType,
 		SenderAddress: data.SenderAddress,
-		Nonce:         data.Nonce,
 		PaymentId:     data.PaymentId,
 	}
 }
@@ -62,8 +61,8 @@ func PMWFeeProofRequestBody(t *testing.T, data fdc2.IPMWFeeProofRequestBody) typ
 	return types.PMWFeeProofRequestBody{
 		OpType:         data.OpType,
 		SenderAddress:  data.SenderAddress,
-		FromNonce:      data.FromNonce,
-		ToNonce:        data.ToNonce,
+		FirstPaymentId: data.FirstPaymentId,
+		BatchCount:     data.BatchCount,
 		UntilTimestamp: data.UntilTimestamp,
 	}
 }

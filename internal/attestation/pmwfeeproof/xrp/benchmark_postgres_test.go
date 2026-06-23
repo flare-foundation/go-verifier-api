@@ -36,10 +36,10 @@ import (
 )
 
 const (
-	benchPostgresURL = "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable"
-	benchMysqlURL    = "root:root@tcp(127.0.0.1:3306)/db?parseTime=true"
-	benchSender      = "rBenchSender_fee_proof_9999"
-	benchBaseNonce   = uint64(900000)
+	benchPostgresURL   = "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable"
+	benchMysqlURL      = "root:root@tcp(127.0.0.1:3306)/db?parseTime=true"
+	benchSender        = "rBenchSender_fee_proof_9999"
+	benchBasePaymentId = uint64(900000)
 )
 
 func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sourceID, opType common.Hash, count uint64) {
@@ -51,7 +51,7 @@ func seedBenchData(tb testing.TB, xrpDB, cchainDB *gorm.DB, teeABI abi.ABI, sour
 	}
 
 	for i := range count {
-		nonce := benchBaseNonce + i
+		nonce := benchBasePaymentId + i
 		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, benchSender, nonce)
 		if err != nil {
 			tb.Fatal(err)
@@ -98,9 +98,9 @@ func cleanupBenchData(xrpDB, cchainDB *gorm.DB) {
 }
 
 func TestBenchmarkFeeProofPostgres(t *testing.T) {
-	origMax := MaxNonceRange
-	MaxNonceRange = 1100
-	defer func() { MaxNonceRange = origMax }()
+	origMax := MaxBatchRange
+	MaxBatchRange = 1100
+	defer func() { MaxBatchRange = origMax }()
 
 	xrpDB, err := gorm.Open(postgres.Open(benchPostgresURL), &gorm.Config{Logger: gormlogger.Discard})
 	if err != nil {
@@ -122,9 +122,9 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 	sourceID := common.HexToHash("0x1")
 	opType := common.HexToHash("0xAA")
 
-	// Seed max data needed (1000 nonces). Smaller counts reuse a subset.
+	// Seed max data needed (1000 payments). Smaller counts reuse a subset.
 	maxCount := uint64(1000)
-	t.Logf("Seeding %d nonces into Postgres + MySQL...", maxCount)
+	t.Logf("Seeding %d payments into Postgres + MySQL...", maxCount)
 	seedBenchData(t, xrpDB, cchainDB, teeABI, sourceID, opType, maxCount)
 	defer cleanupBenchData(xrpDB, cchainDB)
 
@@ -155,15 +155,15 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 		req := fdc2.IPMWFeeProofRequestBody{
 			OpType:         opType,
 			SenderAddress:  benchSender,
-			FromNonce:      benchBaseNonce,
-			ToNonce:        benchBaseNonce + count - 1,
+			FirstPaymentId: benchBasePaymentId,
+			BatchCount:     count,
 			UntilTimestamp: 1800000000,
 		}
 
 		// Warmup.
 		for range 3 {
 			if _, err := v.Verify(context.Background(), req); err != nil {
-				t.Fatalf("warmup failed for %d nonces: %v", count, err)
+				t.Fatalf("warmup failed for %d payments: %v", count, err)
 			}
 		}
 
@@ -173,7 +173,7 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 			_, err := v.Verify(context.Background(), req)
 			durations[i] = float64(time.Since(start).Microseconds()) / 1000.0
 			if err != nil {
-				t.Fatalf("iteration %d failed for %d nonces: %v", i, count, err)
+				t.Fatalf("iteration %d failed for %d payments: %v", i, count, err)
 			}
 		}
 
@@ -197,7 +197,7 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 			medMs: durations[len(durations)/2],
 		})
 
-		t.Logf("  %4d nonces: avg=%.2fms  min=%.2fms  max=%.2fms  p95=%.2fms",
+		t.Logf("  %4d payments: avg=%.2fms  min=%.2fms  max=%.2fms  p95=%.2fms",
 			count, avg, durations[0], durations[len(durations)-1], durations[p95Idx])
 	}
 
@@ -207,33 +207,33 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 	t.Log("║              PMWFeeProof Benchmark — Postgres + MySQL (Docker)                  ║")
 	t.Logf("║  Iterations: %-4d                                                               ║", iterations)
 	t.Log("╠══════════╦══════════╦══════════╦══════════╦══════════╦══════════╦═════════════════╣")
-	t.Log("║  Nonces  ║ Avg (ms) ║ Med (ms) ║ Min (ms) ║ Max (ms) ║ P95 (ms) ║  Per-nonce (ms) ║")
+	t.Log("║ Payments ║ Avg (ms) ║ Med (ms) ║ Min (ms) ║ Max (ms) ║ P95 (ms) ║ Per-payment (ms)║")
 	t.Log("╠══════════╬══════════╬══════════╬══════════╬══════════╬══════════╬═════════════════╣")
 	for _, r := range results {
-		perNonce := r.avgMs / float64(r.count)
+		perPayment := r.avgMs / float64(r.count)
 		t.Logf("║  %6d  ║ %8.2f ║ %8.2f ║ %8.2f ║ %8.2f ║ %8.2f ║  %13.4f  ║",
-			r.count, r.avgMs, r.medMs, r.minMs, r.maxMs, r.p95Ms, perNonce)
+			r.count, r.avgMs, r.medMs, r.minMs, r.maxMs, r.p95Ms, perPayment)
 	}
 	t.Log("╚══════════╩══════════╩══════════╩══════════╩══════════╩══════════╩═════════════════╝")
 
 	// Scaling analysis.
 	t.Log("")
 	if len(results) >= 2 {
-		r100 := results[3] // 100 nonces
+		r100 := results[3] // 100 payments
 		r1000 := results[len(results)-1]
-		perNonce100 := r100.avgMs / float64(r100.count)
-		perNonce1000 := r1000.avgMs / float64(r1000.count)
-		ratio := perNonce1000 / perNonce100
-		t.Logf("Per-nonce cost at 100: %.4f ms", perNonce100)
-		t.Logf("Per-nonce cost at 1000: %.4f ms", perNonce1000)
+		perPayment100 := r100.avgMs / float64(r100.count)
+		perPayment1000 := r1000.avgMs / float64(r1000.count)
+		ratio := perPayment1000 / perPayment100
+		t.Logf("Per-payment cost at 100: %.4f ms", perPayment100)
+		t.Logf("Per-payment cost at 1000: %.4f ms", perPayment1000)
 		t.Logf("Scaling factor: %.2fx", ratio)
 
 		if ratio < 1.5 {
-			t.Log("Verdict: LINEAR — MaxNonceRange can safely be increased")
+			t.Log("Verdict: LINEAR — MaxBatchRange can safely be increased")
 		} else if ratio < 3.0 {
-			t.Log("Verdict: MODERATE BEND — current MaxNonceRange is reasonable")
+			t.Log("Verdict: MODERATE BEND — current MaxBatchRange is reasonable")
 		} else {
-			t.Log("Verdict: SUPERLINEAR — consider keeping MaxNonceRange low")
+			t.Log("Verdict: SUPERLINEAR — consider keeping MaxBatchRange low")
 		}
 	}
 }
@@ -242,9 +242,9 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 // Run: docker compose -f internal/tests/docker/docker-compose.yaml up -d
 // Then: go test -tags docker_bench -run TestBenchmarkFeeProofConcurrent -v ./internal/attestation/pmwfeeproof/xrp/
 func TestBenchmarkFeeProofConcurrent(t *testing.T) {
-	origMax := MaxNonceRange
-	MaxNonceRange = 1100
-	defer func() { MaxNonceRange = origMax }()
+	origMax := MaxBatchRange
+	MaxBatchRange = 1100
+	defer func() { MaxBatchRange = origMax }()
 
 	xrpDB, err := gorm.Open(postgres.Open(benchPostgresURL), &gorm.Config{Logger: gormlogger.Discard})
 	if err != nil {
@@ -276,7 +276,7 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 	opType := common.HexToHash("0xAA")
 
 	maxCount := uint64(1000)
-	t.Logf("Seeding %d nonces into Postgres + MySQL...", maxCount)
+	t.Logf("Seeding %d payments into Postgres + MySQL...", maxCount)
 	seedBenchData(t, xrpDB, cchainDB, teeABI, sourceID, opType, maxCount)
 	defer cleanupBenchData(xrpDB, cchainDB)
 
@@ -290,8 +290,8 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 	}
 
 	type concScenario struct {
-		nonces      uint64
-		concurrency int
+		paymentCount uint64
+		concurrency  int
 	}
 
 	scenarios := []concScenario{
@@ -316,14 +316,14 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 	iterations := 30
 
 	type concResult struct {
-		nonces      uint64
-		concurrency int
-		avgMs       float64
-		medMs       float64
-		p95Ms       float64
-		maxMs       float64
-		throughput  float64 // requests/sec
-		errCount    int
+		paymentCount uint64
+		concurrency  int
+		avgMs        float64
+		medMs        float64
+		p95Ms        float64
+		maxMs        float64
+		throughput   float64 // requests/sec
+		errCount     int
 	}
 
 	var results []concResult
@@ -332,8 +332,8 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 		req := fdc2.IPMWFeeProofRequestBody{
 			OpType:         opType,
 			SenderAddress:  benchSender,
-			FromNonce:      benchBaseNonce,
-			ToNonce:        benchBaseNonce + sc.nonces - 1,
+			FirstPaymentId: benchBasePaymentId,
+			BatchCount:     sc.paymentCount,
 			UntilTimestamp: 1800000000,
 		}
 
@@ -390,19 +390,19 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 		throughput := float64(sc.concurrency) * 1000.0 / avg // req/s based on avg latency
 
 		r := concResult{
-			nonces:      sc.nonces,
-			concurrency: sc.concurrency,
-			avgMs:       avg,
-			medMs:       allDurations[n/2],
-			p95Ms:       allDurations[p95Idx],
-			maxMs:       allDurations[n-1],
-			throughput:  throughput,
-			errCount:    errCount,
+			paymentCount: sc.paymentCount,
+			concurrency:  sc.concurrency,
+			avgMs:        avg,
+			medMs:        allDurations[n/2],
+			p95Ms:        allDurations[p95Idx],
+			maxMs:        allDurations[n-1],
+			throughput:   throughput,
+			errCount:     errCount,
 		}
 		results = append(results, r)
 
-		t.Logf("  %4d nonces × %2d concurrent: avg=%.1fms  p95=%.1fms  max=%.1fms  throughput=%.1f req/s  errors=%d",
-			sc.nonces, sc.concurrency, r.avgMs, r.p95Ms, r.maxMs, r.throughput, r.errCount)
+		t.Logf("  %4d payments × %2d concurrent: avg=%.1fms  p95=%.1fms  max=%.1fms  throughput=%.1f req/s  errors=%d",
+			sc.paymentCount, sc.concurrency, r.avgMs, r.p95Ms, r.maxMs, r.throughput, r.errCount)
 	}
 
 	// Print summary table.
@@ -411,30 +411,30 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 	t.Log("║                PMWFeeProof Concurrent Benchmark — Postgres + MySQL (Docker)                  ║")
 	t.Logf("║  Iterations per scenario: %-4d                                                               ║", iterations)
 	t.Log("╠═════════╦═══════╦══════════╦══════════╦══════════╦══════════╦════════════╦════════════════════╣")
-	t.Log("║ Nonces  ║ Conc  ║ Avg (ms) ║ Med (ms) ║ P95 (ms) ║ Max (ms) ║  Req/s     ║  Errors            ║")
+	t.Log("║ Payments  ║ Conc  ║ Avg (ms) ║ Med (ms) ║ P95 (ms) ║ Max (ms) ║  Req/s     ║  Errors            ║")
 	t.Log("╠═════════╬═══════╬══════════╬══════════╬══════════╬══════════╬════════════╬════════════════════╣")
 	for _, r := range results {
 		t.Logf("║  %5d  ║  %3d  ║ %8.1f ║ %8.1f ║ %8.1f ║ %8.1f ║ %8.1f   ║  %16d  ║",
-			r.nonces, r.concurrency, r.avgMs, r.medMs, r.p95Ms, r.maxMs, r.throughput, r.errCount)
+			r.paymentCount, r.concurrency, r.avgMs, r.medMs, r.p95Ms, r.maxMs, r.throughput, r.errCount)
 	}
 	t.Log("╚═════════╩═══════╩══════════╩══════════╩══════════╩══════════╩════════════╩════════════════════╝")
 
 	// Concurrency impact analysis.
 	t.Log("")
-	for _, nonces := range []uint64{100, 200, 300, 500} {
+	for _, paymentCount := range []uint64{100, 200, 300, 500} {
 		var baseline, max20 concResult
 		for _, r := range results {
-			if r.nonces == nonces && r.concurrency == 1 {
+			if r.paymentCount == paymentCount && r.concurrency == 1 {
 				baseline = r
 			}
-			if r.nonces == nonces && r.concurrency == 20 {
+			if r.paymentCount == paymentCount && r.concurrency == 20 {
 				max20 = r
 			}
 		}
 		if baseline.avgMs > 0 && max20.avgMs > 0 {
 			slowdown := max20.avgMs / baseline.avgMs
-			t.Logf("%d nonces: 1→20 concurrent slowdown: %.2fx (%.1fms → %.1fms avg, p95: %.1fms → %.1fms)",
-				nonces, slowdown, baseline.avgMs, max20.avgMs, baseline.p95Ms, max20.p95Ms)
+			t.Logf("%d payments: 1→20 concurrent slowdown: %.2fx (%.1fms → %.1fms avg, p95: %.1fms → %.1fms)",
+				paymentCount, slowdown, baseline.avgMs, max20.avgMs, baseline.p95Ms, max20.p95Ms)
 		}
 	}
 }

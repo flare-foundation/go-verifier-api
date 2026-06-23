@@ -31,13 +31,14 @@ func TestVerifyFeeProof(t *testing.T) {
 		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
-			FromNonce:      100,
-			ToNonce:        100,
+			FirstPaymentId: 100,
+			BatchCount:     1,
 			UntilTimestamp: 1800000000,
 		})
 		require.NoError(t, err)
 		require.Equal(t, big.NewInt(50), resp.EstimatedFee) // pay maxFee only, no reissues
 		require.Equal(t, big.NewInt(12), resp.ActualFee)
+		require.Equal(t, uint64(100), resp.LastPaymentId)
 	})
 
 	t.Run("multiple nonces sum correctly", func(t *testing.T) {
@@ -49,13 +50,14 @@ func TestVerifyFeeProof(t *testing.T) {
 		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
-			FromNonce:      100,
-			ToNonce:        102,
+			FirstPaymentId: 100,
+			BatchCount:     3,
 			UntilTimestamp: 1800000000,
 		})
 		require.NoError(t, err)
 		require.Equal(t, big.NewInt(50+60+70), resp.EstimatedFee)
 		require.Equal(t, big.NewInt(10+15+20), resp.ActualFee)
+		require.Equal(t, uint64(102), resp.LastPaymentId)
 	})
 
 	t.Run("pay event inconsistent with topic returns DB error", func(t *testing.T) {
@@ -64,9 +66,10 @@ func TestVerifyFeeProof(t *testing.T) {
 		cChainDB := testSharedDB(t, "fp_inconsist_pay_cchain", &database.Log{})
 		sourceID := common.HexToHash("0x1")
 		opType := common.HexToHash("0xAA")
-		nonce := uint64(100)
+		paymentId := uint64(100)
+		sequence := xrpSequenceFor(paymentId) // distinct XRP Sequence (message Nonce)
 
-		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, "rSender", nonce)
+		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, "rSender", paymentId)
 		require.NoError(t, err)
 		eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
@@ -74,12 +77,12 @@ func TestVerifyFeeProof(t *testing.T) {
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SourceId: common.HexToHash("0x2"), SenderAddress: "rSender",
 			Amount: big.NewInt(1000), MaxFee: big.NewInt(50), TokenId: []byte{}, FeeSchedule: []byte{},
-			Nonce: nonce, PaymentId: nonce,
+			Nonce: sequence, PaymentId: paymentId,
 		}
 		require.NoError(t, cChainDB.Create(&database.Log{
 			Topic0: trimHex(eventHash), Topic1: trimHex(common.HexToHash("").Hex()), Topic2: trimHex(payID.Hex()),
 			Data:    hex.EncodeToString(testEncodeEvent(t, teeABI, op.Pay, opType, msg)),
-			Address: testContractAddressStored, TransactionHash: fmt.Sprintf("%064x", nonce), LogIndex: nonce,
+			Address: testContractAddressStored, TransactionHash: fmt.Sprintf("%064x", paymentId), LogIndex: paymentId,
 			Timestamp: 1700000000, BlockNumber: 100,
 		}).Error)
 		v := &XRPVerifier{
@@ -87,7 +90,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			Config: &config.PMWFeeProofConfig{ParsedTeeInstructionsABI: teeABI, EncodedAndABI: config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}}},
 		}
 		_, err = v.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
-			OpType: opType, SenderAddress: "rSender", FromNonce: nonce, ToNonce: nonce, UntilTimestamp: 1800000000,
+			OpType: opType, SenderAddress: "rSender", FirstPaymentId: paymentId, BatchCount: 1, UntilTimestamp: 1800000000,
 		})
 		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 		require.ErrorContains(t, err, "event SourceId")
@@ -98,12 +101,12 @@ func TestVerifyFeeProof(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_inconsist_reissue", []uint64{100}, []int64{50}, []string{"12"})
 		eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(f.teeABI)
 		require.NoError(t, err)
-		reissueID, err := instruction.GenerateReissueInstructionID(f.opType, f.sourceID, "rSender", 100, 0)
+		reissueID, err := instruction.GenerateReissueInstructionID(f.opType, f.sourceID, "rSender", 100, 1)
 		require.NoError(t, err)
 		msg := payments.ITeePaymentsPaymentInstructionMessage{
 			SourceId: common.HexToHash("0x2"), SenderAddress: "rSender", // SourceId mismatch
 			Amount: big.NewInt(1000), MaxFee: big.NewInt(60), TokenId: []byte{}, FeeSchedule: []byte{},
-			Nonce: 100, PaymentId: 100,
+			Nonce: xrpSequenceFor(100), PaymentId: 100, // Nonce (XRP Sequence) distinct from paymentId
 		}
 		require.NoError(t, f.cChainDB.Create(&database.Log{
 			Topic0: trimHex(eventHash), Topic1: trimHex(common.HexToHash("").Hex()), Topic2: trimHex(reissueID.Hex()),
@@ -112,7 +115,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			Timestamp: 1700000000, BlockNumber: 100,
 		}).Error)
 		_, err = f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
-			OpType: f.opType, SenderAddress: "rSender", FromNonce: 100, ToNonce: 100, UntilTimestamp: 1800000000,
+			OpType: f.opType, SenderAddress: "rSender", FirstPaymentId: 100, BatchCount: 1, UntilTimestamp: 1800000000,
 		})
 		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 		require.ErrorContains(t, err, "event SourceId")
@@ -128,8 +131,8 @@ func TestVerifyFeeProof(t *testing.T) {
 		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
-			FromNonce:      100,
-			ToNonce:        102, // nonce 102 has no pay event
+			FirstPaymentId: 100,
+			BatchCount:     3, // paymentId 102 has no pay event
 			UntilTimestamp: 1800000000,
 		})
 		require.ErrorIs(t, err, ErrMissingPayEvent)
@@ -142,10 +145,11 @@ func TestVerifyFeeProof(t *testing.T) {
 
 		sourceID := common.HexToHash("0x1")
 		opType := common.HexToHash("0xAA")
-		nonce := uint64(100)
+		paymentId := uint64(100)
+		sequence := xrpSequenceFor(paymentId) // distinct XRP Sequence (message Nonce)
 
 		// Seed only the pay event, no transaction.
-		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, "rSender", nonce)
+		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, "rSender", paymentId)
 		require.NoError(t, err)
 		eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
@@ -157,8 +161,8 @@ func TestVerifyFeeProof(t *testing.T) {
 			MaxFee:        big.NewInt(50),
 			TokenId:       []byte{},
 			FeeSchedule:   []byte{},
-			Nonce:         nonce,
-			PaymentId:     nonce,
+			Nonce:         sequence,
+			PaymentId:     paymentId,
 		}
 		eventData := testEncodeEvent(t, teeABI, op.Pay, opType, msg)
 
@@ -168,8 +172,8 @@ func TestVerifyFeeProof(t *testing.T) {
 			Topic2:          trimHex(payID.Hex()),
 			Data:            hex.EncodeToString(eventData),
 			Address:         testContractAddressStored,
-			TransactionHash: fmt.Sprintf("%064x", nonce),
-			LogIndex:        nonce,
+			TransactionHash: fmt.Sprintf("%064x", paymentId),
+			LogIndex:        paymentId,
 			Timestamp:       1700000000,
 			BlockNumber:     100,
 		}).Error)
@@ -186,33 +190,33 @@ func TestVerifyFeeProof(t *testing.T) {
 		_, err = v.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         opType,
 			SenderAddress:  "rSender",
-			FromNonce:      nonce,
-			ToNonce:        nonce,
+			FirstPaymentId: paymentId,
+			BatchCount:     1,
 			UntilTimestamp: 1800000000,
 		})
 		require.ErrorIs(t, err, ErrMissingTransaction)
 	})
 
-	t.Run("toNonce < fromNonce returns error", func(t *testing.T) {
+	t.Run("zero batch count returns error", func(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_badrange", []uint64{100}, []int64{50}, []string{"10"})
 		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
-			OpType:        f.opType,
-			SenderAddress: "rSender",
-			FromNonce:     10,
-			ToNonce:       5,
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FirstPaymentId: 10,
+			BatchCount:     0,
 		})
-		require.ErrorIs(t, err, ErrNonceRangeTooLarge)
+		require.ErrorIs(t, err, ErrBatchRangeTooLarge)
 	})
 
 	t.Run("range exceeds max returns error", func(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_bigrange", []uint64{100}, []int64{50}, []string{"10"})
 		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
-			OpType:        f.opType,
-			SenderAddress: "rSender",
-			FromNonce:     1,
-			ToNonce:       1 + MaxNonceRange,
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FirstPaymentId: 1,
+			BatchCount:     MaxBatchRange + 1,
 		})
-		require.ErrorIs(t, err, ErrNonceRangeTooLarge)
+		require.ErrorIs(t, err, ErrBatchRangeTooLarge)
 	})
 
 	t.Run("malformed tx fee returns error", func(t *testing.T) {
@@ -224,8 +228,8 @@ func TestVerifyFeeProof(t *testing.T) {
 		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
-			FromNonce:      100,
-			ToNonce:        100,
+			FirstPaymentId: 100,
+			BatchCount:     1,
 			UntilTimestamp: 1800000000,
 		})
 		require.ErrorContains(t, err, "cannot parse fee")
@@ -241,8 +245,8 @@ func TestVerifyFeeProof(t *testing.T) {
 		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
-			FromNonce:      100,
-			ToNonce:        100,
+			FirstPaymentId: 100,
+			BatchCount:     1,
 			UntilTimestamp: 1800000000,
 		})
 		require.ErrorContains(t, err, "cannot parse fee")
@@ -250,32 +254,32 @@ func TestVerifyFeeProof(t *testing.T) {
 	})
 
 	t.Run("reissue scan at cap succeeds", func(t *testing.T) {
-		// Seed pay + exactly MaxReissuesPerNonce reissue events. The next
-		// reissueNumber (== MaxReissuesPerNonce) does NOT exist, so the loop
+		// Seed pay + exactly MaxReissuesPerPayment reissue events. The next
+		// reissueNumber (== MaxReissuesPerPayment + 1) does NOT exist, so the loop
 		// terminates cleanly at the cap.
 		f := setupFeeProofFixture(t, "fp_reissue_at_cap",
 			[]uint64{100},
 			[]int64{50}, // pay maxFee = 50
 			[]string{"10"},
 		)
-		for i := range MaxReissuesPerNonce {
+		for i := uint64(1); i <= MaxReissuesPerPayment; i++ {
 			f.seedReissue(t, 100, i, 60, 1700000000) // reissue maxFee = 60 → residual 10 each
 		}
 		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
-			FromNonce:      100,
-			ToNonce:        100,
+			FirstPaymentId: 100,
+			BatchCount:     1,
 			UntilTimestamp: 1800000000,
 		})
 		require.NoError(t, err)
 		// pay 50 + 32 reissues × residual 10 = 50 + 320 = 370
-		require.Equal(t, big.NewInt(50+int64(MaxReissuesPerNonce)*10), resp.EstimatedFee)
+		require.Equal(t, big.NewInt(50+int64(MaxReissuesPerPayment)*10), resp.EstimatedFee)
 	})
 
 	t.Run("reissue scan over cap rejected", func(t *testing.T) {
-		// Seed pay + (MaxReissuesPerNonce + 1) sequential reissues. The next
-		// reissueNumber (== MaxReissuesPerNonce) exists in the indexer, so the
+		// Seed pay + (MaxReissuesPerPayment + 1) sequential reissues. The next
+		// reissueNumber (== MaxReissuesPerPayment + 1) exists in the indexer, so the
 		// loop must reject with ErrReissueLimitExceeded rather than silently
 		// truncate.
 		f := setupFeeProofFixture(t, "fp_reissue_over_cap",
@@ -283,14 +287,14 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]int64{50},
 			[]string{"10"},
 		)
-		for i := uint64(0); i <= MaxReissuesPerNonce; i++ {
+		for i := uint64(1); i <= MaxReissuesPerPayment+1; i++ {
 			f.seedReissue(t, 100, i, 60, 1700000000)
 		}
 		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",
-			FromNonce:      100,
-			ToNonce:        100,
+			FirstPaymentId: 100,
+			BatchCount:     1,
 			UntilTimestamp: 1800000000,
 		})
 		require.ErrorIs(t, err, ErrReissueLimitExceeded)
@@ -316,8 +320,8 @@ func TestVerifyFeeProofConcurrentErrors(t *testing.T) {
 				_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 					OpType:         f.opType,
 					SenderAddress:  "rSender",
-					FromNonce:      100,
-					ToNonce:        101, // nonce 101 missing
+					FirstPaymentId: 100,
+					BatchCount:     2, // paymentId 101 missing
 					UntilTimestamp: 1800000000,
 				})
 				results[idx] = callResult{err: err}
@@ -347,8 +351,8 @@ func TestVerifyFeeProofConcurrentErrors(t *testing.T) {
 				_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 					OpType:         f.opType,
 					SenderAddress:  "rSender",
-					FromNonce:      100,
-					ToNonce:        100,
+					FirstPaymentId: 100,
+					BatchCount:     1,
 					UntilTimestamp: 1800000000,
 				})
 				results[idx] = callResult{err: err}

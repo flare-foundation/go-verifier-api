@@ -36,12 +36,15 @@ func TestPMWPaymentStatus(t *testing.T) {
 	testSenderAddress := "renoX7N3xcss6nbh62tYAhaTH1XG17Arc"
 	testRecipientAddress := "rN5N6fJbc8xyViPDeQFMQMpYfVHuxSGV2G"
 	testTxHash := common.HexToHash("0x7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA")
-	nonce := uint64(11263145)
+	// basePaymentId is the small sequential payment id of fixture log (12); the
+	// XRP Sequence (message Nonce) for that payment is the large value 11263145.
+	// Keeping these distinct exercises the lookup that maps paymentId ->
+	// instruction event -> XRP Sequence.
+	basePaymentId := uint64(1)
 	baseReqBody := fdc2.IPMWPaymentStatusRequestBody{
 		OpType:        opType,
 		SenderAddress: testSenderAddress,
-		Nonce:         nonce,
-		PaymentId:     nonce,
+		PaymentId:     basePaymentId,
 	}
 	desiredURL := setup.URL + "/prepareRequestBody"
 	t.Run("prepareRequestBody: valid", func(t *testing.T) {
@@ -186,7 +189,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("verify: verification failed - not found in xrp indexer", func(t *testing.T) { // Using fake entry log (19) in c-chain idx db.
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.Nonce = baseReqBody.Nonce + 10
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 10
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -198,7 +200,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("verify: verification failed - cannot decode event data (ABI unpack)", func(t *testing.T) { // Using fake entry log (20) in c-chain idx db.
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.Nonce = baseReqBody.Nonce + 1
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -210,7 +211,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("verify: verification failed - cannot unmarshal XRP transaction", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.Nonce = baseReqBody.Nonce + 2
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 2
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -222,7 +222,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("verify: verification failed - missing transaction result", func(t *testing.T) { // Using fake entry log (22) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c5.
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.Nonce = baseReqBody.Nonce + 3
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 3
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -234,7 +233,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("verify: verification failed - cannot build payment status response", func(t *testing.T) { // Using fake entry log (23) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c6.
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.Nonce = baseReqBody.Nonce + 4
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 4
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
@@ -246,7 +244,6 @@ func TestPMWPaymentStatus(t *testing.T) {
 	})
 	t.Run("verify: verification failed - cannot decode event data message", func(t *testing.T) { // Using fake entry log (24) in c-chain idx db.
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.Nonce = baseReqBody.Nonce + 5
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 5
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)

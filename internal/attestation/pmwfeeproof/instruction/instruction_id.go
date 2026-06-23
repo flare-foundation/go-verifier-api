@@ -15,7 +15,7 @@ import (
 // GeneratePayInstructionID delegates to PMWPaymentStatus's GenerateInstructionID — same encoding.
 var GeneratePayInstructionID = paymentinstruction.GenerateInstructionID
 
-func GenerateReissueInstructionID(opType, sourceID [32]byte, senderAddress string, nonce uint64, reissueNumber uint64) (common.Hash, error) {
+func GenerateReissueInstructionID(opType, sourceID [32]byte, accountAddress string, paymentId uint64, reissueNumber uint64) (common.Hash, error) {
 	reissue, err := convert.StringToCommonHash(string(op.Reissue))
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("cannot convert REISSUE to Bytes32: %w", err)
@@ -24,11 +24,11 @@ func GenerateReissueInstructionID(opType, sourceID [32]byte, senderAddress strin
 		{Type: helper.Bytes32Type}, // opType
 		{Type: helper.Bytes32Type}, // REISSUE
 		{Type: helper.Bytes32Type}, // sourceId
-		{Type: helper.StringType},  // senderAddress
-		{Type: helper.Uint64Type},  // nonce
+		{Type: helper.StringType},  // accountAddress
+		{Type: helper.Uint64Type},  // paymentId
 		{Type: helper.Uint64Type},  // reissueNumber
 	}
-	packed, err := args.Pack(opType, reissue, sourceID, senderAddress, nonce, reissueNumber)
+	packed, err := args.Pack(opType, reissue, sourceID, accountAddress, paymentId, reissueNumber)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("cannot pack ABI arguments: %w", err)
 	}

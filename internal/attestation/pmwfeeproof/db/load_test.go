@@ -39,7 +39,7 @@ func newSharedMemoryDB(t *testing.T, name string, models ...any) *gorm.DB {
 }
 
 // TestLoadFeeProofDBBatchFetch simulates concurrent batch fetches
-// of transactions by source and nonce range.
+// of transactions by source and sequence set.
 func TestLoadFeeProofDBBatchFetch(t *testing.T) {
 	xrpDB := newSharedMemoryDB(t, "feeproof_xrp", &paymentdb.DBTransaction{})
 

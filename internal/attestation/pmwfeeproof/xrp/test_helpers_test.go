@@ -90,7 +90,21 @@ type feeProofFixture struct {
 	teeABI   abi.ABI
 }
 
-func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees []int64, txFees []string) feeProofFixture {
+// xrpSequenceFor maps a small paymentId to the (distinct, large) XRP Sequence
+// that the corresponding instruction message carries in its Nonce field and
+// that the XRP transaction is stored under. Keeping paymentId and Sequence
+// distinct ensures the verifier's paymentId -> event -> Nonce -> XRP-tx lookup
+// is genuinely exercised; a bug that confuses the two is caught.
+const xrpSequenceBase = 11263144
+
+func xrpSequenceFor(paymentId uint64) uint64 {
+	return xrpSequenceBase + paymentId
+}
+
+// setupFeeProofFixture seeds, for each paymentId, a PAY instruction event keyed
+// by the (small) paymentId and an XRP transaction keyed by the (distinct, large)
+// Sequence = xrpSequenceFor(paymentId). The message Nonce equals that Sequence.
+func setupFeeProofFixture(tb testing.TB, dbName string, paymentIds []uint64, maxFees []int64, txFees []string) feeProofFixture {
 	tb.Helper()
 	teeABI := testTeeABI(tb)
 	xrpDB := testSharedDB(tb, dbName+"_xrp", &paymentdb.DBTransaction{})
@@ -105,8 +119,9 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 		tb.Fatal(err)
 	}
 
-	for i, nonce := range nonces {
-		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, senderAddress, nonce)
+	for i, paymentId := range paymentIds {
+		sequence := xrpSequenceFor(paymentId)
+		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, senderAddress, paymentId)
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -118,8 +133,8 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 			MaxFee:        big.NewInt(maxFees[i]),
 			TokenId:       []byte{},
 			FeeSchedule:   []byte{},
-			Nonce:         nonce,
-			PaymentId:     nonce,
+			Nonce:         sequence,
+			PaymentId:     paymentId,
 		}
 		eventData := testEncodeEvent(tb, teeABI, op.Pay, opType, msg)
 
@@ -129,8 +144,8 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 			Topic2:          trimHex(payID.Hex()),
 			Data:            hex.EncodeToString(eventData),
 			Address:         testContractAddressStored,
-			TransactionHash: fmt.Sprintf("%064x", nonce),
-			LogIndex:        nonce,
+			TransactionHash: fmt.Sprintf("%064x", paymentId),
+			LogIndex:        paymentId,
 			Timestamp:       1700000000,
 			BlockNumber:     100,
 		}).Error; err != nil {
@@ -138,12 +153,12 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 		}
 
 		if err := xrpDB.Create(&paymentdb.DBTransaction{
-			Hash:          fmt.Sprintf("txhash%d", nonce),
+			Hash:          fmt.Sprintf("txhash%d", sequence),
 			BlockNumber:   100,
 			Timestamp:     1700000000,
-			Response:      fmt.Sprintf(`{"Fee":"%s","Account":"%s","Sequence":%d,"hash":"txhash%d"}`, txFees[i], senderAddress, nonce, nonce),
+			Response:      fmt.Sprintf(`{"Fee":"%s","Account":"%s","Sequence":%d,"hash":"txhash%d"}`, txFees[i], senderAddress, sequence, sequence),
 			SourceAddress: senderAddress,
-			Sequence:      nonce,
+			Sequence:      sequence,
 		}).Error; err != nil {
 			tb.Fatal(err)
 		}
@@ -166,16 +181,17 @@ func setupFeeProofFixture(tb testing.TB, dbName string, nonces []uint64, maxFees
 	}
 }
 
-// seedReissue inserts a single reissue event for (nonce, reissueNumber) into
-// the fixture's C-chain DB. Used by reissue-cap tests to construct sequential
-// scans of arbitrary depth.
-func (f feeProofFixture) seedReissue(tb testing.TB, nonce, reissueNumber uint64, maxFee int64, blockTimestamp uint64) {
+// seedReissue inserts a single reissue event for (paymentId, reissueNumber)
+// into the fixture's C-chain DB. The message Nonce carries the distinct XRP
+// Sequence (xrpSequenceFor(paymentId)). Used by reissue-cap tests to construct
+// sequential scans of arbitrary depth.
+func (f feeProofFixture) seedReissue(tb testing.TB, paymentId, reissueNumber uint64, maxFee int64, blockTimestamp uint64) {
 	tb.Helper()
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(f.teeABI)
 	if err != nil {
 		tb.Fatal(err)
 	}
-	reissueID, err := instruction.GenerateReissueInstructionID(f.opType, f.sourceID, "rSender", nonce, reissueNumber)
+	reissueID, err := instruction.GenerateReissueInstructionID(f.opType, f.sourceID, "rSender", paymentId, reissueNumber)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -186,18 +202,18 @@ func (f feeProofFixture) seedReissue(tb testing.TB, nonce, reissueNumber uint64,
 		MaxFee:        big.NewInt(maxFee),
 		TokenId:       []byte{},
 		FeeSchedule:   []byte{},
-		Nonce:         nonce,
-		PaymentId:     nonce,
+		Nonce:         xrpSequenceFor(paymentId),
+		PaymentId:     paymentId,
 	}
 	eventData := testEncodeEvent(tb, f.teeABI, op.Reissue, f.opType, msg)
-	logIdx := nonce*1_000_000 + reissueNumber
+	logIdx := paymentId*1_000_000 + reissueNumber
 	if err := f.cChainDB.Create(&database.Log{
 		Topic0:          trimHex(eventHash),
 		Topic1:          trimHex(common.HexToHash("").Hex()),
 		Topic2:          trimHex(reissueID.Hex()),
 		Data:            hex.EncodeToString(eventData),
 		Address:         testContractAddressStored,
-		TransactionHash: fmt.Sprintf("re%d-%d", nonce, reissueNumber),
+		TransactionHash: fmt.Sprintf("re%d-%d", paymentId, reissueNumber),
 		LogIndex:        logIdx,
 		Timestamp:       blockTimestamp,
 		BlockNumber:     100,

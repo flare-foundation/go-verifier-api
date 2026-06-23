@@ -11,7 +11,6 @@ import (
 type PMWPaymentStatusRequestBody struct {
 	OpType        common.Hash `json:"opType" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	SenderAddress string      `json:"senderAddress" validate:"required" example:"abcdef"`
-	Nonce         uint64      `json:"nonce" validate:"required" example:"1"`
 	PaymentId     uint64      `json:"paymentId" validate:"required" example:"1"`
 }
 
@@ -19,7 +18,6 @@ func (requestBody PMWPaymentStatusRequestBody) ToInternal() (fdc2.IPMWPaymentSta
 	return fdc2.IPMWPaymentStatusRequestBody{
 		OpType:        requestBody.OpType,
 		SenderAddress: requestBody.SenderAddress,
-		Nonce:         requestBody.Nonce,
 		PaymentId:     requestBody.PaymentId,
 	}, nil
 }
@@ -74,6 +72,6 @@ func (s PMWPaymentStatusResponseBody) Log() {
 }
 
 func LogPMWPaymentStatusRequestBody(req fdc2.IPMWPaymentStatusRequestBody) {
-	logger.Debugf("PMWPaymentStatus request: OpType=%s, SenderAddress=%s, Nonce=%d, PaymentId=%d",
-		convert.CommonHashToString(req.OpType), req.SenderAddress, req.Nonce, req.PaymentId)
+	logger.Debugf("PMWPaymentStatus request: OpType=%s, SenderAddress=%s, PaymentId=%d",
+		convert.CommonHashToString(req.OpType), req.SenderAddress, req.PaymentId)
 }

@@ -179,9 +179,9 @@ This is the simplest way to run everything without worrying about Docker manuall
     Benchmark tests measure PMWFeeProof performance scaling with real Postgres + MySQL. They require Docker and are gated behind the `docker_bench` build tag:
     ```bash
     docker compose -f internal/tests/docker/docker-compose.yaml up -d
-    # Sequential benchmark (single client, varying nonce ranges):
+    # Sequential benchmark (single client, varying batch ranges):
     go test -tags docker_bench -run TestBenchmarkFeeProofPostgres -v ./internal/attestation/pmwfeeproof/xrp/
-    # Concurrent benchmark (multiple clients, varying nonce ranges):
+    # Concurrent benchmark (multiple clients, varying batch ranges):
     go test -tags docker_bench -run TestBenchmarkFeeProofConcurrent -v ./internal/attestation/pmwfeeproof/xrp/
     docker compose -f internal/tests/docker/docker-compose.yaml down
     ```

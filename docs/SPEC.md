@@ -225,11 +225,11 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 ## 7.2 PMWPaymentStatus
 
 ### Primary flow (`XRPVerifier.Verify`)
-1. Build instruction ID from `(opType, PAY, sourceID, senderAddress, nonce)` using ABI packing + keccak.
+1. Build instruction ID from `(opType, PAY, sourceID, senderAddress, paymentId, reissueNumber=0)` using ABI packing + keccak. PAY events use reissue number 0 (reissues start at 1).
 2. Resolve `TeeInstructionsSent` event signature.
 3. Fetch matching event log from C-chain index DB (`topic0`, `topic1=0`, `topic2=instructionID`).
-4. Decode tee instruction message payload, binding the event back to the request against all instruction-ID inputs. The decoder (`DecodeTeeInstructionsSentEventData`) first checks the event wrapper's `OpType == req.OpType` and `OpCommand == PAY` (the PAY/REISSUE message schema alone does not prove the op), then `db.CheckInstructionConsistency` checks the decoded message's `SourceId`/`SenderAddress`/`Nonce` equal the values the instruction ID was built from. The `topic2 = keccak(opType, op, sourceId, sender, nonce)` query already commits to all of these, so any mismatch means the indexed event data disagrees with its own topic — a C-chain index inconsistency (`ErrDatabase` → 503). (`paymentId` is not checked: it is not part of the instruction ID and, under `maxBatchSize=1`, each instruction ID maps to a single payment — see §12.)
-5. Query source DB transaction by `(source_address, sequence=nonce)`.
+4. Decode tee instruction message payload, binding the event back to the request against all instruction-ID inputs. The decoder (`DecodeTeeInstructionsSentEventData`) first checks the event wrapper's `OpType == req.OpType` and `OpCommand == PAY` (the PAY/REISSUE message schema alone does not prove the op), then `db.CheckInstructionConsistency` checks the decoded message's `SourceId`/`SenderAddress`/`PaymentId` equal the values the instruction ID was built from. The `topic2 = keccak(opType, op, sourceId, account, paymentId, reissueNumber)` query already commits to all of these, so any mismatch means the indexed event data disagrees with its own topic — a C-chain index inconsistency (`ErrDatabase` → 503). (The message's `Nonce` is not bound here: it is not part of the instruction ID — it carries the XRP sequence used to locate the transaction, bound separately by the row-consistency check below.)
+5. Query source DB transaction by `(source_address, sequence)`, where the sequence is the decoded message's `Nonce` (the request no longer carries it).
 6. Parse raw source-chain transaction JSON. Reject if `TransactionType != "Payment"` — non-payment types (e.g. `AccountSet`, `TrustSet`) at the same `(sourceAddress, sequence)` cannot produce a payment status attestation.
 7. **Row-consistency check** (`db.CheckRowConsistency`): the identity fields parsed from the response JSON (`hash`, `Account`, `Sequence`) must match the row's indexed columns (`Hash`, `SourceAddress`, `Sequence`) before the response is trusted; a mismatch is treated as a DB inconsistency (`ErrDatabase` → 503). Response rows over `maxResponseSize` are rejected the same way.
 8. Build FDC2 response:
@@ -264,27 +264,27 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - Parsed and compressed secp256k1; converted to XRPL address for signer-set comparison.
 
 ## 7.4 PMWFeeProof
-Fee reconciliation attestation for PMW protocols. Compares estimated fees (from C-chain events) with actual fees (from XRP transactions) across a nonce range.
+Fee reconciliation attestation for PMW protocols. Compares estimated fees (from C-chain events) with actual fees (from XRP transactions) across a paymentId batch.
 
 ### Request
-- `opType`, `senderAddress`, `fromNonce` (inclusive), `toNonce` (inclusive), `untilTimestamp` (Flare block timestamp cutoff for reissues).
-- Nonce range capped at 200 (`MaxNonceRange`); over → 400.
-- Reissue scan capped at 32 reissue events per nonce (`MaxReissuesPerNonce`). The contract has no on-chain cap on reissue count (only a per-batch timing gate), so this is a defense-in-depth backstop against indexer pollution / pathological retry behavior. Realistic legitimate flows reissue 0–3 times per nonce. Exceeding the cap → 400.
+- `opType`, `senderAddress`, `firstPaymentId` (inclusive), `batchCount` (number of consecutive paymentIds), `untilTimestamp` (Flare block timestamp cutoff for reissues). The response also returns `lastPaymentId` (= `firstPaymentId + batchCount - 1`).
+- `batchCount` must be > 0 and capped at 200 (`MaxBatchRange`); 0, over the cap, or a range that overflows uint64 → 400.
+- Reissue scan capped at 32 reissue events per payment (`MaxReissuesPerPayment`). The contract has no on-chain cap on reissue count (only a per-batch timing gate), so this is a defense-in-depth backstop against indexer pollution / pathological retry behavior. Realistic legitimate flows reissue 0–3 times per payment. Exceeding the cap → 400.
 
 ### Primary flow (`XRPVerifier.Verify`)
-1. Validate nonce range.
-2. Compute pay instruction IDs for all nonces; batch fetch C-chain events (`topic2 IN (?)`).
-3. Per nonce: verify pay event exists, extract `maxFee`. Each decoded pay and reissue event is bound back to the request against all instruction-ID inputs: the decoder checks the wrapper `OpType == req.OpType` and `OpCommand == PAY`/`REISSUE`, and `db.CheckInstructionConsistency` checks the message's `SourceId`/`SenderAddress`/`Nonce`; a mismatch is a C-chain index inconsistency (`ErrDatabase` → 503).
-4. Per nonce: iteratively fetch reissue events (reissueNumber 0, 1, 2... until not found, `blockTimestamp > untilTimestamp`, or `reissueNumber == MaxReissuesPerNonce`). If the loop hits the cap and the next reissueNumber still exists in the indexer, return `ErrReissueLimitExceeded`. Otherwise add residual `max(0, reissue_maxFee - pay_maxFee)` for each scanned reissue.
+1. Validate `batchCount` (> 0, ≤ `MaxBatchRange`, no uint64 overflow of `firstPaymentId + batchCount - 1`).
+2. Compute pay instruction IDs for paymentIds `[firstPaymentId, firstPaymentId+batchCount)`; batch fetch C-chain events (`topic2 IN (?)`).
+3. Per paymentId: verify pay event exists, extract `maxFee`, and read the XRP sequence from the decoded message's `Nonce`. Each decoded pay and reissue event is bound back to the request against all instruction-ID inputs: the decoder checks the wrapper `OpType == req.OpType` and `OpCommand == PAY`/`REISSUE`, and `db.CheckInstructionConsistency` checks the message's `SourceId`/`SenderAddress`/`PaymentId`; a mismatch is a C-chain index inconsistency (`ErrDatabase` → 503).
+4. Per paymentId: iteratively fetch reissue events (reissueNumber 1, 2, 3... — PAY is number 0, reissues start at 1 — until not found, `blockTimestamp > untilTimestamp`, or past `MaxReissuesPerPayment`). If the loop hits the cap and `MaxReissuesPerPayment+1` still exists in the indexer, return `ErrReissueLimitExceeded`. Otherwise add residual `max(0, reissue_maxFee - pay_maxFee)` for each scanned reissue.
 5. Sum as `estimatedFee`.
-6. Batch fetch XRP transactions (`sequence IN (?)`), parse `Fee`, sum as `actualFee`. Before trusting each `Fee`, the row passes the same consistency check as PMWPaymentStatus (`db.CheckRowConsistency`: parsed JSON `hash`/`Account`/`Sequence` must equal the row's columns) and a `maxResponseSize` cap; a mismatch or oversize row is a DB inconsistency (`ErrDatabase` → 503).
-7. Return `{actualFee, estimatedFee}`.
+6. Batch fetch XRP transactions by the sequences read in step 3 (`sequence IN (?)`), parse `Fee`, sum as `actualFee`. Before trusting each `Fee`, the row passes the same consistency check as PMWPaymentStatus (`db.CheckRowConsistency`: parsed JSON `hash`/`Account`/`Sequence` must equal the row's columns) and a `maxResponseSize` cap; a mismatch or oversize row is a DB inconsistency (`ErrDatabase` → 503).
+7. Return `{lastPaymentId, actualFee, estimatedFee}`.
 
 ### Error handling
-- Missing pay event for any nonce → 422 (`ErrMissingPayEvent`).
-- Missing XRP transaction for any nonce → 422 (`ErrMissingTransaction`).
-- Nonce range too large → 400 (`ErrNonceRangeTooLarge`).
-- Reissue scan exceeded the per-nonce cap → 400 (`ErrReissueLimitExceeded`).
+- Missing pay event for any paymentId → 422 (`ErrMissingPayEvent`).
+- Missing XRP transaction for any paymentId → 422 (`ErrMissingTransaction`).
+- Invalid batch range (zero, too large, or overflow) → 400 (`ErrBatchRangeTooLarge`).
+- Reissue scan exceeded the per-payment cap → 400 (`ErrReissueLimitExceeded`).
 - DB infrastructure failure, DB-row inconsistency (parsed JSON identity fields ≠ indexed columns), or oversize response row → 503 (via `ErrDatabase`).
 
 ### Data retention
@@ -305,15 +305,15 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
   - attestation/source mismatch
   - invalid request body
   - decode/encode request conversion issues
-  - nonce range too large or invalid — `ErrNonceRangeTooLarge` (PMWFeeProof)
-  - reissue scan exceeded `MaxReissuesPerNonce` — `ErrReissueLimitExceeded` (PMWFeeProof)
+  - batch range invalid (zero, too large, or overflow) — `ErrBatchRangeTooLarge` (PMWFeeProof)
+  - reissue scan exceeded `MaxReissuesPerPayment` — `ErrReissueLimitExceeded` (PMWFeeProof)
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
 - `422 Unprocessable Entity`:
   - XRP RPC returned non-success status (e.g., account not found) — `ErrRPCNonSuccess` (PMWMultisig)
   - requested record not found in database (instruction log or transaction) — `ErrRecordNotFound` (PMWPaymentStatus)
-  - missing pay event for nonce — `ErrMissingPayEvent` (PMWFeeProof)
-  - missing XRP transaction for nonce — `ErrMissingTransaction` (PMWFeeProof)
+  - missing pay event for paymentId — `ErrMissingPayEvent` (PMWFeeProof)
+  - missing XRP transaction for paymentId — `ErrMissingTransaction` (PMWFeeProof)
   - TEE data validation failed (challenge/proxy/claims/signing policy hash mismatch) — `ErrTEEDataValidation` (TEE)
   - RPC client-side errors (bad request, method not found) — `ErrInvalidInput` (TEE)
 - `500 Internal Server Error`:
@@ -324,7 +324,7 @@ Both PMWPaymentStatus and PMWFeeProof depend entirely on indexer databases (no c
   - fallback for unexpected verifier errors (should not occur for PMWMultisig in practice)
 - `503 Service Unavailable`:
   - XRP RPC network/transport failure (cannot reach XRPL node) — `ErrFetchAccountInfo` (PMWMultisig)
-  - database infrastructure failure (connection, timeout); DB-row inconsistency (`CheckRowConsistency`: parsed JSON `hash`/`account`/`sequence` ≠ indexed columns); C-chain event-data inconsistency (decoder `OpType`/`OpCommand` and `CheckInstructionConsistency` `SourceId`/`SenderAddress`/`Nonce` ≠ the instruction ID inputs); or response row exceeding `maxResponseSize` — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
+  - database infrastructure failure (connection, timeout); DB-row inconsistency (`CheckRowConsistency`: parsed JSON `hash`/`account`/`sequence` ≠ indexed columns); C-chain event-data inconsistency (decoder `OpType`/`OpCommand` and `CheckInstructionConsistency` `SourceId`/`SenderAddress`/`PaymentId` ≠ the instruction ID inputs); or response row exceeding `maxResponseSize` — `ErrDatabase` (PMWPaymentStatus, PMWFeeProof)
   - network errors from RPC calls — `ErrNetwork` (TEE)
   - RPC server-side errors — `ErrRPC` (TEE)
   - context deadline/canceled — `ErrContext` (TEE)
@@ -347,7 +347,7 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
 - TEE availability server tests set `ALLOW_PRIVATE_NETWORKS=true` to allow `httptest` localhost URLs.
 
 ## 12. Operational Notes and Risks
-- `PMWPaymentStatus` request includes `paymentId`, but the current DB query path keys by source address + nonce. Single payment per `instructionId` holds because of **deployment config**, not contract logic: `TeePayments` supports batching in general (`batchSize` payments share one `nonce`/`instructionId`, since `instructionId = keccak(opType, PAY, sourceId, sender, nonce)` excludes `paymentId`), but a per-instance `maxBatchSize` caps it (`setBatchSettings` requires `batchSize <= maxBatchSize`). The XRP/testXRP `TeePayments` instance is deployed with `maxBatchSize = 1`, so batching cannot be enabled and each `instructionId` maps to exactly one message and one XRP transaction; the verifier therefore does not need to filter logs by `paymentId`. If multiple events ever share an `instructionId`, `FetchInstructionLog` fails closed (`ErrDatabase`) rather than picking one. PaymentId filtering would be needed if a source's `maxBatchSize` is ever raised above 1, or for batched/UTXO sources.
+- `PMWPaymentStatus` and `PMWFeeProof` key on `paymentId`, which is part of the instruction ID (`instructionId = keccak(opType, op, sourceId, accountAddress, paymentId, reissueNumber)`; PAY uses reissue number 0, reissues start at 1). Each `paymentId` therefore resolves to a unique instruction event. The XRP sequence used to locate the actual transaction is **not** in the request — it is read from the decoded event message's `Nonce` field and bound to its row by `CheckRowConsistency`. `paymentId` is a per-account sequential identifier (1-based); the requester (e.g. FAsset) maps its logical payment id to the on-chain `paymentId`. For the current XRP/account-only scope one `paymentId` maps to one payment and one XRP transaction; if multiple events ever shared an instruction ID, `FetchInstructionLog` fails closed (`ErrDatabase`) rather than picking one. UTXO sources additionally key on an `anchorIndex` (not yet implemented).
 
 ### Accepted risks
 - **MagicPass bypass** (`verifier.go`): cannot admit a rogue TEE on-chain in a normal production deployment.

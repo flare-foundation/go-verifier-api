@@ -57,8 +57,8 @@ Package-level and component-level tests that verify the verifier's behavior unde
 | Multisig: 6 concurrent + 3s slow RPC | 3s | 3s | 3s | All complete within timeout |
 | PaymentStatus DB: 100 concurrent reads | 36µs | 3.9ms | 5.8ms | SQLite in-memory |
 | PaymentStatus verifier: 100 concurrent | 6.7ms | 17ms | 24ms | Full ABI decode flow |
-| FeeProof DB: 100 concurrent batch fetch | 3.4ms | 9.5ms | 29ms | 10-nonce batch |
-| FeeProof verifier: 100 concurrent | 30ms | 64ms | 84ms | 5-nonce range |
+| FeeProof DB: 100 concurrent batch fetch | 3.4ms | 9.5ms | 29ms | 10-sequence batch |
+| FeeProof verifier: 100 concurrent | 30ms | 64ms | 84ms | 5-payment batch |
 
 ## Key Findings
 
@@ -83,9 +83,9 @@ Docker-dependent benchmarks that measure `Verify` latency and scaling with real 
 
 ### Sequential (single client)
 
-50 iterations per nonce count. Data seeded into real DB tables, cleaned up after.
+50 iterations per payment count. Data seeded into real DB tables, cleaned up after.
 
-| Nonces | Avg (ms) | Med (ms) | Min (ms) | Max (ms) | P95 (ms) | Per-nonce (ms) |
+| Payments | Avg (ms) | Med (ms) | Min (ms) | Max (ms) | P95 (ms) | Per-payment (ms) |
 |--------|----------|----------|----------|----------|----------|----------------|
 | 1 | 1.35 | 1.34 | 0.97 | 2.27 | 1.55 | 1.346 |
 | 10 | 8.15 | 8.11 | 6.84 | 10.23 | 9.44 | 0.815 |
@@ -97,13 +97,13 @@ Docker-dependent benchmarks that measure `Verify` latency and scaling with real 
 | 750 | 472.65 | 476.75 | 435.15 | 538.02 | 506.17 | 0.630 |
 | 1000 | 632.31 | 623.40 | 577.47 | 815.96 | 711.05 | 0.632 |
 
-Per-nonce cost at 100: 0.676 ms. Per-nonce cost at 1000: 0.632 ms. **Scaling factor: 0.94x — perfectly linear.**
+Per-payment cost at 100: 0.676 ms. Per-payment cost at 1000: 0.632 ms. **Scaling factor: 0.94x — perfectly linear.**
 
 ### Concurrent (multiple clients)
 
 30 iterations per scenario. Connection pool: 50 max open, 25 idle.
 
-| Nonces | Conc | Avg (ms) | Med (ms) | P95 (ms) | Max (ms) | Req/s |
+| Payments | Conc | Avg (ms) | Med (ms) | P95 (ms) | Max (ms) | Req/s |
 |--------|------|----------|----------|----------|----------|-------|
 | 100 | 1 | 62.0 | 61.0 | 65.5 | 75.7 | 16.1 |
 | 100 | 5 | 122.6 | 122.6 | 134.6 | 167.2 | 40.8 |
@@ -123,18 +123,18 @@ Per-nonce cost at 100: 0.676 ms. Per-nonce cost at 1000: 0.632 ms. **Scaling fac
 | 500 | 20 | 1091.6 | 1081.6 | 1223.3 | 1358.7 | 18.3 |
 
 Concurrency slowdown (1→20 clients):
-- 100 nonces: 3.43x (62ms → 213ms)
-- 200 nonces: 3.50x (122ms → 426ms)
-- 300 nonces: 3.51x (187ms → 657ms)
-- 500 nonces: 3.56x (307ms → 1092ms)
+- 100 payments: 3.43x (62ms → 213ms)
+- 200 payments: 3.50x (122ms → 426ms)
+- 300 payments: 3.51x (187ms → 657ms)
+- 500 payments: 3.56x (307ms → 1092ms)
 
 ### Decision
 
-`MaxNonceRange` set to **200** based on these results:
-- Sequential: 135ms avg at 200 nonces — well within request budget.
+`MaxBatchRange` set to **200** based on these results:
+- Sequential: 135ms avg at 200 payments — well within request budget.
 - Concurrent at 20 clients: 426ms avg, 458ms p95 — acceptable.
-- 300 nonces at 20 concurrent hits ~750ms p95 — borderline.
-- Growth is linear (per-nonce cost stable), so the limit is about total latency budget, not algorithmic scaling.
+- 300 payments at 20 concurrent hits ~750ms p95 — borderline.
+- Growth is linear (per-payment cost stable), so the limit is about total latency budget, not algorithmic scaling.
 
 ## Running
 

@@ -188,7 +188,6 @@ func TestLoadPaymentStatusConcurrentVerify(t *testing.T) {
 	req := fdc2.IPMWPaymentStatusRequestBody{
 		OpType:        opType,
 		SenderAddress: senderAddress,
-		Nonce:         nonce,
 		PaymentId:     nonce,
 	}
 

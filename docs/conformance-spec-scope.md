@@ -15,7 +15,7 @@ Source of truth today: `docs/SPEC.md` + Go test files in `internal/attestation/`
 | `TeeAvailabilityCheck` | TEE admission control (JWT attestation) | **Critical** — admits TEEs into signing policy | Deepest section, full JWT/PKI/CRL coverage |
 | `PMWPaymentStatus` | XRP payment status attestation | Payment-bound | Medium — DB schema, ABI decoding, raw tx parsing |
 | `PMWMultisigAccountConfigured` | XRPL multisig config attestation | Wallet-bound | Medium — XRPL RPC, signer-list comparison |
-| `PMWFeeProof` | XRP fee reconciliation attestation | Fee-bound | Medium — event aggregation, nonce range scanning |
+| `PMWFeeProof` | XRP fee reconciliation attestation | Fee-bound | Medium — event aggregation, paymentId batch scanning |
 
 ---
 
@@ -45,7 +45,7 @@ A prose document describing what each verifier does, with no Go-specific referen
 - T8 — TEE status semantics (`OK` / `OBSOLETE`)
 
 **PMWPaymentStatus**:
-- P1 — Instruction ID build (ABI pack + keccak of `opType, PAY, sourceID, senderAddress, nonce`)
+- P1 — Instruction ID build (ABI pack + keccak of `opType, PAY, sourceID, accountAddress, paymentId, reissueNumber=0`)
 - P2 — C-chain event lookup (`topic0=signature, topic1=0, topic2=instructionID`)
 - P3 — Instruction message decoding
 - P4 — Source DB query (`source_address, sequence`)
@@ -63,10 +63,10 @@ A prose document describing what each verifier does, with no Go-specific referen
 - M8 — Result composition (`{status, sequence}`)
 
 **PMWFeeProof**:
-- F1 — Nonce range validation (cap = 200)
+- F1 — Batch range validation (`batchCount`, cap = 200)
 - F2 — Pay instruction ID batch computation
 - F3 — Pay event batch fetch from C-chain
-- F4 — Reissue event iteration (per nonce, until not found or timestamp cutoff)
+- F4 — Reissue event iteration (per payment, reissueNumber from 1, until not found or timestamp cutoff)
 - F5 — Residual fee computation (`max(0, reissue_maxFee - pay_maxFee)`)
 - F6 — XRP transaction batch fetch
 - F7 — Actual fee summation
@@ -202,10 +202,10 @@ A small script (Go for parity, Python for portability — pick one) that loads t
 ### PMWFeeProof
 | # | Category | Coverage |
 |---|---|---|
-| 1 | Nonce range cap | 200 ok, 201 → 400 |
-| 2 | Missing pay event | any nonce missing → 422 |
-| 3 | Missing XRP tx | any nonce missing → 422 |
-| 4 | Reissue iteration | 0/1/2/... terminating on not-found or timestamp |
+| 1 | Batch range cap | batchCount 200 ok, 201 → 400 |
+| 2 | Missing pay event | any paymentId missing → 422 |
+| 3 | Missing XRP tx | any paymentId missing → 422 |
+| 4 | Reissue iteration | 1/2/3/... terminating on not-found or timestamp |
 | 5 | Residual fee math | `max(0, reissue_maxFee - pay_maxFee)` exact |
 | 6 | Fee summation | actual + estimated cross-checked against fixtures |
 | 7 | Timestamp cutoff | `untilTimestamp` boundary inclusive/exclusive |

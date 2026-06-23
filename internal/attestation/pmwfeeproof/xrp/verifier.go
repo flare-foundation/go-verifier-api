@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,20 +22,20 @@ import (
 	"gorm.io/gorm"
 )
 
-var MaxNonceRange uint64 = 200
+var MaxBatchRange uint64 = 200
 
-// MaxReissuesPerNonce caps how many reissue events the verifier will scan
-// per nonce. The contract has no on-chain cap on reissues; only a
+// MaxReissuesPerPayment caps how many reissue events the verifier will scan
+// per payment. The contract has no on-chain cap on reissues; only a
 // per-batch timing gate. A polluted indexer could therefore make a single
 // request trigger arbitrary DB work. This cap is a defense-in-depth
 // backstop — well above any realistic retry count (typical wallets: 0–3
 // reissues, pathological: 5–10).
-const MaxReissuesPerNonce uint64 = 32
+const MaxReissuesPerPayment uint64 = 32
 
 var (
-	ErrNonceRangeTooLarge   = errors.New("nonce range too large")
-	ErrMissingPayEvent      = errors.New("missing pay event for nonce")
-	ErrMissingTransaction   = errors.New("missing transaction for nonce")
+	ErrBatchRangeTooLarge   = errors.New("batch range too large")
+	ErrMissingPayEvent      = errors.New("missing pay event for paymentId")
+	ErrMissingTransaction   = errors.New("missing transaction for paymentId")
 	ErrReissueLimitExceeded = errors.New("reissue scan limit exceeded")
 )
 
@@ -53,11 +54,15 @@ func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) *XR
 func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBody) (fdc2.IPMWFeeProofResponseBody, error) {
 	var zero fdc2.IPMWFeeProofResponseBody
 
-	if req.ToNonce < req.FromNonce {
-		return zero, fmt.Errorf("toNonce (%d) < fromNonce (%d): %w", req.ToNonce, req.FromNonce, ErrNonceRangeTooLarge)
+	if req.BatchCount == 0 {
+		return zero, fmt.Errorf("batchCount must be greater than 0: %w", ErrBatchRangeTooLarge)
 	}
-	if req.ToNonce-req.FromNonce >= MaxNonceRange {
-		return zero, fmt.Errorf("nonce range [%d, %d] exceeds max size %d: %w", req.FromNonce, req.ToNonce, MaxNonceRange, ErrNonceRangeTooLarge)
+	if req.BatchCount > MaxBatchRange {
+		return zero, fmt.Errorf("batchCount %d exceeds max size %d: %w", req.BatchCount, MaxBatchRange, ErrBatchRangeTooLarge)
+	}
+	// Guard against overflow of the inclusive upper bound FirstPaymentId+BatchCount-1.
+	if req.FirstPaymentId > math.MaxUint64-(req.BatchCount-1) {
+		return zero, fmt.Errorf("paymentId range from %d count %d overflows uint64: %w", req.FirstPaymentId, req.BatchCount, ErrBatchRangeTooLarge)
 	}
 
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
@@ -67,16 +72,15 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBo
 
 	sourceID := x.Config.SourceIDPair.SourceIDEncoded
 
-	// Build nonce list and pay instruction IDs.
-	nonceCount := int(req.ToNonce - req.FromNonce + 1)
-	nonces := make([]uint64, nonceCount)
-	payIDs := make([]common.Hash, nonceCount)
-	for i := range nonceCount {
-		nonce := req.FromNonce + uint64(i)
-		nonces[i] = nonce
-		id, err := instruction.GeneratePayInstructionID(req.OpType, sourceID, req.SenderAddress, nonce)
+	// Build paymentId list and pay instruction IDs.
+	paymentIDs := make([]uint64, req.BatchCount)
+	payIDs := make([]common.Hash, req.BatchCount)
+	for i := range int(req.BatchCount) {
+		paymentId := req.FirstPaymentId + uint64(i)
+		paymentIDs[i] = paymentId
+		id, err := instruction.GeneratePayInstructionID(req.OpType, sourceID, req.SenderAddress, paymentId)
 		if err != nil {
-			return zero, fmt.Errorf("cannot generate pay instruction ID for nonce %d: %w", nonce, err)
+			return zero, fmt.Errorf("cannot generate pay instruction ID for paymentId %d: %w", paymentId, err)
 		}
 		payIDs[i] = id
 	}
@@ -87,50 +91,57 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBo
 		return zero, fmt.Errorf("cannot fetch pay events: %w", err)
 	}
 
-	estimatedFee, err := x.computeEstimatedFee(ctx, req, eventHash, sourceID, nonces, payIDs, payLogs)
+	// Estimated fee from C-chain events; sequences are each payment's XRP Sequence,
+	// read from the decoded event (the request no longer carries them).
+	estimatedFee, sequences, err := x.computeEstimatedFee(ctx, req, eventHash, sourceID, paymentIDs, payIDs, payLogs)
 	if err != nil {
 		return zero, err
 	}
 
-	actualFee, err := x.computeActualFee(ctx, req.SenderAddress, nonces)
+	actualFee, err := x.computeActualFee(ctx, req.SenderAddress, paymentIDs, sequences)
 	if err != nil {
 		return zero, err
 	}
 
 	return fdc2.IPMWFeeProofResponseBody{
-		ActualFee:    actualFee,
-		EstimatedFee: estimatedFee,
+		LastPaymentId: req.FirstPaymentId + req.BatchCount - 1,
+		ActualFee:     actualFee,
+		EstimatedFee:  estimatedFee,
 	}, nil
 }
 
-// computeEstimatedFee verifies all nonces have pay events and sums the estimated fees
-// including residuals from reissue events.
-func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeProofRequestBody, eventHash string, sourceID [32]byte, nonces []uint64, payIDs []common.Hash, payLogs map[common.Hash]*ethtypes.Log) (*big.Int, error) {
+// computeEstimatedFee verifies all paymentIds have pay events and sums the estimated
+// fees including residuals from reissue events. It also returns each payment's XRP
+// Sequence (read from the decoded event), used to fetch the actual transactions.
+func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeProofRequestBody, eventHash string, sourceID [32]byte, paymentIDs []uint64, payIDs []common.Hash, payLogs map[common.Hash]*ethtypes.Log) (*big.Int, []uint64, error) {
 	estimatedFee := new(big.Int)
-	for i, nonce := range nonces {
+	sequences := make([]uint64, len(paymentIDs))
+	for i, paymentId := range paymentIDs {
 		payLog, ok := payLogs[payIDs[i]]
 		if !ok {
-			return nil, fmt.Errorf("nonce %d: %w", nonce, ErrMissingPayEvent)
+			return nil, nil, fmt.Errorf("paymentId %d: %w", paymentId, ErrMissingPayEvent)
 		}
 
 		payMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(payLog, x.Config.ParsedTeeInstructionsABI, op.Pay, req.OpType)
 		if err != nil {
-			return nil, fmt.Errorf("cannot decode pay event for nonce %d: %w", nonce, err)
+			return nil, nil, fmt.Errorf("cannot decode pay event for paymentId %d: %w", paymentId, err)
 		}
 		// Bind the decoded event to the request: instructionId commits to these
 		// fields, so a mismatch is C-chain index inconsistency.
-		if err := paymentdb.CheckInstructionConsistency(payMessage, common.Hash(sourceID), req.SenderAddress, nonce); err != nil {
-			return nil, fmt.Errorf("nonce %d: %w", nonce, err)
+		if err := paymentdb.CheckInstructionConsistency(payMessage, common.Hash(sourceID), req.SenderAddress, paymentId); err != nil {
+			return nil, nil, fmt.Errorf("paymentId %d: %w", paymentId, err)
 		}
+		// XRP Sequence used to locate the actual transaction.
+		sequences[i] = payMessage.Nonce
 
 		payMaxFee := payMessage.MaxFee
 		estimatedFee.Add(estimatedFee, payMaxFee)
 
 		terminatedEarly := false
-		for reissueNum := range MaxReissuesPerNonce {
-			reissueID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, nonce, reissueNum)
+		for reissueNum := uint64(1); reissueNum <= MaxReissuesPerPayment; reissueNum++ {
+			reissueID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, paymentId, reissueNum)
 			if err != nil {
-				return nil, fmt.Errorf("cannot generate reissue instruction ID for nonce %d, reissue %d: %w", nonce, reissueNum, err)
+				return nil, nil, fmt.Errorf("cannot generate reissue instruction ID for paymentId %d, reissue %d: %w", paymentId, reissueNum, err)
 			}
 
 			reissueResult, err := x.Repo.FetchInstructionLog(ctx, eventHash, reissueID)
@@ -139,7 +150,7 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 				break
 			}
 			if err != nil {
-				return nil, fmt.Errorf("cannot fetch reissue event for nonce %d, reissue %d: %w", nonce, reissueNum, err)
+				return nil, nil, fmt.Errorf("cannot fetch reissue event for paymentId %d, reissue %d: %w", paymentId, reissueNum, err)
 			}
 			if reissueResult.BlockTimestamp > req.UntilTimestamp {
 				terminatedEarly = true
@@ -148,12 +159,12 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 
 			reissueMessage, err := teeinstruction.DecodeTeeInstructionsSentEventData(reissueResult.Log, x.Config.ParsedTeeInstructionsABI, op.Reissue, req.OpType)
 			if err != nil {
-				return nil, fmt.Errorf("cannot decode reissue event for nonce %d, reissue %d: %w", nonce, reissueNum, err)
+				return nil, nil, fmt.Errorf("cannot decode reissue event for paymentId %d, reissue %d: %w", paymentId, reissueNum, err)
 			}
-			// Reissue instructionId commits to (sourceId, sender, nonce) too; bind the
-			// decoded event back to the request.
-			if err := paymentdb.CheckInstructionConsistency(reissueMessage, common.Hash(sourceID), req.SenderAddress, nonce); err != nil {
-				return nil, fmt.Errorf("nonce %d, reissue %d: %w", nonce, reissueNum, err)
+			// Reissue instructionId commits to (sourceId, sender, paymentId) too; bind
+			// the decoded event back to the request.
+			if err := paymentdb.CheckInstructionConsistency(reissueMessage, common.Hash(sourceID), req.SenderAddress, paymentId); err != nil {
+				return nil, nil, fmt.Errorf("paymentId %d, reissue %d: %w", paymentId, reissueNum, err)
 			}
 
 			// Residual: max(0, reissue_maxFee - pay_maxFee)
@@ -165,48 +176,50 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 		if terminatedEarly {
 			continue
 		}
-		// Loop ran to MaxReissuesPerNonce. Probe the next reissueNumber to
+		// Loop ran through MaxReissuesPerPayment. Probe the next reissueNumber to
 		// distinguish "exactly cap reissues exist" (legitimate, accept) from
 		// ">cap exist" (would silently undercount estimatedFee, reject).
-		nextID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, nonce, MaxReissuesPerNonce)
+		nextReissueNum := MaxReissuesPerPayment + 1
+		nextID, err := instruction.GenerateReissueInstructionID(req.OpType, sourceID, req.SenderAddress, paymentId, nextReissueNum)
 		if err != nil {
-			return nil, fmt.Errorf("cannot generate reissue instruction ID for nonce %d, reissue %d: %w", nonce, MaxReissuesPerNonce, err)
+			return nil, nil, fmt.Errorf("cannot generate reissue instruction ID for paymentId %d, reissue %d: %w", paymentId, nextReissueNum, err)
 		}
 		_, err = x.Repo.FetchInstructionLog(ctx, eventHash, nextID)
 		if errors.Is(err, paymentdb.ErrRecordNotFound) {
 			continue
 		}
 		if err != nil {
-			return nil, fmt.Errorf("cannot probe reissue cap for nonce %d: %w", nonce, err)
+			return nil, nil, fmt.Errorf("cannot probe reissue cap for paymentId %d: %w", paymentId, err)
 		}
-		return nil, fmt.Errorf("nonce %d: %w (cap %d)", nonce, ErrReissueLimitExceeded, MaxReissuesPerNonce)
+		return nil, nil, fmt.Errorf("paymentId %d: %w (cap %d)", paymentId, ErrReissueLimitExceeded, MaxReissuesPerPayment)
 	}
-	return estimatedFee, nil
+	return estimatedFee, sequences, nil
 }
 
-// computeActualFee fetches XRP transactions for the nonce range and sums their fees.
-func (x *XRPVerifier) computeActualFee(ctx context.Context, senderAddress string, nonces []uint64) (*big.Int, error) {
-	txMap, err := x.Repo.FetchTransactionsBySourceAndSequences(ctx, senderAddress, nonces)
+// computeActualFee fetches the XRP transactions for the given sequences (one per
+// payment, derived from the decoded events) and sums their fees.
+func (x *XRPVerifier) computeActualFee(ctx context.Context, senderAddress string, paymentIDs []uint64, sequences []uint64) (*big.Int, error) {
+	txMap, err := x.Repo.FetchTransactionsBySourceAndSequences(ctx, senderAddress, sequences)
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch transactions: %w", err)
 	}
 
 	actualFee := new(big.Int)
-	for _, nonce := range nonces {
-		tx, ok := txMap[nonce]
+	for i, sequence := range sequences {
+		tx, ok := txMap[sequence]
 		if !ok {
-			return nil, fmt.Errorf("nonce %d: %w", nonce, ErrMissingTransaction)
+			return nil, fmt.Errorf("paymentId %d (sequence %d): %w", paymentIDs[i], sequence, ErrMissingTransaction)
 		}
 
 		// Bind the Response blob to its DB row before trusting its Fee: a partial
 		// write or targeted tamper could otherwise feed a foreign transaction's fee
 		// into the sum. Mirrors PMWPaymentStatus's check (db.CheckRowConsistency).
 		if err := checkTxRowConsistency(tx); err != nil {
-			return nil, fmt.Errorf("nonce %d: %w", nonce, err)
+			return nil, fmt.Errorf("paymentId %d (sequence %d): %w", paymentIDs[i], sequence, err)
 		}
 		fee, err := parseTxFee(tx.Response)
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse fee for nonce %d: %w", nonce, err)
+			return nil, fmt.Errorf("cannot parse fee for paymentId %d (sequence %d): %w", paymentIDs[i], sequence, err)
 		}
 		actualFee.Add(actualFee, fee)
 	}

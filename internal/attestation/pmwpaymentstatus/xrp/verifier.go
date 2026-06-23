@@ -30,7 +30,7 @@ func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequestBody) (fdc2.IPMWPaymentStatusResponseBody, error) {
-	instructionID, err := teeinstruction.GenerateInstructionID(req.OpType, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.Nonce)
+	instructionID, err := teeinstruction.GenerateInstructionID(req.OpType, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.PaymentId)
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, fmt.Errorf("cannot generate instruction ID: %w", err)
 	}
@@ -50,14 +50,17 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	// commits to these fields, so a mismatch means the indexed event data disagrees
 	// with its own topic — a C-chain index inconsistency (counterpart to the XRP row
 	// consistency check below).
-	if err := db.CheckInstructionConsistency(paymentMessage, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.Nonce); err != nil {
+	if err := db.CheckInstructionConsistency(paymentMessage, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.PaymentId); err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
-	dbTransaction, err := x.Repo.FetchTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: req.Nonce})
+	// The request no longer carries the XRP sequence; it comes from the decoded
+	// event message (paymentMessage.Nonce). The row is bound to that sequence by
+	// CheckRowConsistency below.
+	dbTransaction, err := x.Repo.FetchTransactionBySourceAndSequence(ctx, db.ChainQuery{SourceAddress: req.SenderAddress, Nonce: paymentMessage.Nonce})
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
-	rawTransactionData, err := x.parseRawTransactionData(req.SenderAddress, req.Nonce, dbTransaction.Response)
+	rawTransactionData, err := x.parseRawTransactionData(req.SenderAddress, paymentMessage.Nonce, dbTransaction.Response)
 	if err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}

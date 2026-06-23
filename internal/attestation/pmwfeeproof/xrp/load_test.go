@@ -112,12 +112,12 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 
 	opType := common.HexToHash("0xAA")
 	senderAddress := "rSender"
-	fromNonce := uint64(100)
-	toNonce := uint64(104) // 5 nonces
+	firstPaymentId := uint64(100)
+	lastPaymentId := uint64(104) // 5 payments
 
-	// Seed pay events and transactions for each nonce.
-	for nonce := fromNonce; nonce <= toNonce; nonce++ {
-		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, senderAddress, nonce)
+	// Seed pay events and transactions for each payment.
+	for paymentId := firstPaymentId; paymentId <= lastPaymentId; paymentId++ {
+		payID, err := instruction.GeneratePayInstructionID(opType, sourceID, senderAddress, paymentId)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -127,11 +127,11 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 			SenderAddress:    senderAddress,
 			RecipientAddress: "rRecipient",
 			Amount:           big.NewInt(1000),
-			MaxFee:           big.NewInt(int64(50 + nonce - fromNonce)),
+			MaxFee:           big.NewInt(int64(50 + paymentId - firstPaymentId)),
 			TokenId:          []byte{},
 			FeeSchedule:      []byte{},
-			Nonce:            nonce,
-			PaymentId:        nonce,
+			Nonce:            paymentId,
+			PaymentId:        paymentId,
 		}
 		eventData := encodePaymentEventData(t, teeABI, op.Pay, opType, msg)
 
@@ -141,8 +141,8 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 			Topic2:          removeHexPrefix(payID.Hex()),
 			Data:            hex.EncodeToString(eventData),
 			Address:         testContractAddressStored,
-			TransactionHash: fmt.Sprintf("%064x", nonce),
-			LogIndex:        nonce,
+			TransactionHash: fmt.Sprintf("%064x", paymentId),
+			LogIndex:        paymentId,
 			Timestamp:       1700000000,
 			BlockNumber:     100,
 		}
@@ -151,12 +151,12 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 		}
 
 		tx := paymentdb.DBTransaction{
-			Hash:          fmt.Sprintf("txhash%d", nonce),
+			Hash:          fmt.Sprintf("txhash%d", paymentId),
 			BlockNumber:   100,
 			Timestamp:     1700000000,
-			Response:      fmt.Sprintf(`{"Fee":"%d","Account":"%s","Sequence":%d,"hash":"txhash%d"}`, 10+nonce-fromNonce, senderAddress, nonce, nonce),
+			Response:      fmt.Sprintf(`{"Fee":"%d","Account":"%s","Sequence":%d,"hash":"txhash%d"}`, 10+paymentId-firstPaymentId, senderAddress, paymentId, paymentId),
 			SourceAddress: senderAddress,
-			Sequence:      nonce,
+			Sequence:      paymentId,
 		}
 		if err := xrpDB.Create(&tx).Error; err != nil {
 			t.Fatal(err)
@@ -166,8 +166,8 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 	req := fdc2.IPMWFeeProofRequestBody{
 		OpType:         opType,
 		SenderAddress:  senderAddress,
-		FromNonce:      fromNonce,
-		ToNonce:        toNonce,
+		FirstPaymentId: firstPaymentId,
+		BatchCount:     lastPaymentId - firstPaymentId + 1,
 		UntilTimestamp: 1800000000,
 	}
 

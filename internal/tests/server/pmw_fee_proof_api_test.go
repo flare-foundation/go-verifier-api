@@ -35,16 +35,18 @@ func TestPMWFeeProof(t *testing.T) {
 	require.NoError(t, err)
 
 	testSenderAddress := "renoX7N3xcss6nbh62tYAhaTH1XG17Arc"
-	// Nonces baseNonce+30..+32 = 11263175..11263177
-	fromNonce := uint64(11263175)
-	toNonce := uint64(11263177)
+	// PaymentIds 31..33 (3 payments) -> fixture logs 30..32, whose XRP Sequences
+	// (message Nonce) are the large values 11263175..11263177. paymentId and
+	// Sequence are kept distinct so the lookup logic is exercised.
+	firstPaymentId := uint64(31)
+	batchCount := uint64(3)
 	untilTimestamp := uint64(1759820500) // After all event timestamps
 
 	baseReqBody := fdc2.IPMWFeeProofRequestBody{
 		OpType:         opType,
 		SenderAddress:  testSenderAddress,
-		FromNonce:      fromNonce,
-		ToNonce:        toNonce,
+		FirstPaymentId: firstPaymentId,
+		BatchCount:     batchCount,
 		UntilTimestamp: untilTimestamp,
 	}
 
@@ -149,10 +151,10 @@ func TestPMWFeeProof(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
 	})
-	t.Run("verify: nonce range too large", func(t *testing.T) {
+	t.Run("verify: batch range too large", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.FromNonce = 1
-		modifiedReqBody.ToNonce = xrpverifier.MaxNonceRange + 1 // exceeds MaxNonceRange
+		modifiedReqBody.FirstPaymentId = 1
+		modifiedReqBody.BatchCount = xrpverifier.MaxBatchRange + 1 // exceeds MaxBatchRange
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -161,8 +163,8 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("verify: missing pay event", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.FromNonce = 99999 // Nonce with no pay event
-		modifiedReqBody.ToNonce = 99999
+		modifiedReqBody.FirstPaymentId = 99999 // PaymentId with no pay event
+		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -172,8 +174,8 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("verify: missing XRP transaction", func(t *testing.T) { // Log 40: pay event exists but no XRP tx
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.FromNonce = 11263185 // baseNonce + 40
-		modifiedReqBody.ToNonce = 11263185
+		modifiedReqBody.FirstPaymentId = 41 // paymentId of log 40 (Sequence 11263185)
+		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -183,8 +185,8 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("verify: cannot decode event data (ABI unpack)", func(t *testing.T) { // Log 41: short data
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.FromNonce = 11263186 // baseNonce + 41
-		modifiedReqBody.ToNonce = 11263186
+		modifiedReqBody.FirstPaymentId = 42 // paymentId of log 41 (Sequence 11263186)
+		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -194,8 +196,8 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("verify: cannot parse XRP transaction fee", func(t *testing.T) { // Log 42: valid event, bad Fee in XRP tx
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.FromNonce = 11263187 // baseNonce + 42
-		modifiedReqBody.ToNonce = 11263187
+		modifiedReqBody.FirstPaymentId = 43 // paymentId of log 42 (Sequence 11263187)
+		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -205,8 +207,8 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("verify: cannot decode event data message", func(t *testing.T) { // Log 43: corrupt message encoding
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.FromNonce = 11263188 // baseNonce + 43
-		modifiedReqBody.ToNonce = 11263188
+		modifiedReqBody.FirstPaymentId = 44 // paymentId of log 43 (Sequence 11263188)
+		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
@@ -216,8 +218,8 @@ func TestPMWFeeProof(t *testing.T) {
 	})
 	t.Run("prepareResponseBody: verification failed", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
-		modifiedReqBody.FromNonce = 99999
-		modifiedReqBody.ToNonce = 99999
+		modifiedReqBody.FirstPaymentId = 99999
+		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		response, err := helpers.PostWithoutMarshalling(t, setup.URL+"/prepareResponseBody", request, setup.APIKey) //nolint:bodyclose // test only checks status code

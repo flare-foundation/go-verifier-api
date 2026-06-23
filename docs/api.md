@@ -155,16 +155,14 @@ type TeeAvailabilityCheckTeeState struct {
 type PMWPaymentStatusRequestBody struct {
 	OpType 		  [32]byte
 	SenderAddress string
-	Nonce    	  uint64
 	PaymentId 	  uint64
 }
 ```
 | Field    		| Description
 |---------------|----------------------|
 | OpType   		| Hex-encoded 32-byte operational type
-| SenderAddress | Sender address
-| Nonce    		| Batch nonce of the payment instruction
-| PaymentId 		| Sequence number of the payment instruction
+| SenderAddress | Sender (account) address
+| PaymentId 		| Sequential payment identifier (1-based) of the payment instruction
 
 ```go
 type IPMWPaymentStatusResponseBody struct {

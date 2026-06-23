@@ -93,9 +93,15 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 
 	opType := common.HexToHash("0xAA")
 	senderAddress := "rSender"
-	nonce := uint64(42)
+	// paymentId (the small request/instruction key) and sequence (the XRP
+	// Sequence carried in the message Nonce) are intentionally DISTINCT so the
+	// verifier's paymentId -> event -> Nonce -> XRP-tx lookup is exercised. The
+	// XRP transaction Sequence equals the message Nonce, and the txResponse JSON
+	// constants commit to Sequence 42 / hash ...002a.
+	paymentId := uint64(7)
+	sequence := uint64(42)
 
-	instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
+	instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, paymentId)
 	require.NoError(t, err)
 
 	eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
@@ -109,8 +115,8 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		MaxFee:           big.NewInt(50),
 		TokenId:          []byte{},
 		FeeSchedule:      []byte{},
-		Nonce:            nonce,
-		PaymentId:        nonce,
+		Nonce:            sequence,
+		PaymentId:        paymentId,
 	}
 	eventData := encodeEventData(t, teeABI, opType, msg)
 
@@ -120,19 +126,19 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		Topic2:          stripHexPrefix(instructionID.Hex()),
 		Data:            hex.EncodeToString(eventData),
 		Address:         testContractAddressStored,
-		TransactionHash: fmt.Sprintf("%064x", nonce),
-		LogIndex:        nonce,
+		TransactionHash: fmt.Sprintf("%064x", sequence),
+		LogIndex:        sequence,
 		Timestamp:       1700000000,
 		BlockNumber:     100,
 	}).Error)
 
 	require.NoError(t, xrpDB.Create(&paymentdb.DBTransaction{
-		Hash:          fmt.Sprintf("%064x", nonce),
+		Hash:          fmt.Sprintf("%064x", sequence),
 		BlockNumber:   100,
 		Timestamp:     1700000000,
 		Response:      txResponse,
 		SourceAddress: senderAddress,
-		Sequence:      nonce,
+		Sequence:      sequence,
 	}).Error)
 
 	return testFixture{
@@ -143,8 +149,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		req: fdc2.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
 			SenderAddress: senderAddress,
-			Nonce:         nonce,
-			PaymentId:     nonce,
+			PaymentId:     paymentId,
 		},
 	}
 }
@@ -160,14 +165,16 @@ func TestVerifyEventInconsistency(t *testing.T) {
 	sourceID := common.HexToHash("0x1")
 	opType := common.HexToHash("0xAA")
 	senderAddress := "rSender"
-	nonce := uint64(42)
+	paymentId := uint64(7)
+	sequence := uint64(42) // XRP Sequence (message Nonce), distinct from paymentId
 
-	instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
+	instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, paymentId)
 	require.NoError(t, err)
 	eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 	require.NoError(t, err)
 
-	// Topic2 commits to nonce, but the stored message carries a different nonce.
+	// Topic2 commits to the request paymentId, but the stored message carries a
+	// different PaymentId. Consistency now binds on PaymentId, not Nonce.
 	msg := payments.ITeePaymentsPaymentInstructionMessage{
 		SourceId:      sourceID,
 		SenderAddress: senderAddress,
@@ -175,8 +182,8 @@ func TestVerifyEventInconsistency(t *testing.T) {
 		MaxFee:        big.NewInt(50),
 		TokenId:       []byte{},
 		FeeSchedule:   []byte{},
-		Nonce:         nonce + 1, // mismatch vs topic2 / request
-		PaymentId:     nonce,
+		Nonce:         sequence,
+		PaymentId:     paymentId + 1, // mismatch vs topic2 / request
 	}
 	require.NoError(t, cChainDB.Create(&database.Log{
 		Topic0:          stripHexPrefix(eventHash),
@@ -184,8 +191,8 @@ func TestVerifyEventInconsistency(t *testing.T) {
 		Topic2:          stripHexPrefix(instructionID.Hex()),
 		Data:            hex.EncodeToString(encodeEventData(t, teeABI, opType, msg)),
 		Address:         testContractAddressStored,
-		TransactionHash: fmt.Sprintf("%064x", nonce),
-		LogIndex:        nonce,
+		TransactionHash: fmt.Sprintf("%064x", sequence),
+		LogIndex:        sequence,
 	}).Error)
 
 	v := &XRPVerifier{
@@ -196,10 +203,10 @@ func TestVerifyEventInconsistency(t *testing.T) {
 		},
 	}
 	_, err = v.Verify(context.Background(), fdc2.IPMWPaymentStatusRequestBody{
-		OpType: opType, SenderAddress: senderAddress, Nonce: nonce, PaymentId: nonce,
+		OpType: opType, SenderAddress: senderAddress, PaymentId: paymentId,
 	})
 	require.ErrorIs(t, err, paymentdb.ErrDatabase)
-	require.ErrorContains(t, err, "event Nonce")
+	require.ErrorContains(t, err, "event PaymentId")
 }
 
 func TestVerifyConcurrentErrors(t *testing.T) {
@@ -216,7 +223,7 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
-			OpType: common.HexToHash("0xAA"), SenderAddress: "rSender", Nonce: 999,
+			OpType: common.HexToHash("0xAA"), SenderAddress: "rSender", PaymentId: 999,
 		}
 
 		const concurrency = 50
@@ -302,7 +309,7 @@ func TestVerify(t *testing.T) {
 		req := fdc2.IPMWPaymentStatusRequestBody{
 			OpType:        common.HexToHash("0xAA"),
 			SenderAddress: "rSender",
-			Nonce:         999,
+			PaymentId:     999,
 		}
 		_, err := v.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "record not found")
@@ -316,9 +323,10 @@ func TestVerify(t *testing.T) {
 		sourceID := common.HexToHash("0x1")
 		opType := common.HexToHash("0xAA")
 		senderAddress := "rSender"
-		nonce := uint64(42)
+		paymentId := uint64(7)
+		sequence := uint64(42) // XRP Sequence (message Nonce), distinct from paymentId
 
-		instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
+		instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, paymentId)
 		require.NoError(t, err)
 		eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
@@ -330,8 +338,8 @@ func TestVerify(t *testing.T) {
 			MaxFee:        big.NewInt(50),
 			TokenId:       []byte{},
 			FeeSchedule:   []byte{},
-			Nonce:         nonce,
-			PaymentId:     nonce,
+			Nonce:         sequence,
+			PaymentId:     paymentId,
 		}
 		eventData := encodeEventData(t, teeABI, opType, msg)
 
@@ -341,8 +349,8 @@ func TestVerify(t *testing.T) {
 			Topic2:          stripHexPrefix(instructionID.Hex()),
 			Data:            hex.EncodeToString(eventData),
 			Address:         testContractAddressStored,
-			TransactionHash: fmt.Sprintf("%064x", nonce),
-			LogIndex:        nonce,
+			TransactionHash: fmt.Sprintf("%064x", sequence),
+			LogIndex:        sequence,
 		}).Error)
 		// No transaction seeded.
 
@@ -354,7 +362,7 @@ func TestVerify(t *testing.T) {
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
-			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, PaymentId: nonce,
+			OpType: opType, SenderAddress: senderAddress, PaymentId: paymentId,
 		}
 		_, err = v.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "record not found")
@@ -368,9 +376,10 @@ func TestVerify(t *testing.T) {
 		sourceID := common.HexToHash("0x1")
 		opType := common.HexToHash("0xAA")
 		senderAddress := "rSender"
-		nonce := uint64(42)
+		paymentId := uint64(7)
+		sequence := uint64(42) // distinct from paymentId; used only as a log identifier here
 
-		instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, nonce)
+		instructionID, err := instruction.GenerateInstructionID(opType, sourceID, senderAddress, paymentId)
 		require.NoError(t, err)
 		eventHash, err := instruction.TeeInstructionsSentEventSignature(teeABI)
 		require.NoError(t, err)
@@ -382,8 +391,8 @@ func TestVerify(t *testing.T) {
 			Topic2:          stripHexPrefix(instructionID.Hex()),
 			Data:            hex.EncodeToString([]byte("not-abi-encoded")),
 			Address:         testContractAddressStored,
-			TransactionHash: fmt.Sprintf("%064x", nonce),
-			LogIndex:        nonce,
+			TransactionHash: fmt.Sprintf("%064x", sequence),
+			LogIndex:        sequence,
 		}).Error)
 
 		v := &XRPVerifier{
@@ -394,7 +403,7 @@ func TestVerify(t *testing.T) {
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
-			OpType: opType, SenderAddress: senderAddress, Nonce: nonce, PaymentId: nonce,
+			OpType: opType, SenderAddress: senderAddress, PaymentId: paymentId,
 		}
 		_, err = v.Verify(context.Background(), req)
 		require.ErrorContains(t, err, "cannot decode event")

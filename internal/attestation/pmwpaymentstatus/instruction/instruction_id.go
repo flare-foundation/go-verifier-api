@@ -11,19 +11,22 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 )
 
-func GenerateInstructionID(opType, sourceID [32]byte, senderAddress string, nonce uint64) (common.Hash, error) {
+func GenerateInstructionID(opType, sourceID [32]byte, accountAddress string, paymentId uint64) (common.Hash, error) {
 	PAY, err := convert.StringToCommonHash(string(op.Pay))
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("cannot convert PAY to Bytes32: %w", err)
 	}
+	// instructionId = keccak(opType, PAY, sourceId, accountAddress, paymentId, reissueNumber);
+	// PAY events always use reissueNumber 0 (reissues carry a non-zero number).
 	args := abi.Arguments{
 		{Type: helper.Bytes32Type}, // opType
 		{Type: helper.Bytes32Type}, // PAY
 		{Type: helper.Bytes32Type}, // sourceId
-		{Type: helper.StringType},  // senderAddress
-		{Type: helper.Uint64Type},  // nonce
+		{Type: helper.StringType},  // accountAddress
+		{Type: helper.Uint64Type},  // paymentId
+		{Type: helper.Uint64Type},  // reissueNumber (0 for PAY)
 	}
-	packed, err := args.Pack(opType, PAY, sourceID, senderAddress, nonce)
+	packed, err := args.Pack(opType, PAY, sourceID, accountAddress, paymentId, uint64(0))
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("cannot pack ABI arguments: %w", err)
 	}

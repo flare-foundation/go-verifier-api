@@ -220,8 +220,8 @@ func TestClassifyVerifyError(t *testing.T) {
 	}{
 		// 400 — bad request
 		{
-			name:           "ErrNonceRangeTooLarge",
-			err:            fmt.Errorf("range exceeds max: %w", feeproofxrp.ErrNonceRangeTooLarge),
+			name:           "ErrBatchRangeTooLarge",
+			err:            fmt.Errorf("range exceeds max: %w", feeproofxrp.ErrBatchRangeTooLarge),
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
