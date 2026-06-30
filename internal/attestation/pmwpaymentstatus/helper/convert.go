@@ -5,6 +5,20 @@ import (
 	"math/big"
 )
 
+// MaxXRPDrops is the total XRP supply expressed in drops (100e9 XRP × 1e6
+// drops/XRP = 1e17). No legitimate XRPL amount — fee, balance, or fee budget —
+// can exceed it, so a larger value is physically impossible and signals corrupt
+// indexer data. It is an immutable uint64 constant; use ExceedsMaxXRPDrops to
+// test a decoded value against it.
+const MaxXRPDrops uint64 = 100_000_000_000 * 1_000_000
+
+// ExceedsMaxXRPDrops reports whether v (a non-negative drops amount) is above
+// the total XRP supply — i.e. physically impossible and therefore corrupt data.
+// A value that does not fit in uint64 necessarily exceeds the supply.
+func ExceedsMaxXRPDrops(v *big.Int) bool {
+	return !v.IsUint64() || v.Uint64() > MaxXRPDrops
+}
+
 // ParseNonNegativeBigInt parses a base-10 decimal string into a non-negative *big.Int.
 //
 // Use only for fields that are unsigned by construction in the indexer

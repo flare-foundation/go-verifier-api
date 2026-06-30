@@ -103,6 +103,14 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBo
 		return zero, err
 	}
 
+	// Defense in depth: the per-value drops ceilings already bound each summand
+	// far below 2^256, but never hand a >uint256 total to the ABI encoder, which
+	// would silently wrap mod 2^256 and could make a tampered fee read as
+	// reconciling. A sum this large can only be corrupt data.
+	if estimatedFee.BitLen() > 256 || actualFee.BitLen() > 256 {
+		return zero, fmt.Errorf("fee sum exceeds uint256 (estimated bits=%d, actual bits=%d): %w", estimatedFee.BitLen(), actualFee.BitLen(), paymentdb.ErrDatabase)
+	}
+
 	return fdc2.IPMWFeeProofResponseBody{
 		LastPaymentId: req.FirstPaymentId + req.BatchCount - 1,
 		ActualFee:     actualFee,
@@ -135,6 +143,9 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 		sequences[i] = payMessage.Nonce
 
 		payMaxFee := payMessage.MaxFee
+		if helper.ExceedsMaxXRPDrops(payMaxFee) {
+			return nil, nil, fmt.Errorf("paymentId %d: pay maxFee %s exceeds total supply in drops: %w", paymentId, payMaxFee, paymentdb.ErrDatabase)
+		}
 		estimatedFee.Add(estimatedFee, payMaxFee)
 
 		terminatedEarly := false
@@ -167,6 +178,9 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 				return nil, nil, fmt.Errorf("paymentId %d, reissue %d: %w", paymentId, reissueNum, err)
 			}
 
+			if helper.ExceedsMaxXRPDrops(reissueMessage.MaxFee) {
+				return nil, nil, fmt.Errorf("paymentId %d, reissue %d: maxFee %s exceeds total supply in drops: %w", paymentId, reissueNum, reissueMessage.MaxFee, paymentdb.ErrDatabase)
+			}
 			// Residual: max(0, reissue_maxFee - pay_maxFee)
 			residual := new(big.Int).Sub(reissueMessage.MaxFee, payMaxFee)
 			if residual.Sign() > 0 {
@@ -263,6 +277,12 @@ func parseTxFee(response string) (*big.Int, error) {
 	fee, err := helper.ParseNonNegativeBigInt(raw.Fee)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse Fee %q: %w", raw.Fee, err)
+	}
+	// Fail closed on an impossible fee: a drops value above the total XRP supply
+	// cannot be real data (corrupt/tampered indexer row), and summing it would
+	// forge the fee proof.
+	if helper.ExceedsMaxXRPDrops(fee) {
+		return nil, fmt.Errorf("XRP Fee %s exceeds total supply in drops (%d): %w", fee, helper.MaxXRPDrops, paymentdb.ErrDatabase)
 	}
 	return fee, nil
 }

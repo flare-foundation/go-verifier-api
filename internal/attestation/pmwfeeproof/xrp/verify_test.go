@@ -16,6 +16,7 @@ import (
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,41 @@ func TestVerifyFeeProof(t *testing.T) {
 		require.Equal(t, big.NewInt(50), resp.EstimatedFee) // pay maxFee only, no reissues
 		require.Equal(t, big.NewInt(12), resp.ActualFee)
 		require.Equal(t, uint64(100), resp.LastPaymentId)
+	})
+
+	t.Run("pay maxFee above XRP supply fails closed", func(t *testing.T) {
+		// 1e17 + 1 drops — above the total XRP supply, so it cannot be real data.
+		tooLarge := new(big.Int).SetUint64(helper.MaxXRPDrops + 1)
+		f := setupFeeProofFixture(t, "fp_maxfee_overflow",
+			[]uint64{100},
+			[]int64{tooLarge.Int64()}, // impossible maxFee
+			[]string{"12"},
+		)
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FirstPaymentId: 100,
+			BatchCount:     1,
+			UntilTimestamp: 1800000000,
+		})
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+	})
+
+	t.Run("tx fee above XRP supply fails closed", func(t *testing.T) {
+		tooLarge := new(big.Int).SetUint64(helper.MaxXRPDrops + 1)
+		f := setupFeeProofFixture(t, "fp_txfee_overflow",
+			[]uint64{100},
+			[]int64{50},
+			[]string{tooLarge.String()}, // impossible tx fee
+		)
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FirstPaymentId: 100,
+			BatchCount:     1,
+			UntilTimestamp: 1800000000,
+		})
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
 	})
 
 	t.Run("multiple nonces sum correctly", func(t *testing.T) {
