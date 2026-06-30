@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
@@ -272,6 +274,17 @@ func TestClassifyVerifyError(t *testing.T) {
 			err:            fmt.Errorf("db failed: %w", db.ErrDatabase),
 			expectedStatus: http.StatusServiceUnavailable,
 		},
+		// 503 — request deadline / cancellation
+		{
+			name:           "context deadline exceeded",
+			err:            fmt.Errorf("verifier work timed out: %w", context.DeadlineExceeded),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "context canceled",
+			err:            fmt.Errorf("client disconnected: %w", context.Canceled),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
 		// 503 — TEE infrastructure errors
 		{
 			name:           "ErrNetwork",
@@ -322,4 +335,32 @@ func TestClassifyVerifyError(t *testing.T) {
 			require.NotContains(t, statusErr.Error(), "test1234")
 		})
 	}
+}
+
+// blockingVerifier blocks until its context is cancelled, modelling a hung
+// dependency (slow DB or RPC).
+type blockingVerifier struct{}
+
+func (blockingVerifier) Verify(ctx context.Context, _ int) (int, error) {
+	<-ctx.Done()
+	return 0, ctx.Err()
+}
+
+// instantVerifier returns immediately, modelling a healthy dependency.
+type instantVerifier struct{}
+
+func (instantVerifier) Verify(_ context.Context, req int) (int, error) {
+	return req + 1, nil
+}
+
+func TestVerifyWithDeadline(t *testing.T) {
+	t.Run("times out a hung verifier", func(t *testing.T) {
+		_, err := verifyWithDeadline[int, int](context.Background(), blockingVerifier{}, 0, 10*time.Millisecond)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+	})
+	t.Run("returns a fast verifier's result", func(t *testing.T) {
+		got, err := verifyWithDeadline[int, int](context.Background(), instantVerifier{}, 41, time.Second)
+		require.NoError(t, err)
+		require.Equal(t, 42, got)
+	})
 }

@@ -200,6 +200,11 @@ The [client](https://github.com/flare-foundation/tee-relay-client/blob/main/inte
 
 Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handles retries.
 
+### Request deadline & dependency timeouts
+Verifier work runs under an authoritative per-request deadline (`verifierWorkTimeout`, 25s), applied in the handler around `Verify` and kept below the server `writeTimeout` (30s) so the verifier abandons a hung dependency before the HTTP write deadline. Because downstream calls run under that context — the DB repos use `WithContext` and the nonce binder uses the request ctx — the deadline actually cancels in-flight DB queries and RPC calls rather than leaking goroutines. A timed-out or cancelled verification surfaces `context.DeadlineExceeded`/`Canceled`, classified as **503**.
+
+Defense-in-depth at the driver level bounds individual statements even if context cancellation does not promptly abort one: the Postgres source DB sets a true server-side per-session `statement_timeout` (via the pgx DSN, both URL and keyword forms) and the MySQL C-chain DB sets read/write I/O timeouts (`readTimeout`/`writeTimeout`; go-sql-driver has no portable server-side statement cap), both at `dbStatementTimeout` (28s — above the 25s request deadline so they never pre-empt a legitimately in-progress query, and below the 30s `writeTimeout` so a backstop abort still leaves margin to write a 503). The on-chain `getInitialNonce` call additionally has its own short `rpcTimeout` (5s).
+
 ### CRL revocation checking
 Intermediate + leaf certs from the x5c chain are checked for revocation.
 
@@ -334,6 +339,7 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
   - unclassified RPC errors (indeterminate → retry) — `ErrUnknown` (TEE)
   - HTTP request or non-OK status from TEE proxy — `ErrHTTPFetch` (TEE)
   - TEE action/result returned 404 (result not yet available in Redis) — `ErrActionResultNotFound` (TEE)
+  - verifier work exceeded the per-request deadline, or the request was cancelled — `context.DeadlineExceeded`/`context.Canceled` (all attestation types)
 
 Notes: PMWMultisig's `500` default branch is defensive and not reachable under normal operation. PMWMultisig validation failures (wrong signers, wrong flags, etc.) return a `200` with `status=ERROR`, not an HTTP error.
 

@@ -23,6 +23,22 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
+// verifierWorkTimeout is the authoritative deadline on a single verification's
+// work (DB queries + Flare RPC). It is kept below the server writeTimeout so the
+// verifier abandons a hung dependency and returns before the HTTP write deadline
+// fires. Downstream calls run under this context, so the deadline actually
+// cancels them: the DB repos use WithContext and the nonce binder uses the ctx.
+const verifierWorkTimeout = 25 * time.Second
+
+// verifyWithDeadline runs the verifier under an authoritative timeout so a slow or
+// hung dependency cannot pin the request goroutine indefinitely. A timed-out
+// verification surfaces context.DeadlineExceeded, classified as 503.
+func verifyWithDeadline[S, T any](ctx context.Context, v attestation.Verifier[S, T], req S, timeout time.Duration) (T, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return v.Verify(ctx, req)
+}
+
 func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V types.ResponseConvertible[T]](
 	api huma.API,
 	config *config.EncodedAndABI,
@@ -71,7 +87,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			if err != nil {
 				return nil, warnHuma400(reqID, "Decoding request body to data failed", err)
 			}
-			responseData, err := verifier.Verify(ctx, requestData)
+			responseData, err := verifyWithDeadline(ctx, verifier, requestData, verifierWorkTimeout)
 			if err != nil {
 				return nil, classifyVerifyError(reqID, err)
 			}
@@ -110,7 +126,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 				return nil, warnHuma400(reqID, "Decoding request body to data failed", err)
 			}
 			logRequestBody(requestData)
-			responseData, err := verifier.Verify(ctx, requestData)
+			responseData, err := verifyWithDeadline(ctx, verifier, requestData, verifierWorkTimeout)
 			if err != nil {
 				logger.Warnf("[%s] Verify request failed attestation=%s duration_ms=%d: %v",
 					reqID, string(attType), time.Since(started).Milliseconds(), err)
@@ -149,7 +165,9 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, verifiertypes.ErrInvalidInput):
 		return warnHuma422(reqID, msg, err)
 	// 503 — infrastructure errors (retry)
-	case errors.Is(err, client.ErrFetchAccountInfo),
+	case errors.Is(err, context.DeadlineExceeded),
+		errors.Is(err, context.Canceled),
+		errors.Is(err, client.ErrFetchAccountInfo),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),
