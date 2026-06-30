@@ -3,6 +3,7 @@ package builder_test
 import (
 	"encoding/hex"
 	"math/big"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/builder"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/types"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
@@ -149,5 +151,101 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
 		require.ErrorContains(t, err, "cannot calculate received amount for recipient")
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode for account")
+	})
+	t.Run("transaction fee above XRP supply fails closed", func(t *testing.T) {
+		modRaw := rawTransactionData
+		modRaw.Fee = strconv.FormatUint(helper.MaxXRPDrops+1, 10)
+		val, err := builder.BuildPaymentStatusResponse(modRaw, &paymentMessageInstruction, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "transaction fee")
+	})
+	t.Run("received amount above XRP supply fails closed", func(t *testing.T) {
+		// Craft metadata where the recipient's AccountRoot balance jumps by more than
+		// the total XRP supply — a physically-impossible delta from a corrupt indexer.
+		huge := strconv.FormatUint(helper.MaxXRPDrops+1, 10)
+		modRaw := rawTransactionData
+		modRaw.MetaData = types.TransactionMetaData{
+			TransactionResult: "tesSUCCESS",
+			AffectedNodes: []types.AffectedNode{
+				{ModifiedNode: &types.ModifiedNode{
+					LedgerEntryType: "AccountRoot",
+					FinalFields:     map[string]any{"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK", "Balance": huge},
+					PreviousFields:  map[string]any{"Balance": "0"},
+				}},
+			},
+		}
+		val, err := builder.BuildPaymentStatusResponse(modRaw, &paymentMessageInstruction, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "received amount")
+	})
+	t.Run("garbage transaction result code rejected", func(t *testing.T) {
+		modRaw := rawTransactionData
+		modRaw.MetaData.TransactionResult = "xyzGARBAGE"
+		val, err := builder.BuildPaymentStatusResponse(modRaw, &paymentMessageInstruction, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "unrecognized XRPL transaction result code")
+	})
+	t.Run("result code classes (validated-ledger only)", func(t *testing.T) {
+		cases := []struct {
+			result string
+			status types.TransactionStatus
+			reject bool // local/pre-consensus classes must fail closed
+		}{
+			{"tesSUCCESS", types.Success, false},
+			{"tecNO_DST_INSUF_XRP", types.Reverted, false},
+			{"tefPAST_SEQ", 0, true},
+			{"telLOCAL_ERROR", 0, true},
+			{"temMALFORMED", 0, true},
+			{"terPRE_SEQ", 0, true},
+		}
+		for _, c := range cases {
+			t.Run(c.result, func(t *testing.T) {
+				modRaw := rawTransactionData
+				modRaw.MetaData.TransactionResult = c.result
+				val, err := builder.BuildPaymentStatusResponse(modRaw, &paymentMessageInstruction, txFromDB)
+				if c.reject {
+					require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+					require.ErrorIs(t, err, db.ErrDatabase)
+					return
+				}
+				require.NoError(t, err)
+				require.Equal(t, uint8(c.status), val.TransactionStatus)
+			})
+		}
+	})
+	t.Run("instruction amount above XRP supply fails closed", func(t *testing.T) {
+		msg := paymentMessageInstruction
+		msg.Amount = new(big.Int).SetUint64(helper.MaxXRPDrops + 1)
+		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &msg, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "payment amount")
+	})
+	t.Run("instruction maxFee above XRP supply fails closed", func(t *testing.T) {
+		msg := paymentMessageInstruction
+		msg.MaxFee = new(big.Int).SetUint64(helper.MaxXRPDrops + 1)
+		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &msg, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "payment maxFee")
+	})
+	t.Run("nil instruction amount rejected", func(t *testing.T) {
+		msg := paymentMessageInstruction
+		msg.Amount = nil
+		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &msg, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "payment amount is nil")
+	})
+	t.Run("nil instruction maxFee rejected", func(t *testing.T) {
+		msg := paymentMessageInstruction
+		msg.MaxFee = nil
+		val, err := builder.BuildPaymentStatusResponse(rawTransactionData, &msg, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "payment maxFee is nil")
 	})
 }
