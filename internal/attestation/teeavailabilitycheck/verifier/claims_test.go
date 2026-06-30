@@ -30,8 +30,9 @@ func TestValidateClaims(t *testing.T) {
 		require.Equal(t, verifier.OK, val.Status)
 	})
 	t.Run("debug TEE bypasses STABLE check", func(t *testing.T) {
-		// Reached only when ParseAndValidatePKIToken ran with AllowDebug=true,
-		// so STABLE downgrade is intentionally skipped.
+		// Reached only when ParseAndValidatePKIToken ran with an empty
+		// AllowedDebugStatuses allowlist (ALLOW_TEE_DEBUG=true), so STABLE downgrade
+		// is intentionally skipped.
 		modClaims := *baseClaims
 		modClaims.DebugStatus = "enabled"
 		modClaims.SubMods.ConfidentialSpace.SupportAttributes = nil

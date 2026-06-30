@@ -34,7 +34,8 @@ var registry = map[string]VerifierConstructor{
 // ConstructorForSource returns the verifier constructor for the given source ID,
 // or an error if the source is unsupported. Services resolve this BEFORE opening
 // DB connections, so a misconfigured SOURCE_ID fails fast with a clear error
-// instead of a DB failure; the returned constructor then cannot fail.
+// instead of a DB failure. The returned constructor can still fail (it dials the
+// Flare RPC for the on-chain initial-nonce binder).
 func ConstructorForSource(sourceID string) (VerifierConstructor, error) {
 	constructor, ok := registry[sourceID]
 	if !ok {

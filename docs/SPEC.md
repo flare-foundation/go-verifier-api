@@ -47,7 +47,7 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 - **Request body size limit**: 1 MB (`maxRequestBodySize`); oversize rejected before processing.
 - **Error sanitization**: `400`, `422`, `500`, `503` return only a generic message; full details logged server-side with a request ID for correlation.
 - **Request ID correlation**: each handler request (prepareRequestBody, prepareResponseBody, verify) is assigned a unique ID, included in WARN/DEBUG server logs but never in HTTP response bodies. Unauthorized rejections log path + remote address.
-- **Verify error classification** (`classifyVerifyError`): `422` for XRP RPC non-success (`ErrRPCNonSuccess`), `503` for XRP RPC network/transport (`ErrFetchAccountInfo`), `500` default for other verifier errors.
+- **Verify error classification** (`classifyVerifyError`): maps sentinel errors to status — `400` for malformed requests (batch range, reissue cap, invalid multisig request), `422` for data/validation faults (missing event/transaction, record not found, XRP RPC non-success, TEE data validation, invalid input), `503` for infrastructure/transient faults (DB errors, request deadline/cancellation, XRP/EVM RPC network/transport, TEE proxy fetch, action result not yet available), and `500` as the default for unexpected errors. Full per-sentinel mapping in §9.
 
 ## 6. Configuration Specification
 ## 6.1 Common required env vars
@@ -240,9 +240,10 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 4. Decode tee instruction message payload, binding the event back to the request against all instruction-ID inputs. The decoder (`DecodeTeeInstructionsSentEventData`) first checks the event wrapper's `OpType == req.OpType` and `OpCommand == PAY` (the PAY/REISSUE message schema alone does not prove the op), then `db.CheckInstructionConsistency` checks the decoded message's `SourceId`/`SenderAddress`/`PaymentId` equal the values the instruction ID was built from. The `topic2 = keccak(opType, op, sourceId, account, paymentId, reissueNumber)` query already commits to all of these, so any mismatch means the indexed event data disagrees with its own topic — a C-chain index inconsistency (`ErrDatabase` → 503). (The message's `Nonce` is not bound here: it is not part of the instruction ID — it carries the XRP sequence used to locate the transaction, bound separately by the row-consistency check below.)
 5. **Sequence binding** (`pmwnonce.Binder.VerifySequence`): the decoded message's `Nonce` (the XRP sequence) must equal the value the contract deterministically assigns this payment — `initialNonce + paymentId - 1`, where `initialNonce` is read on-chain via `getInitialNonce(account)` on the source's per-source `TeePayments` contract (`TEE_PAYMENTS_CONTRACT_ADDRESS`, **not** the FlareTeeManager diamond) — the account's XRP sequence captured at registration, immutable afterwards, so cached per `(sourceId, account)`. The instruction-ID topic does not commit to `Nonce`, so without this a compromised indexer could point a `paymentId` at a foreign sequence (and thus a foreign transaction). A mismatch, or any failure reading `initialNonce`, fails closed (`ErrDatabase` → 503).
 6. Query source DB transaction by `(source_address, sequence)`, where the sequence is the decoded message's `Nonce` (the request no longer carries it).
-7. Parse raw source-chain transaction JSON. Reject if `TransactionType != "Payment"` — non-payment types (e.g. `AccountSet`, `TrustSet`) at the same `(sourceAddress, sequence)` cannot produce a payment status attestation.
+7. Parse raw source-chain transaction JSON (`parseRawTransactionData`): reject responses over `maxResponseSize`, and require a non-empty transaction result.
 8. **Row-consistency check** (`db.CheckRowConsistency`): the identity fields parsed from the response JSON (`hash`, `Account`, `Sequence`) must match the row's indexed columns (`Hash`, `SourceAddress`, `Sequence`) before the response is trusted; a mismatch is treated as a DB inconsistency (`ErrDatabase` → 503). Response rows over `maxResponseSize` are rejected the same way.
-9. Build FDC2 response:
+9. Build FDC2 response (`builder.BuildPaymentStatusResponse`):
+   - reject if `TransactionType != "Payment"` (checked here, after the row-consistency check) — non-payment types (e.g. `AccountSet`, `TrustSet`) at the same `(sourceAddress, sequence)` cannot produce a payment status attestation
    - recipient/token/amount/fee/reference from instruction message
    - status/revert reason from raw tx result
    - received amount for recipient — computed from `AffectedNodes` `AccountRoot` balance changes regardless of tx status (typically 0 for reverted txs, but computed from on-chain data rather than hardcoded). Native XRP only; issued-currency (IOU) payments that modify `RippleState` trust lines are not supported. Recipient address normalized from X-address to classic format before matching (XRPL metadata uses classic).
@@ -252,7 +253,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - Source DB: transactions table (Postgres). C-chain DB: logs table (MySQL).
 
 ### Resource lifecycle
-- Service owns 2 DB connections and closes both on shutdown.
+- Service owns 2 DB connections plus the verifier's on-chain nonce-binder RPC client (via the verifier's `io.Closer`), and closes all on shutdown.
 
 ## 7.3 PMWMultisigAccountConfigured
 
@@ -263,7 +264,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 
 ### Primary flow (`XRPVerifier.Verify`)
 1. Call XRPL `account_info` with `ledger_index=validated`, `signer_lists=true`.
-2. **Bind the response to the request**: `account_data.Account` must equal `req.AccountAddress` (both normalized X-address→classic) before any field is trusted. A misbehaving/compromised RPC returning another (validly-configured) account's data is rejected here, so it cannot yield `OK` for the requested account. Mismatch → validation failure.
+2. **Bind the response to the request**: `account_data.Account` must equal `req.AccountAddress` byte-for-byte (a raw compare against the classic `r...` account — no X-address→classic normalization; the on-chain wallet hash and XRPL's echoed `Account` are both the classic form). This catches an honest RPC that returns the wrong/misrouted account's data; it does **not** defend against a fully malicious RPC that simply echoes the requested account back, so the RPC is semi-trusted here. Mismatch → validation failure.
 3. Require the response is from a validated ledger (`validated == true`).
 4. Resolve signer lists from response. XRPL API v1 (rippled) returns `signer_lists` inside `account_data`; API v2 and Clio return it at the `result` level — both layouts supported.
 5. Validate signer list exists and matches provided pubkeys + threshold. Set-based comparison — duplicate `publicKeys` cannot mask extra on-chain signers.
@@ -318,6 +319,7 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
   - decode/encode request conversion issues
   - batch range invalid (zero, too large, or overflow) — `ErrBatchRangeTooLarge` (PMWFeeProof)
   - reissue scan exceeded `MaxReissuesPerPayment` — `ErrReissueLimitExceeded` (PMWFeeProof)
+  - malformed multisig request (empty/too-many/empty-entry `publicKeys`, or `threshold == 0`) — `ErrInvalidRequest` (PMWMultisig)
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
 - `422 Unprocessable Entity`:

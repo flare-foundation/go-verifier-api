@@ -20,9 +20,10 @@ import (
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 )
 
-// rpcTimeout bounds a single getInitialNonce eth_call. The verifier runs under
-// the inbound request context, but the HTTP server's write timeout does not bound
-// verifier work, so a hung Flare RPC would otherwise pin request goroutines.
+// rpcTimeout bounds a single getInitialNonce eth_call as defense-in-depth below
+// the per-request verifier deadline (handler.verifierWorkTimeout): the call runs
+// under the inbound request context, so a hung Flare RPC is abandoned quickly
+// rather than consuming the whole request budget.
 const rpcTimeout = 5 * time.Second
 
 // maxInitialNonceCacheEntries bounds the initialNonce cache. initialNonce is
@@ -95,10 +96,11 @@ func (b *Binder) Close() error {
 	return nil
 }
 
-// NewOnChainBinder dials the Flare RPC and binds against the TeePayments facet at
-// the FlareTeeManager diamond address. ethclient.Dial validates the URL but does
-// not connect eagerly, so a node that is temporarily down fails per-request (and
-// fails closed) rather than at boot.
+// NewOnChainBinder dials the Flare RPC and binds against the source's TeePayments
+// contract at contractAddr (the per-source TeePayments deployment that exposes
+// getInitialNonce — not the FlareTeeManager diamond that emits events).
+// ethclient.Dial validates the URL but does not connect eagerly, so a node that is
+// temporarily down fails per-request (and fails closed) rather than at boot.
 func NewOnChainBinder(rpcURL string, contractAddr common.Address) (*Binder, error) {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {

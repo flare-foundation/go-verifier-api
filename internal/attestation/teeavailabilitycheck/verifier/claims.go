@@ -25,8 +25,9 @@ type StatusInfo struct {
 
 // ValidateClaims performs the verifier-specific checks left after
 // googlecloud.ParseAndValidatePKIToken applies the Policy. The Policy
-// already enforces JWT signature, iss/aud, eat_nonce binding, and (when
-// AllowDebug is false) the dbgstat allowlist. This function covers what the
+// already enforces JWT signature, iss/aud, eat_nonce binding, and the dbgstat
+// allowlist (Policy.AllowedDebugStatuses, set to ["disabled-since-boot"] unless
+// ALLOW_TEE_DEBUG is enabled). This function covers what the
 // Policy does not: SWName must be CONFIDENTIAL_SPACE, the STABLE
 // support_attribute downgrade-to-OBSOLETE rule on the production path, and
 // extraction of CodeHash (from container.image_id) and Platform. The image_id
@@ -36,10 +37,11 @@ func ValidateClaims(claims *googlecloud.GoogleTeeClaims) (StatusInfo, error) {
 	if claims.SWName != "CONFIDENTIAL_SPACE" {
 		return StatusInfo{}, fmt.Errorf("SWName check failed: expected CONFIDENTIAL_SPACE, got %q", claims.SWName)
 	}
-	// When the Policy ran with AllowDebug=false the token was rejected
-	// unless dbgstat == "disabled-since-boot", so any claims reaching
-	// here in that mode describe a production TEE. A non-production
-	// dbgstat is therefore reachable only when ALLOW_TEE_DEBUG=true.
+	// When the Policy ran with AllowedDebugStatuses = ["disabled-since-boot"]
+	// (ALLOW_TEE_DEBUG unset) the token was rejected unless dbgstat ==
+	// "disabled-since-boot", so any claims reaching here in that mode describe a
+	// production TEE. A non-production dbgstat is therefore reachable only when
+	// ALLOW_TEE_DEBUG=true (allowlist left empty, skipping the dbgstat check).
 	isProduction := claims.DebugStatus == "disabled-since-boot"
 	if isProduction {
 		if claims.SubMods.ConfidentialSpace.SupportAttributes == nil {
