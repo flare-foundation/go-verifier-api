@@ -38,11 +38,26 @@ func TestParseNonNegativeBigInt(t *testing.T) {
 			t.Fatalf("Expected %s, got %s", expected.String(), val.String())
 		}
 	})
-	t.Run("very large number", func(t *testing.T) {
-		input := strings.Repeat("9", 100)
+	t.Run("value at the digit cap accepted", func(t *testing.T) {
+		input := strings.Repeat("9", maxDropsDigits)
 		val, err := ParseNonNegativeBigInt(input)
 		require.NoError(t, err)
 		require.Equal(t, input, val.String())
+	})
+	t.Run("overlong fee-like string rejected before parse", func(t *testing.T) {
+		// A multi-KB decimal Fee from a corrupt indexer must be rejected on length,
+		// not parsed (DOS-2 guards both the Fee and Balance call sites, which both
+		// route through ParseNonNegativeBigInt).
+		input := strings.Repeat("9", 5000)
+		val, err := ParseNonNegativeBigInt(input)
+		require.ErrorContains(t, err, "decimal value too long")
+		require.Nil(t, val)
+	})
+	t.Run("overlong balance-like string rejected before parse", func(t *testing.T) {
+		input := strings.Repeat("1", maxDropsDigits+1)
+		val, err := ParseNonNegativeBigInt(input)
+		require.ErrorContains(t, err, "decimal value too long")
+		require.Nil(t, val)
 	})
 	t.Run("invalid input", func(t *testing.T) {
 		input := "notanumber"
@@ -61,7 +76,8 @@ func TestParseNonNegativeBigInt(t *testing.T) {
 		require.Equal(t, big.NewInt(0).String(), val.String())
 	})
 	t.Run("large negative rejected", func(t *testing.T) {
-		input := "-" + strings.Repeat("9", 50)
+		// Within the length cap so this exercises the sign check, not the cap.
+		input := "-" + strings.Repeat("9", 20)
 		val, err := ParseNonNegativeBigInt(input)
 		require.ErrorContains(t, err, "expected non-negative big.Int")
 		require.Nil(t, val)

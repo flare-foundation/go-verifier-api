@@ -32,7 +32,17 @@ func ExceedsMaxXRPDrops(v *big.Int) bool {
 //
 // A negative value in an unsigned context indicates corrupted or malicious
 // indexer data and is rejected here so downstream code never sees one.
+// maxDropsDigits caps the length of a decimal drops string before it is parsed,
+// so a maliciously long value from a corrupt indexer cannot drive quadratic-time
+// big.Int parsing (a CPU-exhaustion vector). The total XRP supply is 1e17 drops
+// (18 digits); 25 is generous headroom. Values that fit the length but still
+// exceed the supply are caught downstream by ExceedsMaxXRPDrops.
+const maxDropsDigits = 25
+
 func ParseNonNegativeBigInt(s string) (*big.Int, error) {
+	if len(s) > maxDropsDigits {
+		return nil, fmt.Errorf("decimal value too long: %d chars (max %d)", len(s), maxDropsDigits)
+	}
 	const decimalBase = 10
 	i, ok := new(big.Int).SetString(s, decimalBase)
 	if !ok {
