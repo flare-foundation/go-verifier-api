@@ -237,16 +237,18 @@ func TestPMWPaymentStatus(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
 	})
-	t.Run("verify: verification failed - cannot build payment status response", func(t *testing.T) { // Using fake entry log (23) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c6.
+	t.Run("verify: indexer data rejected - malformed transaction result code", func(t *testing.T) { // Using fake entry log (23) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c6, whose TransactionResult ("te") is too short to be a valid XRPL result code.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 4
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
+		// A malformed result code from the semi-trusted indexer fails closed as a
+		// retryable database/indexer error (503), not a generic 500.
 		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
 		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		require.Equal(t, http.StatusServiceUnavailable, response.StatusCode)
+		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
 	t.Run("verify: verification failed - cannot decode event data message", func(t *testing.T) { // Using fake entry log (24) in c-chain idx db.
 		modifiedReqBody := baseReqBody
