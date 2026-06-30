@@ -99,6 +99,8 @@ internal/attestation/pmwpaymentstatus/xrp/types/type.go
 internal/attestation/pmwpaymentstatus/xrp/verifier.go
 internal/attestation/pmwpaymentstatus/service.go
 
+internal/attestation/pmwnonce/binder.go
+
 internal/attestation/teeavailabilitycheck/fetcher/fetcher.go
 internal/attestation/teeavailabilitycheck/verifier/types/error.go
 internal/attestation/teeavailabilitycheck/verifier/types/samples.go
