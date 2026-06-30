@@ -46,9 +46,11 @@ func TestGetAPIKeys(t *testing.T) {
 		{"unset", "", nil, "API_KEYS must be set"},
 		{"empty string", "   ", nil, "API_KEYS must be set"},
 		{"only empty values", " , , ", nil, "API_KEYS contains only empty values"},
-		{"trailing comma", "key1,key2,", []string{"key1", "key2"}, ""},
-		{"single key", "key1", []string{"key1"}, ""},
-		{"multiple keys with spaces", "key1, key2 ,key3", []string{"key1", "key2", "key3"}, ""},
+		{"key too short", "shortkey", nil, "must be at least 16 characters"},
+		{"one key too short among valid", "0123456789abcdef,shortkey", nil, "must be at least 16 characters"},
+		{"trailing comma", "0123456789abcdef,fedcba9876543210,", []string{"0123456789abcdef", "fedcba9876543210"}, ""},
+		{"single key", "0123456789abcdef", []string{"0123456789abcdef"}, ""},
+		{"multiple keys with spaces", "0123456789abcdef, fedcba9876543210 ,abcdef0123456789", []string{"0123456789abcdef", "fedcba9876543210", "abcdef0123456789"}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -101,7 +103,7 @@ func TestLoadEnvConfig(t *testing.T) {
 		loadEnvShouldFail(t)
 		t.Setenv(config.EnvSourceID, string(config.SourceTEE))
 		loadEnvShouldFail(t)
-		t.Setenv(config.EnvAPIKeys, "key1,key2")
+		t.Setenv(config.EnvAPIKeys, "0123456789abcdef,fedcba9876543210")
 		t.Setenv(config.EnvAllowPrivateNetworks, "true")
 
 		cfg, err := LoadEnvConfig()

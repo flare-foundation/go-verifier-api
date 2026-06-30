@@ -42,7 +42,7 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 - Responses return encoded `responseBody`; `prepareResponseBody` also returns decoded `responseData`.
 
 ## 5. Auth and Security Behavior
-- **API key auth**: middleware checks `X-API-KEY` against `API_KEYS` env list; `/api/health` exempt; unauthorized → `401`.
+- **API key auth**: middleware checks `X-API-KEY` against `API_KEYS` env list; `/api/health` exempt; unauthorized → `401`. Each configured key must be at least 16 characters — shorter keys are rejected at boot (`minAPIKeyLength`).
 - **Response security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` on all responses.
 - **Request body size limit**: 1 MB (`maxRequestBodySize`); oversize rejected before processing.
 - **Error sanitization**: `400`, `422`, `500`, `503` return only a generic message; full details logged server-side with a request ID for correlation.
@@ -52,7 +52,7 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 ## 6. Configuration Specification
 ## 6.1 Common required env vars
 - `PORT`
-- `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key)
+- `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key; each key must be at least 16 characters or boot fails)
 - `VERIFIER_TYPE` (`TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`)
 - `SOURCE_ID` (`TEE`, `XRP`, `testXRP`)
 

@@ -30,6 +30,10 @@ const (
 	writeTimeout       = 30 * time.Second
 	idleTimeout        = 60 * time.Second
 	maxRequestBodySize = 1 << 20 // 1 MB
+
+	// minAPIKeyLength is the minimum accepted length for an API key. Rejecting
+	// short keys at boot prevents deploying with a weak/guessable X-API-KEY.
+	minAPIKeyLength = 16
 )
 
 func RunServer(envConfig config.EnvConfig) {
@@ -129,9 +133,14 @@ func getAPIKeys() ([]string, error) {
 	var apiKeys []string
 	for key := range strings.SplitSeq(raw, ",") {
 		trimmed := strings.TrimSpace(key)
-		if trimmed != "" {
-			apiKeys = append(apiKeys, trimmed)
+		if trimmed == "" {
+			continue
 		}
+		// Length only in the error — never log the key material itself.
+		if len(trimmed) < minAPIKeyLength {
+			return nil, fmt.Errorf("%s entries must be at least %d characters; got one of length %d", config.EnvAPIKeys, minAPIKeyLength, len(trimmed))
+		}
+		apiKeys = append(apiKeys, trimmed)
 	}
 	if len(apiKeys) == 0 {
 		return nil, fmt.Errorf("%s contains only empty values", config.EnvAPIKeys)
