@@ -49,6 +49,26 @@ func TestValidatePublicKeys(t *testing.T) {
 	})
 }
 
+func TestValidateMultisigRequest(t *testing.T) {
+	validKeys := [][]byte{{0x01, 0x02}, {0x03, 0x04}}
+
+	t.Run("valid request", func(t *testing.T) {
+		require.NoError(t, ValidateMultisigRequest(validKeys, 2))
+	})
+	t.Run("empty public-key list rejected", func(t *testing.T) {
+		require.ErrorContains(t, ValidateMultisigRequest([][]byte{}, 1), "publicKeys must not be empty")
+	})
+	t.Run("nil public-key list rejected", func(t *testing.T) {
+		require.ErrorContains(t, ValidateMultisigRequest(nil, 1), "publicKeys must not be empty")
+	})
+	t.Run("zero threshold rejected", func(t *testing.T) {
+		require.ErrorContains(t, ValidateMultisigRequest(validKeys, 0), "threshold must be greater than zero")
+	})
+	t.Run("delegates per-key checks", func(t *testing.T) {
+		require.ErrorContains(t, ValidateMultisigRequest([][]byte{{0x01}, nil}, 1), "public key at index 1 is empty")
+	})
+}
+
 func TestToInternalRejectsEmptyPublicKey(t *testing.T) {
 	req := PMWMultisigAccountConfiguredRequestBody{
 		AccountAddress: "rTest",
@@ -57,6 +77,26 @@ func TestToInternalRejectsEmptyPublicKey(t *testing.T) {
 	}
 	_, err := req.ToInternal()
 	require.ErrorContains(t, err, "public key at index 0 is empty")
+}
+
+func TestToInternalRejectsZeroThreshold(t *testing.T) {
+	req := PMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: "rTest",
+		PublicKeys:     []hexutil.Bytes{{0x01, 0x02}},
+		Threshold:      0,
+	}
+	_, err := req.ToInternal()
+	require.ErrorContains(t, err, "threshold must be greater than zero")
+}
+
+func TestToInternalRejectsEmptyPublicKeyList(t *testing.T) {
+	req := PMWMultisigAccountConfiguredRequestBody{
+		AccountAddress: "rTest",
+		PublicKeys:     nil,
+		Threshold:      1,
+	}
+	_, err := req.ToInternal()
+	require.ErrorContains(t, err, "publicKeys must not be empty")
 }
 
 func TestToInternalAcceptsValid(t *testing.T) {

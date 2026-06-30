@@ -441,4 +441,28 @@ func TestVerifyRejectsInvalidRequestBeforeRPC(t *testing.T) {
 		require.True(t, errors.Is(err, ErrInvalidRequest), "expected ErrInvalidRequest, got %v", err)
 		require.ErrorContains(t, err, "public key at index 1 is empty")
 	})
+
+	t.Run("empty public-key list", func(t *testing.T) {
+		req := fdc2.IPMWMultisigAccountConfiguredRequestBody{
+			AccountAddress: testAccountName,
+			PublicKeys:     [][]byte{},
+			Threshold:      1,
+		}
+		_, err := verifier.Verify(context.Background(), req)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrInvalidRequest), "expected ErrInvalidRequest, got %v", err)
+		require.ErrorContains(t, err, "publicKeys must not be empty")
+	})
+
+	t.Run("zero threshold", func(t *testing.T) {
+		req := fdc2.IPMWMultisigAccountConfiguredRequestBody{
+			AccountAddress: testAccountName,
+			PublicKeys:     [][]byte{{0x01, 0x02}},
+			Threshold:      0,
+		}
+		_, err := verifier.Verify(context.Background(), req)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrInvalidRequest), "expected ErrInvalidRequest, got %v", err)
+		require.ErrorContains(t, err, "threshold must be greater than zero")
+	})
 }

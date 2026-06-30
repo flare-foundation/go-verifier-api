@@ -40,8 +40,10 @@ func NewXRPVerifier(cfg *config.PMWMultisigAccountConfig) *XRPVerifier {
 
 func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigAccountConfiguredRequestBody) (fdc2.IPMWMultisigAccountConfiguredResponseBody, error) {
 	// Enforce request shape here so direct ABI callers (verify / prepareResponseBody)
-	// cannot bypass the limits applied by the JSON ToInternal path.
-	if err := apitypes.ValidatePublicKeys(req.PublicKeys); err != nil {
+	// cannot bypass the limits applied by the JSON ToInternal path: at least one
+	// public key, no more than MaxPublicKeys, no empty entries, and a non-zero
+	// threshold.
+	if err := apitypes.ValidateMultisigRequest(req.PublicKeys, req.Threshold); err != nil {
 		return fdc2.IPMWMultisigAccountConfiguredResponseBody{}, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
 	}
 	accountInfo, err := x.Client.FetchAccountInfo(ctx, req.AccountAddress)

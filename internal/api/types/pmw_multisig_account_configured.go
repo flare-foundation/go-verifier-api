@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -33,12 +34,33 @@ func ValidatePublicKeys(publicKeys [][]byte) error {
 	return nil
 }
 
+// ValidateMultisigRequest enforces the full multisig request shape: at least one
+// public key (in addition to the per-key and cap checks of ValidatePublicKeys) and
+// a non-zero threshold — a zero signer quorum is never a valid multisig. These
+// mirror the JSON `min=1`/`gte=1` validation tags so direct ABI requests, which
+// skip JSON validation, cannot bypass them.
+func ValidateMultisigRequest(publicKeys [][]byte, threshold uint64) error {
+	if len(publicKeys) == 0 {
+		return errors.New("publicKeys must not be empty")
+	}
+	if err := ValidatePublicKeys(publicKeys); err != nil {
+		return err
+	}
+	if threshold == 0 {
+		return errors.New("threshold must be greater than zero")
+	}
+	return nil
+}
+
 func (requestBody PMWMultisigAccountConfiguredRequestBody) ToInternal() (fdc2.IPMWMultisigAccountConfiguredRequestBody, error) {
 	publicKeys := make([][]byte, len(requestBody.PublicKeys))
 	for i, pk := range requestBody.PublicKeys {
 		publicKeys[i] = pk
 	}
-	if err := ValidatePublicKeys(publicKeys); err != nil {
+	// Same validator the verifier uses, so the JSON and ABI paths share one source
+	// of truth (the JSON `min=1`/`gte=1` tags catch these earlier, but keeping the
+	// check here avoids split-brain validation if a tag is changed or removed).
+	if err := ValidateMultisigRequest(publicKeys, requestBody.Threshold); err != nil {
 		return fdc2.IPMWMultisigAccountConfiguredRequestBody{}, err
 	}
 
