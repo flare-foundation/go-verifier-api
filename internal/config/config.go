@@ -15,6 +15,7 @@ const (
 	EnvRPCURL                         = "RPC_URL"
 	EnvRelayContractAddress           = "RELAY_CONTRACT_ADDRESS"
 	EnvFlareTeeManagerContractAddress = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
+	EnvTeePaymentsContractAddress     = "TEE_PAYMENTS_CONTRACT_ADDRESS"
 	EnvSourceDatabaseURL              = "SOURCE_DATABASE_URL"
 	EnvCChainDatabaseURL              = "CCHAIN_DATABASE_URL"
 	EnvPort                           = "PORT"
@@ -39,6 +40,7 @@ type EnvConfig struct {
 	RPCURL                         string
 	RelayContractAddress           string
 	FlareTeeManagerContractAddress string
+	TeePaymentsContractAddress     string
 	SourceDatabaseURL              string
 	CChainDatabaseURL              string
 	AllowTeeDebug                  string
@@ -92,6 +94,7 @@ type PMWPaymentStatusConfig struct {
 	SourceDatabaseURL              string
 	CchainDatabaseURL              string
 	FlareTeeManagerContractAddress common.Address
+	TeePaymentsContractAddress     common.Address
 	RPCURL                         string
 	ParsedTeeInstructionsABI       abi.ABI
 }
@@ -101,6 +104,7 @@ type PMWFeeProofConfig struct {
 	SourceDatabaseURL              string
 	CchainDatabaseURL              string
 	FlareTeeManagerContractAddress common.Address
+	TeePaymentsContractAddress     common.Address
 	RPCURL                         string
 	ParsedTeeInstructionsABI       abi.ABI
 }
@@ -187,6 +191,10 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 			}
 		case EnvFlareTeeManagerContractAddress:
 			if cfg.FlareTeeManagerContractAddress == "" {
+				missing = append(missing, field)
+			}
+		case EnvTeePaymentsContractAddress:
+			if cfg.TeePaymentsContractAddress == "" {
 				missing = append(missing, field)
 			}
 		case EnvSourceDatabaseURL:

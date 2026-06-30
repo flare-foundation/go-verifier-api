@@ -50,7 +50,7 @@ type XRPVerifier struct {
 }
 
 func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) (*XRPVerifier, error) {
-	binder, err := pmwnonce.NewOnChainBinder(cfg.RPCURL, cfg.FlareTeeManagerContractAddress)
+	binder, err := pmwnonce.NewOnChainBinder(cfg.RPCURL, cfg.TeePaymentsContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create initial-nonce binder: %w", err)
 	}

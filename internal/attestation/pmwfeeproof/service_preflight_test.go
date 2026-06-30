@@ -20,7 +20,7 @@ func TestNewFeeProofServicePreflight(t *testing.T) {
 			CChainDatabaseURL: "",
 		}
 		service, err := NewFeeProofService(badEnvConfig)
-		require.ErrorContains(t, err, "cannot load PMWFeeProof config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS, RPC_URL")
+		require.ErrorContains(t, err, "cannot load PMWFeeProof config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS, TEE_PAYMENTS_CONTRACT_ADDRESS, RPC_URL")
 		require.Nil(t, service)
 	})
 	t.Run("using unsupported source ID", func(t *testing.T) {
@@ -31,6 +31,7 @@ func TestNewFeeProofServicePreflight(t *testing.T) {
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
+			TeePaymentsContractAddress:     "0x00000000000000000000000000000000000000C2",
 			RPCURL:                         "http://127.0.0.1:8545",
 			SourceID:                       "UNSUPPORTED_SOURCE",
 			AttestationType:                fdc2.PMWFeeProof,

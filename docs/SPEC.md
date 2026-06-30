@@ -81,6 +81,7 @@ Required:
 - `SOURCE_DATABASE_URL` (Postgres)
 - `CCHAIN_DATABASE_URL` (MySQL)
 - `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
+- `TEE_PAYMENTS_CONTRACT_ADDRESS` (the source's per-source `TeePayments` contract; `getInitialNonce` is called on it for the sequence binding — distinct from the FlareTeeManager diamond above)
 - `RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
 
 ### PMWMultisigAccountConfigured
@@ -92,6 +93,7 @@ Required:
 - `SOURCE_DATABASE_URL` (Postgres)
 - `CCHAIN_DATABASE_URL` (MySQL)
 - `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
+- `TEE_PAYMENTS_CONTRACT_ADDRESS` (the source's per-source `TeePayments` contract; `getInitialNonce` is called on it for the sequence binding — distinct from the FlareTeeManager diamond above)
 - `RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
 
 ## 7. Attestation Module Specs
@@ -236,7 +238,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 2. Resolve `TeeInstructionsSent` event signature.
 3. Fetch matching event log from C-chain index DB (`topic0`, `topic1=0`, `topic2=instructionID`).
 4. Decode tee instruction message payload, binding the event back to the request against all instruction-ID inputs. The decoder (`DecodeTeeInstructionsSentEventData`) first checks the event wrapper's `OpType == req.OpType` and `OpCommand == PAY` (the PAY/REISSUE message schema alone does not prove the op), then `db.CheckInstructionConsistency` checks the decoded message's `SourceId`/`SenderAddress`/`PaymentId` equal the values the instruction ID was built from. The `topic2 = keccak(opType, op, sourceId, account, paymentId, reissueNumber)` query already commits to all of these, so any mismatch means the indexed event data disagrees with its own topic — a C-chain index inconsistency (`ErrDatabase` → 503). (The message's `Nonce` is not bound here: it is not part of the instruction ID — it carries the XRP sequence used to locate the transaction, bound separately by the row-consistency check below.)
-5. **Sequence binding** (`pmwnonce.Binder.VerifySequence`): the decoded message's `Nonce` (the XRP sequence) must equal the value the contract deterministically assigns this payment — `initialNonce + paymentId - 1`, where `initialNonce` is read on-chain via `TeePayments.getInitialNonce(account)` (the account's XRP sequence captured at registration, immutable afterwards, so cached per `(sourceId, account)`). The instruction-ID topic does not commit to `Nonce`, so without this a compromised indexer could point a `paymentId` at a foreign sequence (and thus a foreign transaction). A mismatch, or any failure reading `initialNonce`, fails closed (`ErrDatabase` → 503).
+5. **Sequence binding** (`pmwnonce.Binder.VerifySequence`): the decoded message's `Nonce` (the XRP sequence) must equal the value the contract deterministically assigns this payment — `initialNonce + paymentId - 1`, where `initialNonce` is read on-chain via `getInitialNonce(account)` on the source's per-source `TeePayments` contract (`TEE_PAYMENTS_CONTRACT_ADDRESS`, **not** the FlareTeeManager diamond) — the account's XRP sequence captured at registration, immutable afterwards, so cached per `(sourceId, account)`. The instruction-ID topic does not commit to `Nonce`, so without this a compromised indexer could point a `paymentId` at a foreign sequence (and thus a foreign transaction). A mismatch, or any failure reading `initialNonce`, fails closed (`ErrDatabase` → 503).
 6. Query source DB transaction by `(source_address, sequence)`, where the sequence is the decoded message's `Nonce` (the request no longer carries it).
 7. Parse raw source-chain transaction JSON. Reject if `TransactionType != "Payment"` — non-payment types (e.g. `AccountSet`, `TrustSet`) at the same `(sourceAddress, sequence)` cannot produce a payment status attestation.
 8. **Row-consistency check** (`db.CheckRowConsistency`): the identity fields parsed from the response JSON (`hash`, `Account`, `Sequence`) must match the row's indexed columns (`Hash`, `SourceAddress`, `Sequence`) before the response is trusted; a mismatch is treated as a DB inconsistency (`ErrDatabase` → 503). Response rows over `maxResponseSize` are rejected the same way.
