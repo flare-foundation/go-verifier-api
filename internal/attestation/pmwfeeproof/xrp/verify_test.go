@@ -389,6 +389,32 @@ func TestVerifyFeeProof(t *testing.T) {
 		})
 		require.ErrorIs(t, err, ErrReissueLimitExceeded)
 	})
+
+	t.Run("reissue past untilTimestamp at cap probe is accepted", func(t *testing.T) {
+		// reissues 1..cap fall within the window; the (cap+1)th exists but its block
+		// timestamp is past untilTimestamp, so within the window there are exactly
+		// MaxReissuesPerPayment reissues. The cap probe must apply the same window
+		// gate as the scan and accept, not reject.
+		f := setupFeeProofFixture(t, "fp_reissue_cap_probe_after_window",
+			[]uint64{100},
+			[]int64{50},
+			[]string{"10"},
+		)
+		for i := uint64(1); i <= MaxReissuesPerPayment; i++ {
+			f.seedReissue(t, 100, i, 60, 1700000000) // within window
+		}
+		f.seedReissue(t, 100, MaxReissuesPerPayment+1, 60, 1900000000) // past untilTimestamp
+		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FirstPaymentId: 100,
+			BatchCount:     1,
+			UntilTimestamp: 1800000000,
+		})
+		require.NoError(t, err)
+		// The out-of-window reissue is not counted: pay 50 + cap × residual 10.
+		require.Equal(t, big.NewInt(50+int64(MaxReissuesPerPayment)*10), resp.EstimatedFee)
+	})
 }
 
 func TestVerifyFeeProofConcurrentErrors(t *testing.T) {

@@ -225,12 +225,19 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot generate reissue instruction ID for paymentId %d, reissue %d: %w", paymentId, nextReissueNum, err)
 		}
-		_, err = x.Repo.FetchInstructionLog(ctx, eventHash, nextID)
+		nextResult, err := x.Repo.FetchInstructionLog(ctx, eventHash, nextID)
 		if errors.Is(err, paymentdb.ErrRecordNotFound) {
 			continue
 		}
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot probe reissue cap for paymentId %d: %w", paymentId, err)
+		}
+		// The probe event exists, but only counts against the cap if it falls within
+		// the same untilTimestamp window the scan applies. A reissue past
+		// untilTimestamp is outside this batch's window, so within the window there
+		// are exactly MaxReissuesPerPayment reissues — legitimate, accept.
+		if nextResult.BlockTimestamp > req.UntilTimestamp {
+			continue
 		}
 		return nil, nil, fmt.Errorf("paymentId %d: %w (cap %d)", paymentId, ErrReissueLimitExceeded, MaxReissuesPerPayment)
 	}
