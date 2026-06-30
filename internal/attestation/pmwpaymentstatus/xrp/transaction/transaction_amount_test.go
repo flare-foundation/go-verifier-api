@@ -2,8 +2,11 @@ package transaction
 
 import (
 	"math/big"
+	"strconv"
 	"testing"
 
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/types"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	"github.com/stretchr/testify/require"
@@ -166,6 +169,40 @@ func TestExtractModifiedNode(t *testing.T) {
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "invalid previous balance format")
 	})
+	t.Run("final balance exceeds XRP supply fails closed", func(t *testing.T) {
+		// final = supply+1000, previous = supply: the delta (1000) looks plausible,
+		// but the absolute balance is physically impossible — must fail closed.
+		node := &types.ModifiedNode{
+			LedgerEntryType: "AccountRoot",
+			FinalFields: map[string]any{
+				"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
+				"Balance": strconv.FormatUint(helper.MaxXRPDrops+1000, 10),
+			},
+			PreviousFields: map[string]any{
+				"Balance": strconv.FormatUint(helper.MaxXRPDrops, 10),
+			},
+		}
+		val, err := extractFromModifiedNode(node)
+		require.Nil(t, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "final balance")
+	})
+	t.Run("previous balance exceeds XRP supply fails closed", func(t *testing.T) {
+		node := &types.ModifiedNode{
+			LedgerEntryType: "AccountRoot",
+			FinalFields: map[string]any{
+				"Account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
+				"Balance": "1922391830527342",
+			},
+			PreviousFields: map[string]any{
+				"Balance": strconv.FormatUint(helper.MaxXRPDrops+1, 10),
+			},
+		}
+		val, err := extractFromModifiedNode(node)
+		require.Nil(t, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "previous balance")
+	})
 }
 
 func TestExtractCreatedNode(t *testing.T) {
@@ -222,6 +259,19 @@ func TestExtractCreatedNode(t *testing.T) {
 		val, err := extractFromCreatedNode(node)
 		require.Nil(t, val)
 		require.ErrorContains(t, err, "invalid balance format in CreatedNode")
+	})
+	t.Run("balance exceeds XRP supply fails closed", func(t *testing.T) {
+		node := &types.CreatedNode{
+			LedgerEntryType: "AccountRoot",
+			NewFields: map[string]any{
+				"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
+				"Balance": strconv.FormatUint(helper.MaxXRPDrops+1, 10),
+			},
+		}
+		val, err := extractFromCreatedNode(node)
+		require.Nil(t, val)
+		require.ErrorIs(t, err, db.ErrDatabase)
+		require.ErrorContains(t, err, "created-node balance")
 	})
 }
 
