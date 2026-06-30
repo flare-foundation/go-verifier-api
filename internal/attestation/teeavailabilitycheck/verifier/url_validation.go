@@ -31,6 +31,12 @@ var blockedIPPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("fd00:ec2::254/128"), // AWS EC2 IPv6 metadata
 }
 
+// ipv4CompatPrefix is the deprecated IPv4-compatible IPv6 range (RFC 4291). Such
+// addresses embed an IPv4 address in the low 32 bits (e.g. ::169.254.169.254) and
+// would otherwise slip past the IPv4 blocked prefixes, because Unmap only
+// normalises IPv4-mapped addresses (::ffff:0:0/96), not IPv4-compatible ones.
+var ipv4CompatPrefix = netip.MustParsePrefix("::/96")
+
 type ipResolver interface {
 	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
 }
@@ -46,7 +52,8 @@ type ResolvedURL struct {
 
 // ResolveExternalURL validates the URL and returns a pinned public IP to prevent DNS rebinding.
 // When allowPrivateNetworks is true, private/loopback IPs are permitted but dangerous IPs
-// (link-local, metadata, multicast, unspecified, Teredo, 6to4) are still blocked.
+// (link-local, metadata, multicast, unspecified, Teredo, 6to4, IPv4-compatible
+// IPv6) are still blocked.
 func ResolveExternalURL(ctx context.Context, rawURL string, allowPrivateNetworks bool) (*ResolvedURL, error) {
 	return resolveExternalURL(ctx, rawURL, net.DefaultResolver, allowPrivateNetworks)
 }
@@ -161,6 +168,14 @@ func isDangerousIP(ip net.IP) bool {
 		addr.IsLinkLocalMulticast() ||
 		addr.IsMulticast() ||
 		addr.IsUnspecified() {
+		return true
+	}
+
+	// Block IPv4-compatible IPv6 (::/96), which embeds an arbitrary IPv4 address and
+	// evades the IPv4 prefix checks. Loopback ::1 is excluded so it still follows the
+	// normal loopback policy (allowed only when private networks are permitted); ::
+	// is already blocked above as unspecified.
+	if ipv4CompatPrefix.Contains(addr) && addr != netip.IPv6Loopback() {
 		return true
 	}
 

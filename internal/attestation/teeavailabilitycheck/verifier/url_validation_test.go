@@ -98,6 +98,18 @@ func TestResolveExternalURLValidation(t *testing.T) {
 		require.ErrorContains(t, err, "private/local IPs are not allowed")
 	})
 
+	t.Run("rejects IPv4-compatible IPv6 embedding metadata IP", func(t *testing.T) {
+		// ::169.254.169.254 embeds the link-local/metadata IPv4 but is not normalised
+		// by Unmap, so it would bypass the IPv4 prefix checks without the ::/96 block.
+		_, err := resolveExternalURL(context.Background(), "http://[::169.254.169.254]", resolverMock{}, false)
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects IPv4-compatible IPv6 embedding loopback", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "http://[::127.0.0.1]", resolverMock{}, false)
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
 	t.Run("rejects hostname resolving to blocked IPv6", func(t *testing.T) {
 		_, err := resolveExternalURL(context.Background(), "https://proxy.example", resolverMock{
 			ips: []net.IPAddr{{IP: net.ParseIP("2002:c0a8:0101::1")}},
@@ -200,6 +212,13 @@ func TestResolveExternalURLAllowPrivateNetworks(t *testing.T) {
 	t.Run("allows IPv6 loopback ::1", func(t *testing.T) {
 		_, err := resolveExternalURL(context.Background(), "http://[::1]", resolverMock{}, true)
 		require.NoError(t, err)
+	})
+
+	t.Run("rejects IPv4-compatible IPv6 even in private mode", func(t *testing.T) {
+		// ::169.254.169.254 is always dangerous: ::1 is the only IPv4-compatible
+		// address allowed (handled by the loopback case above).
+		_, err := resolveExternalURL(context.Background(), "http://[::169.254.169.254]", resolverMock{}, true)
+		require.ErrorContains(t, err, "dangerous IPs are not allowed")
 	})
 
 	t.Run("allows Docker bridge IP 172.17.0.1", func(t *testing.T) {

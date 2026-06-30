@@ -101,7 +101,7 @@ Required:
 ## 7.1 TeeAvailabilityCheck
 
 ### Primary flow (`Verify`)
-1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, metadata, multicast, Teredo, 6to4) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
+1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
 2. Validate challenge equals request challenge.
    - **Chain pin**: require `response.TeeInfo.ChainID == CHAIN_ID`. The signatures are reconstructed using the attested `ChainID`, so this is the explicit check that it is the chain we serve (not merely internally consistent), closing cross-chain replay beyond the per-request challenge binding. Enforced **unconditionally** — the `DISABLE_ATTESTATION_CHECK_E2E` and `magic_pass` bypasses disable Google attestation validation, not chain identity. `CHAIN_ID` is required and non-zero for every deployment (0 is not a valid EVM chain ID, so there is no default).
 3. Verify action-result integrity:
@@ -129,7 +129,7 @@ Pipeline: (1) scheme must be `http`/`https`; (2) userinfo rejected; (3) `localho
 | `localhost` / `*.localhost` hostnames | Blocked | Allowed |
 | Loopback (`127.0.0.0/8`, `::1`) | Blocked | Allowed |
 | Private (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`) | Blocked | Allowed |
-| Cloud metadata, link-local, multicast, unspecified (`0.0.0.0`, `::`), "this network" (`0.0.0.0/8`), CGNAT (`100.64/10`), benchmark (`198.18/15`), NAT64 (`64:ff9b::/96`), 6to4 (`2002::/16`), Teredo (`2001::/32`), documentation (`2001:db8::/32`), discard (`100::/64`) | Blocked | Blocked |
+| Cloud metadata, link-local, multicast, unspecified (`0.0.0.0`, `::`), "this network" (`0.0.0.0/8`), CGNAT (`100.64/10`), benchmark (`198.18/15`), NAT64 (`64:ff9b::/96`), 6to4 (`2002::/16`), Teredo (`2001::/32`), IPv4-compatible IPv6 (`::/96`, excl. `::1`), documentation (`2001:db8::/32`), discard (`100::/64`) | Blocked | Blocked |
 | DNS pinning | Active | Active |
 
 ### JWT attestation token validation (`DataVerification`)
