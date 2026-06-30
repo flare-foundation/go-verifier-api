@@ -324,6 +324,69 @@ func TestGetOrFetchCRL(t *testing.T) {
 	})
 }
 
+func TestGetOrFetchCRLContextCancellation(t *testing.T) {
+	// A caller whose own context is cancelled must return promptly with its own
+	// cancellation error, and must NOT abort the shared (singleflight) fetch — the
+	// fetch keeps running under its own context and still populates the cache for
+	// the other waiters.
+	caCert, caKey := generateTestCert(t, true, nil, nil, nil)
+	crlBytes := createTestCRL(t, caCert, caKey, time.Now().Add(time.Hour))
+
+	const url = "http://example.com/crl"
+	var fetchCount atomic.Int64
+	var startOnce sync.Once
+	started := make(chan struct{})
+	release := make(chan struct{})
+
+	cache := &CRLCache{
+		entries: make(map[string]*crlEntry),
+		fetchFn: func(_ context.Context, _ string, _ time.Duration) ([]byte, error) {
+			fetchCount.Add(1)
+			startOnce.Do(func() { close(started) })
+			<-release // block until the test releases the shared fetch
+			return crlBytes, nil
+		},
+	}
+
+	type result struct {
+		crl *x509.RevocationList
+		err error
+	}
+	resCh := make(chan result, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		crl, err := cache.getOrFetchCRL(ctx, url, caCert)
+		resCh <- result{crl, err}
+	}()
+
+	<-started // the shared fetch has begun
+	cancel()  // cancel only this caller's context
+
+	select {
+	case r := <-resCh:
+		require.ErrorIs(t, r.err, context.Canceled)
+		require.Nil(t, r.crl)
+	case <-time.After(2 * time.Second):
+		t.Fatal("getOrFetchCRL did not return after its own context was cancelled")
+	}
+
+	// The shared fetch was not aborted by the caller's cancellation: release it and
+	// it still completes and populates the cache.
+	close(release)
+	require.Eventually(t, func() bool {
+		cache.mu.RLock()
+		defer cache.mu.RUnlock()
+		_, ok := cache.entries[url]
+		return ok
+	}, 2*time.Second, 10*time.Millisecond, "shared fetch should still populate the cache after the caller cancelled")
+
+	// A subsequent caller gets the cached CRL with no additional fetch.
+	crl, err := cache.getOrFetchCRL(context.Background(), url, caCert)
+	require.NoError(t, err)
+	require.NotNil(t, crl)
+	require.Equal(t, int64(1), fetchCount.Load(), "fetch should have run exactly once despite the cancellation")
+}
+
 func TestFetchCRLsForToken(t *testing.T) {
 	t.Run("full flow with CRL distribution points", func(t *testing.T) {
 		leafCRLURL := "http://example.com/leaf.crl"

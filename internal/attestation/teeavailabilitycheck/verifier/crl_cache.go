@@ -161,7 +161,11 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 	}
 
 	// Cache miss: deduplicate concurrent fetches for the same URL via singleflight.
-	result, err, _ := c.sfGroup.Do(url, func() (any, error) {
+	// The shared fetch runs under a background context (bounded by crlFetchTimeout
+	// inside fetchFn), NOT the caller's context, so one caller's cancellation cannot
+	// abort the in-flight fetch for the others. Each caller instead waits on its own
+	// context via the DoChan result channel below.
+	ch := c.sfGroup.DoChan(url, func() (any, error) {
 		// Re-check cache — another goroutine may have populated it before singleflight acquired the key.
 		c.mu.RLock()
 		cachedEntry, exists := c.entries[url]
@@ -170,7 +174,7 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 			return cachedEntry.crl, nil
 		}
 
-		data, err := c.fetchFn(ctx, url, crlFetchTimeout)
+		data, err := c.fetchFn(context.Background(), url, crlFetchTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("fetching CRL: %w", err)
 		}
@@ -206,14 +210,21 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 		return crl, nil
 	})
 
-	if err != nil {
-		return nil, err
+	select {
+	case <-ctx.Done():
+		// This caller gave up, but the shared fetch keeps running and still populates
+		// the cache for the other waiters (and this caller's next attempt).
+		return nil, ctx.Err()
+	case res := <-ch:
+		if res.Err != nil {
+			return nil, res.Err
+		}
+		crl, ok := res.Val.(*x509.RevocationList)
+		if !ok {
+			return nil, fmt.Errorf("unexpected singleflight result type: %T", res.Val)
+		}
+		return crl, nil
 	}
-	crl, ok := result.(*x509.RevocationList)
-	if !ok {
-		return nil, fmt.Errorf("unexpected singleflight result type: %T", result)
-	}
-	return crl, nil
 }
 
 // isEntryStale returns true if the entry has exceeded crlMaxCacheTTL or the CRL's NextUpdate has passed.
