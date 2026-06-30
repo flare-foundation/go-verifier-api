@@ -22,6 +22,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// stubBinder is a test double for pmwnonce.SequenceVerifier. By default it
+// accepts any sequence (err == nil); set err to simulate a binding rejection.
+// Tests not about the on-chain sequence binding use the accepting zero value to
+// stay decoupled from it.
+type stubBinder struct{ err error }
+
+func (s stubBinder) VerifySequence(context.Context, common.Hash, string, uint64, uint64) error {
+	return s.err
+}
+
+// closerStubBinder is a stubBinder that also implements io.Closer, so
+// XRPVerifier.Close exercises its close-the-binder branch.
+type closerStubBinder struct {
+	stubBinder
+	closed bool
+}
+
+func (c *closerStubBinder) Close() error {
+	c.closed = true
+	return nil
+}
+
+func TestXRPVerifierClose(t *testing.T) {
+	// Binder is not an io.Closer: Close is a no-op.
+	require.NoError(t, (&XRPVerifier{Binder: stubBinder{}}).Close())
+	// Binder is an io.Closer: it is released.
+	cb := &closerStubBinder{}
+	require.NoError(t, (&XRPVerifier{Binder: cb}).Close())
+	require.True(t, cb.closed)
+}
+
 func TestVerifyFeeProof(t *testing.T) {
 	t.Run("single nonce success", func(t *testing.T) {
 		f := setupFeeProofFixture(t, "fp_single",
@@ -40,6 +71,27 @@ func TestVerifyFeeProof(t *testing.T) {
 		require.Equal(t, big.NewInt(50), resp.EstimatedFee) // pay maxFee only, no reissues
 		require.Equal(t, big.NewInt(12), resp.ActualFee)
 		require.Equal(t, uint64(100), resp.LastPaymentId)
+	})
+
+	t.Run("sequence mismatch fails closed", func(t *testing.T) {
+		// The pay event is internally consistent, but the on-chain binder reports its
+		// sequence does not match initialNonce + paymentId - 1. The verifier must
+		// reject before fetching (and summing the fee of) the foreign transaction.
+		f := setupFeeProofFixture(t, "fp_seqmismatch",
+			[]uint64{100},
+			[]int64{50},
+			[]string{"12"},
+		)
+		f.verifier.Binder = stubBinder{err: fmt.Errorf("XRP sequence mismatch: %w", paymentdb.ErrDatabase)}
+		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FirstPaymentId: 100,
+			BatchCount:     1,
+			UntilTimestamp: 1800000000,
+		})
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "XRP sequence mismatch")
 	})
 
 	t.Run("pay maxFee above XRP supply fails closed", func(t *testing.T) {
@@ -124,6 +176,7 @@ func TestVerifyFeeProof(t *testing.T) {
 		v := &XRPVerifier{
 			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: &config.PMWFeeProofConfig{ParsedTeeInstructionsABI: teeABI, EncodedAndABI: config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}}},
+			Binder: stubBinder{},
 		}
 		_, err = v.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType: opType, SenderAddress: "rSender", FirstPaymentId: paymentId, BatchCount: 1, UntilTimestamp: 1800000000,
@@ -221,6 +274,7 @@ func TestVerifyFeeProof(t *testing.T) {
 		v := &XRPVerifier{
 			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
+			Binder: stubBinder{},
 		}
 
 		_, err = v.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{

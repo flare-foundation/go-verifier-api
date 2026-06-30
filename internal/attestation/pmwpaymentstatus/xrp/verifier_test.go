@@ -28,6 +28,37 @@ import (
 	"gorm.io/gorm"
 )
 
+// stubBinder is a test double for pmwnonce.SequenceVerifier. By default it
+// accepts any sequence (err == nil); set err to simulate a binding rejection.
+// Most tests here are not about the on-chain sequence binding, so they use the
+// accepting zero value to stay decoupled from it.
+type stubBinder struct{ err error }
+
+func (s stubBinder) VerifySequence(context.Context, common.Hash, string, uint64, uint64) error {
+	return s.err
+}
+
+// closerStubBinder is a stubBinder that also implements io.Closer, so
+// XRPVerifier.Close exercises its close-the-binder branch.
+type closerStubBinder struct {
+	stubBinder
+	closed bool
+}
+
+func (c *closerStubBinder) Close() error {
+	c.closed = true
+	return nil
+}
+
+func TestXRPVerifierClose(t *testing.T) {
+	// Binder is not an io.Closer: Close is a no-op.
+	require.NoError(t, (&XRPVerifier{Binder: stubBinder{}}).Close())
+	// Binder is an io.Closer: it is released.
+	cb := &closerStubBinder{}
+	require.NoError(t, (&XRPVerifier{Binder: cb}).Close())
+	require.True(t, cb.closed)
+}
+
 // testContractAddress is the canonical TeeInstructionsSent emitter address used in tests.
 var testContractAddress = common.HexToAddress("0x00000000000000000000000000000000000000C1")
 
@@ -145,6 +176,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 		verifier: &XRPVerifier{
 			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
+			Binder: stubBinder{},
 		},
 		req: fdc2.IPMWPaymentStatusRequestBody{
 			OpType:        opType,
@@ -196,7 +228,8 @@ func TestVerifyEventInconsistency(t *testing.T) {
 	}).Error)
 
 	v := &XRPVerifier{
-		Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+		Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+		Binder: stubBinder{},
 		Config: &config.PMWPaymentStatusConfig{
 			ParsedTeeInstructionsABI: teeABI,
 			EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
@@ -216,7 +249,8 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 		cChainDB := newTestDB(t, "conc_nolog_cchain", &database.Log{})
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
@@ -294,13 +328,26 @@ func TestVerify(t *testing.T) {
 		require.Equal(t, big.NewInt(12), resp.TransactionFee)
 	})
 
+	t.Run("sequence mismatch fails closed", func(t *testing.T) {
+		// The event/row is internally consistent, but the on-chain binder reports the
+		// sequence does not match initialNonce + paymentId - 1 — a compromised indexer
+		// pointing the paymentId at a foreign sequence. Must be rejected before the
+		// response is built.
+		f := setupVerifyFixture(t, "verify_seq1mismatch", successTxResponse)
+		f.verifier.Binder = stubBinder{err: fmt.Errorf("XRP sequence mismatch: %w", paymentdb.ErrDatabase)}
+		_, err := f.verifier.Verify(context.Background(), f.req)
+		require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		require.ErrorContains(t, err, "XRP sequence mismatch")
+	})
+
 	t.Run("missing instruction log returns error", func(t *testing.T) {
 		teeABI := testABI(t)
 		xrpDB := newTestDB(t, "verify_nolog_xrp", &paymentdb.DBTransaction{})
 		cChainDB := newTestDB(t, "verify_nolog_cchain", &database.Log{})
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
@@ -355,7 +402,8 @@ func TestVerify(t *testing.T) {
 		// No transaction seeded.
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
@@ -396,7 +444,8 @@ func TestVerify(t *testing.T) {
 		}).Error)
 
 		v := &XRPVerifier{
-			Repo: paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Repo:   paymentdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
+			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
 				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},

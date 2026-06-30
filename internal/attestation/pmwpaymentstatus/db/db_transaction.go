@@ -12,8 +12,8 @@ import (
 // Response JSON (hash/account/sequence) agree with the canonical DB columns.
 // Protects against partial writes or targeted tampering of a subset of a row's
 // fields; does not protect against a fully compromised indexer (acknowledged
-// trust boundary, see L-02 in audit.md). Shared by PMWPaymentStatus and
-// PMWFeeProof so both bind the Response blob to the row before trusting it.
+// trust boundary). Shared by PMWPaymentStatus and PMWFeeProof so both bind the
+// Response blob to the row before trusting it.
 func CheckRowConsistency(jsonHash, jsonAccount string, jsonSequence uint64, tx DBTransaction) error {
 	if !strings.EqualFold(jsonHash, tx.Hash) {
 		return fmt.Errorf("DB inconsistency: JSON hash %q != column Hash %q: %w", jsonHash, tx.Hash, ErrDatabase)
@@ -37,8 +37,9 @@ func CheckRowConsistency(jsonHash, jsonAccount string, jsonSequence uint64, tx D
 // for XRP rows; same trust boundary (does not protect against a fully
 // compromised indexer).
 // The event's Nonce is not bound here: it is no longer part of the instruction
-// ID. It carries the XRP sequence used to locate the transaction, which is
-// bound separately by CheckRowConsistency on the XRP row.
+// ID. It carries the XRP sequence used to locate the transaction, which is bound
+// separately — on-chain to initialNonce + paymentId - 1 (pmwnonce.Binder) and to
+// its row by CheckRowConsistency on the XRP row.
 func CheckInstructionConsistency(msg *payments.ITeePaymentsPaymentInstructionMessage, sourceID common.Hash, senderAddress string, paymentId uint64) error {
 	if common.Hash(msg.SourceId) != sourceID {
 		return fmt.Errorf("DB inconsistency: event SourceId %s != expected %s: %w", common.Hash(msg.SourceId).Hex(), sourceID.Hex(), ErrDatabase)

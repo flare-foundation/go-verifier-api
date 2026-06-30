@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwnonce"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/builder"
@@ -20,13 +22,30 @@ import (
 type XRPVerifier struct {
 	Repo   *db.DBRepo
 	Config *config.PMWPaymentStatusConfig
+	// Binder binds a payment's XRP sequence to its paymentId via on-chain
+	// initialNonce. An interface so tests can substitute a stub.
+	Binder pmwnonce.SequenceVerifier
 }
 
-func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB) *XRPVerifier {
+func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB) (*XRPVerifier, error) {
+	binder, err := pmwnonce.NewOnChainBinder(cfg.RPCURL, cfg.FlareTeeManagerContractAddress)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create initial-nonce binder: %w", err)
+	}
 	return &XRPVerifier{
 		Repo:   db.NewDBRepo(xrpDB, cChainDB, cfg.FlareTeeManagerContractAddress),
 		Config: cfg,
+		Binder: binder,
+	}, nil
+}
+
+// Close releases the binder's RPC connection. Implements io.Closer so the
+// service can release it at shutdown alongside the DB connections.
+func (x *XRPVerifier) Close() error {
+	if c, ok := x.Binder.(io.Closer); ok {
+		return c.Close()
 	}
+	return nil
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequestBody) (fdc2.IPMWPaymentStatusResponseBody, error) {
@@ -51,6 +70,13 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	// with its own topic — a C-chain index inconsistency (counterpart to the XRP row
 	// consistency check below).
 	if err := db.CheckInstructionConsistency(paymentMessage, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.PaymentId); err != nil {
+		return fdc2.IPMWPaymentStatusResponseBody{}, err
+	}
+	// Bind the event's XRP sequence to the value the contract deterministically
+	// assigns this paymentId (initialNonce + paymentId - 1), read on-chain. The
+	// instruction-ID topic does not commit to the sequence, so without this a
+	// compromised indexer could point a paymentId at a foreign sequence.
+	if err := x.Binder.VerifySequence(ctx, x.Config.SourceIDPair.SourceIDEncoded, req.SenderAddress, req.PaymentId, paymentMessage.Nonce); err != nil {
 		return fdc2.IPMWPaymentStatusResponseBody{}, err
 	}
 	// The request no longer carries the XRP sequence; it comes from the decoded

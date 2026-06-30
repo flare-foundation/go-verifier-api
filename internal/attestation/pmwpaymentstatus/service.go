@@ -43,8 +43,14 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 		_ = db.CloseDB(dataBase)
 		return nil, fmt.Errorf("cannot connect to CChain DB: %w", err)
 	}
-	// Source already resolved above, so construction cannot fail.
-	verifierImpl := construct(cfg, dataBase, cchainDB)
+	// Source already resolved above; construction can still fail when dialing the
+	// Flare RPC for the on-chain initial-nonce binding.
+	verifierImpl, err := construct(cfg, dataBase, cchainDB)
+	if err != nil {
+		_ = db.CloseDB(dataBase)
+		_ = db.CloseDB(cchainDB)
+		return nil, fmt.Errorf("cannot construct PMWPaymentStatus verifier: %w", err)
+	}
 	return &PaymentService{verifier: verifierImpl, config: cfg, db: dataBase, cdb: cchainDB}, nil
 }
 
@@ -66,6 +72,12 @@ func (s *PaymentService) Close() error {
 	}
 	if err := db.CloseDB(s.cdb); err != nil {
 		errs = append(errs, err)
+	}
+	// The verifier holds the on-chain initial-nonce binder's RPC connection.
+	if c, ok := s.verifier.(io.Closer); ok {
+		if err := c.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("errors closing PaymentService: %w", errors.Join(errs...))

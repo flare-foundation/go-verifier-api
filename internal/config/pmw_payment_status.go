@@ -24,7 +24,7 @@ func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, e
 }
 
 func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
-	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress})
+	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress, EnvRPCURL})
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,7 @@ func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, 
 		SourceDatabaseURL:              envConfig.SourceDatabaseURL,
 		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
 		FlareTeeManagerContractAddress: flareTeeManagerAddr,
+		RPCURL:                         envConfig.RPCURL,
 		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
 	}, nil
 }

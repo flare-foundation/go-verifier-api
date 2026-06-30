@@ -17,7 +17,19 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 		}
 		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 		require.Nil(t, cfg)
-		require.ErrorContains(t, err, "missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS")
+		require.ErrorContains(t, err, "missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS, RPC_URL")
+	})
+	t.Run("missing RPC_URL", func(t *testing.T) {
+		envConfig := config.EnvConfig{
+			SourceID:                       config.SourceTestXRP,
+			AttestationType:                fdc2.PMWPaymentStatus,
+			SourceDatabaseURL:              "URL",
+			CChainDatabaseURL:              "URL",
+			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
+		}
+		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
+		require.Nil(t, cfg)
+		require.ErrorContains(t, err, "missing environment variables: RPC_URL")
 	})
 	t.Run("invalid FLARE_TEE_MANAGER_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := config.EnvConfig{
@@ -26,6 +38,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 			SourceDatabaseURL:              "URL",
 			CChainDatabaseURL:              "URL",
 			FlareTeeManagerContractAddress: "not-hex",
+			RPCURL:                         "http://127.0.0.1:8545",
 		}
 		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 		require.Nil(t, cfg)
@@ -38,6 +51,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 			SourceDatabaseURL:              "URL",
 			CChainDatabaseURL:              "URL",
 			FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000000",
+			RPCURL:                         "http://127.0.0.1:8545",
 		}
 		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 		require.Nil(t, cfg)
@@ -50,6 +64,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 			SourceDatabaseURL:              "URL",
 			CChainDatabaseURL:              "URL",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
+			RPCURL:                         "http://127.0.0.1:8545",
 		}
 		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 		require.Nil(t, cfg)
@@ -65,10 +80,12 @@ func TestBuildPMWPaymentStatusConfigSuccess(t *testing.T) {
 		SourceDatabaseURL:              "postgres://localhost/test",
 		CChainDatabaseURL:              "root:root@tcp(localhost)/db",
 		FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
+		RPCURL:                         "http://127.0.0.1:8545",
 	}
 	cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, common.HexToAddress("0xC1"), cfg.FlareTeeManagerContractAddress)
+	require.Equal(t, "http://127.0.0.1:8545", cfg.RPCURL)
 	require.NotNil(t, cfg.ParsedTeeInstructionsABI)
 }

@@ -173,6 +173,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, paymentIds []uint64, max
 		verifier: &XRPVerifier{
 			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 			Config: cfg,
+			Binder: stubBinder{},
 		},
 		opType:   opType,
 		sourceID: sourceID,

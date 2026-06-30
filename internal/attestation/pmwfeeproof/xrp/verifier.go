@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwnonce"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/helper"
 	teeinstruction "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
@@ -42,13 +44,30 @@ var (
 type XRPVerifier struct {
 	Repo   *feeproofdb.DBRepo
 	Config *config.PMWFeeProofConfig
+	// Binder binds each payment's XRP sequence to its paymentId via on-chain
+	// initialNonce. An interface so tests can substitute a stub.
+	Binder pmwnonce.SequenceVerifier
 }
 
-func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) *XRPVerifier {
+func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) (*XRPVerifier, error) {
+	binder, err := pmwnonce.NewOnChainBinder(cfg.RPCURL, cfg.FlareTeeManagerContractAddress)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create initial-nonce binder: %w", err)
+	}
 	return &XRPVerifier{
 		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, cfg.FlareTeeManagerContractAddress),
 		Config: cfg,
+		Binder: binder,
+	}, nil
+}
+
+// Close releases the binder's RPC connection. Implements io.Closer so the
+// service can release it at shutdown alongside the DB connections.
+func (x *XRPVerifier) Close() error {
+	if c, ok := x.Binder.(io.Closer); ok {
+		return c.Close()
 	}
+	return nil
 }
 
 func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBody) (fdc2.IPMWFeeProofResponseBody, error) {
@@ -137,6 +156,14 @@ func (x *XRPVerifier) computeEstimatedFee(ctx context.Context, req fdc2.IPMWFeeP
 		// Bind the decoded event to the request: instructionId commits to these
 		// fields, so a mismatch is C-chain index inconsistency.
 		if err := paymentdb.CheckInstructionConsistency(payMessage, common.Hash(sourceID), req.SenderAddress, paymentId); err != nil {
+			return nil, nil, fmt.Errorf("paymentId %d: %w", paymentId, err)
+		}
+		// Bind the pay event's XRP sequence to the value the contract
+		// deterministically assigns this paymentId (initialNonce + paymentId - 1),
+		// read on-chain. The instruction-ID topic does not commit to the sequence,
+		// so without this a compromised indexer could substitute a foreign sequence
+		// (and thus a foreign transaction's fee) for a paymentId.
+		if err := x.Binder.VerifySequence(ctx, common.Hash(sourceID), req.SenderAddress, paymentId, payMessage.Nonce); err != nil {
 			return nil, nil, fmt.Errorf("paymentId %d: %w", paymentId, err)
 		}
 		// XRP Sequence used to locate the actual transaction.

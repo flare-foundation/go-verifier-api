@@ -23,7 +23,7 @@ func LoadPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 }
 
 func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
-	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress})
+	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress, EnvRPCURL})
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,7 @@ func BuildPMWFeeProofConfig(envConfig EnvConfig) (*PMWFeeProofConfig, error) {
 		SourceDatabaseURL:              envConfig.SourceDatabaseURL,
 		CchainDatabaseURL:              envConfig.CChainDatabaseURL,
 		FlareTeeManagerContractAddress: flareTeeManagerAddr,
+		RPCURL:                         envConfig.RPCURL,
 		ParsedTeeInstructionsABI:       parsedTeeInstructionsABI,
 	}, nil
 }

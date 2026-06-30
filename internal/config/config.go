@@ -92,6 +92,7 @@ type PMWPaymentStatusConfig struct {
 	SourceDatabaseURL              string
 	CchainDatabaseURL              string
 	FlareTeeManagerContractAddress common.Address
+	RPCURL                         string
 	ParsedTeeInstructionsABI       abi.ABI
 }
 
@@ -100,6 +101,7 @@ type PMWFeeProofConfig struct {
 	SourceDatabaseURL              string
 	CchainDatabaseURL              string
 	FlareTeeManagerContractAddress common.Address
+	RPCURL                         string
 	ParsedTeeInstructionsABI       abi.ABI
 }
 

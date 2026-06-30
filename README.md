@@ -64,9 +64,12 @@ SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
+RPC_URL=https://<flare-c-chain>/ext/C/rpc
 ```
 
 > **NOTE**: `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
+
+> **NOTE**: For `PMWPaymentStatus`/`PMWFeeProof`, `RPC_URL` is the Flare C-chain (EVM) RPC — same as `TeeAvailabilityCheck` — used to read `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding.
 
 ### `PMWFeeProof` Attestation Type
 Requires the same indexers as `PMWPaymentStatus`.
@@ -78,6 +81,7 @@ SOURCE_ID=testXRP
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
+RPC_URL=https://<flare-c-chain>/ext/C/rpc
 ```
 
 ## How to Set Up and Run Verifier

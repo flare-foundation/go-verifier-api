@@ -135,6 +135,7 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 	v := &XRPVerifier{
 		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
 		Config: cfg,
+		Binder: stubBinder{},
 	}
 
 	counts := []uint64{1, 10, 50, 100, 200, 300, 500, 750, 1000}
@@ -287,6 +288,7 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 	v := &XRPVerifier{
 		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
 		Config: cfg,
+		Binder: stubBinder{},
 	}
 
 	type concScenario struct {

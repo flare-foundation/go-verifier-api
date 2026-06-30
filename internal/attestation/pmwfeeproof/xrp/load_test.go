@@ -103,6 +103,7 @@ func TestLoadFeeProofConcurrentVerify(t *testing.T) {
 	v := &XRPVerifier{
 		Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
 		Config: cfg,
+		Binder: stubBinder{},
 	}
 
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(teeABI)

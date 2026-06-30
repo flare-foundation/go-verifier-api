@@ -11,17 +11,18 @@ import (
 )
 
 // VerifierConstructor builds a verifier once the source is resolved and the DB
-// connections are open. Resolving the source (ConstructorForSource) is fallible;
-// construction itself is not.
+// connections are open. Resolving the source (ConstructorForSource) is fallible,
+// and so is construction itself — it dials the Flare RPC for the on-chain
+// initial-nonce binding.
 type VerifierConstructor func(
 	cfg *config.PMWPaymentStatusConfig,
 	db, cChainDB *gorm.DB,
-) attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody]
+) (attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody], error)
 
 var xrpConstructor = func(
 	cfg *config.PMWPaymentStatusConfig,
 	db, cChainDB *gorm.DB,
-) attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody] {
+) (attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody], error) {
 	return xrpverifier.NewXRPVerifier(cfg, db, cChainDB)
 }
 

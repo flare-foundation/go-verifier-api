@@ -30,6 +30,8 @@ func TestNewPaymentService(t *testing.T) {
 		require.NotNil(t, service)
 		require.NotNil(t, service.Verifier())
 		require.NotNil(t, service.Config())
+		// Close releases both DB connections and the verifier's on-chain RPC client.
+		require.NoError(t, service.Close())
 	})
 	t.Run("misconfigured Source DB", func(t *testing.T) {
 		config.ClearPMWPaymentStatusConfigForTest()
@@ -37,6 +39,7 @@ func TestNewPaymentService(t *testing.T) {
 			SourceDatabaseURL:              "postgres:",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
+			RPCURL:                         "http://127.0.0.1:8545",
 			SourceID:                       "testXRP",
 			AttestationType:                fdc2.PMWPaymentStatus,
 		}
@@ -50,11 +53,28 @@ func TestNewPaymentService(t *testing.T) {
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp()",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
+			RPCURL:                         "http://127.0.0.1:8545",
 			SourceID:                       "testXRP",
 			AttestationType:                fdc2.PMWPaymentStatus,
 		}
 		service, err := NewPaymentService(badEnvConfig)
 		require.ErrorContains(t, err, "cannot connect to CChain DB:")
+		require.Nil(t, service)
+	})
+	t.Run("verifier construction fails on bad RPC URL", func(t *testing.T) {
+		config.ClearPMWPaymentStatusConfigForTest()
+		// DBs connect (Docker up), but an unsupported RPC scheme fails the on-chain
+		// initial-nonce binder at construction, so the service fails closed.
+		badEnvConfig := config.EnvConfig{
+			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
+			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
+			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
+			RPCURL:                         "ftp://bad-scheme",
+			SourceID:                       "testXRP",
+			AttestationType:                fdc2.PMWPaymentStatus,
+		}
+		service, err := NewPaymentService(badEnvConfig)
+		require.ErrorContains(t, err, "cannot construct PMWPaymentStatus verifier")
 		require.Nil(t, service)
 	})
 	config.ClearPMWPaymentStatusConfigForTest()
