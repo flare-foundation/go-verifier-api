@@ -14,8 +14,13 @@ const MaxXRPDrops uint64 = 100_000_000_000 * 1_000_000
 
 // ExceedsMaxXRPDrops reports whether v (a non-negative drops amount) is above
 // the total XRP supply — i.e. physically impossible and therefore corrupt data.
-// A value that does not fit in uint64 necessarily exceeds the supply.
+// A value that does not fit in uint64 necessarily exceeds the supply. A nil
+// value is treated as exceeding (fail closed) rather than panicking, so callers
+// need not nil-check before calling.
 func ExceedsMaxXRPDrops(v *big.Int) bool {
+	if v == nil {
+		return true
+	}
 	return !v.IsUint64() || v.Uint64() > MaxXRPDrops
 }
 

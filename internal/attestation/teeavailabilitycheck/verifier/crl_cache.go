@@ -193,6 +193,14 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 			return nil, fmt.Errorf("CRL issuer verification failed: %w", err)
 		}
 
+		// A CRL without a NextUpdate has no defined validity horizon. Refuse to
+		// trust one: the cache would refetch it on every call (isEntryStale
+		// treats a zero NextUpdate as stale) and downstream validation would
+		// otherwise accept it indefinitely. Fail closed to a CRL-fetch error.
+		if crl.NextUpdate.IsZero() {
+			return nil, fmt.Errorf("CRL from %s has no NextUpdate; refusing a CRL without a validity horizon", url)
+		}
+
 		c.mu.Lock()
 		if _, exists := c.entries[url]; !exists && len(c.entries) >= crlMaxEntries {
 			c.evictStaleEntries()

@@ -8,6 +8,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestExceedsMaxXRPDrops(t *testing.T) {
+	t.Run("nil fails closed", func(t *testing.T) {
+		require.True(t, ExceedsMaxXRPDrops(nil))
+	})
+	t.Run("within supply", func(t *testing.T) {
+		require.False(t, ExceedsMaxXRPDrops(big.NewInt(1)))
+		require.False(t, ExceedsMaxXRPDrops(new(big.Int).SetUint64(MaxXRPDrops)))
+	})
+	t.Run("above supply", func(t *testing.T) {
+		require.True(t, ExceedsMaxXRPDrops(new(big.Int).SetUint64(MaxXRPDrops+1)))
+	})
+	t.Run("exceeds uint64", func(t *testing.T) {
+		huge := new(big.Int).Lsh(big.NewInt(1), 65) // 2^65, not representable as uint64
+		require.True(t, ExceedsMaxXRPDrops(huge))
+	})
+}
+
 func TestParseNonNegativeBigInt(t *testing.T) {
 	t.Run("valid number", func(t *testing.T) {
 		input := "1234567890"

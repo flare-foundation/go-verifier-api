@@ -13,6 +13,12 @@ import (
 
 const dnsLookupTimeout = 750 * time.Millisecond
 
+// maxURLLength bounds the attested TEE proxy URL before any parsing/resolution.
+// Legitimate proxy URLs are short (scheme + host + short path); this caps the
+// work an oversized attacker-supplied URL can trigger and is well above any
+// real value.
+const maxURLLength = 2048
+
 // ErrURLValidation is returned (wrapped) when an external URL fails SSRF
 // validation (bad scheme, blocked IP, DNS resolution failure, etc.). Callers
 // can detect it with errors.Is to classify the failure as a deterministic
@@ -72,6 +78,9 @@ func BuildPinnedAddr(resolved *ResolvedURL) (dialAddr, hostHeader, serverName st
 }
 
 func resolveExternalURL(ctx context.Context, rawURL string, resolver ipResolver, allowPrivateNetworks bool) (*ResolvedURL, error) {
+	if len(rawURL) > maxURLLength {
+		return nil, fmt.Errorf("%w: URL length %d exceeds max %d", ErrURLValidation, len(rawURL), maxURLLength)
+	}
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid URL %q: %w", ErrURLValidation, rawURL, err)

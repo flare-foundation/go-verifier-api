@@ -24,7 +24,12 @@ import (
 	"gorm.io/gorm"
 )
 
-var MaxBatchRange uint64 = 200
+// MaxBatchRange is the maximum number of payments a single fee-proof request
+// may span — a DoS backstop against a request that would fan out to unbounded
+// DB work. It is an immutable const so no importer can silently raise the
+// ceiling; a verifier instance may override it via the unexported
+// maxBatchRange field (used only by the scaling benchmark).
+const MaxBatchRange uint64 = 200
 
 // MaxReissuesPerPayment caps how many reissue events the verifier will scan
 // per payment. The contract has no on-chain cap on reissues; only a
@@ -47,6 +52,9 @@ type XRPVerifier struct {
 	// Binder binds each payment's XRP sequence to its paymentId via on-chain
 	// initialNonce. An interface so tests can substitute a stub.
 	Binder pmwnonce.SequenceVerifier
+	// maxBatchRange overrides the batch-size cap for this instance; zero means
+	// use the MaxBatchRange default. Only the scaling benchmark sets it.
+	maxBatchRange uint64
 }
 
 func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) (*XRPVerifier, error) {
@@ -76,8 +84,12 @@ func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBo
 	if req.BatchCount == 0 {
 		return zero, fmt.Errorf("batchCount must be greater than 0: %w", ErrBatchRangeTooLarge)
 	}
-	if req.BatchCount > MaxBatchRange {
-		return zero, fmt.Errorf("batchCount %d exceeds max size %d: %w", req.BatchCount, MaxBatchRange, ErrBatchRangeTooLarge)
+	maxBatch := x.maxBatchRange
+	if maxBatch == 0 {
+		maxBatch = MaxBatchRange
+	}
+	if req.BatchCount > maxBatch {
+		return zero, fmt.Errorf("batchCount %d exceeds max size %d: %w", req.BatchCount, maxBatch, ErrBatchRangeTooLarge)
 	}
 	// Guard against overflow of the inclusive upper bound FirstPaymentId+BatchCount-1.
 	if req.FirstPaymentId > math.MaxUint64-(req.BatchCount-1) {

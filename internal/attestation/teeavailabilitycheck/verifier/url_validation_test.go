@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -57,6 +58,12 @@ func TestResolveExternalURLValidation(t *testing.T) {
 	t.Run("rejects URL with userinfo", func(t *testing.T) {
 		_, err := resolveExternalURL(context.Background(), "https://user:pass@example.com", resolverMock{}, false)
 		require.ErrorContains(t, err, "userinfo is not allowed")
+	})
+
+	t.Run("rejects overly long URL", func(t *testing.T) {
+		long := "https://example.com/" + strings.Repeat("a", maxURLLength)
+		_, err := resolveExternalURL(context.Background(), long, resolverMock{}, false)
+		require.ErrorContains(t, err, "exceeds max")
 	})
 
 	t.Run("rejects hostname that resolves to private IP", func(t *testing.T) {

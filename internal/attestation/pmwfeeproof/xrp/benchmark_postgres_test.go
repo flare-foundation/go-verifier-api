@@ -98,9 +98,8 @@ func cleanupBenchData(xrpDB, cchainDB *gorm.DB) {
 }
 
 func TestBenchmarkFeeProofPostgres(t *testing.T) {
-	origMax := MaxBatchRange
-	MaxBatchRange = 1100
-	defer func() { MaxBatchRange = origMax }()
+	// The batch cap is raised per-instance on the verifier below (maxBatchRange)
+	// to benchmark scaling beyond the production MaxBatchRange.
 
 	xrpDB, err := gorm.Open(postgres.Open(benchPostgresURL), &gorm.Config{Logger: gormlogger.Discard})
 	if err != nil {
@@ -133,9 +132,10 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 	v := &XRPVerifier{
-		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
-		Config: cfg,
-		Binder: stubBinder{},
+		Repo:          feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
+		Config:        cfg,
+		Binder:        stubBinder{},
+		maxBatchRange: 1100,
 	}
 
 	counts := []uint64{1, 10, 50, 100, 200, 300, 500, 750, 1000}
@@ -243,9 +243,8 @@ func TestBenchmarkFeeProofPostgres(t *testing.T) {
 // Run: docker compose -f internal/tests/docker/docker-compose.yaml up -d
 // Then: go test -tags docker_bench -run TestBenchmarkFeeProofConcurrent -v ./internal/attestation/pmwfeeproof/xrp/
 func TestBenchmarkFeeProofConcurrent(t *testing.T) {
-	origMax := MaxBatchRange
-	MaxBatchRange = 1100
-	defer func() { MaxBatchRange = origMax }()
+	// The batch cap is raised per-instance on the verifier below (maxBatchRange)
+	// to benchmark scaling beyond the production MaxBatchRange.
 
 	xrpDB, err := gorm.Open(postgres.Open(benchPostgresURL), &gorm.Config{Logger: gormlogger.Discard})
 	if err != nil {
@@ -286,9 +285,10 @@ func TestBenchmarkFeeProofConcurrent(t *testing.T) {
 		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 	}
 	v := &XRPVerifier{
-		Repo:   feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
-		Config: cfg,
-		Binder: stubBinder{},
+		Repo:          feeproofdb.NewDBRepo(xrpDB, cchainDB, testContractAddress),
+		Config:        cfg,
+		Binder:        stubBinder{},
+		maxBatchRange: 1100,
 	}
 
 	type concScenario struct {
