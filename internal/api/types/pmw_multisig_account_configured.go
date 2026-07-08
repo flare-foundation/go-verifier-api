@@ -26,10 +26,19 @@ func ValidatePublicKeys(publicKeys [][]byte) error {
 	if len(publicKeys) > MaxPublicKeys {
 		return fmt.Errorf("too many public keys: %d (max %d)", len(publicKeys), MaxPublicKeys)
 	}
+	seen := make(map[string]int, len(publicKeys))
 	for i, pk := range publicKeys {
 		if len(pk) == 0 {
 			return fmt.Errorf("public key at index %d is empty", i)
 		}
+		// Reject duplicate signer keys: a repeated key collapses the effective
+		// signer set below the declared count. XRPL forbids duplicate SignerList
+		// entries, so a duplicate request also can never match a real account —
+		// rejecting it up front keeps the request honest and mirrors the BTC path.
+		if j, dup := seen[string(pk)]; dup {
+			return fmt.Errorf("public key at index %d duplicates index %d; signers must be distinct", i, j)
+		}
+		seen[string(pk)] = i
 	}
 	return nil
 }

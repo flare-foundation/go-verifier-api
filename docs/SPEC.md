@@ -261,6 +261,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 ### Request validation
 - `publicKeys` capped at 32 entries (XRPL `SignerList` protocol maximum); over → 400.
 - Empty entries in `publicKeys` rejected → 400.
+- Duplicate `publicKeys` rejected → 400 (a repeated signer collapses the effective set below the declared count; XRPL also forbids duplicate `SignerList` entries). Enforced in `ValidatePublicKeys`, shared by the verifier and the JSON decoder.
 - Empty `publicKeys` list and `threshold == 0` rejected → 400 (a zero signer quorum is never a valid multisig). Enforced in the verifier as well as via the JSON `min=1`/`gte=1` tags, so ABI requests cannot bypass it.
 
 ### Primary flow (`XRPVerifier.Verify`)

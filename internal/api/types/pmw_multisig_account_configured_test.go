@@ -47,6 +47,10 @@ func TestValidatePublicKeys(t *testing.T) {
 		err := ValidatePublicKeys([][]byte{{0x01}, nil, {0x03}})
 		require.ErrorContains(t, err, "public key at index 1 is empty")
 	})
+	t.Run("duplicate entry is rejected", func(t *testing.T) {
+		err := ValidatePublicKeys([][]byte{{0x01, 0x02}, {0x03, 0x04}, {0x01, 0x02}})
+		require.ErrorContains(t, err, "duplicates index 0")
+	})
 }
 
 func TestValidateMultisigRequest(t *testing.T) {

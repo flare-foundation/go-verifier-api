@@ -53,7 +53,7 @@ A prose document describing what each verifier does, with no Go-specific referen
 - P6 — Response composition (recipient/amount from instruction; received amount from `AffectedNodes` AccountRoot balance changes; X-address normalization)
 
 **PMWMultisigAccountConfigured**:
-- M1 — Request validation (publicKeys capped at 32, no empty entries)
+- M1 — Request validation (publicKeys capped at 32, no empty entries, no duplicates)
 - M2 — XRPL `account_info` call (`ledger_index=validated`, `signer_lists=true`)
 - M3 — SignerList resolution across XRPL v1 vs v2/Clio response shapes
 - M4 — Set-based signer comparison (duplicates cannot mask extras)
