@@ -28,8 +28,21 @@ func (req AttestationRequest) Resolve(ctx huma.Context) []error {
 	return nil
 }
 
-type AttestationResponse struct {
-	ResponseBody hexutil.Bytes `json:"responseBody" example:"0x0000abcd..."`
+// Verifier status values for the status-based /verify response envelope consumed
+// by tee-relay-client. Any other value is a protocol violation on the wire.
+const (
+	StatusVerified = "VERIFIED"
+	StatusRetry    = "RETRY"
+	StatusRejected = "REJECTED"
+)
+
+// VerifierResponse is the /verify response envelope. Status is the verdict;
+// ResponseBody is nonempty iff Status is VERIFIED; Message carries a safe reason
+// when Status is not VERIFIED (RETRY = transient/retryable, REJECTED = terminal).
+type VerifierResponse struct {
+	Status       string        `json:"status" example:"VERIFIED"`
+	ResponseBody hexutil.Bytes `json:"responseBody,omitempty" example:"0x0000abcd..."`
+	Message      string        `json:"message,omitempty"`
 }
 
 // AttestationRequestData is a generic request type with decoded request data.

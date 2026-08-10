@@ -140,3 +140,17 @@ func warnHuma503(reqID, message string, err error) error {
 	logWarn(reqID, message, err)
 	return huma.Error503ServiceUnavailable(message)
 }
+
+// rejectedResponse logs the internal error and builds a REJECTED /verify envelope
+// carrying only the safe message. REJECTED is terminal: the relay must not retry.
+func rejectedResponse(reqID, logMessage, safeMessage string, err error) *types.Response[types.VerifierResponse] {
+	logWarn(reqID, logMessage, err)
+	return types.NewResponse(types.VerifierResponse{Status: types.StatusRejected, Message: safeMessage})
+}
+
+// retryResponse logs the internal error and builds a RETRY /verify envelope
+// carrying only the safe message. RETRY is transient: the relay may retry later.
+func retryResponse(reqID, logMessage, safeMessage string, err error) *types.Response[types.VerifierResponse] {
+	logWarn(reqID, logMessage, err)
+	return types.NewResponse(types.VerifierResponse{Status: types.StatusRetry, Message: safeMessage})
+}

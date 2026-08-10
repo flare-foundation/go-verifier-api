@@ -110,6 +110,12 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 			return &types.Response[types.AttestationResponseData[types.ResponseConvertible[T]]]{Body: attestationResponse}, nil
 		})
 
+	// post-verify uses the status-based envelope contract (types.VerifierResponse)
+	// consumed by tee-relay-client: every verification outcome is returned as HTTP
+	// 200 with a {status, responseBody, message} body. The relay decodes the body
+	// only on 2xx and switches on status (VERIFIED / RETRY / REJECTED); a non-2xx
+	// is treated as a transport failure and retried, so genuinely transient
+	// infrastructure errors are reported in-band as RETRY, not as an HTTP error.
 	registerOp(api,
 		getVerifierOperationID(srcID, attType, "verify"),
 		http.MethodPost,
@@ -117,39 +123,84 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
-		}) (*types.Response[types.AttestationResponse], error) {
+		}) (*types.Response[types.VerifierResponse], error) {
 			started := time.Now()
 			reqID := generateRequestID()
 			logger.Infof("[%s] Verify request started attestation=%s", reqID, string(attType))
-			err := validateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex())
-			if err != nil {
-				return nil, warnHuma400(reqID, "Request validation failed", err)
+			if err := validateSystemAndRequestAttestationNameAndSourceID(config, request.Body.AttestationType.Hex(), request.Body.SourceID.Hex()); err != nil {
+				return rejectedResponse(reqID, "Request validation failed", "unsupported attestation type or source id", err), nil
 			}
 			requestData, err := decodeRequest[S](request.Body.RequestBody, config)
 			if err != nil {
-				return nil, warnHuma400(reqID, "Decoding request body to data failed", err)
+				return rejectedResponse(reqID, "Decoding request body to data failed", "malformed request body", err), nil
 			}
 			logRequestBody(requestData)
 			responseData, err := verifyWithDeadline(ctx, verifier, requestData, verifierWorkTimeout)
 			if err != nil {
-				logger.Warnf("[%s] Verify request failed attestation=%s duration_ms=%d: %v",
-					reqID, string(attType), time.Since(started).Milliseconds(), err)
-				return nil, classifyVerifyError(reqID, err)
+				status, message := classifyVerifyStatus(err)
+				logger.Warnf("[%s] Verify request failed attestation=%s status=%s duration_ms=%d: %v",
+					reqID, string(attType), status, time.Since(started).Milliseconds(), err)
+				return types.NewResponse(types.VerifierResponse{Status: status, Message: message}), nil
 			}
 			encodedResponse, err := encodeResponse(responseData, config)
 			if err != nil {
-				return nil, warnHuma500(reqID, "Encoding data to response body failed", err)
+				return retryResponse(reqID, "Encoding data to response body failed", "response encoding failed", err), nil
 			}
 			var v V
 			responseDataExternal := v.FromInternal(responseData)
 			responseDataExternal.Log()
-			logger.Infof("[%s] Verify request finished attestation=%s status=success duration_ms=%d",
+			logger.Infof("[%s] Verify request finished attestation=%s status=VERIFIED duration_ms=%d",
 				reqID, string(attType), time.Since(started).Milliseconds())
 
-			return types.NewResponse(types.AttestationResponse{
+			return types.NewResponse(types.VerifierResponse{
+				Status:       types.StatusVerified,
 				ResponseBody: encodedResponse,
 			}), nil
 		})
+}
+
+// classifyVerifyStatus maps a verification error to the /verify envelope's
+// (status, safe message). It mirrors classifyVerifyError's error sets used by the
+// HTTP-status prepare* endpoints: the deterministic classes (400/422 there) map
+// to REJECTED (terminal), while the infrastructure class (503 there) and any
+// unexpected error map to RETRY (retryable). The message is a coarse,
+// non-sensitive category; internal error detail stays in the server log only.
+func classifyVerifyStatus(err error) (status, message string) {
+	switch {
+	case errors.Is(err, feeproofxrp.ErrBatchRangeTooLarge),
+		errors.Is(err, feeproofxrp.ErrReissueLimitExceeded),
+		errors.Is(err, multisigxrp.ErrInvalidRequest):
+		return types.StatusRejected, "invalid request"
+	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
+		errors.Is(err, feeproofxrp.ErrMissingTransaction):
+		return types.StatusRejected, "missing data for the requested payment"
+	case errors.Is(err, client.ErrRPCNonSuccess):
+		return types.StatusRejected, "source reported a non-success result"
+	case errors.Is(err, db.ErrRecordNotFound):
+		return types.StatusRejected, "record not found"
+	case errors.Is(err, verifier.ErrTEEDataValidation):
+		return types.StatusRejected, "TEE data validation failed"
+	case errors.Is(err, verifiertypes.ErrInvalidInput):
+		return types.StatusRejected, "invalid input"
+	case errors.Is(err, context.DeadlineExceeded),
+		errors.Is(err, context.Canceled):
+		return types.StatusRetry, "verification timed out"
+	case errors.Is(err, client.ErrFetchAccountInfo):
+		return types.StatusRetry, "source RPC unavailable"
+	case errors.Is(err, db.ErrDatabase):
+		return types.StatusRetry, "database unavailable"
+	case errors.Is(err, verifiertypes.ErrNetwork),
+		errors.Is(err, verifiertypes.ErrRPC),
+		errors.Is(err, verifiertypes.ErrContext),
+		errors.Is(err, verifiertypes.ErrUnknown):
+		return types.StatusRetry, "network or RPC error"
+	case errors.Is(err, fetcher.ErrHTTPFetch):
+		return types.StatusRetry, "upstream fetch failed"
+	case errors.Is(err, verifier.ErrActionResultNotFound):
+		return types.StatusRetry, "action result not available"
+	default:
+		return types.StatusRetry, "unexpected error"
+	}
 }
 
 func classifyVerifyError(reqID string, err error) error {

@@ -386,6 +386,67 @@ func TestClassifyVerifyError(t *testing.T) {
 	}
 }
 
+func TestClassifyVerifyStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		err            error
+		expectedStatus string
+	}{
+		// REJECTED — deterministic (mirrors classifyVerifyError's 400/422 cases)
+		{"ErrBatchRangeTooLarge", fmt.Errorf("range exceeds max: %w", feeproofxrp.ErrBatchRangeTooLarge), types.StatusRejected},
+		{"ErrReissueLimitExceeded", fmt.Errorf("nonce 100: %w (cap 32)", feeproofxrp.ErrReissueLimitExceeded), types.StatusRejected},
+		{"ErrInvalidRequest (multisig)", fmt.Errorf("too many keys: %w", multisigxrp.ErrInvalidRequest), types.StatusRejected},
+		{"ErrMissingPayEvent", fmt.Errorf("no pay event: %w", feeproofxrp.ErrMissingPayEvent), types.StatusRejected},
+		{"ErrMissingTransaction", fmt.Errorf("no xrp tx: %w", feeproofxrp.ErrMissingTransaction), types.StatusRejected},
+		{"ErrRPCNonSuccess", fmt.Errorf("rpc non-success: %w", client.ErrRPCNonSuccess), types.StatusRejected},
+		{"ErrRecordNotFound", fmt.Errorf("record not found: %w", db.ErrRecordNotFound), types.StatusRejected},
+		{"ErrTEEDataValidation", fmt.Errorf("challenge mismatch: %w", verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrInvalidInput", fmt.Errorf("bad input: %w", verifiertypes.ErrInvalidInput), types.StatusRejected},
+		// RETRY — transient (mirrors classifyVerifyError's 503 cases)
+		{"context deadline exceeded", fmt.Errorf("verifier work timed out: %w", context.DeadlineExceeded), types.StatusRetry},
+		{"context canceled", fmt.Errorf("client disconnected: %w", context.Canceled), types.StatusRetry},
+		{"ErrFetchAccountInfo", fmt.Errorf("account info failed: %w", client.ErrFetchAccountInfo), types.StatusRetry},
+		{"ErrDatabase", fmt.Errorf("db failed: %w", db.ErrDatabase), types.StatusRetry},
+		{"ErrNetwork", fmt.Errorf("rpc call failed: %w", verifiertypes.ErrNetwork), types.StatusRetry},
+		{"ErrRPC", fmt.Errorf("rpc call failed: %w", verifiertypes.ErrRPC), types.StatusRetry},
+		{"ErrContext", fmt.Errorf("context error: %w", verifiertypes.ErrContext), types.StatusRetry},
+		{"ErrUnknown", fmt.Errorf("unknown error: %w", verifiertypes.ErrUnknown), types.StatusRetry},
+		{"ErrHTTPFetch", fmt.Errorf("HTTP failed: %w", fetcher.ErrHTTPFetch), types.StatusRetry},
+		{"ErrActionResultNotFound", fmt.Errorf("action result not ready: %w", verifier.ErrActionResultNotFound), types.StatusRetry},
+		// RETRY — default (mirrors classifyVerifyError's 500 case)
+		{"unknown error falls to RETRY", errors.New("something unexpected"), types.StatusRetry},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, message := classifyVerifyStatus(tt.err)
+			require.Equal(t, tt.expectedStatus, status)
+			require.NotEmpty(t, message, "a non-VERIFIED envelope must carry a reason")
+			// The safe message must not embed the internal error detail.
+			require.NotContains(t, message, tt.err.Error())
+		})
+	}
+}
+
+func TestVerifyResponseHelpers(t *testing.T) {
+	err := errors.New("internal detail that must not leak")
+
+	t.Run("rejectedResponse", func(t *testing.T) {
+		resp := rejectedResponse("req1", "log message", "safe reason", err)
+		require.Equal(t, types.StatusRejected, resp.Body.Status)
+		require.Equal(t, "safe reason", resp.Body.Message)
+		require.Empty(t, resp.Body.ResponseBody)
+		require.NotContains(t, resp.Body.Message, err.Error())
+	})
+	t.Run("retryResponse", func(t *testing.T) {
+		resp := retryResponse("req2", "log message", "safe reason", err)
+		require.Equal(t, types.StatusRetry, resp.Body.Status)
+		require.Equal(t, "safe reason", resp.Body.Message)
+		require.Empty(t, resp.Body.ResponseBody)
+		require.NotContains(t, resp.Body.Message, err.Error())
+	})
+}
+
 // blockingVerifier blocks until its context is cancelled, modelling a hung
 // dependency (slow DB or RPC).
 type blockingVerifier struct{}
