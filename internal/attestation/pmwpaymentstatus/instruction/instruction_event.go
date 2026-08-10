@@ -46,7 +46,7 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command 
 	}
 	var message payments.ITeePaymentsPaymentInstructionMessage
 	if err := structs.DecodeTo(payments.MessageArguments[command], messageData, &message); err != nil {
-		return nil, fmt.Errorf("cannot decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
+		return nil, fmt.Errorf("cannot decode %s message arguments: %w (%w)", EventNameTeeInstructionsSent, db.ErrDataSource, err)
 	}
 	return &message, nil
 }
@@ -60,7 +60,7 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command 
 // message schema for its source (XRP payment or Bitcoin UTXO payment).
 func decodeInstructionEnvelope(log *types.Log, teeABI abi.ABI, command op.Command, expectedOpType common.Hash) ([]byte, error) {
 	if len(log.Data) > maxEventDataSize {
-		return nil, fmt.Errorf("event data too large (%d bytes, max %d)", len(log.Data), maxEventDataSize)
+		return nil, fmt.Errorf("event data too large (%d bytes, max %d): %w", len(log.Data), maxEventDataSize, db.ErrDataSource)
 	}
 	eventData, err := abiDecodeEventData[instructions.InstructionsTeeInstructionsSent](
 		teeABI,
@@ -68,7 +68,7 @@ func decodeInstructionEnvelope(log *types.Log, teeABI abi.ABI, command op.Comman
 		log.Data,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("cannot decode event %s: %w", EventNameTeeInstructionsSent, err)
+		return nil, fmt.Errorf("cannot decode event %s: %w (%w)", EventNameTeeInstructionsSent, db.ErrDataSource, err)
 	}
 	if common.Hash(eventData.OpType) != expectedOpType {
 		return nil, fmt.Errorf("DB inconsistency: event OpType %s != expected %s: %w", common.Hash(eventData.OpType).Hex(), expectedOpType.Hex(), db.ErrDatabase)

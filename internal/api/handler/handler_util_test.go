@@ -323,6 +323,11 @@ func TestClassifyVerifyError(t *testing.T) {
 			err:            fmt.Errorf("gettxout failed: %w", btcclient.ErrGetTxOut),
 			expectedStatus: http.StatusServiceUnavailable,
 		},
+		{
+			name:           "ErrDataSource",
+			err:            fmt.Errorf("cannot decode event: %w (boom)", db.ErrDataSource),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
 		// 503 — request deadline / cancellation
 		{
 			name:           "context deadline exceeded",
@@ -407,6 +412,7 @@ func TestClassifyVerifyStatus(t *testing.T) {
 		{"context canceled", fmt.Errorf("client disconnected: %w", context.Canceled), types.StatusRetry},
 		{"ErrFetchAccountInfo", fmt.Errorf("account info failed: %w", client.ErrFetchAccountInfo), types.StatusRetry},
 		{"ErrDatabase", fmt.Errorf("db failed: %w", db.ErrDatabase), types.StatusRetry},
+		{"ErrDataSource", fmt.Errorf("cannot decode event: %w (boom)", db.ErrDataSource), types.StatusRetry},
 		{"ErrNetwork", fmt.Errorf("rpc call failed: %w", verifiertypes.ErrNetwork), types.StatusRetry},
 		{"ErrRPC", fmt.Errorf("rpc call failed: %w", verifiertypes.ErrRPC), types.StatusRetry},
 		{"ErrContext", fmt.Errorf("context error: %w", verifiertypes.ErrContext), types.StatusRetry},
@@ -426,6 +432,16 @@ func TestClassifyVerifyStatus(t *testing.T) {
 			require.NotContains(t, message, tt.err.Error())
 		})
 	}
+}
+
+func TestClassifyVerifyStatusDistinguishesRetryReasons(t *testing.T) {
+	// An unreachable store and a reachable store that returns unusable data are
+	// both RETRY, but must carry distinct messages so operators can tell them apart.
+	_, unreachable := classifyVerifyStatus(fmt.Errorf("conn refused: %w", db.ErrDatabase))
+	_, unusable := classifyVerifyStatus(fmt.Errorf("bad bytes: %w (boom)", db.ErrDataSource))
+	require.NotEqual(t, unreachable, unusable)
+	require.Equal(t, "database unavailable", unreachable)
+	require.Equal(t, "data source returned unusable data", unusable)
 }
 
 func TestVerifyResponseHelpers(t *testing.T) {

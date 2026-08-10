@@ -189,6 +189,8 @@ func classifyVerifyStatus(err error) (status, message string) {
 		return types.StatusRetry, "source RPC unavailable"
 	case errors.Is(err, db.ErrDatabase):
 		return types.StatusRetry, "database unavailable"
+	case errors.Is(err, db.ErrDataSource):
+		return types.StatusRetry, "data source returned unusable data"
 	case errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),
 		errors.Is(err, verifiertypes.ErrContext),
@@ -235,6 +237,7 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, paymentstatusbtc.ErrNetworkUnverified),
 		errors.Is(err, nodechain.ErrNodeUnavailable),
 		errors.Is(err, db.ErrDatabase),
+		errors.Is(err, db.ErrDataSource),
 		errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),
 		errors.Is(err, verifiertypes.ErrContext),

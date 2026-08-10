@@ -18,6 +18,12 @@ var (
 	ErrRecordNotFound = errors.New("record not found")
 	// ErrDatabase indicates a database infrastructure failure (connection, timeout, etc.).
 	ErrDatabase = errors.New("database error")
+	// ErrDataSource indicates a record was fetched but its contents are unusable —
+	// event bytes that will not ABI-decode, transaction JSON that will not
+	// unmarshal, or a missing/unparseable field. Distinct from ErrDatabase (the
+	// store is reachable) but likewise retryable: a lagging or mid-reorg indexer
+	// may hold a transiently inconsistent row that a later read resolves.
+	ErrDataSource = errors.New("data source returned unusable data")
 )
 
 // maxInstructionLogs bounds how many event rows one instruction id may load. A

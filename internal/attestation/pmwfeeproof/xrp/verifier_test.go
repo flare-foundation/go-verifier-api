@@ -38,16 +38,19 @@ func TestParseTxFee(t *testing.T) {
 	t.Run("empty fee", func(t *testing.T) {
 		_, err := parseTxFee(`{"Fee": ""}`)
 		require.ErrorContains(t, err, "missing Fee")
+		require.ErrorIs(t, err, paymentdb.ErrDataSource)
 	})
 
 	t.Run("non-numeric fee", func(t *testing.T) {
 		_, err := parseTxFee(`{"Fee": "abc"}`)
 		require.ErrorContains(t, err, "cannot parse Fee")
+		require.ErrorIs(t, err, paymentdb.ErrDataSource)
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
 		_, err := parseTxFee(`not json`)
 		require.ErrorContains(t, err, "cannot unmarshal")
+		require.ErrorIs(t, err, paymentdb.ErrDataSource)
 	})
 
 	t.Run("oversized response rejected", func(t *testing.T) {

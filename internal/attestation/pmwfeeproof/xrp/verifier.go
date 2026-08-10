@@ -311,7 +311,7 @@ func checkTxRowConsistency(tx paymentdb.DBTransaction) error {
 		Hash     string `json:"hash"`
 	}
 	if err := json.Unmarshal([]byte(tx.Response), &id); err != nil {
-		return fmt.Errorf("cannot unmarshal transaction response: %w", err)
+		return fmt.Errorf("cannot unmarshal transaction response: %w (%w)", paymentdb.ErrDataSource, err)
 	}
 	return paymentdb.CheckRowConsistency(id.Hash, id.Account, id.Sequence, tx)
 }
@@ -325,14 +325,14 @@ func parseTxFee(response string) (*big.Int, error) {
 	}
 	if err := json.Unmarshal([]byte(response), &raw); err != nil {
 		logger.Errorf("Cannot unmarshal XRP transaction response for fee: %v", err)
-		return nil, fmt.Errorf("cannot unmarshal transaction response: %w", err)
+		return nil, fmt.Errorf("cannot unmarshal transaction response: %w (%w)", paymentdb.ErrDataSource, err)
 	}
 	if raw.Fee == "" {
-		return nil, errors.New("missing Fee in transaction response")
+		return nil, fmt.Errorf("missing Fee in transaction response: %w", paymentdb.ErrDataSource)
 	}
 	fee, err := helper.ParseNonNegativeBigInt(raw.Fee)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse Fee %q: %w", raw.Fee, err)
+		return nil, fmt.Errorf("cannot parse Fee %q: %w (%w)", raw.Fee, paymentdb.ErrDataSource, err)
 	}
 	// Fail closed on an impossible fee: a drops value above the total XRP supply
 	// cannot be real data (corrupt/tampered indexer row), and summing it would
