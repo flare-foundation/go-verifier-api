@@ -34,7 +34,7 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	}
 	err := CheckMissingFields(envConfig, []string{
 		EnvRelayContractAddress,
-		EnvRPCURL,
+		EnvFlareRPCURL,
 	})
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 		AllowTeeDebug:              allowTeeDebug,
 		DisableAttestationCheckE2E: disableAttestationCheckE2E,
 		AllowPrivateNetworks:       allowPrivateNetworks,
-		RPCURL:                     envConfig.RPCURL,
+		FlareRPCURL:                envConfig.FlareRPCURL,
 		GoogleRootCertificate:      googleRootCert,
 		TeeAudience:                teeAudience,
 		ChainID:                    chainID,

@@ -554,7 +554,7 @@ func TestDataVerification(t *testing.T) {
 func TestVerify(t *testing.T) {
 	rootCert, leafKey, x5c := generateTestCertificateChain(t)
 	verIface, err := verifier.NewVerifier(&config.TeeAvailabilityCheckConfig{
-		RPCURL:                     "https://coston-api.flare.network/ext/C/rpc",
+		FlareRPCURL:                "https://coston-api.flare.network/ext/C/rpc",
 		RelayContractAddress:       common.HexToAddress("0x92a6E1127262106611e1e129BB64B6D8654273F7"),
 		AllowTeeDebug:              false,
 		DisableAttestationCheckE2E: false,

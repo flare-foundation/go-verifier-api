@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	EnvRPCURL                         = "RPC_URL"
+	EnvSourceRPCURL                   = "SOURCE_RPC_URL" // source-chain node (e.g. XRP) — used by PMWMultisigAccountConfigured
+	EnvFlareRPCURL                    = "FLARE_RPC_URL"  // Flare C-chain node — used by PMWPaymentStatus/PMWFeeProof (getInitialNonce) and TeeAvailabilityCheck (Relay)
 	EnvRelayContractAddress           = "RELAY_CONTRACT_ADDRESS"
 	EnvFlareTeeManagerContractAddress = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
 	EnvTeePaymentsContractAddress     = "TEE_PAYMENTS_CONTRACT_ADDRESS"
@@ -20,7 +21,6 @@ const (
 	EnvCChainDatabaseURL              = "CCHAIN_DATABASE_URL"
 	EnvPort                           = "PORT"
 	EnvAPIKeys                        = "API_KEYS"
-	EnvAttestationType                = "VERIFIER_TYPE"
 	EnvSourceID                       = "SOURCE_ID"
 	EnvAllowTeeDebug                  = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
 	EnvDisableAttestationCheckE2E     = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
@@ -37,7 +37,8 @@ const (
 const DefaultTeeAudience = "https://sts.google.com"
 
 type EnvConfig struct {
-	RPCURL                         string
+	SourceRPCURL                   string
+	FlareRPCURL                    string
 	RelayContractAddress           string
 	FlareTeeManagerContractAddress string
 	TeePaymentsContractAddress     string
@@ -50,8 +51,27 @@ type EnvConfig struct {
 	ChainID                        string
 	Port                           string
 	APIKeys                        []string
-	AttestationType                fdc2.AttestationType
-	SourceID                       SourceName
+	// AttestationType is the single type view used by the per-type config loaders
+	// and service constructors. In a multi-type deployment LoadModule sets it per
+	// type while iterating AttestationTypes.
+	AttestationType fdc2.AttestationType
+	// AttestationTypes is the full set of types this deployment serves for its
+	// source. Empty means fall back to the single AttestationType.
+	AttestationTypes []fdc2.AttestationType
+	SourceID         SourceName
+}
+
+// ServedAttestationTypes returns the attestation types this deployment serves:
+// the explicit AttestationTypes list when set, otherwise the single
+// AttestationType, otherwise nil.
+func (c EnvConfig) ServedAttestationTypes() []fdc2.AttestationType {
+	if len(c.AttestationTypes) > 0 {
+		return c.AttestationTypes
+	}
+	if c.AttestationType != "" {
+		return []fdc2.AttestationType{c.AttestationType}
+	}
+	return nil
 }
 
 type SourceName string
@@ -61,6 +81,23 @@ const (
 	SourceXRP     SourceName = "XRP"
 	SourceTestXRP SourceName = "testXRP"
 )
+
+// SourceAttestationTypes is the canonical set of attestation types each source
+// serves. It is the grouping for a per-source deployment: SOURCE_ID selects the
+// deployment and, by default, every type listed here for that source is
+// registered. Adding a type to a source is a one-line change here.
+var SourceAttestationTypes = map[SourceName][]fdc2.AttestationType{
+	SourceTEE:     {fdc2.AvailabilityCheck},
+	SourceXRP:     {fdc2.PMWMultisigAccountConfigured, fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
+	SourceTestXRP: {fdc2.PMWMultisigAccountConfigured, fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
+}
+
+// AttestationTypesForSource returns the attestation types a per-source deployment
+// serves for source, and whether the source is known.
+func AttestationTypesForSource(source SourceName) ([]fdc2.AttestationType, bool) {
+	types, ok := SourceAttestationTypes[source]
+	return types, ok
+}
 
 type SourceIDEncodedPair struct {
 	SourceID        SourceName
@@ -83,7 +120,7 @@ type TeeAvailabilityCheckConfig struct {
 	AllowTeeDebug              bool
 	DisableAttestationCheckE2E bool
 	AllowPrivateNetworks       bool
-	RPCURL                     string
+	FlareRPCURL                string
 	GoogleRootCertificate      *x509.Certificate
 	TeeAudience                string
 	ChainID                    uint64
@@ -95,7 +132,7 @@ type PMWPaymentStatusConfig struct {
 	CchainDatabaseURL              string
 	FlareTeeManagerContractAddress common.Address
 	TeePaymentsContractAddress     common.Address
-	RPCURL                         string
+	FlareRPCURL                    string
 	ParsedTeeInstructionsABI       abi.ABI
 }
 
@@ -105,13 +142,13 @@ type PMWFeeProofConfig struct {
 	CchainDatabaseURL              string
 	FlareTeeManagerContractAddress common.Address
 	TeePaymentsContractAddress     common.Address
-	RPCURL                         string
+	FlareRPCURL                    string
 	ParsedTeeInstructionsABI       abi.ABI
 }
 
 type PMWMultisigAccountConfig struct {
 	EncodedAndABI
-	RPCURL string
+	SourceRPCURL string
 }
 
 type EncodedAndABI struct {
@@ -181,8 +218,12 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 	missing := []string{}
 	for _, field := range fields {
 		switch field {
-		case EnvRPCURL:
-			if cfg.RPCURL == "" {
+		case EnvSourceRPCURL:
+			if cfg.SourceRPCURL == "" {
+				missing = append(missing, field)
+			}
+		case EnvFlareRPCURL:
+			if cfg.FlareRPCURL == "" {
 				missing = append(missing, field)
 			}
 		case EnvRelayContractAddress:

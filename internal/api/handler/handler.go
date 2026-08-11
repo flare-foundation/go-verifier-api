@@ -49,7 +49,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 	tags := getVerifierAPITag(attType)
 
 	registerOp(api,
-		"post-prepareRequestBody",
+		getVerifierOperationID(srcID, attType, "prepareRequestBody"),
 		http.MethodPost,
 		getVerifierAPIPath(srcID, attType, "prepareRequestBody"),
 		tags,
@@ -71,7 +71,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		})
 
 	registerOp(api,
-		"post-prepareResponseBody",
+		getVerifierOperationID(srcID, attType, "prepareResponseBody"),
 		http.MethodPost,
 		getVerifierAPIPath(srcID, attType, "prepareResponseBody"),
 		tags,
@@ -107,7 +107,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		})
 
 	registerOp(api,
-		"post-verify",
+		getVerifierOperationID(srcID, attType, "verify"),
 		http.MethodPost,
 		getVerifierAPIPath(srcID, attType, "verify"),
 		tags,

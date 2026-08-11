@@ -16,7 +16,9 @@
 
 
 ## Prerequisites to Run Verifier API
-Each attestation type requires certain environment variables to be set. The following are common variables needed for all attestation types:
+A deployment is **one process per source**: set `SOURCE_ID` and the process serves
+every attestation type that source offers. The following are common variables
+needed for all sources:
  ```env
 PORT=<port_number>
 API_KEYS=<comma_separated_strings>
@@ -24,13 +26,13 @@ API_KEYS=<comma_separated_strings>
 
 > **NOTE**: The `<port_number>` value must be consistent with the `PORT` environment variable throughout the configuration.
 
-### `TeeAvailabilityCheck` Attestation Type
+### `TEE` source — serves `TeeAvailabilityCheck`
 Environment variables:
  ```env
-VERIFIER_TYPE=TeeAvailabilityCheck
 SOURCE_ID=TEE
 RELAY_CONTRACT_ADDRESS=0x...
-RPC_URL=https://<flare>
+FLARE_RPC_URL=https://<flare>
+CHAIN_ID=<evm_chain_id>
 
 # Test/E2E-only flags (optional, default to false):
 ALLOW_TEE_DEBUG=false
@@ -44,47 +46,27 @@ ALLOW_PRIVATE_NETWORKS=false
 
 The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/config/assets_. Read more about it [here](./internal/config/assets/README.md).
 
-### `PMWMultisigAccountConfigured` Attestation Type
-Environment variables:
-```
-VERIFIER_TYPE=PMWMultisigAccountConfigured
-SOURCE_ID=testXRP
-RPC_URL=https://<xrpl>
-```
-
-### `PMWPaymentStatus` Attestation Type
-You will need to run following indexers:
+### `XRP` source — serves `PMWMultisigAccountConfigured`, `PMWPaymentStatus`, `PMWFeeProof`
+`PMWPaymentStatus` and `PMWFeeProof` require the following indexers:
 - [xrp-indexer](https://github.com/flare-foundation/verifier-xrp-indexer)
-- [c-chain indexer](https://github.com/flare-foundation/flare-system-c-chain-indexer) 
+- [c-chain indexer](https://github.com/flare-foundation/flare-system-c-chain-indexer)
 
-Environment variables:
+Environment variables (the union of what the source's types need):
 ```env
-VERIFIER_TYPE=PMWPaymentStatus
-SOURCE_ID=testXRP
+SOURCE_ID=XRP # or testXRP
+SOURCE_RPC_URL=https://<xrpl>                   # PMWMultisigAccountConfigured
+FLARE_RPC_URL=https://<flare-c-chain>/ext/C/rpc # PMWPaymentStatus / PMWFeeProof (getInitialNonce)
 CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
 SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
 FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
 TEE_PAYMENTS_CONTRACT_ADDRESS=0x...
-RPC_URL=https://<flare-c-chain>/ext/C/rpc
 ```
+
+> **NOTE**: Two RPCs are required because the source's types talk to different chains: `SOURCE_RPC_URL` is the source-chain (XRPL) endpoint used by `PMWMultisigAccountConfigured`, while `FLARE_RPC_URL` is the Flare C-chain (EVM) RPC used by `PMWPaymentStatus`/`PMWFeeProof` for the read-only `getInitialNonce` call.
 
 > **NOTE**: `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` is the on-chain contract that emits `TeeInstructionsSent` events. The verifier rejects indexed logs emitted by any other address.
 
-> **NOTE**: `TEE_PAYMENTS_CONTRACT_ADDRESS` is the source's `TeePayments` contract (deployed per source) — the verifier calls `getInitialNonce` on it for the deterministic paymentId→sequence binding. It is **not** the same as `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (the diamond that emits the events). `RPC_URL` is the Flare C-chain (EVM) RPC — same as `TeeAvailabilityCheck` — used for that call.
-
-### `PMWFeeProof` Attestation Type
-Requires the same indexers as `PMWPaymentStatus`.
-
-Environment variables:
-```env
-VERIFIER_TYPE=PMWFeeProof
-SOURCE_ID=testXRP
-CCHAIN_DATABASE_URL=user:pass@tcp(host:port)/db?parseTime=true
-SOURCE_DATABASE_URL=postgres://user:pass@host:port/db
-FLARE_TEE_MANAGER_CONTRACT_ADDRESS=0x...
-TEE_PAYMENTS_CONTRACT_ADDRESS=0x...
-RPC_URL=https://<flare-c-chain>/ext/C/rpc
-```
+> **NOTE**: `TEE_PAYMENTS_CONTRACT_ADDRESS` is the source's `TeePayments` contract (deployed per source) — the verifier calls `getInitialNonce` on it for the deterministic paymentId→sequence binding. It is **not** the same as `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (the diamond that emits the events).
 
 ## How to Set Up and Run Verifier
 1. Fill in the `.env` file (for local development) or set environment variables directly (for production). To load the `.env` file at startup set `LOAD_DOTENV=true` in your shell before running the binary — `.env` loading is opt-in so production deployments are not sensitive to filesystem contents.

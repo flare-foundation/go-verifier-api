@@ -68,9 +68,9 @@ type RelayCallerInterface interface {
 }
 
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody], error) {
-	client, err := ethclient.Dial(cfg.RPCURL)
+	client, err := ethclient.Dial(cfg.FlareRPCURL)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
+		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.FlareRPCURL, err)
 	}
 	relayCaller, err := relay.NewRelayCaller(cfg.RelayContractAddress, client)
 	if err != nil {

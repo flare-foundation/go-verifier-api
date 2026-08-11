@@ -33,7 +33,7 @@ func TestPMWFeeProof(t *testing.T) {
 		CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 		FlareTeeManagerContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
 		TeePaymentsContractAddress:     "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
-		RPCURL:                         rpc.URL,
+		FlareRPCURL:                    rpc.URL,
 	})
 	defer setup.Stop()
 

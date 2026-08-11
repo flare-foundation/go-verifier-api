@@ -15,13 +15,13 @@ func TestBuildPMWMultisigAccountConfiguredConfigError(t *testing.T) {
 		}
 		cfg, err := config.BuildPMWMultisigAccountConfiguredConfig(envConfig)
 		require.Nil(t, cfg)
-		require.ErrorContains(t, err, "missing environment variables: RPC_URL")
+		require.ErrorContains(t, err, "missing environment variables: SOURCE_RPC_URL")
 	})
 	t.Run("invalid attestation type", func(t *testing.T) {
 		envConfig := config.EnvConfig{
 			SourceID:        config.SourceTEE,
 			AttestationType: "UnknownType",
-			RPCURL:          "URL",
+			SourceRPCURL:    "URL",
 		}
 		cfg, err := config.BuildPMWMultisigAccountConfiguredConfig(envConfig)
 		require.Nil(t, cfg)

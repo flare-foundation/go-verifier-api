@@ -15,7 +15,7 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 				SourceID:             src,
 				AttestationType:      fdc2.AvailabilityCheck,
 				RelayContractAddress: "0x0000000000000000000000000000000000000001",
-				RPCURL:               "https://rpc.example.com",
+				FlareRPCURL:          "https://rpc.example.com",
 				ChainID:              "16",
 			}
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -31,14 +31,14 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
-		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, RPC_URL")
+		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, FLARE_RPC_URL")
 	})
 	t.Run("invalid RELAY_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:             SourceTEE,
 			AttestationType:      "UnknownType",
 			RelayContractAddress: "not-hex",
-			RPCURL:               "URL",
+			FlareRPCURL:          "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -49,7 +49,7 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 			SourceID:             SourceTEE,
 			AttestationType:      "UnknownType",
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			RPCURL:               "URL",
+			FlareRPCURL:          "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -82,7 +82,7 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 				SourceID:             SourceTEE,
 				AttestationType:      fdc2.AvailabilityCheck,
 				RelayContractAddress: "0x0000000000000000000000000000000000000001",
-				RPCURL:               "https://rpc.example.com",
+				FlareRPCURL:          "https://rpc.example.com",
 			}
 			tc.mutate(&envConfig)
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -102,7 +102,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			SourceID:             SourceTEE,
 			AttestationType:      fdc2.AvailabilityCheck,
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			RPCURL:               "https://rpc.example.com",
+			FlareRPCURL:          "https://rpc.example.com",
 			TeeAudience:          validAudience,
 			ChainID:              validChainID,
 		}
@@ -113,7 +113,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.False(t, cfg.DisableAttestationCheckE2E)
 		require.False(t, cfg.AllowPrivateNetworks)
 		require.NotEqual(t, cfg.RelayContractAddress, [20]byte{})
-		require.Equal(t, "https://rpc.example.com", cfg.RPCURL)
+		require.Equal(t, "https://rpc.example.com", cfg.FlareRPCURL)
 		require.NotNil(t, cfg.GoogleRootCertificate)
 		require.Equal(t, validAudience, cfg.TeeAudience)
 		require.Equal(t, uint64(16), cfg.ChainID)
@@ -123,7 +123,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			SourceID:             SourceTEE,
 			AttestationType:      fdc2.AvailabilityCheck,
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			RPCURL:               "https://rpc.example.com",
+			FlareRPCURL:          "https://rpc.example.com",
 			AllowPrivateNetworks: "true",
 			TeeAudience:          validAudience,
 			ChainID:              validChainID,
@@ -138,7 +138,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			SourceID:                   SourceTEE,
 			AttestationType:            fdc2.AvailabilityCheck,
 			RelayContractAddress:       "0x0000000000000000000000000000000000000001",
-			RPCURL:                     "https://rpc.example.com",
+			FlareRPCURL:                "https://rpc.example.com",
 			AllowTeeDebug:              "true",
 			DisableAttestationCheckE2E: "true",
 			AllowPrivateNetworks:       "true",
@@ -159,7 +159,7 @@ func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 		SourceID:             SourceTEE,
 		AttestationType:      fdc2.AvailabilityCheck,
 		RelayContractAddress: "0x0000000000000000000000000000000000000001",
-		RPCURL:               "https://rpc.example.com",
+		FlareRPCURL:          "https://rpc.example.com",
 		ChainID:              "16",
 	}
 	t.Run("unset TEE_AUDIENCE defaults to DefaultTeeAudience", func(t *testing.T) {

@@ -33,7 +33,7 @@ type XRPVerifier struct {
 }
 
 func NewXRPVerifier(cfg *config.PMWMultisigAccountConfig) *XRPVerifier {
-	client := client.NewClient(cfg.RPCURL)
+	client := client.NewClient(cfg.SourceRPCURL)
 
 	return &XRPVerifier{Config: cfg, Client: client}
 }

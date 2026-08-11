@@ -34,6 +34,15 @@ func getVerifierAPIPath(sourceName config.SourceName, attestationType fdc2.Attes
 	return fmt.Sprintf("/verifier/%s/%s/%s", strings.ToLower(string(sourceName)), attestationType, endpoint)
 }
 
+// getVerifierOperationID builds a Huma operation ID unique per source, attestation
+// type, and endpoint. A per-source deployment registers these endpoints once for
+// every attestation type it serves, so a shared ID would produce duplicate
+// operationIds in the OpenAPI document — invalid, and it breaks Swagger/client
+// generation.
+func getVerifierOperationID(sourceName config.SourceName, attestationType fdc2.AttestationType, endpoint string) string {
+	return fmt.Sprintf("post-%s-%s-%s", strings.ToLower(string(sourceName)), attestationType, endpoint)
+}
+
 func getVerifierAPITag(attestationType fdc2.AttestationType) []string {
 	return []string{string(attestationType)}
 }

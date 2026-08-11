@@ -49,6 +49,42 @@ func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID co
 	return TestSetupServer{URL: url, AttestationTypeEncoded: attTypeEncoded, SourceIDEncoded: sourceIDEncoded, Stop: stop, Port: port, APIKey: apiKey}
 }
 
+// TestSetupMultiServer is a running server that serves several attestation types
+// for one source (the per-source deployment shape).
+type TestSetupMultiServer struct {
+	BaseURL  string
+	Stop     func()
+	Port     string
+	APIKey   string
+	sourceID config.SourceName
+}
+
+// SetupMultiServer starts one server that serves attestationTypes for sourceID,
+// mirroring a per-source deployment. Per-type endpoint bases come from URL.
+func SetupMultiServer(t *testing.T, sourceID config.SourceName, attestationTypes []fdc2.AttestationType, cfg config.EnvConfig) TestSetupMultiServer {
+	t.Helper()
+	cfg.AttestationTypes = attestationTypes
+	cfg.SourceID = sourceID
+	cfg.Port = port
+	cfg.APIKeys = []string{apiKey}
+
+	stop := RunServerForTest(t, cfg)
+	waitForServer(t, fmt.Sprintf("http://localhost:%s/api/health", cfg.Port))
+
+	return TestSetupMultiServer{
+		BaseURL:  "http://localhost:" + cfg.Port,
+		Stop:     stop,
+		Port:     port,
+		APIKey:   apiKey,
+		sourceID: sourceID,
+	}
+}
+
+// URL returns the endpoint base for one attestation type served by this server.
+func (s TestSetupMultiServer) URL(attestationType fdc2.AttestationType) string {
+	return fmt.Sprintf("%s/verifier/%s/%s", s.BaseURL, strings.ToLower(string(s.sourceID)), attestationType)
+}
+
 func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -67,7 +103,7 @@ func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
 // initial-nonce lookup resolve without a live Flare node. It ignores the call's
 // account argument and returns the same initialNonce for every account, which
 // suits the single-wallet fixtures. The returned server is closed via
-// t.Cleanup; pass its URL as the RPC_URL env value.
+// t.Cleanup; pass its URL as the FLARE_RPC_URL env value.
 func MockEthRPC(t *testing.T, initialNonce uint64) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

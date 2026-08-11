@@ -15,7 +15,7 @@ Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded resp
 `cmd/main.go` loads env config and calls `api.RunServer`. `internal/api/server.go` builds router + Huma API, registers health and attestation routes via `LoadModule`, starts HTTP server, waits for `SIGINT/SIGTERM`, gracefully shuts down server and `io.Closer` dependencies.
 
 ### Module loading
-`internal/api/loader.go` switches on `VERIFIER_TYPE`:
+`internal/api/loader.go` registers, for the deployment's `SOURCE_ID`, every attestation type that source serves (`config.SourceAttestationTypes`); each type below is constructed independently and any already-registered services are closed on a later failure:
 
 | Module | Constructs | Shutdown closers |
 |---|---|---|
@@ -53,15 +53,14 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 ## 6.1 Common required env vars
 - `PORT`
 - `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key; each key must be at least 16 characters or boot fails)
-- `VERIFIER_TYPE` (`TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`)
-- `SOURCE_ID` (`TEE`, `XRP`, `testXRP`)
+- `SOURCE_ID` (`TEE`, `XRP`, `testXRP`) — the only selector; the process serves every attestation type the source offers.
 
-**`VERIFIER_TYPE` × `SOURCE_ID`:** `VERIFIER_TYPE` and `SOURCE_ID` are first validated independently against the allowlists above, then each module preflights its `SOURCE_ID` at config/service construction and fails the boot on an unsupported value: TeeAvailabilityCheck accepts only `TEE`; the PMW modules accept only `XRP`/`testXRP`. A mismatched pair therefore fails fast at startup with a clear error rather than booting clean and rejecting every request with a 400 source-id mismatch. (Valid pairings: `TeeAvailabilityCheck`↔`TEE`; `PMWPaymentStatus`/`PMWMultisigAccountConfigured`/`PMWFeeProof`↔`XRP`/`testXRP`.)
+**Source-driven registration:** `SOURCE_ID` is validated against the allowlist above and selects the served attestation types from `config.SourceAttestationTypes`: `TEE`→`TeeAvailabilityCheck`; `XRP`/`testXRP`→`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. Each module additionally preflights its `SOURCE_ID` at construction, so an unknown source fails the boot fast with a clear error rather than booting clean and rejecting every request.
 
 ## 6.2 Attestation-specific env vars
 ### TeeAvailabilityCheck
 Required:
-- `RPC_URL`
+- `FLARE_RPC_URL` (Flare C-chain EVM RPC; read-only `Relay.toSigningPolicyHash`)
 - `RELAY_CONTRACT_ADDRESS`
 - `CHAIN_ID` — EVM chain ID this verifier serves; the attested `TeeInfo.ChainID` must equal it. Required and must be non-zero (the chain pin is enforced unconditionally; see §7.1).
 
@@ -82,11 +81,11 @@ Required:
 - `CCHAIN_DATABASE_URL` (MySQL)
 - `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
 - `TEE_PAYMENTS_CONTRACT_ADDRESS` (the source's per-source `TeePayments` contract; `getInitialNonce` is called on it for the sequence binding — distinct from the FlareTeeManager diamond above)
-- `RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
+- `FLARE_RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
 
 ### PMWMultisigAccountConfigured
 Required:
-- `RPC_URL` (XRPL endpoint)
+- `SOURCE_RPC_URL` (XRPL endpoint)
 
 ### PMWFeeProof
 Required:
@@ -94,7 +93,7 @@ Required:
 - `CCHAIN_DATABASE_URL` (MySQL)
 - `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
 - `TEE_PAYMENTS_CONTRACT_ADDRESS` (the source's per-source `TeePayments` contract; `getInitialNonce` is called on it for the sequence binding — distinct from the FlareTeeManager diamond above)
-- `RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
+- `FLARE_RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
 
 ## 7. Attestation Module Specs
 
@@ -302,7 +301,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 - DB infrastructure failure, DB-row inconsistency (parsed JSON identity fields ≠ indexed columns), or oversize response row → 503 (via `ErrDatabase`).
 
 ### Data retention
-Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from indexer databases; the only chain/RPC dependency is the read-only `TeePayments.getInitialNonce` call used for the sequence binding (`RPC_URL` is a required config var for both, and `initialNonce` is cached per account in a bounded LRU since it is immutable post-registration). The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production); the C-chain indexer has its own retention policy. Requests outside retention → 422 for missing data. FDC2 attestation requests are tied to reward epochs with short deadlines, so out-of-retention requests indicate a protocol-level delay, not normal operation.
+Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from indexer databases; the only chain/RPC dependency is the read-only `TeePayments.getInitialNonce` call used for the sequence binding (`FLARE_RPC_URL` is a required config var for both, and `initialNonce` is cached per account in a bounded LRU since it is immutable post-registration). The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production); the C-chain indexer has its own retention policy. Requests outside retention → 422 for missing data. FDC2 attestation requests are tied to reward epochs with short deadlines, so out-of-retention requests indicate a protocol-level delay, not normal operation.
 
 ### Data stores
 - Source DB: transactions table (Postgres). C-chain DB: logs table (MySQL).

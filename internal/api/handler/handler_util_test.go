@@ -364,3 +364,22 @@ func TestVerifyWithDeadline(t *testing.T) {
 		require.Equal(t, 42, got)
 	})
 }
+
+func TestGetVerifierOperationIDUnique(t *testing.T) {
+	// A per-source deployment registers these endpoints once per attestation type
+	// it serves; the operation IDs must all be distinct or the OpenAPI document is
+	// invalid (duplicate operationIds break Swagger/client generation).
+	endpoints := []string{"prepareRequestBody", "prepareResponseBody", "verify"}
+	types := config.SourceAttestationTypes[config.SourceXRP]
+	require.NotEmpty(t, types)
+
+	seen := map[string]bool{}
+	for _, at := range types {
+		for _, ep := range endpoints {
+			id := getVerifierOperationID(config.SourceXRP, at, ep)
+			require.Falsef(t, seen[id], "duplicate operation ID: %s", id)
+			seen[id] = true
+		}
+	}
+	require.Len(t, seen, len(types)*len(endpoints))
+}

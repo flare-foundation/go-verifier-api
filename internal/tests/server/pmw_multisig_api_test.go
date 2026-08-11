@@ -17,7 +17,7 @@ import (
 func TestPMWMultisigAccountConfigured(t *testing.T) {
 	config.ClearPMWMultisigAccountConfiguredConfigForTest()
 	setup := server.SetupServer(t, fdc2.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
-		RPCURL: "https://s.altnet.rippletest.net:51234",
+		SourceRPCURL: "https://s.altnet.rippletest.net:51234",
 	})
 	defer setup.Stop()
 
@@ -164,7 +164,7 @@ func TestPMWMultisigAccountConfigured(t *testing.T) {
 func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 	config.ClearPMWMultisigAccountConfiguredConfigForTest()
 	setup := server.SetupServer(t, fdc2.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
-		RPCURL: "http://localhost:1", // Unreachable RPC URL to trigger ErrFetchAccountInfo.
+		SourceRPCURL: "http://localhost:1", // Unreachable RPC URL to trigger ErrFetchAccountInfo.
 	})
 	defer setup.Stop()
 

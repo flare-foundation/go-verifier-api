@@ -25,7 +25,7 @@ import (
 func TestTEEAvailabilityCheck(t *testing.T) {
 	config.ClearTeeAvailabilityCheckConfigForTest()
 	setup := server.SetupServer(t, fdc2.AvailabilityCheck, config.SourceTEE, config.EnvConfig{
-		RPCURL:                         "https://coston-api.flare.network/ext/C/rpc",
+		FlareRPCURL:                    "https://coston-api.flare.network/ext/C/rpc",
 		RelayContractAddress:           "0x92a6E1127262106611e1e129BB64B6D8654273F7",
 		FlareTeeManagerContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 		AllowTeeDebug:                  "true",
