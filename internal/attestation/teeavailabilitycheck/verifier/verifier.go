@@ -380,6 +380,11 @@ func FetchTEEChallengeResult(
 		if errors.Is(err, fetcher.ErrNotFound) {
 			return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)
 		}
+		// An over-cap proxy response is invalid TEE data (the proxy is reachable
+		// but returned an unusable body), not a transient fetch failure.
+		if errors.Is(err, fetcher.ErrResponseTooLarge) {
+			return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: %w", ErrTEEDataValidation, err)
+		}
 		return zeroAction, zeroInfo, zeroAdd, err
 	}
 	if len(actionResp.Result.Data) == 0 {

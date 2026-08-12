@@ -328,6 +328,18 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.ErrorContains(t, err, "recover signer")
 		require.ErrorIs(t, err, verifier.ErrTEEDataValidation)
 	})
+	t.Run("oversized proxy response is TEE data validation", func(t *testing.T) {
+		// hexutil.Bytes hex-encodes, so ~1.1 MB of data yields a >2 MB response body,
+		// over the fetcher cap. The over-cap response must classify as invalid TEE
+		// data (422), not a transient fetch failure.
+		big := make([]byte, 1_100_000)
+		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
+			Result: teenodetypes.ActionResult{Data: hexutil.Bytes(big)},
+		})
+		defer server.Close()
+		_, _, _, err := verifier.FetchTEEChallengeResult(ctx, server.URL, challengeID, true)
+		require.ErrorIs(t, err, verifier.ErrTEEDataValidation)
+	})
 	t.Run("blocks private IP in strict mode", func(t *testing.T) {
 		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://127.0.0.1", challengeID, false)
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)

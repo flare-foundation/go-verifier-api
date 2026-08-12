@@ -353,7 +353,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]string{"10"},
 		)
 		for i := uint64(1); i <= MaxReissuesPerPayment; i++ {
-			f.seedReissue(t, 100, i, 60, 1700000000) // reissue maxFee = 60 → residual 10 each
+			f.seedReissue(t, i, 1700000000) // reissue maxFee = 60 → residual 10 each
 		}
 		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
@@ -378,7 +378,7 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]string{"10"},
 		)
 		for i := uint64(1); i <= MaxReissuesPerPayment+1; i++ {
-			f.seedReissue(t, 100, i, 60, 1700000000)
+			f.seedReissue(t, i, 1700000000)
 		}
 		_, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
@@ -401,9 +401,9 @@ func TestVerifyFeeProof(t *testing.T) {
 			[]string{"10"},
 		)
 		for i := uint64(1); i <= MaxReissuesPerPayment; i++ {
-			f.seedReissue(t, 100, i, 60, 1700000000) // within window
+			f.seedReissue(t, i, 1700000000) // within window
 		}
-		f.seedReissue(t, 100, MaxReissuesPerPayment+1, 60, 1900000000) // past untilTimestamp
+		f.seedReissue(t, MaxReissuesPerPayment+1, 1900000000) // past untilTimestamp
 		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
 			OpType:         f.opType,
 			SenderAddress:  "rSender",

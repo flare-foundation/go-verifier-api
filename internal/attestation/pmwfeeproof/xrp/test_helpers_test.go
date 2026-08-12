@@ -185,9 +185,16 @@ func setupFeeProofFixture(tb testing.TB, dbName string, paymentIds []uint64, max
 // seedReissue inserts a single reissue event for (paymentId, reissueNumber)
 // into the fixture's C-chain DB. The message Nonce carries the distinct XRP
 // Sequence (xrpSequenceFor(paymentId)). Used by reissue-cap tests to construct
-// sequential scans of arbitrary depth.
-func (f feeProofFixture) seedReissue(tb testing.TB, paymentId, reissueNumber uint64, maxFee int64, blockTimestamp uint64) {
+// sequential scans of arbitrary depth. The reissue-cap fixtures all target a
+// single payment, so paymentId is fixed here rather than passed in.
+func (f feeProofFixture) seedReissue(tb testing.TB, reissueNumber uint64, blockTimestamp uint64) {
 	tb.Helper()
+	// Reissue-cap fixtures all target one payment with a fixed reissue maxFee
+	// (60 → residual 10 over the pay maxFee of 50).
+	const (
+		paymentId uint64 = 100
+		maxFee    int64  = 60
+	)
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(f.teeABI)
 	if err != nil {
 		tb.Fatal(err)
