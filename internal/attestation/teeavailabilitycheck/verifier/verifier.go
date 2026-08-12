@@ -383,20 +383,20 @@ func FetchTEEChallengeResult(
 		return zeroAction, zeroInfo, zeroAdd, err
 	}
 	if len(actionResp.Result.Data) == 0 {
-		return zeroAction, zeroInfo, zeroAdd, errors.New("TEE challenge result data is empty")
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: TEE challenge result data is empty", ErrTEEDataValidation)
 	}
 	if !json.Valid(actionResp.Result.Data) {
 		preview := actionResp.Result.Data
 		if len(preview) > 128 {
 			preview = preview[:128]
 		}
-		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON (len=%d, preview=%q)", len(actionResp.Result.Data), preview)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: TEE challenge result data is not valid JSON (len=%d, preview=%q)", ErrTEEDataValidation, len(actionResp.Result.Data), preview)
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse
 	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
 	if err != nil {
-		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: unmarshal TEE result: %w", ErrTEEDataValidation, err)
 	}
 	// recover signer over the domain-separated PROXY_ACTION_RESULT preimage,
 	// chain-bound with the chainID carried inside the attestation payload.
@@ -406,7 +406,7 @@ func FetchTEEChallengeResult(
 	}
 	signer, err := utils.SignatureToSignersAddress(proxySignHash[:], actionResp.ProxySignature)
 	if err != nil {
-		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("recover signer: %w", err)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: recover signer: %w", ErrTEEDataValidation, err)
 	}
 
 	return actionResp, teeInfo, signer, nil

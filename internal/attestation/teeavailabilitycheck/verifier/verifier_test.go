@@ -274,6 +274,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is empty")
+		require.ErrorIs(t, err, verifier.ErrTEEDataValidation)
 	})
 	t.Run("invalid JSON data", func(t *testing.T) {
 		server := makeChallengeResultServer(t, teenodetypes.ActionResponse{
@@ -284,6 +285,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "TEE challenge result data is not valid JSON")
+		require.ErrorIs(t, err, verifier.ErrTEEDataValidation)
 	})
 	t.Run("invalid JSON data is truncated in error", func(t *testing.T) {
 		// Build a non-JSON blob longer than 128 bytes to exercise the preview truncation path.
@@ -311,6 +313,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "unmarshal TEE result")
+		require.ErrorIs(t, err, verifier.ErrTEEDataValidation)
 	})
 	t.Run("recover signer error", func(t *testing.T) {
 		validJSON := `{"teeInfo":{"InitialSigningPolicyID":1}}`
@@ -323,6 +326,7 @@ func TestFetchTEEChallengeResult(t *testing.T) {
 		require.Equal(t, teenodetypes.TeeInfoResponse{}, teeInfo)
 		require.Equal(t, common.Address{}, signer)
 		require.ErrorContains(t, err, "recover signer")
+		require.ErrorIs(t, err, verifier.ErrTEEDataValidation)
 	})
 	t.Run("blocks private IP in strict mode", func(t *testing.T) {
 		_, teeInfo, signer, err := verifier.FetchTEEChallengeResult(ctx, "http://127.0.0.1", challengeID, false)
