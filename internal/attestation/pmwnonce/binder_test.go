@@ -137,7 +137,7 @@ func TestInitialNonceCache(t *testing.T) {
 		// Insert the target first so it is the least-recently-used entry, then fill
 		// the cache to capacity with distinct accounts, which evicts the target.
 		require.NoError(t, b.VerifySequence(context.Background(), sourceID, "target", 1, 100))
-		for i := 0; i < capEntries; i++ {
+		for i := range capEntries {
 			require.NoError(t, b.VerifySequence(context.Background(), sourceID, fmt.Sprintf("acct-%d", i), 1, 100))
 		}
 		require.Equal(t, capEntries+1, c.calls, "each distinct account fetched exactly once")

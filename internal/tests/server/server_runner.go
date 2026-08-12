@@ -125,7 +125,9 @@ func MockEthRPC(t *testing.T, initialNonce uint64) *httptest.Server {
 			id = json.RawMessage("1")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,"result":%q}`, id, result)
+		if _, err := fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,"result":%q}`, id, result); err != nil {
+			t.Errorf("write mock JSON-RPC response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	return srv

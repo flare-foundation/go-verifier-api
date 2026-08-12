@@ -171,7 +171,7 @@ func (b *Binder) cachedNonce(key string) (uint64, bool) {
 		return 0, false
 	}
 	b.ll.MoveToFront(el)
-	return el.Value.(*cacheEntry).nonce, true
+	return mustCacheEntry(el).nonce, true
 }
 
 // storeNonce inserts (or refreshes) key as most recently used, evicting the
@@ -180,7 +180,7 @@ func (b *Binder) storeNonce(key string, nonce uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if el, ok := b.cache[key]; ok {
-		el.Value.(*cacheEntry).nonce = nonce
+		mustCacheEntry(el).nonce = nonce
 		b.ll.MoveToFront(el)
 		return
 	}
@@ -188,6 +188,14 @@ func (b *Binder) storeNonce(key string, nonce uint64) {
 	if b.ll.Len() > maxInitialNonceCacheEntries {
 		oldest := b.ll.Back()
 		b.ll.Remove(oldest)
-		delete(b.cache, oldest.Value.(*cacheEntry).key)
+		delete(b.cache, mustCacheEntry(oldest).key)
 	}
+}
+
+func mustCacheEntry(el *list.Element) *cacheEntry {
+	entry, ok := el.Value.(*cacheEntry)
+	if !ok {
+		panic(fmt.Sprintf("pmwnonce: unexpected cache entry type %T", el.Value))
+	}
+	return entry
 }
