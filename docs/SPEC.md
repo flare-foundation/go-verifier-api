@@ -1,7 +1,7 @@
 # Go Verifier API - Codebase Explanation and Technical Specification
 
 ## 1. Purpose
-Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded responses. Supports four attestation types: `TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. At runtime the process serves exactly one attestation type + source pair.
+Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded responses. Supports four attestation types: `TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. At runtime the process serves a single source (`SOURCE_ID`) and every attestation type that source offers.
 
 ## 2. System Context
 - Language: Go (`module github.com/flare-foundation/go-verifier-api`)
@@ -316,14 +316,14 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
 ## 9. Error Model (Implementation)
 - `400 Bad Request`:
   - attestation/source mismatch
-  - invalid request body
-  - decode/encode request conversion issues
+  - malformed request body (ABI decode/encode conversion failure). A missing or empty required field (e.g. an empty `requestBody`) is caught earlier by request-schema validation and returns `422` (below), not `400`.
   - batch range invalid (zero, too large, or overflow) — `ErrBatchRangeTooLarge` (PMWFeeProof)
   - reissue scan exceeded `MaxReissuesPerPayment` — `ErrReissueLimitExceeded` (PMWFeeProof)
   - malformed multisig request (empty/too-many/empty-entry `publicKeys`, or `threshold == 0`) — `ErrInvalidRequest` (PMWMultisig)
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
 - `422 Unprocessable Entity`:
+  - request schema validation failed (missing/empty required field, e.g. an empty `requestBody`) — Huma request validation (resolver/`validate:"required"`)
   - XRP RPC returned non-success status (e.g., account not found) — `ErrRPCNonSuccess` (PMWMultisig)
   - requested record not found in database (instruction log or transaction) — `ErrRecordNotFound` (PMWPaymentStatus)
   - missing pay event for paymentId — `ErrMissingPayEvent` (PMWFeeProof)

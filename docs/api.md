@@ -30,9 +30,9 @@ Verifies the encoded request body and returns ABI-encoded response.
 | HTTP Status Code           | Description          |
 |----------------------------|----------------------|
 | 200 OK                     | The request succeeded.
-| 400 Bad Request            | Request body validation failed (e.g., missing or invalid fields, or conversion, encoding, or decoding errors).
-| 422 Unprocessable Entity   | The request is valid but the referenced data does not exist or is invalid (e.g., account not found, record not found).
-| 500 Internal Server Error  | Unexpected server errors, with a description provided in the `detail` field.
+| 400 Bad Request            | Malformed request body (ABI conversion/encoding/decoding failure) or attestation/source mismatch.
+| 422 Unprocessable Entity   | Request schema validation failed (missing/empty required field, e.g. an empty `requestBody`), or the request is well-formed but the referenced data does not exist or is invalid (account not found, record not found).
+| 500 Internal Server Error  | Unexpected server error. A generic message is returned; internal details are logged server-side and are not exposed in the response.
 | 503 Service Unavailable    | An upstream dependency (RPC node, database) is unreachable.
 
 
@@ -222,9 +222,40 @@ type IPMWMultisigAccountConfiguredResponseBody struct {
 | Status   | Enum PMWMultisigAccountStatus { OK, ERROR }
 | Sequence | Current sequence number of the account
 
+- Attestation type `PMWFeeProof`.
+```go
+type PMWFeeProofRequestBody struct {
+	OpType         [32]byte
+	SenderAddress  string
+	FirstPaymentId uint64
+	BatchCount     uint64
+	UntilTimestamp uint64
+}
+```
+| Field          | Description          |
+|----------------|----------------------|
+| OpType         | Hex-encoded 32-byte operational type
+| SenderAddress  | Sender (account) address
+| FirstPaymentId | Sequential payment identifier (1-based) of the first payment in the batch
+| BatchCount     | Number of consecutive payments in the batch (capped at `MaxBatchRange`)
+| UntilTimestamp | Upper time bound; reissue events after this timestamp are ignored
+
+```go
+type PMWFeeProofResponseBody struct {
+	LastPaymentId uint64
+	ActualFee     *big.Int
+	EstimatedFee  *big.Int
+}
+```
+| Field         | Description          |
+|---------------|----------------------|
+| LastPaymentId | Last payment id covered by the batch (`FirstPaymentId + BatchCount - 1`)
+| ActualFee     | Total fee actually spent across the batch's transactions
+| EstimatedFee  | Total estimated (max) fee from the pay/reissue instructions
+
 
 ## 4. Health endpoint `GET /api/health`
-Returns the current health status of the service. This is the only endpoint accessible without an API key.
+Returns the current health status of the service. This endpoint and the Swagger UI (`/api-doc`, plus its static assets) are the only endpoints served without an API key.
 
 Example response:
 ```json
