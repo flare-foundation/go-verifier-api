@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	ErrNotFound  = errors.New("resource not found (404)")
-	ErrHTTPFetch = errors.New("HTTP fetch failed")
-	ErrRedirect  = errors.New("redirects are not allowed")
+	ErrNotFound         = errors.New("resource not found (404)")
+	ErrHTTPFetch        = errors.New("HTTP fetch failed")
+	ErrRedirect         = errors.New("redirects are not allowed")
+	ErrResponseTooLarge = errors.New("response body exceeds size limit")
 )
 
 // HTTPStatusError is returned when an HTTP response carries a non-2xx status
@@ -113,10 +114,16 @@ func FetchBytesPinned(ctx context.Context, url string, fetchTimeout time.Duratio
 	default:
 		return nil, &HTTPStatusError{URL: url, Code: resp.StatusCode}
 	}
-	limitReader := io.LimitReader(resp.Body, maxResponseSize)
+	// Read one byte past the cap so we can distinguish "exactly at the cap" from
+	// "over the cap" and reject the latter, rather than silently truncating an
+	// oversized (and therefore untrustworthy) response.
+	limitReader := io.LimitReader(resp.Body, maxResponseSize+1)
 	data, err := io.ReadAll(limitReader)
 	if err != nil {
 		return nil, fmt.Errorf("reading response body from %s: %w", url, err)
+	}
+	if len(data) > maxResponseSize {
+		return nil, fmt.Errorf("%w: %s (max %d bytes)", ErrResponseTooLarge, url, maxResponseSize)
 	}
 	return data, nil
 }
