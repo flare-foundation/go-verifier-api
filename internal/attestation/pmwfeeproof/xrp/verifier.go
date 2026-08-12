@@ -78,22 +78,32 @@ func (x *XRPVerifier) Close() error {
 	return nil
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBody) (fdc2.IPMWFeeProofResponseBody, error) {
-	var zero fdc2.IPMWFeeProofResponseBody
-
+// validateBatchRange enforces the request's batch bounds before any DB/RPC work:
+// a non-zero count, within the per-instance cap (default MaxBatchRange), and no
+// overflow of the inclusive upper bound FirstPaymentId+BatchCount-1. Every
+// violation maps to ErrBatchRangeTooLarge.
+func (x *XRPVerifier) validateBatchRange(req fdc2.IPMWFeeProofRequestBody) error {
 	if req.BatchCount == 0 {
-		return zero, fmt.Errorf("batchCount must be greater than 0: %w", ErrBatchRangeTooLarge)
+		return fmt.Errorf("batchCount must be greater than 0: %w", ErrBatchRangeTooLarge)
 	}
 	maxBatch := x.maxBatchRange
 	if maxBatch == 0 {
 		maxBatch = MaxBatchRange
 	}
 	if req.BatchCount > maxBatch {
-		return zero, fmt.Errorf("batchCount %d exceeds max size %d: %w", req.BatchCount, maxBatch, ErrBatchRangeTooLarge)
+		return fmt.Errorf("batchCount %d exceeds max size %d: %w", req.BatchCount, maxBatch, ErrBatchRangeTooLarge)
 	}
-	// Guard against overflow of the inclusive upper bound FirstPaymentId+BatchCount-1.
 	if req.FirstPaymentId > math.MaxUint64-(req.BatchCount-1) {
-		return zero, fmt.Errorf("paymentId range from %d count %d overflows uint64: %w", req.FirstPaymentId, req.BatchCount, ErrBatchRangeTooLarge)
+		return fmt.Errorf("paymentId range from %d count %d overflows uint64: %w", req.FirstPaymentId, req.BatchCount, ErrBatchRangeTooLarge)
+	}
+	return nil
+}
+
+func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBody) (fdc2.IPMWFeeProofResponseBody, error) {
+	var zero fdc2.IPMWFeeProofResponseBody
+
+	if err := x.validateBatchRange(req); err != nil {
+		return zero, err
 	}
 
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)

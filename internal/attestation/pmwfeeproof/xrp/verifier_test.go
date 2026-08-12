@@ -101,40 +101,29 @@ func TestCheckTxRowConsistency(t *testing.T) {
 }
 
 func TestBatchRangeValidation(t *testing.T) {
-	// We can't call Verify directly without a full config/DB setup,
-	// but we can test the validation logic by checking error types.
+	// The batch-range guards run before any DB/RPC work, so test them directly
+	// via validateBatchRange — no config/DB setup needed.
 	v := &XRPVerifier{}
 
 	t.Run("zero batch count", func(t *testing.T) {
-		// Formerly an invalid range; with paymentId+count this maps to BatchCount 0.
-		_, err := v.Verify(t.Context(), fdc2.IPMWFeeProofRequestBody{
-			FirstPaymentId: 10,
-			BatchCount:     0,
-		})
+		err := v.validateBatchRange(fdc2.IPMWFeeProofRequestBody{FirstPaymentId: 10, BatchCount: 0})
 		require.ErrorIs(t, err, ErrBatchRangeTooLarge)
 		require.ErrorContains(t, err, "batchCount must be greater than 0")
 	})
 
 	t.Run("range exceeds max", func(t *testing.T) {
-		_, err := v.Verify(t.Context(), fdc2.IPMWFeeProofRequestBody{
-			FirstPaymentId: 1,
-			BatchCount:     MaxBatchRange + 1,
-		})
+		err := v.validateBatchRange(fdc2.IPMWFeeProofRequestBody{FirstPaymentId: 1, BatchCount: MaxBatchRange + 1})
 		require.ErrorIs(t, err, ErrBatchRangeTooLarge)
 		require.ErrorContains(t, err, "exceeds max size")
 	})
 
 	t.Run("range at max boundary", func(t *testing.T) {
 		// A BatchCount of exactly MaxBatchRange must pass the size check.
-		require.False(t, MaxBatchRange > MaxBatchRange, "sanity: MaxBatchRange payments must pass")
+		require.NoError(t, v.validateBatchRange(fdc2.IPMWFeeProofRequestBody{FirstPaymentId: 1, BatchCount: MaxBatchRange}))
 	})
 
 	t.Run("overflow attempt rejected", func(t *testing.T) {
-		// FirstPaymentId=MaxUint64 with BatchCount>1 overflows the inclusive upper bound.
-		_, err := v.Verify(t.Context(), fdc2.IPMWFeeProofRequestBody{
-			FirstPaymentId: math.MaxUint64,
-			BatchCount:     2,
-		})
+		err := v.validateBatchRange(fdc2.IPMWFeeProofRequestBody{FirstPaymentId: math.MaxUint64, BatchCount: 2})
 		require.ErrorIs(t, err, ErrBatchRangeTooLarge)
 		require.ErrorContains(t, err, "overflows uint64")
 	})
