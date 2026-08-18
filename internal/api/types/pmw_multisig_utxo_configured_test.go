@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,4 +90,16 @@ func TestLogHelpers(t *testing.T) {
 
 	resp := PMWMultisigUtxoConfiguredResponseBody{Status: 0, AccountAddress: "bc1qexample"}
 	require.NotPanics(t, resp.Log)
+}
+
+func TestFromInternal(t *testing.T) {
+	internal := fdc2.IPMWMultisigUtxoConfiguredResponseBody{
+		Status:         uint8(PMWMultisigUtxoStatusOK),
+		AccountAddress: "bc1qexample",
+	}
+	got := PMWMultisigUtxoConfiguredResponseBody{}.FromInternal(internal)
+	require.Equal(t, PMWMultisigUtxoConfiguredResponseBody{
+		Status:         uint8(PMWMultisigUtxoStatusOK),
+		AccountAddress: "bc1qexample",
+	}, got)
 }

@@ -272,7 +272,12 @@ func TestResolveNetworkParams(t *testing.T) {
 	_, err = resolveNetworkParams("nope", config.SourceBTC)
 	require.ErrorIs(t, err, ErrUnsupportedNetwork)
 
-	// Empty override falls back to the source default (testBTC → signet).
+	// Empty override falls back to the source default: BTC → mainnet,
+	// testBTC → signet.
+	p, err = resolveNetworkParams("", config.SourceBTC)
+	require.NoError(t, err)
+	require.Equal(t, &chaincfg.MainNetParams, p)
+
 	p, err = resolveNetworkParams("", config.SourceTestBTC)
 	require.NoError(t, err)
 	require.Equal(t, &chaincfg.SigNetParams, p)
