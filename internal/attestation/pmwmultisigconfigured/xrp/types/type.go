@@ -1,5 +1,11 @@
 package types
 
+import (
+	"bytes"
+	"fmt"
+	"strconv"
+)
+
 // Derived from https://xrpl.org/docs/references/http-websocket-apis/public-api-methods/account-methods/account_info
 
 type AccountData struct {
@@ -36,6 +42,40 @@ func (r *AccountInfoResult) ResolveSignerLists() []SignerList {
 
 type AccountInfoResponse struct {
 	Result AccountInfoResult `json:"result"`
+}
+
+// ServerInfoResponse carries the server_info fields the verifier needs to pin the
+// node's network. network_id is 0 on Mainnet, 1 on Testnet, 2 on Devnet.
+type ServerInfoResponse struct {
+	Result struct {
+		Status string `json:"status"`
+		Info   struct {
+			NetworkID NetworkID `json:"network_id"`
+		} `json:"info"`
+	} `json:"result"`
+}
+
+// NetworkID is an XRPL network id. rippled reports it as a JSON number, Clio as a
+// JSON string, and either may omit it — so it is unmarshalled leniently. Present
+// is false when the field is absent or null.
+type NetworkID struct {
+	Value   uint32
+	Present bool
+}
+
+func (n *NetworkID) UnmarshalJSON(b []byte) error {
+	// Accept a number (rippled) or a quoted string (Clio); treat null as absent.
+	s := string(bytes.Trim(bytes.TrimSpace(b), `"`))
+	if s == "" || s == "null" {
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid network_id %q: %w", s, err)
+	}
+	n.Value = uint32(v)
+	n.Present = true
+	return nil
 }
 
 type SignerEntry struct {

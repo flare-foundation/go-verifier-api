@@ -168,6 +168,8 @@ func classifyVerifyError(reqID string, err error) error {
 	case errors.Is(err, context.DeadlineExceeded),
 		errors.Is(err, context.Canceled),
 		errors.Is(err, client.ErrFetchAccountInfo),
+		errors.Is(err, client.ErrFetchServerInfo),
+		errors.Is(err, multisigxrp.ErrNetworkMismatch),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),

@@ -104,3 +104,50 @@ func TestFetchAccountInfo(t *testing.T) {
 		})
 	}
 }
+
+func TestNetworkID(t *testing.T) {
+	t.Run("reports the network id", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"success","info":{"network_id":1}}}`))
+		}))
+		defer server.Close()
+
+		id, present, err := NewClient(server.URL).NetworkID(context.Background())
+		require.NoError(t, err)
+		require.True(t, present)
+		require.Equal(t, uint32(1), id)
+	})
+
+	t.Run("clio string network id is accepted", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"success","info":{"network_id":"1"}}}`)) // Clio reports it as a string
+		}))
+		defer server.Close()
+
+		id, present, err := NewClient(server.URL).NetworkID(context.Background())
+		require.NoError(t, err)
+		require.True(t, present)
+		require.Equal(t, uint32(1), id)
+	})
+
+	t.Run("absent network id is not present", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"success","info":{}}}`))
+		}))
+		defer server.Close()
+
+		_, present, err := NewClient(server.URL).NetworkID(context.Background())
+		require.NoError(t, err)
+		require.False(t, present)
+	})
+
+	t.Run("non-success status is an error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"error"}}`))
+		}))
+		defer server.Close()
+
+		_, _, err := NewClient(server.URL).NetworkID(context.Background())
+		require.ErrorIs(t, err, ErrFetchServerInfo)
+	})
+}
