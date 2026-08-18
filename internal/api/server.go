@@ -99,6 +99,8 @@ var SourceIDs = []config.SourceName{
 	config.SourceTEE,
 	config.SourceXRP,
 	config.SourceTestXRP,
+	config.SourceBTC,
+	config.SourceTestBTC,
 }
 
 func parseSourceID(value string) (config.SourceName, error) {

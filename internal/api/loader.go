@@ -12,6 +12,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	feeproofservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof"
 	multisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured"
+	utxomultisigservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured"
 	paymentservice "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus"
 	teeavailabilityservice "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck"
 	teeavailabilitycheck "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -84,6 +85,16 @@ func registerVerifier(api huma.API, envConfig config.EnvConfig) ([]io.Closer, er
 		config := service.Config()
 
 		handler.RegisterVerificationHandler[fdc2.IPMWMultisigAccountConfiguredRequestBody, fdc2.IPMWMultisigAccountConfiguredResponseBody, types.PMWMultisigAccountConfiguredRequestBody, types.PMWMultisigAccountConfiguredResponseBody](api, &config.EncodedAndABI, verifier)
+
+	case fdc2.PMWMultisigUtxoConfigured:
+		service, err := utxomultisigservice.NewUtxoMultisigService(envConfig)
+		if err != nil {
+			return nil, err
+		}
+		verifier := service.Verifier()
+		config := service.Config()
+
+		handler.RegisterVerificationHandler[fdc2.IPMWMultisigUtxoConfiguredRequestBody, fdc2.IPMWMultisigUtxoConfiguredResponseBody, types.PMWMultisigUtxoConfiguredRequestBody, types.PMWMultisigUtxoConfiguredResponseBody](api, &config.EncodedAndABI, verifier)
 
 	case fdc2.PMWFeeProof:
 		service, err := feeproofservice.NewFeeProofService(envConfig)
