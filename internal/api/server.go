@@ -180,6 +180,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		AllowPrivateNetworks:           os.Getenv(config.EnvAllowPrivateNetworks),
 		TeeAudience:                    os.Getenv(config.EnvTeeAudience),
 		ChainID:                        os.Getenv(config.EnvChainID),
+		BtcNetwork:                     os.Getenv(config.EnvBtcNetwork),
 		Port:                           port,
 		APIKeys:                        apiKeys,
 		AttestationTypes:               attestationTypes,

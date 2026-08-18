@@ -29,6 +29,7 @@ func BuildPMWMultisigUtxoConfiguredConfig(envConfig EnvConfig) (*PMWMultisigUtxo
 	return &PMWMultisigUtxoConfig{
 		EncodedAndABI: commonConfig,
 		SourceRPCURL:  envConfig.SourceRPCURL,
+		BtcNetwork:    envConfig.BtcNetwork,
 	}, nil
 }
 

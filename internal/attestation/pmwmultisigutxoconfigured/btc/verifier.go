@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -27,6 +28,9 @@ var (
 	// ErrUnsupportedSource is returned when the configured source id has no
 	// Bitcoin network mapping.
 	ErrUnsupportedSource = errors.New("unsupported source id for BTC verifier")
+	// ErrUnsupportedNetwork is returned when BTC_NETWORK names a network with no
+	// chaincfg mapping.
+	ErrUnsupportedNetwork = errors.New("unsupported BTC_NETWORK value")
 )
 
 // serializedExtendedKeyLen is the byte length of a BIP-32 serialized extended
@@ -63,7 +67,7 @@ type BtcVerifier struct {
 }
 
 func NewBtcVerifier(cfg *config.PMWMultisigUtxoConfig) (*BtcVerifier, error) {
-	params, err := paramsForSource(cfg.SourceIDPair.SourceID)
+	params, err := resolveNetworkParams(cfg.BtcNetwork, cfg.SourceIDPair.SourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +78,40 @@ func NewBtcVerifier(cfg *config.PMWMultisigUtxoConfig) (*BtcVerifier, error) {
 	}, nil
 }
 
-// paramsForSource maps the configured source id to its Bitcoin network
-// parameters. testBTC uses signet, which shares the "tb" Bech32 HRP and the
-// tpub extended-key version with testnet3, so derived addresses match either
-// test network the node may run.
+// networkParamsByName maps an explicit BTC_NETWORK value to its Bitcoin network
+// parameters. regtest and testnet are reachable only through this override — no
+// source id names them — which is what lets the KAT/e2e harness run against a
+// local regtest node.
+var networkParamsByName = map[string]*chaincfg.Params{
+	"mainnet":  &chaincfg.MainNetParams,
+	"signet":   &chaincfg.SigNetParams,
+	"testnet":  &chaincfg.TestNet3Params,
+	"testnet3": &chaincfg.TestNet3Params,
+	"regtest":  &chaincfg.RegressionNetParams,
+}
+
+// resolveNetworkParams picks the verifier's Bitcoin network parameters. An
+// explicit BTC_NETWORK value wins so a deployment can target regtest/testnet,
+// which no source id names; when unset the source id implies the default
+// (paramsForSource). The chain (source id) and the network (BTC_NETWORK) are
+// deliberately separable: a mainnet-assuming verifier pointed at signet/regtest
+// would derive addresses that match nothing and answer "not found" silently, so
+// an unknown override fails construction rather than defaulting.
+func resolveNetworkParams(network string, source config.SourceName) (*chaincfg.Params, error) {
+	if network != "" {
+		params, ok := networkParamsByName[strings.ToLower(network)]
+		if !ok {
+			return nil, fmt.Errorf("%w: %s", ErrUnsupportedNetwork, network)
+		}
+		return params, nil
+	}
+	return paramsForSource(source)
+}
+
+// paramsForSource maps the configured source id to its default Bitcoin network
+// parameters when BTC_NETWORK is unset. testBTC uses signet, which shares the
+// "tb" Bech32 HRP and the tpub extended-key version with testnet3, so derived
+// addresses match either test network the node may run.
 func paramsForSource(source config.SourceName) (*chaincfg.Params, error) {
 	switch source {
 	case config.SourceBTC:

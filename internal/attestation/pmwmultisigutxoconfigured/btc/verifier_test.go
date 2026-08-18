@@ -256,6 +256,28 @@ func TestUnsupportedSourceParams(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnsupportedSource)
 }
 
+// TestResolveNetworkParams covers the explicit-override / source-default split:
+// BTC_NETWORK wins when set (including regtest, which no source id names), an
+// unknown value fails, and an empty value falls back to the source default.
+func TestResolveNetworkParams(t *testing.T) {
+	p, err := resolveNetworkParams("regtest", config.SourceTestBTC)
+	require.NoError(t, err)
+	require.Equal(t, &chaincfg.RegressionNetParams, p)
+
+	// Override wins over the source-implied default.
+	p, err = resolveNetworkParams("Mainnet", config.SourceTestBTC)
+	require.NoError(t, err)
+	require.Equal(t, &chaincfg.MainNetParams, p)
+
+	_, err = resolveNetworkParams("nope", config.SourceBTC)
+	require.ErrorIs(t, err, ErrUnsupportedNetwork)
+
+	// Empty override falls back to the source default (testBTC → signet).
+	p, err = resolveNetworkParams("", config.SourceTestBTC)
+	require.NoError(t, err)
+	require.Equal(t, &chaincfg.SigNetParams, p)
+}
+
 // TestNewBtcVerifierUnsupportedSource confirms the constructor rejects a config
 // whose source id has no Bitcoin network mapping.
 func TestNewBtcVerifierUnsupportedSource(t *testing.T) {
