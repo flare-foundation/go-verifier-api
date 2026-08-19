@@ -241,9 +241,9 @@ func TestVerifyMalformedRequests(t *testing.T) {
 	}
 }
 
-// TestXpubStringFromBytesBase58Only pins the base58-only contract: the string
-// form the chain registers round-trips, and both a truncated string and the
-// 78-byte serialized form (the encoding the contract rejects) are refused.
+// TestXpubStringFromBytesBase58Only pins the base58-only behaviour: the base58
+// xpub string the chain registers round-trips, while inputs that are not a
+// base58 xpub string are refused.
 func TestXpubStringFromBytesBase58Only(t *testing.T) {
 	b := xpubBytes(t, testMainnetXpub) // the base58 string bytes
 	got, err := xpubStringFromBytes(b)
@@ -254,8 +254,7 @@ func TestXpubStringFromBytesBase58Only(t *testing.T) {
 	_, err = xpubStringFromBytes(b[:20])
 	require.Error(t, err)
 
-	// The 78-byte serialized form is what the contract rejects, so the verifier
-	// rejects it too — attesting it would produce a proof that cannot settle.
+	// A raw byte blob that is not a base58 xpub string is refused.
 	raw := base58.Decode(testMainnetXpub)[:serializedExtendedKeyLen]
 	_, err = xpubStringFromBytes(raw)
 	require.Error(t, err)

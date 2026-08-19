@@ -212,8 +212,8 @@ func errorResponse() fdc2.IPMWMultisigUtxoConfiguredResponseBody {
 }
 
 // toBtcAccountConfigured adapts the ABI request body to the btcaddr reference
-// type. The wire carries public keys as 78-byte serialized extended keys; they
-// are re-encoded to their base58 xpub string form for hdkeychain parsing.
+// type. The wire carries each public key as its base58 xpub string, which is
+// handed to hdkeychain for parsing.
 func toBtcAccountConfigured(req fdc2.IPMWMultisigUtxoConfiguredRequestBody) (btcaddr.BtcAccountConfigured, error) {
 	xpubs := make([]string, len(req.PublicKeys))
 	for i, pk := range req.PublicKeys {
@@ -238,8 +238,8 @@ func toBtcAccountConfigured(req fdc2.IPMWMultisigUtxoConfiguredRequestBody) (btc
 }
 
 // isXpubString reports whether the bytes are a base58check-encoded extended key:
-// an ~111-character string that base58-decodes to the 78-byte payload plus its
-// 4-byte checksum.
+// an ~111-character string that base58-decodes to the serialized-key payload
+// plus its 4-byte checksum.
 func isXpubString(s string) bool {
 	if len(s) < 100 || len(s) > 120 {
 		return false
@@ -249,15 +249,9 @@ func isXpubString(s string) bool {
 
 // xpubStringFromBytes interprets a request public key as the base58check xpub
 // string the chain registers — the canonical form TeePaymentsConfigVerifier
-// ._checkWalletPublicKeys compares byte-for-byte against the wallet's keys.
-//
-// The 78-byte serialized form is deliberately NOT accepted. The verifier attests
-// the request's bytes unchanged, so a request carrying the raw form would derive
-// correctly here yet be rejected on chain (a byte mismatch against the registered
-// base58). Accepting only the on-chain form keeps the verifier's admissible set
-// equal to the contract's and refuses a raw-encoded request fast, rather than
-// attesting one that can never settle. The base58 string's checksum, network and
-// depth are validated downstream by btcaddr.DeriveAccountXpubs.
+// ._checkWalletPublicKeys compares byte-for-byte against the wallet's keys. The
+// string's checksum, network and depth are validated downstream by
+// btcaddr.DeriveAccountXpubs.
 func xpubStringFromBytes(b []byte) (string, error) {
 	s := string(b)
 	if !isXpubString(s) {
