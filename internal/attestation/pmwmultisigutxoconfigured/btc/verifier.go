@@ -9,7 +9,6 @@ import (
 
 	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 
 	btcaddr "github.com/flare-foundation/go-flare-common/pkg/btc/address"
@@ -238,17 +237,31 @@ func toBtcAccountConfigured(req fdc2.IPMWMultisigUtxoConfiguredRequestBody) (btc
 	}, nil
 }
 
-// xpubStringFromBytes re-encodes a 78-byte serialized BIP-32 extended key into
-// its base58check string form. The version bytes are the first 4 bytes of the
-// payload, so this is a plain base58check over the whole 78 bytes (a 4-byte
-// double-SHA256 checksum appended), not the single-version-byte CheckEncode.
-func xpubStringFromBytes(b []byte) (string, error) {
-	if len(b) != serializedExtendedKeyLen {
-		return "", fmt.Errorf("expected %d-byte serialized extended key, got %d", serializedExtendedKeyLen, len(b))
+// isXpubString reports whether the bytes are a base58check-encoded extended key:
+// an ~111-character string that base58-decodes to the 78-byte payload plus its
+// 4-byte checksum.
+func isXpubString(s string) bool {
+	if len(s) < 100 || len(s) > 120 {
+		return false
 	}
-	checksum := chainhash.DoubleHashB(b)[:4]
-	full := make([]byte, 0, len(b)+4)
-	full = append(full, b...)
-	full = append(full, checksum...)
-	return base58.Encode(full), nil
+	return len(base58.Decode(s)) == serializedExtendedKeyLen+4
+}
+
+// xpubStringFromBytes interprets a request public key as the base58check xpub
+// string the chain registers — the canonical form TeePaymentsConfigVerifier
+// ._checkWalletPublicKeys compares byte-for-byte against the wallet's keys.
+//
+// The 78-byte serialized form is deliberately NOT accepted. The verifier attests
+// the request's bytes unchanged, so a request carrying the raw form would derive
+// correctly here yet be rejected on chain (a byte mismatch against the registered
+// base58). Accepting only the on-chain form keeps the verifier's admissible set
+// equal to the contract's and refuses a raw-encoded request fast, rather than
+// attesting one that can never settle. The base58 string's checksum, network and
+// depth are validated downstream by btcaddr.DeriveAccountXpubs.
+func xpubStringFromBytes(b []byte) (string, error) {
+	s := string(b)
+	if !isXpubString(s) {
+		return "", fmt.Errorf("expected a base58 xpub string, got %d bytes", len(b))
+	}
+	return s, nil
 }

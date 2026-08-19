@@ -40,7 +40,7 @@ var utxoSignetXpubs = []string{
 	"tpubDByaGf2WA7U3LBDuVdERvAqCgRgSP6jFUwJixrHkWLNRarmqX1eWXQL9n4NyDkL5RUB98Bdd6R1a3zNtFQQEAiECPkHpEf89RaYFFhnZjqM",
 }
 
-// xpubsBytes decodes each xpub string to its 78-byte serialized wire form.
+// xpubsBytes maps each xpub string to the base58 wire bytes a request carries.
 func xpubsBytes(t *testing.T, xpubs []string) [][]byte {
 	t.Helper()
 	out := make([][]byte, len(xpubs))
@@ -64,13 +64,13 @@ func (m *mockFetcher) GetTxOut(_ context.Context, txid string, vout uint32, _ bo
 	return m.outs[fmt.Sprintf("%s:%d", txid, vout)], nil
 }
 
-// xpubBytes decodes an xpub string back to its 78-byte serialized form (the wire
-// shape carried by PublicKeys), stripping the 4-byte base58check checksum.
+// xpubBytes is the wire shape a request carries for a public key: the base58
+// xpub STRING the chain registers, as its bytes (the verifier is base58-only).
+// The decode is a sanity check that the fixture xpub is well-formed.
 func xpubBytes(t *testing.T, xpub string) []byte {
 	t.Helper()
-	full := base58.Decode(xpub)
-	require.Len(t, full, serializedExtendedKeyLen+4)
-	return full[:serializedExtendedKeyLen]
+	require.Len(t, base58.Decode(xpub), serializedExtendedKeyLen+4)
+	return []byte(xpub)
 }
 
 func txid(b byte) [32]byte {
@@ -241,13 +241,23 @@ func TestVerifyMalformedRequests(t *testing.T) {
 	}
 }
 
-func TestXpubStringFromBytesRoundTrip(t *testing.T) {
-	b := xpubBytes(t, testMainnetXpub)
+// TestXpubStringFromBytesBase58Only pins the base58-only contract: the string
+// form the chain registers round-trips, and both a truncated string and the
+// 78-byte serialized form (the encoding the contract rejects) are refused.
+func TestXpubStringFromBytesBase58Only(t *testing.T) {
+	b := xpubBytes(t, testMainnetXpub) // the base58 string bytes
 	got, err := xpubStringFromBytes(b)
 	require.NoError(t, err)
 	require.Equal(t, testMainnetXpub, got)
 
+	// A truncated string is not a valid xpub.
 	_, err = xpubStringFromBytes(b[:20])
+	require.Error(t, err)
+
+	// The 78-byte serialized form is what the contract rejects, so the verifier
+	// rejects it too — attesting it would produce a proof that cannot settle.
+	raw := base58.Decode(testMainnetXpub)[:serializedExtendedKeyLen]
+	_, err = xpubStringFromBytes(raw)
 	require.Error(t, err)
 }
 

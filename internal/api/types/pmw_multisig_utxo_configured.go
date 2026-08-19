@@ -29,10 +29,14 @@ type Anchor struct {
 }
 
 type PMWMultisigUtxoConfiguredRequestBody struct {
-	AccountIndex uint32          `json:"accountIndex" example:"0"`
-	PublicKeys   []hexutil.Bytes `json:"publicKeys" validate:"required,min=1" example:"0x0488b21e000000000000000000..."`
-	Threshold    uint64          `json:"threshold" validate:"gte=1" example:"2"`
-	Anchors      []Anchor        `json:"anchors" validate:"required,min=1"`
+	AccountIndex uint32 `json:"accountIndex" example:"0"`
+	// PublicKeys are the account's parent xpubs, each carried as the bytes of its
+	// base58check string (e.g. "xpub6…") — the canonical form the chain registers
+	// and the verifier expects. The 78-byte serialized form is not accepted; see
+	// xpubStringFromBytes. The example below is the hex of a base58 xpub string.
+	PublicKeys []hexutil.Bytes `json:"publicKeys" validate:"required,min=1" example:"0x787075623636314d79...."`
+	Threshold  uint64          `json:"threshold" validate:"gte=1" example:"2"`
+	Anchors    []Anchor        `json:"anchors" validate:"required,min=1"`
 }
 
 // ValidateUtxoMultisigRequest enforces the request bounds shared by the JSON
