@@ -38,6 +38,10 @@ var (
 	// ErrNetworkMismatch marks a Bitcoin node confirmed to be serving a different
 	// chain than the verifier expects (a wrong-chain node). Maps to HTTP 503.
 	ErrNetworkMismatch = errors.New("bitcoin node is on the wrong network")
+	// ErrNetworkUnverified is the fail-closed error returned when the node's chain
+	// has not yet been confirmed and a probe is in flight or recently failed with
+	// no cached cause. Maps to HTTP 503.
+	ErrNetworkUnverified = errors.New("bitcoin chain not yet verified")
 )
 
 // serializedExtendedKeyLen is the byte length of a BIP-32 serialized extended
@@ -64,6 +68,11 @@ const minAnchorConfirmations uint64 = 4
 // such anchors are rejected until they reach maturity.
 const coinbaseMaturity uint64 = 100
 
+// maxMultisigKeys is the OP_CHECKMULTISIG participant cap (n <= 20). It bounds
+// the public-key count on the cheap, before any xpub decode or allocation;
+// ValidateV1 enforces the same limit authoritatively (with distinctness/depth).
+const maxMultisigKeys = 20
+
 // nodeClient abstracts the Bitcoin node lookups so the verifier can be unit
 // tested without a live node. *client.Client satisfies it.
 type nodeClient interface {
@@ -87,7 +96,19 @@ type BtcVerifier struct {
 	lastVerifiedNano atomic.Int64
 	verifyMu         sync.Mutex
 	now              func() time.Time // overridable in tests
+
+	// lastAttemptNano / lastProbeErr negatively cache the most recent probe so a
+	// burst of requests during a node outage does not stampede: instead of each
+	// request serializing behind verifyMu for its own 5s probe, callers that find
+	// a probe in flight or a recent failure fail closed fast with the cached
+	// error. Probes are thereby bounded to ~one per networkProbeCooldown.
+	lastAttemptNano atomic.Int64
+	lastProbeErr    atomic.Pointer[probeResult]
 }
+
+// probeResult boxes a probe's error so it can be stored atomically (a bare error
+// interface cannot). A nil err means the last probe succeeded.
+type probeResult struct{ err error }
 
 func NewBtcVerifier(cfg *config.PMWMultisigUtxoConfig) (*BtcVerifier, error) {
 	params, err := resolveNetworkParams(cfg.BtcNetwork, cfg.SourceIDPair.SourceID)
@@ -108,6 +129,11 @@ const (
 	// networkVerifyTTL is how long a confirmed chain is trusted before Verify
 	// re-checks, so a node repointed to a different chain is caught within it.
 	networkVerifyTTL = 30 * time.Minute
+	// networkProbeCooldown bounds how often an unverified node is re-probed while
+	// it stays unreachable/wrong, so a request burst does not stampede one 5s
+	// probe per request. Requests within the cooldown fail closed on the cached
+	// error; once the node recovers, the next request past the cooldown re-probes.
+	networkProbeCooldown = 10 * time.Second
 )
 
 // clock returns the current time, using the injected now when set (tests).
@@ -188,21 +214,44 @@ func (v *BtcVerifier) VerifyNetwork(ctx context.Context) error {
 }
 
 // ensureNetworkVerified fails closed until the node's chain has been confirmed. A
-// fresh confirmation (within networkVerifyTTL) is a lock-free no-op; otherwise it
-// re-probes — so a wrong-chain or unreachable node keeps every request rejected,
-// and a node repointed to a different chain is caught within the TTL.
+// fresh confirmation (within networkVerifyTTL) is a lock-free no-op. Otherwise it
+// re-probes under verifyMu, but does NOT stampede: a caller that finds a probe
+// already in flight (TryLock fails) or a failure within networkProbeCooldown
+// returns the cached probe error immediately instead of queuing behind its own
+// 5s probe. So an unreachable/wrong node keeps every request rejected while
+// bounding probes to ~one per cooldown, and a node repointed to a different chain
+// is still caught within the TTL.
 func (v *BtcVerifier) ensureNetworkVerified(ctx context.Context) error {
 	if v.verifiedFresh() {
 		return nil
 	}
-	v.verifyMu.Lock()
+	// A probe is in flight (or just finished); don't pile up behind it.
+	if !v.verifyMu.TryLock() {
+		return v.cachedProbeErr()
+	}
 	defer v.verifyMu.Unlock()
 	if v.verifiedFresh() {
 		return nil
 	}
+	if last := v.lastAttemptNano.Load(); last != 0 && v.clock().Sub(time.Unix(0, last)) < networkProbeCooldown {
+		return v.cachedProbeErr()
+	}
 	ctx, cancel := context.WithTimeout(ctx, networkPinTimeout)
 	defer cancel()
-	return v.checkNetwork(ctx)
+	err := v.checkNetwork(ctx)
+	v.lastAttemptNano.Store(v.clock().UnixNano())
+	v.lastProbeErr.Store(&probeResult{err: err})
+	return err
+}
+
+// cachedProbeErr returns the most recent probe's error so a stampeding caller can
+// fail closed without launching its own probe; it falls back to
+// ErrNetworkUnverified when no probe has recorded a cause yet.
+func (v *BtcVerifier) cachedProbeErr() error {
+	if p := v.lastProbeErr.Load(); p != nil && p.err != nil {
+		return p.err
+	}
+	return ErrNetworkUnverified
 }
 
 // networkParamsByName maps an explicit BTC_NETWORK value to its Bitcoin network
@@ -306,12 +355,17 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigUtxoConfi
 		// is the sole view every honest verifier shares. Mempool contents differ
 		// per node (a spend one verifier sees, another does not), so reading them
 		// would make two honest verifiers disagree on a borderline anchor and
-		// break the threshold agreement the whole attestation rests on. The
-		// residual it leaves — an anchor spent only in the mempool still reads as
-		// unspent here — is not an attacker vector: genesis anchors are the
-		// wallet's OWN outpoints, so a pre-registration mempool spend is operator
-		// self-harm that fails downstream anyway. Confirmed-only is both the
-		// agreement-preserving and the more robust lens for a binding we pin.
+		// break the threshold agreement the whole attestation rests on — strictly
+		// worse than the residual below.
+		//
+		// ACCEPTED RISK (confirmed-state / TOCTOU): a confirmed read can be stale
+		// — an anchor spent only in the mempool, or spent right after this read,
+		// still reads as unspent here, so the binding may be pinned to an outpoint
+		// that is no longer truly unspent. This is an accepted residual, not a
+		// proven non-issue: we take it because the only alternative (mempool
+		// reads) breaks verifier agreement. Severity is bounded by these being the
+		// wallet's own outpoints and by the confirmation-depth floor, but that is
+		// mitigation, not a guarantee of no exploit.
 		utxo, err := v.Client.GetTxOut(ctx, txid, anchor.Vout, false)
 		if err != nil {
 			// Transport/RPC failure — surface as an error so the caller retries,
@@ -372,6 +426,24 @@ func errorResponse() fdc2.IPMWMultisigUtxoConfiguredResponseBody {
 // type. The wire carries each public key as its base58 xpub string, which is
 // handed to hdkeychain for parsing.
 func toBtcAccountConfigured(req fdc2.IPMWMultisigUtxoConfiguredRequestBody) (btcaddr.BtcAccountConfigured, error) {
+	// Cheap guards BEFORE any xpub decode or per-element allocation, so an
+	// oversized request cannot force thousands of base58 decodes and slice
+	// allocations it is doomed to fail. ValidateV1 re-checks the exact bounds
+	// (plus depth/network/distinctness); these only cap the work done first.
+	if n := len(req.PublicKeys); n < 1 || n > maxMultisigKeys {
+		return btcaddr.BtcAccountConfigured{}, fmt.Errorf("public key count %d out of range [1, %d]", n, maxMultisigKeys)
+	}
+	if n := len(req.Anchors); n < 1 || n > btcaddr.MaxAnchors {
+		return btcaddr.BtcAccountConfigured{}, fmt.Errorf("anchor count %d out of range [1, %d]", n, btcaddr.MaxAnchors)
+	}
+	// Guard the uint64->int narrowing: a threshold beyond int range would wrap on
+	// a 32-bit platform, potentially to a small positive value that slips past
+	// ValidateV1's k-of-n bound. Legitimate thresholds are tiny (<= n <= 20), so
+	// reject anything that cannot fit int on every platform before the cast.
+	if req.Threshold > math.MaxInt32 {
+		return btcaddr.BtcAccountConfigured{}, fmt.Errorf("threshold %d out of range", req.Threshold)
+	}
+
 	xpubs := make([]string, len(req.PublicKeys))
 	for i, pk := range req.PublicKeys {
 		xpub, err := xpubStringFromBytes(pk)
@@ -384,14 +456,6 @@ func toBtcAccountConfigured(req fdc2.IPMWMultisigUtxoConfiguredRequestBody) (btc
 	anchors := make([]btcaddr.AnchorBinding, len(req.Anchors))
 	for i, a := range req.Anchors {
 		anchors[i] = btcaddr.AnchorBinding{Txid: a.GenesisAnchorTxid, Vout: a.GenesisAnchorVout}
-	}
-
-	// Guard the uint64->int narrowing: a threshold beyond int range would wrap on
-	// a 32-bit platform, potentially to a small positive value that slips past
-	// ValidateV1's k-of-n bound. Legitimate thresholds are tiny (<= n <= 20), so
-	// reject anything that cannot fit int on every platform before the cast.
-	if req.Threshold > math.MaxInt32 {
-		return btcaddr.BtcAccountConfigured{}, fmt.Errorf("threshold %d out of range", req.Threshold)
 	}
 
 	return btcaddr.BtcAccountConfigured{

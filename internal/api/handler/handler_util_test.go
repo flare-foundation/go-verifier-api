@@ -292,6 +292,11 @@ func TestClassifyVerifyError(t *testing.T) {
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{
+			name:           "ErrNetworkUnverified (utxo multisig BTC)",
+			err:            fmt.Errorf("probe in flight: %w", multisigutxobtc.ErrNetworkUnverified),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
 			name:           "ErrFetchChainInfo (BTC)",
 			err:            fmt.Errorf("node unreachable: %w", btcclient.ErrFetchChainInfo),
 			expectedStatus: http.StatusServiceUnavailable,

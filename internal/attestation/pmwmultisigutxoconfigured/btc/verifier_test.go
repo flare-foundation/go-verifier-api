@@ -57,10 +57,11 @@ func xpubsBytes(t *testing.T, xpubs []string) [][]byte {
 // chain getblockchaininfo reports (newVerifier defaults it to the params' chain
 // so the network pin passes), and chainErr forces a getblockchaininfo failure.
 type mockFetcher struct {
-	outs     map[string]*client.GetTxOut
-	err      error
-	chain    string
-	chainErr error
+	outs       map[string]*client.GetTxOut
+	err        error
+	chain      string
+	chainErr   error
+	chainCalls int // number of Chain() probes served
 }
 
 func (m *mockFetcher) GetTxOut(_ context.Context, txid string, vout uint32, _ bool) (*client.GetTxOut, error) {
@@ -71,6 +72,7 @@ func (m *mockFetcher) GetTxOut(_ context.Context, txid string, vout uint32, _ bo
 }
 
 func (m *mockFetcher) Chain(context.Context) (string, error) {
+	m.chainCalls++
 	if m.chainErr != nil {
 		return "", m.chainErr
 	}
@@ -260,6 +262,59 @@ func TestVerifyThresholdOutOfRange(t *testing.T) {
 	res, err := v.Verify(context.Background(), req)
 	require.ErrorIs(t, err, ErrInvalidRequest)
 	require.Equal(t, uint8(0), res.Status)
+}
+
+// TestVerifyTooManyKeys: a public-key count above the OP_CHECKMULTISIG cap is
+// rejected on the cheap length guard, before any xpub is decoded.
+func TestVerifyTooManyKeys(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	req := validRequest(t, 1)
+	req.PublicKeys = make([][]byte, maxMultisigKeys+1)
+	for i := range req.PublicKeys {
+		req.PublicKeys[i] = []byte("x") // never decoded — the count gate fires first
+	}
+
+	v := newVerifier(&mockFetcher{outs: map[string]*client.GetTxOut{}}, params)
+	res, err := v.Verify(context.Background(), req)
+	require.ErrorIs(t, err, ErrInvalidRequest)
+	require.Equal(t, uint8(0), res.Status)
+}
+
+// TestVerifyTooManyAnchors: an anchor count above MaxAnchors is rejected on the
+// cheap length guard, before any allocation of the anchor set.
+func TestVerifyTooManyAnchors(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	req := validRequest(t, 1)
+	req.Anchors = make([]fdc2.IPMWMultisigUtxoConfiguredAnchor, btcaddr.MaxAnchors+1)
+	for i := range req.Anchors {
+		req.Anchors[i] = fdc2.IPMWMultisigUtxoConfiguredAnchor{GenesisAnchorTxid: txid(byte(i + 1)), GenesisAnchorVout: uint32(i)}
+	}
+
+	v := newVerifier(&mockFetcher{outs: map[string]*client.GetTxOut{}}, params)
+	res, err := v.Verify(context.Background(), req)
+	require.ErrorIs(t, err, ErrInvalidRequest)
+	require.Equal(t, uint8(0), res.Status)
+}
+
+// TestEnsureNetworkVerifiedDoesNotStampede: during an outage a burst of requests
+// must not each launch its own probe — probes are bounded to ~one per cooldown,
+// with in-between callers failing closed on the cached error.
+func TestEnsureNetworkVerifiedDoesNotStampede(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	fetcher := &mockFetcher{chainErr: client.ErrFetchChainInfo}
+	now := time.Unix(1_700_000_000, 0)
+	v := &BtcVerifier{Client: fetcher, Params: params, now: func() time.Time { return now }}
+
+	// First probe runs and fails; the next few within the cooldown reuse it.
+	for range 5 {
+		require.ErrorIs(t, v.ensureNetworkVerified(context.Background()), client.ErrFetchChainInfo)
+	}
+	require.Equal(t, 1, fetcher.chainCalls, "burst within cooldown must reuse the cached probe")
+
+	// Past the cooldown, exactly one fresh probe runs.
+	now = now.Add(networkProbeCooldown + time.Second)
+	require.ErrorIs(t, v.ensureNetworkVerified(context.Background()), client.ErrFetchChainInfo)
+	require.Equal(t, 2, fetcher.chainCalls)
 }
 
 func TestVerifyRPCErrorPropagates(t *testing.T) {
