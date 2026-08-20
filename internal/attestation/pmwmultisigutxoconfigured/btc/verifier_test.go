@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -245,6 +246,20 @@ func TestVerifyMatureCoinbaseIsValid(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint8(apitypes.PMWMultisigUtxoStatusOK), res.Status)
 	require.Equal(t, chain0, res.AccountAddress)
+}
+
+// TestVerifyThresholdOutOfRange: a threshold beyond int32 range is rejected
+// before the uint64->int narrowing, so it cannot wrap past ValidateV1's k-of-n
+// bound on a 32-bit platform.
+func TestVerifyThresholdOutOfRange(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	req := validRequest(t, 1)
+	req.Threshold = math.MaxInt32 + 1
+
+	v := newVerifier(&mockFetcher{outs: map[string]*client.GetTxOut{}}, params)
+	res, err := v.Verify(context.Background(), req)
+	require.ErrorIs(t, err, ErrInvalidRequest)
+	require.Equal(t, uint8(0), res.Status)
 }
 
 func TestVerifyRPCErrorPropagates(t *testing.T) {

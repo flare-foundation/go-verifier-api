@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -367,6 +368,14 @@ func toBtcAccountConfigured(req fdc2.IPMWMultisigUtxoConfiguredRequestBody) (btc
 	anchors := make([]btcaddr.AnchorBinding, len(req.Anchors))
 	for i, a := range req.Anchors {
 		anchors[i] = btcaddr.AnchorBinding{Txid: a.GenesisAnchorTxid, Vout: a.GenesisAnchorVout}
+	}
+
+	// Guard the uint64->int narrowing: a threshold beyond int range would wrap on
+	// a 32-bit platform, potentially to a small positive value that slips past
+	// ValidateV1's k-of-n bound. Legitimate thresholds are tiny (<= n <= 20), so
+	// reject anything that cannot fit int on every platform before the cast.
+	if req.Threshold > math.MaxInt32 {
+		return btcaddr.BtcAccountConfigured{}, fmt.Errorf("threshold %d out of range", req.Threshold)
 	}
 
 	return btcaddr.BtcAccountConfigured{
