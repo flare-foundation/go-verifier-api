@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -61,7 +63,9 @@ type mockFetcher struct {
 	err        error
 	chain      string
 	chainErr   error
-	chainCalls int // number of Chain() probes served
+	chainCalls atomic.Int64  // number of Chain() probes served (race-safe)
+	chainEnter chan struct{} // if set, Chain signals here on entry (before blocking)
+	chainGate  chan struct{} // if set, Chain blocks receiving here before returning
 }
 
 func (m *mockFetcher) GetTxOut(_ context.Context, txid string, vout uint32, _ bool) (*client.GetTxOut, error) {
@@ -72,7 +76,13 @@ func (m *mockFetcher) GetTxOut(_ context.Context, txid string, vout uint32, _ bo
 }
 
 func (m *mockFetcher) Chain(context.Context) (string, error) {
-	m.chainCalls++
+	if m.chainEnter != nil {
+		m.chainEnter <- struct{}{}
+	}
+	if m.chainGate != nil {
+		<-m.chainGate
+	}
+	m.chainCalls.Add(1)
 	if m.chainErr != nil {
 		return "", m.chainErr
 	}
@@ -309,12 +319,64 @@ func TestEnsureNetworkVerifiedDoesNotStampede(t *testing.T) {
 	for range 5 {
 		require.ErrorIs(t, v.ensureNetworkVerified(context.Background()), client.ErrFetchChainInfo)
 	}
-	require.Equal(t, 1, fetcher.chainCalls, "burst within cooldown must reuse the cached probe")
+	require.Equal(t, int64(1), fetcher.chainCalls.Load(), "burst within cooldown must reuse the cached probe")
 
 	// Past the cooldown, exactly one fresh probe runs.
 	now = now.Add(networkProbeCooldown + time.Second)
 	require.ErrorIs(t, v.ensureNetworkVerified(context.Background()), client.ErrFetchChainInfo)
-	require.Equal(t, 2, fetcher.chainCalls)
+	require.Equal(t, int64(2), fetcher.chainCalls.Load())
+}
+
+// TestEnsureNetworkVerifiedConcurrentProbe exercises the TryLock path the
+// de-stampede exists for: while one caller is mid-probe (holding verifyMu), a
+// burst of simultaneous callers must each fail fast on the cached error rather
+// than launch their own probe. Exactly one probe fires. Run under -race.
+func TestEnsureNetworkVerifiedConcurrentProbe(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	enter := make(chan struct{})
+	gate := make(chan struct{})
+	fetcher := &mockFetcher{chain: "main", chainEnter: enter, chainGate: gate}
+	v := &BtcVerifier{Client: fetcher, Params: params, now: time.Now}
+
+	// Winner acquires verifyMu and blocks inside Chain.
+	winErr := make(chan error, 1)
+	go func() { winErr <- v.ensureNetworkVerified(context.Background()) }()
+	<-enter // winner is now inside Chain, holding the lock
+
+	// Losers all find the probe in flight (TryLock fails) and fail fast.
+	const losers = 8
+	var wg sync.WaitGroup
+	lerrs := make([]error, losers)
+	for i := range losers {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			lerrs[i] = v.ensureNetworkVerified(context.Background())
+		}(i)
+	}
+	wg.Wait()
+	for _, e := range lerrs {
+		require.ErrorIs(t, e, ErrNetworkUnverified)
+	}
+
+	close(gate) // release the winner
+	require.NoError(t, <-winErr)
+	require.Equal(t, int64(1), fetcher.chainCalls.Load(), "only one probe may fire")
+}
+
+// TestVerifiedFreshRejectsClockRollback: a backward wall-clock jump must not keep
+// a past confirmation "fresh" (negative age), so trust cannot be extended beyond
+// the TTL by rolling the clock back.
+func TestVerifiedFreshRejectsClockRollback(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	now := time.Unix(1_700_000_000, 0)
+	v := &BtcVerifier{Client: &mockFetcher{chain: "main"}, Params: params, now: func() time.Time { return now }}
+
+	require.NoError(t, v.ensureNetworkVerified(context.Background()))
+	require.True(t, v.verifiedFresh())
+
+	now = now.Add(-time.Hour) // clock rolls backward
+	require.False(t, v.verifiedFresh(), "a negative age must not count as fresh")
 }
 
 func TestVerifyRPCErrorPropagates(t *testing.T) {

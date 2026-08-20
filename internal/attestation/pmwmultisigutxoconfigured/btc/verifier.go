@@ -145,9 +145,17 @@ func (v *BtcVerifier) clock() time.Time {
 }
 
 // verifiedFresh reports whether the chain was confirmed within networkVerifyTTL.
+// The age >= 0 bound is a wall-clock-rollback guard: the timestamp is stored as
+// UnixNano (no monotonic reading), so a backward system-clock jump yields a
+// negative age that would otherwise pass "< TTL" and extend trust indefinitely;
+// treating a negative age as not-fresh fails safe (re-probe).
 func (v *BtcVerifier) verifiedFresh() bool {
 	last := v.lastVerifiedNano.Load()
-	return last != 0 && v.clock().Sub(time.Unix(0, last)) < networkVerifyTTL
+	if last == 0 {
+		return false
+	}
+	age := v.clock().Sub(time.Unix(0, last))
+	return age >= 0 && age < networkVerifyTTL
 }
 
 // expectedChain returns the getblockchaininfo chain name Params corresponds to
@@ -233,8 +241,12 @@ func (v *BtcVerifier) ensureNetworkVerified(ctx context.Context) error {
 	if v.verifiedFresh() {
 		return nil
 	}
-	if last := v.lastAttemptNano.Load(); last != 0 && v.clock().Sub(time.Unix(0, last)) < networkProbeCooldown {
-		return v.cachedProbeErr()
+	// age >= 0 guards against a wall-clock rollback keeping a failed probe cached
+	// beyond its cooldown (see verifiedFresh); a negative age re-probes (fail safe).
+	if last := v.lastAttemptNano.Load(); last != 0 {
+		if age := v.clock().Sub(time.Unix(0, last)); age >= 0 && age < networkProbeCooldown {
+			return v.cachedProbeErr()
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, networkPinTimeout)
 	defer cancel()
