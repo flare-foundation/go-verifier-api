@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -40,33 +41,43 @@ func TestGetTxOutNullResult(t *testing.T) {
 	require.Nil(t, out)
 }
 
-// TestGetTxOutDeterministicRPCError confirms a permanent, request-level RPC
-// rejection (e.g. -8 invalid parameter) surfaces as ErrRPCInvalidRequest (which
-// the handler maps to 4xx), not the transient ErrGetTxOut.
-func TestGetTxOutBadRequestDataRPCError(t *testing.T) {
-	c := newTestServer(t, `{"result":null,"error":{"code":-8,"message":"invalid txid"},"id":"go-verifier-api"}`)
-	_, err := c.GetTxOut(context.Background(), "aa", 0, false)
-	require.ErrorIs(t, err, ErrRPCInvalidRequest)
-	require.NotErrorIs(t, err, ErrGetTxOut)
+// TestGetTxOutRPCErrorsAreTransient confirms EVERY gettxout RPC error maps to the
+// retryable ErrGetTxOut (503) — data codes (-3/-8/-22), protocol/method codes
+// (-32601), and warmup (-28) alike. gettxout always gets a well-formed txid/vout
+// and returns null (not an error) for a missing output, so any RPC error is a
+// node/client fault, never bad caller data; a false 4xx would turn an
+// abstain-worthy outage into a hard "invalid request".
+func TestGetTxOutRPCErrorsAreTransient(t *testing.T) {
+	cases := []struct {
+		name string
+		code int
+	}{
+		{"type error", -3},
+		{"invalid parameter", -8},
+		{"deserialization", -22},
+		{"warmup", -28},
+		{"method not found", -32601},
+		{"parse error", -32700},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestServer(t, fmt.Sprintf(`{"result":null,"error":{"code":%d,"message":"x"},"id":"go-verifier-api"}`, tc.code))
+			_, err := c.GetTxOut(context.Background(), "aa", 0, false)
+			require.ErrorIs(t, err, ErrGetTxOut)
+		})
+	}
 }
 
-// TestGetTxOutProtocolRPCError confirms a node/protocol-level rejection
-// (-32601 method-not-found — a misconfigured or wrong node, not bad caller data)
-// surfaces as the transient ErrGetTxOut (503), not ErrRPCInvalidRequest (4xx).
-func TestGetTxOutProtocolRPCError(t *testing.T) {
-	c := newTestServer(t, `{"result":null,"error":{"code":-32601,"message":"Method not found"},"id":"go-verifier-api"}`)
+// TestGetTxOutInFlightCapFailsFast confirms that once the in-flight RPC cap is
+// full, a further call fails fast with ErrGetTxOut instead of piling up.
+func TestGetTxOutInFlightCapFailsFast(t *testing.T) {
+	c := NewClient("http://127.0.0.1:1/")
+	for range cap(c.sem) {
+		c.sem <- struct{}{} // saturate the semaphore
+	}
 	_, err := c.GetTxOut(context.Background(), "aa", 0, false)
 	require.ErrorIs(t, err, ErrGetTxOut)
-	require.NotErrorIs(t, err, ErrRPCInvalidRequest)
-}
-
-// TestGetTxOutTransientRPCError confirms an unclassified/transient RPC error
-// (e.g. -28 RPC_IN_WARMUP) stays ErrGetTxOut so the caller retries (503).
-func TestGetTxOutTransientRPCError(t *testing.T) {
-	c := newTestServer(t, `{"result":null,"error":{"code":-28,"message":"loading block index"},"id":"go-verifier-api"}`)
-	_, err := c.GetTxOut(context.Background(), "aa", 0, false)
-	require.ErrorIs(t, err, ErrGetTxOut)
-	require.NotErrorIs(t, err, ErrRPCInvalidRequest)
+	require.ErrorIs(t, err, errTooManyConcurrent)
 }
 
 // TestGetTxOutDoesNotLeakCredentials confirms a transport failure on a URL that

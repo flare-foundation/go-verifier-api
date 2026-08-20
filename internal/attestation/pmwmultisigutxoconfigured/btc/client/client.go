@@ -4,28 +4,31 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 )
 
-// ErrGetTxOut indicates a failure when calling gettxout that is NOT the caller's
-// fault: network/transport, node warmup, a node/protocol-level RPC error
-// (method-not-found, parse/invalid-request — a misconfigured or wrong node), or
-// any unclassified RPC error. Mapped to 503 so the caller retries; an operator
-// fix (not a request change) resolves the config cases.
+// ErrGetTxOut indicates a failure when calling gettxout — mapped to 503 so the
+// caller retries (or an operator fixes a config fault) rather than voting a false
+// negative. It covers every failure this call can produce: network/transport,
+// node warmup, an in-flight cap rejection, and ANY JSON-RPC error. The latter is
+// deliberate: gettxout always receives a well-formed 64-hex txid (from [32]byte)
+// and a typed uint32 vout, and a missing/out-of-range output returns a null
+// result, not an error — so a parameter/deserialization error (-3/-8/-22) or a
+// protocol/method error (-32601 etc.) can only mean a node/client problem, never
+// bad caller data. All are therefore transient/retryable, not a 4xx.
 var ErrGetTxOut = errors.New("cannot get transaction output")
-
-// ErrRPCInvalidRequest indicates the node rejected the request DATA we forwarded
-// — the caller's anchor txid/vout was malformed/invalid (type, value, or
-// deserialization error). The caller must fix the request, so it is kept
-// distinct from the transient ErrGetTxOut and mapped to a 4xx, not a 503.
-var ErrRPCInvalidRequest = errors.New("bitcoin rpc rejected the request")
 
 // ErrFetchChainInfo indicates a transient failure reading the node's chain via
 // getblockchaininfo (network/transport, node warmup) — the caller may retry.
 var ErrFetchChainInfo = errors.New("cannot get blockchain info")
+
+// errTooManyConcurrent is returned (wrapped in the caller's transient sentinel)
+// when the in-flight RPC cap is hit, so a flood fails fast instead of piling up.
+var errTooManyConcurrent = errors.New("too many concurrent bitcoin RPC calls")
 
 const (
 	chainMaxAttempts     = 2
@@ -35,36 +38,49 @@ const (
 	// maxChainInfoResponseSize bounds the getblockchaininfo response. The full
 	// object (softfork/warning fields included) is a few KB; 64 KB is ample.
 	maxChainInfoResponseSize = 64 * 1024
-)
 
-// isBadRequestDataRPCError reports whether a Bitcoin Core JSON-RPC error code
-// means the request DATA we forwarded (the caller's anchor txid/vout) was
-// malformed or invalid — a rejection the caller must fix, mapped to 4xx. Codes
-// are from Bitcoin Core's rpc/protocol.h. Deliberately excluded are the JSON-RPC
-// protocol/method-level codes (-32600 invalid request, -32601 method not found,
-// -32602 invalid params, -32700 parse error): those signal a misconfigured or
-// wrong node (or a client bug), NOT bad caller data, so they fall through to the
-// transient ErrGetTxOut (503) rather than being blamed on the request.
-func isBadRequestDataRPCError(code int) bool {
-	switch code {
-	case -3, // RPC_TYPE_ERROR
-		-8,  // RPC_INVALID_PARAMETER (e.g. vout out of range)
-		-22: // RPC_DESERIALIZATION_ERROR (e.g. malformed txid)
-		return true
-	default:
-		return false
-	}
-}
+	// maxConnsPerHost caps simultaneous TCP connections to the Bitcoin node so a
+	// request flood cannot exhaust the node's RPC connection pool or our sockets;
+	// excess calls wait for a free connection (bounded by the per-call timeout).
+	maxConnsPerHost = 16
+	// maxIdleConnsPerHost keeps a small warm pool for connection reuse.
+	maxIdleConnsPerHost = 8
+	// maxConcurrentRPC is the hard in-flight cap across all RPCs on this client.
+	// Beyond it, calls fail fast (503) instead of piling up goroutines/memory —
+	// the outer bound; maxConnsPerHost bounds the actual sockets underneath.
+	maxConcurrentRPC = 64
+)
 
 // Client is a thin Bitcoin Core JSON-RPC client. Authentication credentials, if
 // any, are carried in the URL userinfo (http://user:pass@host:port), matching
 // bitcoind's HTTP basic auth.
 type Client struct {
-	url string
+	url       string
+	transport http.RoundTripper // shared; bounds connections to the node
+	sem       chan struct{}     // in-flight RPC cap; fail-fast when full
 }
 
 func NewClient(url string) *Client {
-	return &Client{url: url}
+	return &Client{
+		url: url,
+		transport: &http.Transport{
+			MaxConnsPerHost:     maxConnsPerHost,
+			MaxIdleConnsPerHost: maxIdleConnsPerHost,
+		},
+		sem: make(chan struct{}, maxConcurrentRPC),
+	}
+}
+
+// acquire reserves an in-flight RPC slot, returning ok=false immediately when the
+// client is already at maxConcurrentRPC so a flood cannot grow goroutines/memory
+// without bound. The returned release frees the slot (call only when ok).
+func (c *Client) acquire() (release func(), ok bool) {
+	select {
+	case c.sem <- struct{}{}:
+		return func() { <-c.sem }, true
+	default:
+		return nil, false
+	}
 }
 
 // GetTxOut returns the unspent output at (txid, vout) via Bitcoin Core's
@@ -74,6 +90,12 @@ func NewClient(url string) *Client {
 // returns a null result). includeMempool selects whether unconfirmed spends are
 // considered; anchor verification passes false so only confirmed outputs match.
 func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, includeMempool bool) (*GetTxOut, error) {
+	release, ok := c.acquire()
+	if !ok {
+		return nil, fmt.Errorf("%w: %w", ErrGetTxOut, errTooManyConcurrent)
+	}
+	defer release()
+
 	req := jsonRPCRequest{
 		JSONRPC: "1.0",
 		ID:      "go-verifier-api",
@@ -88,6 +110,7 @@ func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, include
 		call.Params{
 			Timeout:         chainRequestTimeout,
 			MaxResponseSize: maxTxOutResponseSize,
+			Transport:       c.transport,
 		},
 		nil,
 		retry.Params{
@@ -99,10 +122,9 @@ func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, include
 		return nil, fmt.Errorf("%w: %w", ErrGetTxOut, err)
 	}
 	if resp.Message.Error != nil {
+		// Any RPC error here is a node/client fault, never bad caller data (see
+		// ErrGetTxOut): treat every one as transient/retryable (503).
 		rpcErr := resp.Message.Error
-		if isBadRequestDataRPCError(rpcErr.Code) {
-			return nil, fmt.Errorf("%w %s:%d (code %d): %s", ErrRPCInvalidRequest, txid, vout, rpcErr.Code, rpcErr.Message)
-		}
 		return nil, fmt.Errorf("%w %s:%d (code %d): %s", ErrGetTxOut, txid, vout, rpcErr.Code, rpcErr.Message)
 	}
 	// A null result means the output is unspent-not-found or already spent.
@@ -114,6 +136,12 @@ func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, include
 // its parameters expect. Any transport or RPC failure is wrapped in
 // ErrFetchChainInfo so the caller keeps the request path fail-closed and retries.
 func (c *Client) Chain(ctx context.Context) (string, error) {
+	release, ok := c.acquire()
+	if !ok {
+		return "", fmt.Errorf("%w: %w", ErrFetchChainInfo, errTooManyConcurrent)
+	}
+	defer release()
+
 	req := jsonRPCRequest{
 		JSONRPC: "1.0",
 		ID:      "go-verifier-api",
@@ -128,6 +156,7 @@ func (c *Client) Chain(ctx context.Context) (string, error) {
 		call.Params{
 			Timeout:         chainRequestTimeout,
 			MaxResponseSize: maxChainInfoResponseSize,
+			Transport:       c.transport,
 		},
 		nil,
 		retry.Params{

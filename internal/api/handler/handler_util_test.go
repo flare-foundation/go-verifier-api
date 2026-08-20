@@ -250,11 +250,6 @@ func TestClassifyVerifyError(t *testing.T) {
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
-			name:           "ErrRPCInvalidRequest (BTC gettxout)",
-			err:            fmt.Errorf("malformed txid: %w", btcclient.ErrRPCInvalidRequest),
-			expectedStatus: http.StatusUnprocessableEntity,
-		},
-		{
 			name:           "ErrRecordNotFound",
 			err:            fmt.Errorf("record not found: %w", db.ErrRecordNotFound),
 			expectedStatus: http.StatusUnprocessableEntity,

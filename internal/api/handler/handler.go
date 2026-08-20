@@ -163,7 +163,6 @@ func classifyVerifyError(reqID string, err error) error {
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
 		errors.Is(err, feeproofxrp.ErrMissingTransaction),
 		errors.Is(err, client.ErrRPCNonSuccess),
-		errors.Is(err, btcclient.ErrRPCInvalidRequest),
 		errors.Is(err, db.ErrRecordNotFound),
 		errors.Is(err, verifier.ErrTEEDataValidation),
 		errors.Is(err, verifiertypes.ErrInvalidInput):
