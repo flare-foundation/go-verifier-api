@@ -16,6 +16,8 @@ import (
 	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
 	multisigxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
+	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
+	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -170,6 +172,8 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, client.ErrFetchAccountInfo),
 		errors.Is(err, client.ErrFetchServerInfo),
 		errors.Is(err, multisigxrp.ErrNetworkMismatch),
+		errors.Is(err, multisigutxobtc.ErrNetworkMismatch),
+		errors.Is(err, btcclient.ErrFetchChainInfo),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),

@@ -29,6 +29,19 @@ type getTxOutResponse struct {
 	Error  *jsonRPCError `json:"error"`
 }
 
+// getBlockchainInfoResponse is the JSON-RPC envelope for getblockchaininfo; only
+// the chain field is read, to pin the node to the network the verifier expects.
+type getBlockchainInfoResponse struct {
+	Result *BlockchainInfo `json:"result"`
+	Error  *jsonRPCError   `json:"error"`
+}
+
+// BlockchainInfo is the subset of getblockchaininfo the verifier reads: the
+// node's chain, one of "main", "test", "signet" or "regtest".
+type BlockchainInfo struct {
+	Chain string `json:"chain"`
+}
+
 // ScriptPubKey is the locking script of a transaction output.
 type ScriptPubKey struct {
 	Hex     string `json:"hex"`

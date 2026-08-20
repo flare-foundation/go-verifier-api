@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -50,11 +51,15 @@ func xpubsBytes(t *testing.T, xpubs []string) [][]byte {
 	return out
 }
 
-// mockFetcher is a programmable txOutFetcher: outs maps "txid:vout" to a UTXO
-// view (nil = not found/spent), and err forces a transport-level failure.
+// mockFetcher is a programmable nodeClient: outs maps "txid:vout" to a UTXO view
+// (nil = not found/spent), err forces a gettxout transport failure, chain is the
+// chain getblockchaininfo reports (newVerifier defaults it to the params' chain
+// so the network pin passes), and chainErr forces a getblockchaininfo failure.
 type mockFetcher struct {
-	outs map[string]*client.GetTxOut
-	err  error
+	outs     map[string]*client.GetTxOut
+	err      error
+	chain    string
+	chainErr error
 }
 
 func (m *mockFetcher) GetTxOut(_ context.Context, txid string, vout uint32, _ bool) (*client.GetTxOut, error) {
@@ -62,6 +67,13 @@ func (m *mockFetcher) GetTxOut(_ context.Context, txid string, vout uint32, _ bo
 		return nil, m.err
 	}
 	return m.outs[fmt.Sprintf("%s:%d", txid, vout)], nil
+}
+
+func (m *mockFetcher) Chain(context.Context) (string, error) {
+	if m.chainErr != nil {
+		return "", m.chainErr
+	}
+	return m.chain, nil
 }
 
 // xpubBytes is the wire shape a request carries for a public key: the base58
@@ -129,8 +141,21 @@ func expectedOuts(t *testing.T, req fdc2.IPMWMultisigUtxoConfiguredRequestBody, 
 	return outs, chain0
 }
 
-func newVerifier(fetcher txOutFetcher, params *chaincfg.Params) *BtcVerifier {
-	return &BtcVerifier{Client: fetcher, Params: params}
+func newVerifier(fetcher nodeClient, params *chaincfg.Params) *BtcVerifier {
+	// Default the mock's reported chain to the one the params expect so the
+	// network pin passes transparently; tests exercising the pin set it directly.
+	if m, ok := fetcher.(*mockFetcher); ok && m.chain == "" && m.chainErr == nil {
+		m.chain, _ = expectedChain(params)
+	}
+	return &BtcVerifier{
+		Config: &config.PMWMultisigUtxoConfig{
+			EncodedAndABI: config.EncodedAndABI{
+				SourceIDPair: config.SourceIDEncodedPair{SourceID: config.SourceBTC},
+			},
+		},
+		Client: fetcher,
+		Params: params,
+	}
 }
 
 func TestVerifyAllAnchorsValid(t *testing.T) {
@@ -384,4 +409,99 @@ func TestVerifyTestBTCSignetAddress(t *testing.T) {
 	require.Equal(t, uint8(apitypes.PMWMultisigUtxoStatusOK), res.Status)
 	require.Equal(t, chain0, res.AccountAddress)
 	require.True(t, strings.HasPrefix(res.AccountAddress, "tb1"))
+}
+
+func TestExpectedChain(t *testing.T) {
+	cases := []struct {
+		params *chaincfg.Params
+		want   string
+		ok     bool
+	}{
+		{&chaincfg.MainNetParams, "main", true},
+		{&chaincfg.TestNet3Params, "test", true},
+		{&chaincfg.SigNetParams, "signet", true},
+		{&chaincfg.RegressionNetParams, "regtest", true},
+		{&chaincfg.Params{Net: 0}, "", false},
+	}
+	for _, c := range cases {
+		got, ok := expectedChain(c.params)
+		require.Equal(t, c.ok, ok)
+		require.Equal(t, c.want, got)
+	}
+}
+
+// TestVerifyRejectsWrongChainNode: a node serving a different chain than the
+// verifier expects fails closed with ErrNetworkMismatch before any anchor lookup,
+// so a cheaply funded wrong-chain UTXO can never satisfy an anchor.
+func TestVerifyRejectsWrongChainNode(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	req := validRequest(t, 3)
+	outs, _ := expectedOuts(t, req, params)
+
+	v := newVerifier(&mockFetcher{outs: outs, chain: "test"}, params)
+	res, err := v.Verify(context.Background(), req)
+	require.ErrorIs(t, err, ErrNetworkMismatch)
+	require.Equal(t, uint8(0), res.Status)
+	require.Empty(t, res.AccountAddress)
+}
+
+// TestVerifyUnreachableNodeFailsClosed: when the chain cannot be read, the
+// request path stays fail-closed — Verify returns the wrapped fetch error, never
+// a status.
+func TestVerifyUnreachableNodeFailsClosed(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	req := validRequest(t, 1)
+	outs, _ := expectedOuts(t, req, params)
+
+	probeErr := fmt.Errorf("%w: dial tcp: connection refused", client.ErrFetchChainInfo)
+	v := newVerifier(&mockFetcher{outs: outs, chainErr: probeErr}, params)
+	res, err := v.Verify(context.Background(), req)
+	require.ErrorIs(t, err, client.ErrFetchChainInfo)
+	require.Equal(t, uint8(0), res.Status)
+}
+
+// TestVerifyNetworkStartup: a confirmed wrong chain fails boot; an unreachable
+// node does not block boot (the request path stays fail-closed separately).
+func TestVerifyNetworkStartup(t *testing.T) {
+	params := &chaincfg.MainNetParams
+
+	wrong := newVerifier(&mockFetcher{chain: "signet"}, params)
+	require.ErrorIs(t, wrong.VerifyNetwork(context.Background()), ErrNetworkMismatch)
+
+	unreachable := newVerifier(&mockFetcher{chainErr: client.ErrFetchChainInfo}, params)
+	require.NoError(t, unreachable.VerifyNetwork(context.Background()))
+
+	ok := newVerifier(&mockFetcher{chain: "main"}, params)
+	require.NoError(t, ok.VerifyNetwork(context.Background()))
+}
+
+// TestNetworkVerifyTTL: a fresh confirmation is trusted (no re-probe) until the
+// TTL lapses, after which a node repointed to a wrong chain is re-detected.
+func TestNetworkVerifyTTL(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	fetcher := &mockFetcher{chain: "main"}
+	now := time.Unix(1_700_000_000, 0)
+	v := &BtcVerifier{Client: fetcher, Params: params, now: func() time.Time { return now }}
+
+	require.NoError(t, v.ensureNetworkVerified(context.Background()))
+
+	// Node repointed to a wrong chain, but within the TTL the cached pass holds.
+	fetcher.chain = "test"
+	now = now.Add(networkVerifyTTL - time.Minute)
+	require.NoError(t, v.ensureNetworkVerified(context.Background()))
+
+	// Past the TTL the wrong chain is re-detected.
+	now = now.Add(2 * time.Minute)
+	require.ErrorIs(t, v.ensureNetworkVerified(context.Background()), ErrNetworkMismatch)
+}
+
+// TestCheckNetworkUnmappedParamsSkips: with params that have no chain mapping the
+// pin is skipped (marked verified), so unusual deployments are not blocked.
+func TestCheckNetworkUnmappedParamsSkips(t *testing.T) {
+	v := &BtcVerifier{
+		Client: &mockFetcher{chainErr: client.ErrFetchChainInfo},
+		Params: &chaincfg.Params{Net: 0},
+	}
+	require.NoError(t, v.checkNetwork(context.Background()))
+	require.True(t, v.verifiedFresh())
 }

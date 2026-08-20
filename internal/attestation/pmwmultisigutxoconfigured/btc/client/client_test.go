@@ -73,3 +73,35 @@ func TestGetTxOutDoesNotLeakCredentials(t *testing.T) {
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), password, "RPC password must not appear in the error")
 }
+
+// TestChainSuccess confirms getblockchaininfo's chain field is returned.
+func TestChainSuccess(t *testing.T) {
+	c := newTestServer(t, `{"result":{"chain":"main","blocks":800000},"error":null,"id":"go-verifier-api"}`)
+	chain, err := c.Chain(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "main", chain)
+}
+
+// TestChainRPCError confirms an RPC error surfaces as ErrFetchChainInfo so the
+// caller keeps the request path fail-closed and retries (503).
+func TestChainRPCError(t *testing.T) {
+	c := newTestServer(t, `{"result":null,"error":{"code":-28,"message":"loading block index"},"id":"go-verifier-api"}`)
+	_, err := c.Chain(context.Background())
+	require.ErrorIs(t, err, ErrFetchChainInfo)
+}
+
+// TestChainEmptyResult confirms a null result (no chain readable) is an error,
+// not a silent empty chain that would spuriously match nothing.
+func TestChainEmptyResult(t *testing.T) {
+	c := newTestServer(t, `{"result":null,"error":null,"id":"go-verifier-api"}`)
+	_, err := c.Chain(context.Background())
+	require.ErrorIs(t, err, ErrFetchChainInfo)
+}
+
+// TestChainTransportError confirms a transport failure surfaces as
+// ErrFetchChainInfo.
+func TestChainTransportError(t *testing.T) {
+	c := NewClient("http://127.0.0.1:1/")
+	_, err := c.Chain(context.Background())
+	require.ErrorIs(t, err, ErrFetchChainInfo)
+}

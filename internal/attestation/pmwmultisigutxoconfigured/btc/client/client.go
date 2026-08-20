@@ -19,11 +19,18 @@ var ErrGetTxOut = errors.New("cannot get transaction output")
 // distinct from the transient ErrGetTxOut so callers map it to a 4xx, not a 503.
 var ErrRPCInvalidRequest = errors.New("bitcoin rpc rejected the request")
 
+// ErrFetchChainInfo indicates a transient failure reading the node's chain via
+// getblockchaininfo (network/transport, node warmup) — the caller may retry.
+var ErrFetchChainInfo = errors.New("cannot get blockchain info")
+
 const (
 	chainMaxAttempts     = 2
 	chainRetryDelay      = 500 * time.Millisecond
 	chainRequestTimeout  = 4 * time.Second
 	maxTxOutResponseSize = 64 * 1024 // 64 KB — a single UTXO view is small
+	// maxChainInfoResponseSize bounds the getblockchaininfo response. The full
+	// object (softfork/warning fields included) is a few KB; 64 KB is ample.
+	maxChainInfoResponseSize = 64 * 1024
 )
 
 // isDeterministicRPCError reports whether a Bitcoin Core JSON-RPC error code is
@@ -97,4 +104,43 @@ func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, include
 	}
 	// A null result means the output is unspent-not-found or already spent.
 	return resp.Message.Result, nil
+}
+
+// Chain returns the network the node serves ("main", "test", "signet" or
+// "regtest") via getblockchaininfo, so the verifier can pin the node to the chain
+// its parameters expect. Any transport or RPC failure is wrapped in
+// ErrFetchChainInfo so the caller keeps the request path fail-closed and retries.
+func (c *Client) Chain(ctx context.Context) (string, error) {
+	req := jsonRPCRequest{
+		JSONRPC: "1.0",
+		ID:      "go-verifier-api",
+		Method:  "getblockchaininfo",
+		Params:  []any{},
+	}
+	resp, err := call.PostWithRetry[jsonRPCRequest, getBlockchainInfoResponse](
+		ctx,
+		c.url,
+		call.NoAPIKey,
+		req,
+		call.Params{
+			Timeout:         chainRequestTimeout,
+			MaxResponseSize: maxChainInfoResponseSize,
+		},
+		nil,
+		retry.Params{
+			MaxAttempts: chainMaxAttempts,
+			Delay:       chainRetryDelay,
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrFetchChainInfo, err)
+	}
+	if resp.Message.Error != nil {
+		rpcErr := resp.Message.Error
+		return "", fmt.Errorf("%w (code %d): %s", ErrFetchChainInfo, rpcErr.Code, rpcErr.Message)
+	}
+	if resp.Message.Result == nil {
+		return "", fmt.Errorf("%w: empty result", ErrFetchChainInfo)
+	}
+	return resp.Message.Result.Chain, nil
 }

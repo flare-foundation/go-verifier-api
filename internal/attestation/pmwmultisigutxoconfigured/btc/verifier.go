@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/btcsuite/btcd/btcutil/base58"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 
 	btcaddr "github.com/flare-foundation/go-flare-common/pkg/btc/address"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 
 	apitypes "github.com/flare-foundation/go-verifier-api/internal/api/types"
@@ -30,6 +34,9 @@ var (
 	// ErrUnsupportedNetwork is returned when BTC_NETWORK names a network with no
 	// chaincfg mapping.
 	ErrUnsupportedNetwork = errors.New("unsupported BTC_NETWORK value")
+	// ErrNetworkMismatch marks a Bitcoin node confirmed to be serving a different
+	// chain than the verifier expects (a wrong-chain node). Maps to HTTP 503.
+	ErrNetworkMismatch = errors.New("bitcoin node is on the wrong network")
 )
 
 // serializedExtendedKeyLen is the byte length of a BIP-32 serialized extended
@@ -49,10 +56,11 @@ const serializedExtendedKeyLen = 78
 // ongoing operation, separately from this registration-time check).
 const minAnchorConfirmations uint64 = 4
 
-// txOutFetcher abstracts the Bitcoin node lookup so the verifier can be unit
+// nodeClient abstracts the Bitcoin node lookups so the verifier can be unit
 // tested without a live node. *client.Client satisfies it.
-type txOutFetcher interface {
+type nodeClient interface {
 	GetTxOut(ctx context.Context, txid string, vout uint32, includeMempool bool) (*client.GetTxOut, error)
+	Chain(ctx context.Context) (string, error)
 }
 
 // BtcVerifier verifies a PMWMultisigUtxoConfigured (BtcAccountConfigured)
@@ -61,8 +69,16 @@ type txOutFetcher interface {
 // is unspent, meets the value floor, and pays the derived address.
 type BtcVerifier struct {
 	Config *config.PMWMultisigUtxoConfig
-	Client txOutFetcher
+	Client nodeClient
 	Params *chaincfg.Params
+
+	// lastVerifiedNano is the unix-nano time the node's chain was last confirmed
+	// to match Params (0 = never); verifyMu serializes confirmation attempts.
+	// Until it is fresh (within networkVerifyTTL) Verify fails closed, so a node
+	// repointed to a different chain is re-detected within the TTL.
+	lastVerifiedNano atomic.Int64
+	verifyMu         sync.Mutex
+	now              func() time.Time // overridable in tests
 }
 
 func NewBtcVerifier(cfg *config.PMWMultisigUtxoConfig) (*BtcVerifier, error) {
@@ -74,7 +90,111 @@ func NewBtcVerifier(cfg *config.PMWMultisigUtxoConfig) (*BtcVerifier, error) {
 		Config: cfg,
 		Client: client.NewClient(cfg.SourceRPCURL),
 		Params: params,
+		now:    time.Now,
 	}, nil
+}
+
+const (
+	// networkPinTimeout bounds a single getblockchaininfo probe used to pin the chain.
+	networkPinTimeout = 5 * time.Second
+	// networkVerifyTTL is how long a confirmed chain is trusted before Verify
+	// re-checks, so a node repointed to a different chain is caught within it.
+	networkVerifyTTL = 30 * time.Minute
+)
+
+// clock returns the current time, using the injected now when set (tests).
+func (v *BtcVerifier) clock() time.Time {
+	if v.now != nil {
+		return v.now()
+	}
+	return time.Now()
+}
+
+// verifiedFresh reports whether the chain was confirmed within networkVerifyTTL.
+func (v *BtcVerifier) verifiedFresh() bool {
+	last := v.lastVerifiedNano.Load()
+	return last != 0 && v.clock().Sub(time.Unix(0, last)) < networkVerifyTTL
+}
+
+// expectedChain returns the getblockchaininfo chain name Params corresponds to
+// ("main", "test", "signet" or "regtest"), and whether the params are mapped.
+func expectedChain(params *chaincfg.Params) (string, bool) {
+	switch params.Net {
+	case chaincfg.MainNetParams.Net:
+		return "main", true
+	case chaincfg.TestNet3Params.Net:
+		return "test", true
+	case chaincfg.SigNetParams.Net:
+		return "signet", true
+	case chaincfg.RegressionNetParams.Net:
+		return "regtest", true
+	default:
+		return "", false
+	}
+}
+
+// checkNetwork probes the node's chain once and classifies the result: nil (and
+// marks the verifier verified) when it matches Params; ErrNetworkMismatch when it
+// is a confirmed wrong chain; a wrapped fetch error when the chain cannot be read
+// (unreachable node).
+func (v *BtcVerifier) checkNetwork(ctx context.Context) error {
+	expected, ok := expectedChain(v.Params)
+	if !ok {
+		v.lastVerifiedNano.Store(v.clock().UnixNano())
+		return nil
+	}
+	got, err := v.Client.Chain(ctx)
+	if err != nil {
+		return err
+	}
+	if got != expected {
+		return fmt.Errorf("%w: node chain %q but verifier expects %q",
+			ErrNetworkMismatch, got, expected)
+	}
+	v.lastVerifiedNano.Store(v.clock().UnixNano())
+	return nil
+}
+
+// VerifyNetwork pins the configured Bitcoin node to the chain the verifier's
+// network parameters expect, so a node misconfigured to a different chain — whose
+// address encodings may coincide (signet/testnet/regtest all share the "tb"/"bcrt"
+// prefixes and tpub version) — cannot let a cheaply funded wrong-chain UTXO
+// satisfy an anchor. Run once at startup: a confirmed wrong chain fails boot,
+// while an unreachable node does not block boot — the request path stays
+// fail-closed via ensureNetworkVerified until the chain is confirmed.
+func (v *BtcVerifier) VerifyNetwork(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, networkPinTimeout)
+	defer cancel()
+
+	err := v.checkNetwork(ctx)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrNetworkMismatch):
+		return err
+	default:
+		logger.Warnf("PMWMultisigUtxoConfigured: Bitcoin chain not verified at startup for source %s: %v; requests are blocked until it verifies",
+			v.Config.SourceIDPair.SourceID, err)
+		return nil
+	}
+}
+
+// ensureNetworkVerified fails closed until the node's chain has been confirmed. A
+// fresh confirmation (within networkVerifyTTL) is a lock-free no-op; otherwise it
+// re-probes — so a wrong-chain or unreachable node keeps every request rejected,
+// and a node repointed to a different chain is caught within the TTL.
+func (v *BtcVerifier) ensureNetworkVerified(ctx context.Context) error {
+	if v.verifiedFresh() {
+		return nil
+	}
+	v.verifyMu.Lock()
+	defer v.verifyMu.Unlock()
+	if v.verifiedFresh() {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, networkPinTimeout)
+	defer cancel()
+	return v.checkNetwork(ctx)
 }
 
 // networkParamsByName maps an explicit BTC_NETWORK value to its Bitcoin network
@@ -138,6 +258,13 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigUtxoConfi
 	accXpubs, err := btcaddr.DeriveAccountXpubs(bac.Xpubs, bac.AccountIndex, v.Params)
 	if err != nil {
 		return fdc2.IPMWMultisigUtxoConfiguredResponseBody{}, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+	}
+
+	// Fail closed until the node's chain is confirmed to match the verifier's
+	// network: a node that could not be verified at startup (unreachable then, or
+	// a wrong chain) must not answer anchor lookups against the wrong chain.
+	if err := v.ensureNetworkVerified(ctx); err != nil {
+		return fdc2.IPMWMultisigUtxoConfiguredResponseBody{}, err
 	}
 
 	// Each anchors[i] is chain i, whose anchor UTXO must live at the P2WSH
