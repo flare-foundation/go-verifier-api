@@ -156,12 +156,14 @@ func classifyVerifyError(reqID string, err error) error {
 	// 400 — bad request
 	case errors.Is(err, feeproofxrp.ErrBatchRangeTooLarge),
 		errors.Is(err, feeproofxrp.ErrReissueLimitExceeded),
-		errors.Is(err, multisigxrp.ErrInvalidRequest):
+		errors.Is(err, multisigxrp.ErrInvalidRequest),
+		errors.Is(err, multisigutxobtc.ErrInvalidRequest):
 		return warnHuma400(reqID, msg, err)
 	// 422 — data/validation errors
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
 		errors.Is(err, feeproofxrp.ErrMissingTransaction),
 		errors.Is(err, client.ErrRPCNonSuccess),
+		errors.Is(err, btcclient.ErrRPCInvalidRequest),
 		errors.Is(err, db.ErrRecordNotFound),
 		errors.Is(err, verifier.ErrTEEDataValidation),
 		errors.Is(err, verifiertypes.ErrInvalidInput):
@@ -174,6 +176,7 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, multisigxrp.ErrNetworkMismatch),
 		errors.Is(err, multisigutxobtc.ErrNetworkMismatch),
 		errors.Is(err, btcclient.ErrFetchChainInfo),
+		errors.Is(err, btcclient.ErrGetTxOut),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),

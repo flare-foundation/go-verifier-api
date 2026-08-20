@@ -19,6 +19,8 @@ import (
 	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
 	multisigxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
+	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
+	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -236,10 +238,20 @@ func TestClassifyVerifyError(t *testing.T) {
 			err:            fmt.Errorf("too many keys: %w", multisigxrp.ErrInvalidRequest),
 			expectedStatus: http.StatusBadRequest,
 		},
+		{
+			name:           "ErrInvalidRequest (utxo multisig BTC)",
+			err:            fmt.Errorf("bad anchor set: %w", multisigutxobtc.ErrInvalidRequest),
+			expectedStatus: http.StatusBadRequest,
+		},
 		// 422 — PMW errors
 		{
 			name:           "ErrRPCNonSuccess",
 			err:            fmt.Errorf("rpc non-success: %w", client.ErrRPCNonSuccess),
+			expectedStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:           "ErrRPCInvalidRequest (BTC gettxout)",
+			err:            fmt.Errorf("malformed txid: %w", btcclient.ErrRPCInvalidRequest),
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
@@ -272,6 +284,21 @@ func TestClassifyVerifyError(t *testing.T) {
 		{
 			name:           "ErrDatabase",
 			err:            fmt.Errorf("db failed: %w", db.ErrDatabase),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrNetworkMismatch (utxo multisig BTC)",
+			err:            fmt.Errorf("wrong chain: %w", multisigutxobtc.ErrNetworkMismatch),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrFetchChainInfo (BTC)",
+			err:            fmt.Errorf("node unreachable: %w", btcclient.ErrFetchChainInfo),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrGetTxOut (BTC)",
+			err:            fmt.Errorf("gettxout failed: %w", btcclient.ErrGetTxOut),
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		// 503 — request deadline / cancellation
