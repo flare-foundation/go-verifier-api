@@ -278,6 +278,13 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigUtxoConfi
 	// Each anchors[i] is chain i, whose anchor UTXO must live at the P2WSH
 	// multisig derived at external-chain leaf i. Chain 0's address is the
 	// account address echoed back on success.
+	//
+	// The per-request node-lookup fan-out (one gettxout per anchor) is already
+	// bounded: ValidateV1 -> ValidateAnchorSet caps the set at MaxAnchors (32),
+	// so a request can force at most 32 RPCs — no unbounded amplification. The
+	// primary mitigation is economic: each request is a paid Flare transaction
+	// whose governance-set attestation fee is set to exceed evaluation cost, so
+	// spam pays for itself rather than taxing the DP set for free.
 	accountAddress := ""
 	for i, anchor := range bac.Anchors {
 		addr, witnessScript, _, err := btcaddr.Derive(accXpubs, bac.Threshold, btcaddr.External, uint32(i), v.Params)
@@ -294,8 +301,17 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigUtxoConfi
 
 		// Txid is display (big-endian) order, which is what gettxout expects.
 		txid := hex.EncodeToString(anchor.Txid[:])
-		// includeMempool=false: anchors must be confirmed, so an unconfirmed
-		// funding tx must not satisfy the check.
+		// includeMempool=false is BY DESIGN, not a conservative default — do NOT
+		// flip it. The check must read only *confirmed* chain state, because that
+		// is the sole view every honest verifier shares. Mempool contents differ
+		// per node (a spend one verifier sees, another does not), so reading them
+		// would make two honest verifiers disagree on a borderline anchor and
+		// break the threshold agreement the whole attestation rests on. The
+		// residual it leaves — an anchor spent only in the mempool still reads as
+		// unspent here — is not an attacker vector: genesis anchors are the
+		// wallet's OWN outpoints, so a pre-registration mempool spend is operator
+		// self-harm that fails downstream anyway. Confirmed-only is both the
+		// agreement-preserving and the more robust lens for a binding we pin.
 		utxo, err := v.Client.GetTxOut(ctx, txid, anchor.Vout, false)
 		if err != nil {
 			// Transport/RPC failure — surface as an error so the caller retries,
