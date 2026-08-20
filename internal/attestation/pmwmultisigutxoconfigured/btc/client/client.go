@@ -10,13 +10,17 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 )
 
-// ErrGetTxOut indicates a transient failure (network/transport, node warmup, or
-// an unclassified RPC error) when calling gettxout — the caller may retry.
+// ErrGetTxOut indicates a failure when calling gettxout that is NOT the caller's
+// fault: network/transport, node warmup, a node/protocol-level RPC error
+// (method-not-found, parse/invalid-request — a misconfigured or wrong node), or
+// any unclassified RPC error. Mapped to 503 so the caller retries; an operator
+// fix (not a request change) resolves the config cases.
 var ErrGetTxOut = errors.New("cannot get transaction output")
 
-// ErrRPCInvalidRequest indicates the node rejected the request deterministically
-// (invalid/parse/type parameter error). Retrying cannot succeed, so it is kept
-// distinct from the transient ErrGetTxOut so callers map it to a 4xx, not a 503.
+// ErrRPCInvalidRequest indicates the node rejected the request DATA we forwarded
+// — the caller's anchor txid/vout was malformed/invalid (type, value, or
+// deserialization error). The caller must fix the request, so it is kept
+// distinct from the transient ErrGetTxOut and mapped to a 4xx, not a 503.
 var ErrRPCInvalidRequest = errors.New("bitcoin rpc rejected the request")
 
 // ErrFetchChainInfo indicates a transient failure reading the node's chain via
@@ -33,20 +37,19 @@ const (
 	maxChainInfoResponseSize = 64 * 1024
 )
 
-// isDeterministicRPCError reports whether a Bitcoin Core JSON-RPC error code is
-// a permanent, request-level rejection (bad parameters / malformed request)
-// rather than a transient condition. Codes are from Bitcoin Core's
-// rpc/protocol.h. Anything not listed (e.g. -28 RPC_IN_WARMUP, -1 misc) is
-// treated as transient and left retryable.
-func isDeterministicRPCError(code int) bool {
+// isBadRequestDataRPCError reports whether a Bitcoin Core JSON-RPC error code
+// means the request DATA we forwarded (the caller's anchor txid/vout) was
+// malformed or invalid — a rejection the caller must fix, mapped to 4xx. Codes
+// are from Bitcoin Core's rpc/protocol.h. Deliberately excluded are the JSON-RPC
+// protocol/method-level codes (-32600 invalid request, -32601 method not found,
+// -32602 invalid params, -32700 parse error): those signal a misconfigured or
+// wrong node (or a client bug), NOT bad caller data, so they fall through to the
+// transient ErrGetTxOut (503) rather than being blamed on the request.
+func isBadRequestDataRPCError(code int) bool {
 	switch code {
 	case -3, // RPC_TYPE_ERROR
-		-8,     // RPC_INVALID_PARAMETER
-		-22,    // RPC_DESERIALIZATION_ERROR (e.g. malformed txid)
-		-32600, // RPC_INVALID_REQUEST
-		-32601, // RPC_METHOD_NOT_FOUND
-		-32602, // RPC_INVALID_PARAMS
-		-32700: // RPC_PARSE_ERROR
+		-8,  // RPC_INVALID_PARAMETER (e.g. vout out of range)
+		-22: // RPC_DESERIALIZATION_ERROR (e.g. malformed txid)
 		return true
 	default:
 		return false
@@ -97,7 +100,7 @@ func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, include
 	}
 	if resp.Message.Error != nil {
 		rpcErr := resp.Message.Error
-		if isDeterministicRPCError(rpcErr.Code) {
+		if isBadRequestDataRPCError(rpcErr.Code) {
 			return nil, fmt.Errorf("%w %s:%d (code %d): %s", ErrRPCInvalidRequest, txid, vout, rpcErr.Code, rpcErr.Message)
 		}
 		return nil, fmt.Errorf("%w %s:%d (code %d): %s", ErrGetTxOut, txid, vout, rpcErr.Code, rpcErr.Message)

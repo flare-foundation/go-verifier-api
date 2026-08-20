@@ -43,11 +43,21 @@ func TestGetTxOutNullResult(t *testing.T) {
 // TestGetTxOutDeterministicRPCError confirms a permanent, request-level RPC
 // rejection (e.g. -8 invalid parameter) surfaces as ErrRPCInvalidRequest (which
 // the handler maps to 4xx), not the transient ErrGetTxOut.
-func TestGetTxOutDeterministicRPCError(t *testing.T) {
+func TestGetTxOutBadRequestDataRPCError(t *testing.T) {
 	c := newTestServer(t, `{"result":null,"error":{"code":-8,"message":"invalid txid"},"id":"go-verifier-api"}`)
 	_, err := c.GetTxOut(context.Background(), "aa", 0, false)
 	require.ErrorIs(t, err, ErrRPCInvalidRequest)
 	require.NotErrorIs(t, err, ErrGetTxOut)
+}
+
+// TestGetTxOutProtocolRPCError confirms a node/protocol-level rejection
+// (-32601 method-not-found — a misconfigured or wrong node, not bad caller data)
+// surfaces as the transient ErrGetTxOut (503), not ErrRPCInvalidRequest (4xx).
+func TestGetTxOutProtocolRPCError(t *testing.T) {
+	c := newTestServer(t, `{"result":null,"error":{"code":-32601,"message":"Method not found"},"id":"go-verifier-api"}`)
+	_, err := c.GetTxOut(context.Background(), "aa", 0, false)
+	require.ErrorIs(t, err, ErrGetTxOut)
+	require.NotErrorIs(t, err, ErrRPCInvalidRequest)
 }
 
 // TestGetTxOutTransientRPCError confirms an unclassified/transient RPC error
