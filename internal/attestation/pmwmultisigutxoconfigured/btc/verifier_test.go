@@ -212,6 +212,41 @@ func TestVerifyScriptMismatchIsError(t *testing.T) {
 	require.Equal(t, uint8(apitypes.PMWMultisigUtxoStatusERROR), res.Status)
 }
 
+// TestVerifyImmatureCoinbaseIsError: a coinbase anchor below coinbase maturity is
+// unspendable (and reorg-fragile), so it must not back an account.
+func TestVerifyImmatureCoinbaseIsError(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	req := validRequest(t, 1)
+	outs, _ := expectedOuts(t, req, params)
+	for k := range outs {
+		outs[k].Coinbase = true
+		outs[k].Confirmations = coinbaseMaturity - 1
+	}
+
+	v := newVerifier(&mockFetcher{outs: outs}, params)
+	res, err := v.Verify(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, uint8(apitypes.PMWMultisigUtxoStatusERROR), res.Status)
+}
+
+// TestVerifyMatureCoinbaseIsValid: a coinbase anchor at or beyond maturity is a
+// spendable output and is accepted like any other.
+func TestVerifyMatureCoinbaseIsValid(t *testing.T) {
+	params := &chaincfg.MainNetParams
+	req := validRequest(t, 1)
+	outs, chain0 := expectedOuts(t, req, params)
+	for k := range outs {
+		outs[k].Coinbase = true
+		outs[k].Confirmations = coinbaseMaturity
+	}
+
+	v := newVerifier(&mockFetcher{outs: outs}, params)
+	res, err := v.Verify(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, uint8(apitypes.PMWMultisigUtxoStatusOK), res.Status)
+	require.Equal(t, chain0, res.AccountAddress)
+}
+
 func TestVerifyRPCErrorPropagates(t *testing.T) {
 	params := &chaincfg.MainNetParams
 	req := validRequest(t, 1)

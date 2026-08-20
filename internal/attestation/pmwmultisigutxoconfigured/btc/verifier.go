@@ -56,6 +56,13 @@ const serializedExtendedKeyLen = 78
 // ongoing operation, separately from this registration-time check).
 const minAnchorConfirmations uint64 = 4
 
+// coinbaseMaturity is the number of confirmations a coinbase output needs before
+// it is spendable under Bitcoin's consensus rules. A coinbase anchor below it
+// cannot be spent yet (and a coinbase is discarded wholesale if its block is
+// reorged out), so binding an account to an immature coinbase UTXO is unsafe —
+// such anchors are rejected until they reach maturity.
+const coinbaseMaturity uint64 = 100
+
 // nodeClient abstracts the Bitcoin node lookups so the verifier can be unit
 // tested without a live node. *client.Client satisfies it.
 type nodeClient interface {
@@ -319,6 +326,12 @@ func anchorValid(utxo *client.GetTxOut, expectedScript, _ []byte) (bool, error) 
 		return false, nil
 	}
 	if utxo.Confirmations < minAnchorConfirmations {
+		return false, nil
+	}
+	// A coinbase output is unspendable until it reaches coinbaseMaturity, so an
+	// immature coinbase anchor cannot back an account (and reorgs discard the
+	// whole coinbase); reject it until it matures.
+	if utxo.Coinbase && utxo.Confirmations < coinbaseMaturity {
 		return false, nil
 	}
 	valueSat, err := utxo.ValueSat()
