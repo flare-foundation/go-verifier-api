@@ -27,6 +27,7 @@ const (
 	EnvAllowPrivateNetworks           = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
 	EnvTeeAudience                    = "TEE_AUDIENCE"                  // Optional override for the expected aud claim on Confidential Space attestation tokens. Defaults to DefaultTeeAudience when unset.
 	EnvChainID                        = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
+	EnvBtcNetwork                     = "BTC_NETWORK"                   // Bitcoin network (mainnet/signet/testnet/regtest) — used by PMWMultisigUtxoConfigured. Optional; defaults from SOURCE_ID (BTC→mainnet, testBTC→signet).
 )
 
 // DefaultTeeAudience is the aud claim the verifier expects on Confidential Space
@@ -49,6 +50,7 @@ type EnvConfig struct {
 	AllowPrivateNetworks           string
 	TeeAudience                    string
 	ChainID                        string
+	BtcNetwork                     string
 	Port                           string
 	APIKeys                        []string
 	// AttestationType is the single type view used by the per-type config loaders
@@ -80,6 +82,8 @@ const (
 	SourceTEE     SourceName = "TEE"
 	SourceXRP     SourceName = "XRP"
 	SourceTestXRP SourceName = "testXRP"
+	SourceBTC     SourceName = "BTC"
+	SourceTestBTC SourceName = "testBTC"
 )
 
 // SourceAttestationTypes is the canonical set of attestation types each source
@@ -90,6 +94,8 @@ var SourceAttestationTypes = map[SourceName][]fdc2.AttestationType{
 	SourceTEE:     {fdc2.AvailabilityCheck},
 	SourceXRP:     {fdc2.PMWMultisigAccountConfigured, fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
 	SourceTestXRP: {fdc2.PMWMultisigAccountConfigured, fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
+	SourceBTC:     {fdc2.PMWMultisigUtxoConfigured},
+	SourceTestBTC: {fdc2.PMWMultisigUtxoConfigured},
 }
 
 // AttestationTypesForSource returns the attestation types a per-source deployment
@@ -151,6 +157,15 @@ type PMWMultisigAccountConfig struct {
 	SourceRPCURL string
 }
 
+type PMWMultisigUtxoConfig struct {
+	EncodedAndABI
+	// SourceRPCURL is the Bitcoin node reached for gettxout.
+	SourceRPCURL string
+	// BtcNetwork is the explicit Bitcoin network (BTC_NETWORK). Empty means the
+	// source id implies the default (BTC→mainnet, testBTC→signet).
+	BtcNetwork string
+}
+
 type EncodedAndABI struct {
 	SourceIDPair        SourceIDEncodedPair
 	AttestationTypePair AttestationTypeEncodedPair
@@ -175,6 +190,10 @@ var abiStructNames = map[fdc2.AttestationType]struct {
 	fdc2.PMWMultisigAccountConfigured: {
 		Request:  "pmwMultisigAccountConfiguredRequestBodyStruct",
 		Response: "pmwMultisigAccountConfiguredResponseBodyStruct",
+	},
+	fdc2.PMWMultisigUtxoConfigured: {
+		Request:  "pmwMultisigUtxoConfiguredRequestBodyStruct",
+		Response: "pmwMultisigUtxoConfiguredResponseBodyStruct",
 	},
 	fdc2.PMWPaymentStatus: {
 		Request:  "pmwPaymentStatusRequestBodyStruct",
