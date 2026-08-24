@@ -115,6 +115,12 @@ func NewBtcVerifier(cfg *config.PMWMultisigUtxoConfig) (*BtcVerifier, error) {
 	if err != nil {
 		return nil, err
 	}
+	// resolveNetworkParams only yields mapped params today, but fail closed at
+	// construction rather than let a params value with no getblockchaininfo chain
+	// mapping silently skip the network pin (see checkNetwork).
+	if _, ok := expectedChain(params); !ok {
+		return nil, fmt.Errorf("%w: %s has no chain mapping for the network pin", ErrUnsupportedNetwork, params.Name)
+	}
 	return &BtcVerifier{
 		Config: cfg,
 		Client: client.NewClient(cfg.SourceRPCURL),
@@ -178,12 +184,13 @@ func expectedChain(params *chaincfg.Params) (string, bool) {
 // checkNetwork probes the node's chain once and classifies the result: nil (and
 // marks the verifier verified) when it matches Params; ErrNetworkMismatch when it
 // is a confirmed wrong chain; a wrapped fetch error when the chain cannot be read
-// (unreachable node).
+// (unreachable node). Params with no chain mapping fail closed (NewBtcVerifier
+// rejects them up front, so this is a defensive backstop against manual/future
+// construction, never a normal path).
 func (v *BtcVerifier) checkNetwork(ctx context.Context) error {
 	expected, ok := expectedChain(v.Params)
 	if !ok {
-		v.lastVerifiedNano.Store(v.clock().UnixNano())
-		return nil
+		return fmt.Errorf("%w: %s has no chain mapping", ErrUnsupportedNetwork, v.Params.Name)
 	}
 	got, err := v.Client.Chain(ctx)
 	if err != nil {
@@ -348,7 +355,7 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigUtxoConfi
 	// spam pays for itself rather than taxing the DP set for free.
 	accountAddress := ""
 	for i, anchor := range bac.Anchors {
-		addr, witnessScript, _, err := btcaddr.Derive(accXpubs, bac.Threshold, btcaddr.External, uint32(i), v.Params)
+		addr, _, _, err := btcaddr.Derive(accXpubs, bac.Threshold, btcaddr.External, uint32(i), v.Params)
 		if err != nil {
 			return fdc2.IPMWMultisigUtxoConfiguredResponseBody{}, fmt.Errorf("%w: deriving anchor %d address: %w", ErrInvalidRequest, i, err)
 		}
@@ -384,7 +391,7 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigUtxoConfi
 			// never a false ERROR status.
 			return fdc2.IPMWMultisigUtxoConfiguredResponseBody{}, err
 		}
-		ok, err := anchorValid(utxo, expectedScript, witnessScript)
+		ok, err := anchorValid(utxo, expectedScript)
 		if err != nil {
 			return fdc2.IPMWMultisigUtxoConfiguredResponseBody{}, err
 		}
@@ -400,11 +407,11 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWMultisigUtxoConfi
 }
 
 // anchorValid reports whether utxo is a confirmed, unspent output that meets the
-// anchor value floor and pays the expected P2WSH script. The witnessScript is
-// unused for the on-chain match (the derived scriptPubKey already encodes its
-// hash) but kept in the signature to document the P2WSH relationship. A nil utxo
-// (output not found or spent) is invalid, not an error.
-func anchorValid(utxo *client.GetTxOut, expectedScript, _ []byte) (bool, error) {
+// anchor value floor and pays the expected P2WSH script. The witness script is
+// not needed here — the derived scriptPubKey already commits to its hash, so
+// matching the scriptPubKey suffices. A nil utxo (output not found or spent) is
+// invalid, not an error.
+func anchorValid(utxo *client.GetTxOut, expectedScript []byte) (bool, error) {
 	if utxo == nil {
 		return false, nil
 	}

@@ -662,13 +662,14 @@ func TestNetworkVerifyTTL(t *testing.T) {
 	require.ErrorIs(t, v.ensureNetworkVerified(context.Background()), ErrNetworkMismatch)
 }
 
-// TestCheckNetworkUnmappedParamsSkips: with params that have no chain mapping the
-// pin is skipped (marked verified), so unusual deployments are not blocked.
-func TestCheckNetworkUnmappedParamsSkips(t *testing.T) {
+// TestCheckNetworkUnmappedParamsFailsClosed: params with no chain mapping must
+// NOT skip the pin — checkNetwork fails closed rather than marking the verifier
+// verified (defensive backstop; NewBtcVerifier rejects such params up front).
+func TestCheckNetworkUnmappedParamsFailsClosed(t *testing.T) {
 	v := &BtcVerifier{
-		Client: &mockFetcher{chainErr: client.ErrFetchChainInfo},
+		Client: &mockFetcher{chain: "main"},
 		Params: &chaincfg.Params{Net: 0},
 	}
-	require.NoError(t, v.checkNetwork(context.Background()))
-	require.True(t, v.verifiedFresh())
+	require.ErrorIs(t, v.checkNetwork(context.Background()), ErrUnsupportedNetwork)
+	require.False(t, v.verifiedFresh())
 }
