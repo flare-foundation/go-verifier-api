@@ -69,6 +69,71 @@ func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, inst
 	return events.ConvertDatabaseLogToChainLog(dbLogs[0])
 }
 
+// FetchLogsByInstructionTopic1 fetches every log whose FIRST indexed argument
+// is the instruction id.
+//
+// The diamond indexes extensionId first and the instruction id second; the CSP
+// channel's PaymentBatched has no extension and indexes the instruction id
+// first. Same question, different topic position — which is this method's
+// business rather than something each caller patches around.
+func (r *DBRepo) FetchLogsByInstructionTopic1(ctx context.Context, eventHash string, instructionID common.Hash) ([]*types.Log, error) {
+	var dbLogs []database.Log
+	err := r.cChainDb.WithContext(ctx).
+		Where("address = ? AND topic0 = ? AND topic1 = ?",
+			r.contractAddress,
+			removeHexPrefix(eventHash),
+			removeHexPrefix(instructionID.Hex())).
+		Order("block_number ASC, log_index ASC").
+		Find(&dbLogs).Error
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w: %w", instructionID.Hex(), eventHash, ErrDatabase, err)
+	}
+	if len(dbLogs) == 0 {
+		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrRecordNotFound)
+	}
+	logs := make([]*types.Log, 0, len(dbLogs))
+	for _, dbLog := range dbLogs {
+		chainLog, err := events.ConvertDatabaseLogToChainLog(dbLog)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, chainLog)
+	}
+	return logs, nil
+}
+
+// FetchInstructionLogsForID fetches every TeeInstructionsSent log sharing one
+// instruction ID. A Bitcoin batch's payments share a single instruction ID (it
+// is derived from batchPaymentId), so — unlike the XRP path's FetchInstructionLog
+// — multiple rows are expected here, one per payment in the batch, and duplicates
+// are not an error. The caller filters the decoded messages by paymentId.
+func (r *DBRepo) FetchInstructionLogsForID(ctx context.Context, eventHash string, instructionID common.Hash) ([]*types.Log, error) {
+	var dbLogs []database.Log
+	err := r.cChainDb.WithContext(ctx).
+		Where("address = ? AND topic0 = ? AND topic1 = ? AND topic2 = ?",
+			r.contractAddress,
+			removeHexPrefix(eventHash),
+			removeHexPrefix(common.HexToHash("").String()), // Only checking for extensionID = 0.
+			removeHexPrefix(instructionID.Hex())).
+		Order("block_number ASC, log_index ASC").
+		Find(&dbLogs).Error
+	if err != nil {
+		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w: %w", instructionID.Hex(), eventHash, ErrDatabase, err)
+	}
+	if len(dbLogs) == 0 {
+		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrRecordNotFound)
+	}
+	logs := make([]*types.Log, 0, len(dbLogs))
+	for _, dbLog := range dbLogs {
+		chainLog, err := events.ConvertDatabaseLogToChainLog(dbLog)
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert log for instruction %s: %w", instructionID.Hex(), err)
+		}
+		logs = append(logs, chainLog)
+	}
+	return logs, nil
+}
+
 // normalizeAddress returns the address in the lowercase, 0x-stripped form the indexer
 // stores in database.Log.Address (varchar(40)).
 func normalizeAddress(addr common.Address) string {

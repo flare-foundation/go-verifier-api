@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
@@ -34,9 +35,15 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unsupported SOURCE_ID %q for PMWPaymentStatus: %w", cfg.SourceIDPair.SourceID, err)
 	}
-	dataBase, err := db.InitSourceDB(cfg.SourceDatabaseURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("cannot connect to Source DB: %w", err)
+	// The BTC node path reads its settling batch from a Bitcoin node, not the
+	// verifier-utxo-indexer, so it opens no source DB (CHANNEL_ADDRESS set marks
+	// that mode). The XRP path always needs its source DB.
+	var dataBase *gorm.DB
+	if cfg.ChannelAddress == (common.Address{}) {
+		dataBase, err = db.InitSourceDB(cfg.SourceDatabaseURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("cannot connect to Source DB: %w", err)
+		}
 	}
 	cchainDB, err := db.InitCChainDB(cfg.CchainDatabaseURL, nil)
 	if err != nil {

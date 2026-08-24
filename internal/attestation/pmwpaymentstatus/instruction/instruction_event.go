@@ -40,6 +40,25 @@ const maxEventDataSize = 1 << 20 // 1 MB
 // op fields are not otherwise enforced by decoding into the PAY/REISSUE message
 // schema, which is why they are checked explicitly here.
 func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command op.Command, expectedOpType common.Hash) (*payments.ITeePaymentsPaymentInstructionMessage, error) {
+	messageData, err := decodeInstructionEnvelope(log, teeABI, command, expectedOpType)
+	if err != nil {
+		return nil, err
+	}
+	var message payments.ITeePaymentsPaymentInstructionMessage
+	if err := structs.DecodeTo(payments.MessageArguments[command], messageData, &message); err != nil {
+		return nil, fmt.Errorf("cannot decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
+	}
+	return &message, nil
+}
+
+// decodeInstructionEnvelope decodes the TeeInstructionsSent wrapper and binds its
+// op fields to the caller's expectation: OpType must equal expectedOpType and
+// OpCommand must equal command. The instruction-ID topic already commits to
+// (opType, op, ...), so a mismatch means the indexed event data disagrees with
+// its own topic — a C-chain index inconsistency (db.ErrDatabase, → 503). It
+// returns the still-encoded message payload for the caller to decode into the
+// message schema for its source (XRP payment or Bitcoin UTXO payment).
+func decodeInstructionEnvelope(log *types.Log, teeABI abi.ABI, command op.Command, expectedOpType common.Hash) ([]byte, error) {
 	if len(log.Data) > maxEventDataSize {
 		return nil, fmt.Errorf("event data too large (%d bytes, max %d)", len(log.Data), maxEventDataSize)
 	}
@@ -61,12 +80,7 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command 
 	if common.Hash(eventData.OpCommand) != expectedOpCommand {
 		return nil, fmt.Errorf("DB inconsistency: event OpCommand %s != expected %s (%s): %w", common.Hash(eventData.OpCommand).Hex(), expectedOpCommand.Hex(), command, db.ErrDatabase)
 	}
-	var message payments.ITeePaymentsPaymentInstructionMessage
-	err = structs.DecodeTo(payments.MessageArguments[command], eventData.Message, &message)
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode %s message arguments: %w", EventNameTeeInstructionsSent, err)
-	}
-	return &message, nil
+	return eventData.Message, nil
 }
 
 func abiDecodeEventData[T any](abiObj abi.ABI, eventName string, data hexutil.Bytes) (*T, error) {
