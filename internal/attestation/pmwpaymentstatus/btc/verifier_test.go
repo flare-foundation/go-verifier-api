@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -254,6 +255,40 @@ func TestVerify_Success(t *testing.T) {
 	require.Equal(t, uint64(800000), resp.BlockNumber)
 	require.Equal(t, uint64(1700000000), resp.BlockTimestamp)
 	require.Equal(t, testTxid, hex.EncodeToString(resp.TransactionId[:]))
+}
+
+// TestVerify_ResponseDigestGolden pins the FDC2-encoded response digest for a
+// fixed success case, end to end (Verify -> response -> AttestationTypeArguments
+// response encoding -> keccak). It is the wire-format golden: any drift in the
+// response fields, their order, or the ABI encoding changes the digest. All
+// inputs are deterministic (the recipient is derived from a zero pubkey hash), so
+// the digest is stable.
+func TestVerify_ResponseDigestGolden(t *testing.T) {
+	recipAddr, recipScript := recipient(t)
+	const amount, nonce = 150000, uint64(7)
+	const batchID = uint64(900000)
+
+	v := newVerifier(t,
+		logsFor(t, sampleMsg(recipAddr, amount, batchID, batchID, nonce, 1)),
+		stubIndexer{anchorAddr: testAnchor, batch: &batchtx.BatchTx{
+			Txid:           testTxid,
+			BlockNumber:    800000,
+			BlockTimestamp: 1700000000,
+			Fee:            1234,
+			Outputs:        batchOutputs(t, nonce, out(recipScript, amount), out([]byte{0x52}, 250)),
+		}},
+		stubResolver{id: batchID, anchorTxid: strings.Repeat("cd", 32)},
+	)
+
+	resp, err := v.Verify(context.Background(), req(batchID))
+	require.NoError(t, err)
+	require.Equal(t, uint8(0), resp.TransactionStatus)
+
+	encoded, err := structs.Encode(fdc2.AttestationTypeArguments[fdc2.PMWPaymentStatus].Response, resp)
+	require.NoError(t, err)
+	require.Equal(t,
+		"0xc523a58a38025c17d4034ae0ff2aebd88a0e672d10454720f0f30987370a2475",
+		crypto.Keccak256Hash(encoded).Hex())
 }
 
 // The request's txid must reach the source. If it were dropped, the node path
