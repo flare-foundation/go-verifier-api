@@ -1,6 +1,6 @@
 module github.com/flare-foundation/go-verifier-api
 
-go 1.25.1
+go 1.25.13
 
 toolchain go1.26.6
 
