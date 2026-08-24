@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -24,6 +25,71 @@ func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, e
 }
 
 func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
+	switch envConfig.SourceID {
+	case SourceBTC, SourceTestBTC:
+		return buildBtcPMWPaymentStatusConfig(envConfig)
+	default:
+		return buildXrpPMWPaymentStatusConfig(envConfig)
+	}
+}
+
+// buildBtcPMWPaymentStatusConfig builds the BTC node-mode config: the settling
+// batch is read from a Bitcoin node (SOURCE_RPC_URL) and per-payment records from
+// the channel's PaymentBatched events (CHANNEL_ADDRESS); the verifier-utxo-indexer
+// (SOURCE_DATABASE_URL) is not used, so it is not required.
+func buildBtcPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
+	if err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvTeePaymentsContractAddress, EnvFlareRPCURL, EnvChannelAddress, EnvSourceRPCURL}); err != nil {
+		return nil, err
+	}
+	teePaymentsAddr, err := parseContractAddress(envConfig.TeePaymentsContractAddress, EnvTeePaymentsContractAddress)
+	if err != nil {
+		return nil, err
+	}
+	channelAddr, err := parseContractAddress(envConfig.ChannelAddress, EnvChannelAddress)
+	if err != nil {
+		return nil, err
+	}
+	// Fail fast on an unresolvable network rather than encoding addresses no chain
+	// serves (BtcNetworkParams is also called at verifier construction).
+	if _, err := BtcNetworkParams(envConfig.SourceID, envConfig.BtcNetwork); err != nil {
+		return nil, err
+	}
+	minConfirmations, err := parseMinConfirmations(envConfig.BtcMinConfirmations)
+	if err != nil {
+		return nil, err
+	}
+	commonConfig, err := LoadEncodedAndABI(envConfig)
+	if err != nil {
+		return nil, err
+	}
+	return &PMWPaymentStatusConfig{
+		EncodedAndABI:              commonConfig,
+		CchainDatabaseURL:          envConfig.CChainDatabaseURL,
+		TeePaymentsContractAddress: teePaymentsAddr,
+		FlareRPCURL:                envConfig.FlareRPCURL,
+		ChannelAddress:             channelAddr,
+		SourceRPCURL:               envConfig.SourceRPCURL,
+		BtcNetwork:                 envConfig.BtcNetwork,
+		MinConfirmations:           minConfirmations,
+	}, nil
+}
+
+// parseMinConfirmations reads BTC_MIN_CONFIRMATIONS, defaulting to
+// DefaultBtcMinConfirmations when unset and rejecting a non-numeric or zero value
+// (a zero floor would silently disable the reorg-safety depth).
+func parseMinConfirmations(raw string) (uint64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return DefaultBtcMinConfirmations, nil
+	}
+	n, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil || n == 0 {
+		return 0, fmt.Errorf("%s must be a positive integer, got %q", EnvBtcMinConfirmations, raw)
+	}
+	return n, nil
+}
+
+func buildXrpPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
 	err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvSourceDatabaseURL, EnvFlareTeeManagerContractAddress, EnvTeePaymentsContractAddress, EnvFlareRPCURL})
 	if err != nil {
 		return nil, err

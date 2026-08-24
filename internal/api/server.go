@@ -181,6 +181,8 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		TeeAudience:                    os.Getenv(config.EnvTeeAudience),
 		ChainID:                        os.Getenv(config.EnvChainID),
 		BtcNetwork:                     os.Getenv(config.EnvBtcNetwork),
+		ChannelAddress:                 os.Getenv(config.EnvChannelAddress),
+		BtcMinConfirmations:            os.Getenv(config.EnvBtcMinConfirmations),
 		Port:                           port,
 		APIKeys:                        apiKeys,
 		AttestationTypes:               attestationTypes,
