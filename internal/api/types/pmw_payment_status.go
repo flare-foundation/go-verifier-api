@@ -12,6 +12,10 @@ type PMWPaymentStatusRequestBody struct {
 	OpType        common.Hash `json:"opType" validate:"required" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 	SenderAddress string      `json:"senderAddress" validate:"required" example:"abcdef"`
 	PaymentId     uint64      `json:"paymentId" validate:"required" example:"1"`
+	// TransactionId is the settling transaction id (display byte order), used as a
+	// locator by the BTC verifier. It is optional at this layer — XRP leaves it
+	// zero — and the BTC node path enforces its presence (ErrMissingTransactionID).
+	TransactionId common.Hash `json:"transactionId,omitempty" example:"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"`
 }
 
 func (requestBody PMWPaymentStatusRequestBody) ToInternal() (fdc2.IPMWPaymentStatusRequestBody, error) {
@@ -19,6 +23,7 @@ func (requestBody PMWPaymentStatusRequestBody) ToInternal() (fdc2.IPMWPaymentSta
 		OpType:        requestBody.OpType,
 		SenderAddress: requestBody.SenderAddress,
 		PaymentId:     requestBody.PaymentId,
+		TransactionId: requestBody.TransactionId,
 	}, nil
 }
 
