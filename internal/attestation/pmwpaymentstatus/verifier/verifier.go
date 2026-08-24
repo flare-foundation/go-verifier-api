@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
@@ -34,7 +35,15 @@ var btcConstructor = func(
 	cfg *config.PMWPaymentStatusConfig,
 	_, cChainDB *gorm.DB,
 ) (attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody], error) {
-	return btcverifier.NewBtcVerifier(cfg, cChainDB)
+	v, err := btcverifier.NewBtcVerifier(cfg, cChainDB)
+	if err != nil {
+		return nil, err
+	}
+	// Pin the node's chain at startup: a definite wrong-chain node fails boot.
+	if err := v.VerifyNetwork(context.Background()); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 var registry = map[string]VerifierConstructor{

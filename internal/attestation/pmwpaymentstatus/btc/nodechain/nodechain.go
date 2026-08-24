@@ -21,7 +21,9 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -38,18 +40,50 @@ const rpcTxNotFound = -5
 // Bitcoin Core 25 or newer.
 const verbosityPrevout = 2
 
+const (
+	requestTimeout = 10 * time.Second
+	// maxResponseSize caps a decoded JSON-RPC response so a hostile or broken node
+	// cannot exhaust memory. A verbose transaction is a few KB; 4 MB is ample.
+	maxResponseSize = 4 << 20
+	// maxConnsPerHost / maxIdleConnsPerHost bound connections to the node so a
+	// request burst cannot exhaust its RPC pool or our sockets.
+	maxConnsPerHost     = 16
+	maxIdleConnsPerHost = 8
+	// maxConcurrentRPC is the hard in-flight cap; beyond it calls fail fast
+	// (retryable) rather than piling up goroutines/memory.
+	maxConcurrentRPC = 64
+)
+
+// ErrNodeUnavailable marks a Bitcoin-node fault that is NOT a definitive "no such
+// transaction": transport failure, an over-cap/malformed response, an in-flight
+// overload, or a node/RPC-level error. It is retryable (mapped to 503), so an
+// outage never turns into a false "not found" (status 2) or a 500.
+var ErrNodeUnavailable = errors.New("bitcoin node unavailable")
+
 // Repo reads batch transactions from a Bitcoin node over JSON-RPC.
 type Repo struct {
 	url              string
 	http             *http.Client
 	minConfirmations int64
+	sem              chan struct{} // in-flight RPC cap; fail-fast when full
 }
 
 // NewRepo constructs a Repo against a Bitcoin JSON-RPC endpoint. minConfirmations
 // is the depth floor a settling block must meet; a batch shallower than it reads
 // as not-yet-confirmed (nil).
 func NewRepo(url string, minConfirmations uint64) *Repo {
-	return &Repo{url: url, http: &http.Client{Timeout: 10 * time.Second}, minConfirmations: int64(minConfirmations)}
+	return &Repo{
+		url: url,
+		http: &http.Client{
+			Timeout: requestTimeout,
+			Transport: &http.Transport{
+				MaxConnsPerHost:     maxConnsPerHost,
+				MaxIdleConnsPerHost: maxIdleConnsPerHost,
+			},
+		},
+		minConfirmations: int64(minConfirmations),
+		sem:              make(chan struct{}, maxConcurrentRPC),
+	}
 }
 
 type scriptPubKey struct {
@@ -110,12 +144,11 @@ type blockHeader struct {
 func (r *Repo) Batch(ctx context.Context, txid string) (*batchtx.BatchTx, error) {
 	var tx rawTx
 	err := r.call(ctx, "getrawtransaction", []any{txid, verbosityPrevout}, &tx)
-	var rpcErr *rpcError
 	if err != nil {
-		if ok := asRPCError(err, &rpcErr); ok && rpcErr.Code == rpcTxNotFound {
+		if isTxNotFound(err) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, asNodeUnavailable(err)
 	}
 	if tx.BlockHash == "" {
 		// Known to the node but unconfirmed: in the mempool, or in no block yet.
@@ -128,10 +161,10 @@ func (r *Repo) Batch(ctx context.Context, txid string) (*batchtx.BatchTx, error)
 	// a settled batch from one the chain has abandoned.
 	var header blockHeader
 	if err := r.call(ctx, "getblockheader", []any{tx.BlockHash}, &header); err != nil {
-		if ok := asRPCError(err, &rpcErr); ok && rpcErr.Code == rpcTxNotFound {
+		if isTxNotFound(err) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, asNodeUnavailable(err)
 	}
 	// Require the configured confirmation-depth floor. A settlement proof closes a
 	// redemption, so a shallow block is reorg-fragile; below the floor the batch is
@@ -142,11 +175,11 @@ func (r *Repo) Batch(ctx context.Context, txid string) (*batchtx.BatchTx, error)
 
 	outputs, outSum, err := outputsOf(tx)
 	if err != nil {
-		return nil, err
+		return nil, asNodeUnavailable(err)
 	}
 	fee, err := feeOf(tx, outSum)
 	if err != nil {
-		return nil, err
+		return nil, asNodeUnavailable(err)
 	}
 	return &batchtx.BatchTx{
 		Txid:               tx.Txid,
@@ -228,11 +261,10 @@ func (r *Repo) OutputAddress(ctx context.Context, txid string, vout uint32) (str
 	var tx rawTx
 	err := r.call(ctx, "getrawtransaction", []any{txid, verbosityPrevout}, &tx)
 	if err != nil {
-		var rpcErr *rpcError
-		if ok := asRPCError(err, &rpcErr); ok && rpcErr.Code == rpcTxNotFound {
+		if isTxNotFound(err) {
 			return "", nil
 		}
-		return "", err
+		return "", asNodeUnavailable(err)
 	}
 	for _, o := range tx.Vout {
 		if o.N == vout {
@@ -240,6 +272,19 @@ func (r *Repo) OutputAddress(ctx context.Context, txid string, vout uint32) (str
 		}
 	}
 	return "", nil
+}
+
+// Chain returns the network the node serves ("main", "test", "signet" or
+// "regtest") via getblockchaininfo, so the verifier can pin the node to the chain
+// its parameters expect. Any fault is wrapped in ErrNodeUnavailable (retryable).
+func (r *Repo) Chain(ctx context.Context) (string, error) {
+	var info struct {
+		Chain string `json:"chain"`
+	}
+	if err := r.call(ctx, "getblockchaininfo", []any{}, &info); err != nil {
+		return "", asNodeUnavailable(err)
+	}
+	return info.Chain, nil
 }
 
 // rpcError is a bitcoind JSON-RPC error, kept typed so callers can tell an
@@ -260,7 +305,33 @@ func asRPCError(err error, target **rpcError) bool {
 	return ok
 }
 
+// isTxNotFound reports whether err is bitcoind's "no such transaction" — the one
+// error that means a definite absence (→ not-found), not a node fault.
+func isTxNotFound(err error) bool {
+	var rpcErr *rpcError
+	return asRPCError(err, &rpcErr) && rpcErr.Code == rpcTxNotFound
+}
+
+// asNodeUnavailable marks a non-not-found error retryable if it is not already:
+// a raw RPC-level error or unusable node data is as much a node fault as a
+// transport failure, and must map to 503 rather than a false not-found or a 500.
+func asNodeUnavailable(err error) error {
+	if errors.Is(err, ErrNodeUnavailable) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrNodeUnavailable, err)
+}
+
 func (r *Repo) call(ctx context.Context, method string, params []any, out any) error {
+	// Fail fast when already at the in-flight cap so a flood cannot grow
+	// goroutines/memory without bound; the miss is retryable.
+	select {
+	case r.sem <- struct{}{}:
+		defer func() { <-r.sem }()
+	default:
+		return fmt.Errorf("%w: too many concurrent node RPC calls", ErrNodeUnavailable)
+	}
+
 	body, err := json.Marshal(map[string]any{"jsonrpc": "1.0", "id": "verifier", "method": method, "params": params})
 	if err != nil {
 		return fmt.Errorf("encoding %s request: %w", method, err)
@@ -273,7 +344,7 @@ func (r *Repo) call(ctx context.Context, method string, params []any, out any) e
 
 	resp, err := r.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("calling %s: %w", method, err)
+		return fmt.Errorf("%w: calling %s: %w", ErrNodeUnavailable, method, err)
 	}
 	defer resp.Body.Close() //nolint:errcheck // read-only response; a close error changes nothing
 
@@ -284,11 +355,16 @@ func (r *Repo) call(ctx context.Context, method string, params []any, out any) e
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return fmt.Errorf("decoding %s response: %w", method, err)
+	// Bound the decoded body so an over-large or hostile response cannot exhaust
+	// memory; a body over the cap is a node fault, not a payment outcome.
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseSize)).Decode(&envelope); err != nil {
+		return fmt.Errorf("%w: decoding %s response: %w", ErrNodeUnavailable, method, err)
 	}
 	if envelope.Error != nil {
 		return &rpcError{Code: envelope.Error.Code, Message: envelope.Error.Message}
 	}
-	return json.Unmarshal(envelope.Result, out)
+	if err := json.Unmarshal(envelope.Result, out); err != nil {
+		return fmt.Errorf("%w: decoding %s result: %w", ErrNodeUnavailable, method, err)
+	}
+	return nil
 }

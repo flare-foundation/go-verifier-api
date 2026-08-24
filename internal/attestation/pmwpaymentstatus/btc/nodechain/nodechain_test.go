@@ -194,3 +194,34 @@ func TestOutputAddressResolvesSpentOutput(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "bcrt1out1", addr)
 }
+
+// TestChainReadsNetwork confirms getblockchaininfo's chain field is returned for
+// the startup network pin.
+func TestChainReadsNetwork(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"chain": "signet"}, "error": nil})
+	}))
+	defer srv.Close()
+	got, err := NewRepo(srv.URL, 1).Chain(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "signet", got)
+}
+
+// TestBatchTransportErrorIsNodeUnavailable: a node that cannot be reached yields
+// the retryable ErrNodeUnavailable (→ 503), never a false not-found (nil) or a 500.
+func TestBatchTransportErrorIsNodeUnavailable(t *testing.T) {
+	got, err := NewRepo("http://127.0.0.1:1", 1).Batch(context.Background(), "aa11")
+	require.Nil(t, got)
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestInFlightCapFailsFast: once the in-flight cap is full, a further call fails
+// fast with ErrNodeUnavailable instead of piling up.
+func TestInFlightCapFailsFast(t *testing.T) {
+	r := NewRepo("http://127.0.0.1:1", 1)
+	for range cap(r.sem) {
+		r.sem <- struct{}{}
+	}
+	_, err := r.Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
