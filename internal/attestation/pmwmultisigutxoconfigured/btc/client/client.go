@@ -45,10 +45,15 @@ const (
 	maxConnsPerHost = 16
 	// maxIdleConnsPerHost keeps a small warm pool for connection reuse.
 	maxIdleConnsPerHost = 8
-	// maxConcurrentRPC is the hard in-flight cap across all RPCs on this client.
+	// maxConcurrentRPC is the hard in-flight cap for gettxout calls on this client.
 	// Beyond it, calls fail fast (503) instead of piling up goroutines/memory —
 	// the outer bound; maxConnsPerHost bounds the actual sockets underneath.
 	maxConcurrentRPC = 64
+	// maxConcurrentChainRPC is a small RESERVED pool for the getblockchaininfo
+	// network pin, kept separate from maxConcurrentRPC so the safety-critical
+	// chain check can never be starved by a burst of gettxout anchor lookups (the
+	// pin is serialized to ~one in-flight probe per verifier, so this is ample).
+	maxConcurrentChainRPC = 4
 )
 
 // Client is a thin Bitcoin Core JSON-RPC client. Authentication credentials, if
@@ -57,7 +62,8 @@ const (
 type Client struct {
 	url       string
 	transport http.RoundTripper // shared; bounds connections to the node
-	sem       chan struct{}     // in-flight RPC cap; fail-fast when full
+	sem       chan struct{}     // gettxout in-flight cap; fail-fast when full
+	chainSem  chan struct{}     // reserved pool for the getblockchaininfo pin
 }
 
 func NewClient(url string) *Client {
@@ -67,17 +73,18 @@ func NewClient(url string) *Client {
 			MaxConnsPerHost:     maxConnsPerHost,
 			MaxIdleConnsPerHost: maxIdleConnsPerHost,
 		},
-		sem: make(chan struct{}, maxConcurrentRPC),
+		sem:      make(chan struct{}, maxConcurrentRPC),
+		chainSem: make(chan struct{}, maxConcurrentChainRPC),
 	}
 }
 
-// acquire reserves an in-flight RPC slot, returning ok=false immediately when the
-// client is already at maxConcurrentRPC so a flood cannot grow goroutines/memory
-// without bound. The returned release frees the slot (call only when ok).
-func (c *Client) acquire() (release func(), ok bool) {
+// acquire reserves an in-flight slot on sem, returning ok=false immediately when
+// it is full so a flood cannot grow goroutines/memory without bound. The returned
+// release frees the slot (call only when ok).
+func (c *Client) acquire(sem chan struct{}) (release func(), ok bool) {
 	select {
-	case c.sem <- struct{}{}:
-		return func() { <-c.sem }, true
+	case sem <- struct{}{}:
+		return func() { <-sem }, true
 	default:
 		return nil, false
 	}
@@ -90,7 +97,7 @@ func (c *Client) acquire() (release func(), ok bool) {
 // returns a null result). includeMempool selects whether unconfirmed spends are
 // considered; anchor verification passes false so only confirmed outputs match.
 func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, includeMempool bool) (*GetTxOut, error) {
-	release, ok := c.acquire()
+	release, ok := c.acquire(c.sem)
 	if !ok {
 		return nil, fmt.Errorf("%w: %w", ErrGetTxOut, errTooManyConcurrent)
 	}
@@ -136,7 +143,7 @@ func (c *Client) GetTxOut(ctx context.Context, txid string, vout uint32, include
 // its parameters expect. Any transport or RPC failure is wrapped in
 // ErrFetchChainInfo so the caller keeps the request path fail-closed and retries.
 func (c *Client) Chain(ctx context.Context) (string, error) {
-	release, ok := c.acquire()
+	release, ok := c.acquire(c.chainSem)
 	if !ok {
 		return "", fmt.Errorf("%w: %w", ErrFetchChainInfo, errTooManyConcurrent)
 	}
