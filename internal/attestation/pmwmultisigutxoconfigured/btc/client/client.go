@@ -60,10 +60,16 @@ const (
 // any, are carried in the URL userinfo (http://user:pass@host:port), matching
 // bitcoind's HTTP basic auth.
 type Client struct {
-	url       string
-	transport http.RoundTripper // shared; bounds connections to the node
-	sem       chan struct{}     // gettxout in-flight cap; fail-fast when full
-	chainSem  chan struct{}     // reserved pool for the getblockchaininfo pin
+	url string
+	// transport bounds gettxout connections to the node; chainTransport is a
+	// SEPARATE connection pool for the network pin, so a burst of slow gettxout
+	// calls saturating transport's connections cannot also starve the pin at the
+	// socket layer (the dedicated chainSem alone does not help if both share one
+	// transport's MaxConnsPerHost).
+	transport      http.RoundTripper
+	chainTransport http.RoundTripper
+	sem            chan struct{} // gettxout in-flight cap; fail-fast when full
+	chainSem       chan struct{} // reserved pool for the getblockchaininfo pin
 }
 
 func NewClient(url string) *Client {
@@ -72,6 +78,10 @@ func NewClient(url string) *Client {
 		transport: &http.Transport{
 			MaxConnsPerHost:     maxConnsPerHost,
 			MaxIdleConnsPerHost: maxIdleConnsPerHost,
+		},
+		chainTransport: &http.Transport{
+			MaxConnsPerHost:     maxConcurrentChainRPC,
+			MaxIdleConnsPerHost: maxConcurrentChainRPC,
 		},
 		sem:      make(chan struct{}, maxConcurrentRPC),
 		chainSem: make(chan struct{}, maxConcurrentChainRPC),
@@ -163,7 +173,7 @@ func (c *Client) Chain(ctx context.Context) (string, error) {
 		call.Params{
 			Timeout:         chainRequestTimeout,
 			MaxResponseSize: maxChainInfoResponseSize,
-			Transport:       c.transport,
+			Transport:       c.chainTransport,
 		},
 		nil,
 		retry.Params{
