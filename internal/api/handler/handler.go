@@ -203,6 +203,8 @@ func logRequestBody[T any](requestData T) {
 		types.LogTeeAvailabilityCheckRequestBody(req)
 	case fdc2.IPMWMultisigAccountConfiguredRequestBody:
 		types.LogPMWMultisigAccountConfiguredRequestBody(req)
+	case fdc2.IPMWMultisigUtxoConfiguredRequestBody:
+		types.LogPMWMultisigUtxoConfiguredRequestBody(req)
 	case fdc2.IPMWPaymentStatusRequestBody:
 		types.LogPMWPaymentStatusRequestBody(req)
 	case fdc2.IPMWFeeProofRequestBody:
