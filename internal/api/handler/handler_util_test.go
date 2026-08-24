@@ -21,6 +21,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
 	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
+	paymentstatusbtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -241,6 +242,11 @@ func TestClassifyVerifyError(t *testing.T) {
 		{
 			name:           "ErrInvalidRequest (utxo multisig BTC)",
 			err:            fmt.Errorf("bad anchor set: %w", multisigutxobtc.ErrInvalidRequest),
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "ErrMissingTransactionID (payment-status BTC)",
+			err:            fmt.Errorf("no locator: %w", paymentstatusbtc.ErrMissingTransactionID),
 			expectedStatus: http.StatusBadRequest,
 		},
 		// 422 — PMW errors

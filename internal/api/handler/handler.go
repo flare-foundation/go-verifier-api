@@ -18,6 +18,7 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
 	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
 	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
+	paymentstatusbtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -157,7 +158,8 @@ func classifyVerifyError(reqID string, err error) error {
 	case errors.Is(err, feeproofxrp.ErrBatchRangeTooLarge),
 		errors.Is(err, feeproofxrp.ErrReissueLimitExceeded),
 		errors.Is(err, multisigxrp.ErrInvalidRequest),
-		errors.Is(err, multisigutxobtc.ErrInvalidRequest):
+		errors.Is(err, multisigutxobtc.ErrInvalidRequest),
+		errors.Is(err, paymentstatusbtc.ErrMissingTransactionID):
 		return warnHuma400(reqID, msg, err)
 	// 422 — data/validation errors
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
