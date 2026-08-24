@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
@@ -17,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	btcbatch "github.com/flare-foundation/go-flare-common/pkg/btc/batch"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	"gorm.io/gorm"
@@ -31,6 +33,19 @@ import (
 // ErrUnsupportedSource is returned when the configured source id has no Bitcoin
 // network mapping.
 var ErrUnsupportedSource = errors.New("unsupported source id for BTC payment-status verifier")
+
+// ErrNetworkMismatch marks a Bitcoin node confirmed to be serving a different
+// chain than the verifier expects (a wrong-chain node). Maps to HTTP 503.
+var ErrNetworkMismatch = errors.New("bitcoin node is on the wrong network")
+
+// networkPinTimeout bounds a single getblockchaininfo probe used to pin the chain.
+const networkPinTimeout = 5 * time.Second
+
+// chainProber reports the chain a Bitcoin node serves; *nodechain.Repo satisfies
+// it. An interface so the pin can be exercised without a live node.
+type chainProber interface {
+	Chain(ctx context.Context) (string, error)
+}
 
 // logRepo is the C-chain log lookup the verifier needs; *paymentdb.DBRepo
 // satisfies it. An interface so tests can substitute a stub.
@@ -121,6 +136,9 @@ type BtcVerifier struct {
 	Resolver Resolver
 	Config   *config.PMWPaymentStatusConfig
 	Params   *chaincfg.Params
+	// prober reads the node's chain for the startup network pin (VerifyNetwork);
+	// nil disables the pin (tests that inject stub sources).
+	prober chainProber
 }
 
 // NewBtcVerifier wires a BtcVerifier from config, the verifier-utxo-indexer
@@ -149,14 +167,63 @@ func NewBtcVerifier(cfg *config.PMWPaymentStatusConfig, cChainDB *gorm.DB) (*Btc
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse the PaymentBatched ABI: %w", err)
 	}
+	nodeRepo := nodechain.NewRepo(cfg.SourceRPCURL, cfg.MinConfirmations)
 	return &BtcVerifier{
 		Repo:     repo,
 		Messages: PaymentBatchedMessages{Repo: repo, ABI: channelABI},
-		Source:   nodeSource{repo: nodechain.NewRepo(cfg.SourceRPCURL, cfg.MinConfirmations)},
+		Source:   nodeSource{repo: nodeRepo},
 		Resolver: resolver,
 		Config:   cfg,
 		Params:   params,
+		prober:   nodeRepo,
 	}, nil
+}
+
+// expectedChain returns the getblockchaininfo chain name the verifier's params
+// correspond to ("main", "test", "signet" or "regtest"), and whether they map.
+func expectedChain(params *chaincfg.Params) (string, bool) {
+	switch params.Net {
+	case chaincfg.MainNetParams.Net:
+		return "main", true
+	case chaincfg.TestNet3Params.Net:
+		return "test", true
+	case chaincfg.SigNetParams.Net:
+		return "signet", true
+	case chaincfg.RegressionNetParams.Net:
+		return "regtest", true
+	default:
+		return "", false
+	}
+}
+
+// VerifyNetwork pins the configured Bitcoin node to the chain the verifier's
+// network expects, so a node misconfigured to a different chain cannot answer a
+// genesis-anchor lookup as "missing" and mint a false not-found. Run once at
+// startup: a confirmed wrong chain fails boot; an unreachable node does not block
+// boot (the request path already fails closed — node faults map to 503 via
+// ErrNodeUnavailable, never a status-2). Mirrors the PMWMultisigUtxoConfigured
+// startup pin. (A post-boot repoint to a different REACHABLE chain is not
+// re-checked here — that request-path TTL guard is a deferred follow-up.)
+func (v *BtcVerifier) VerifyNetwork(ctx context.Context) error {
+	if v.prober == nil {
+		return nil
+	}
+	expected, ok := expectedChain(v.Params)
+	if !ok {
+		return fmt.Errorf("%w: params have no chain mapping", ErrUnsupportedSource)
+	}
+	ctx, cancel := context.WithTimeout(ctx, networkPinTimeout)
+	defer cancel()
+	got, err := v.prober.Chain(ctx)
+	if err != nil {
+		logger.Warnf("PMWPaymentStatus: Bitcoin chain not verified at startup for source %s: %v; requests fail closed until the node is reachable",
+			v.Config.SourceIDPair.SourceID, err)
+		return nil
+	}
+	if got != expected {
+		return fmt.Errorf("%w: node chain %q but verifier expects %q", ErrNetworkMismatch, got, expected)
+	}
+	return nil
 }
 
 // Close releases the resolver's RPC connection, mirroring the XRP verifier.
@@ -251,12 +318,13 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	}
 	// And input[0] must spend this chain's anchor. Only k-of-n can do that, so
 	// an outsider cannot forge a transaction that reaches here: the nonce
-	// OP_RETURN is free to write, but the anchor is not free to spend. Sources
-	// that cannot report what input[0] spent leave the field empty and rely on
-	// having searched by position instead.
-	if batch.AnchorInputAddress != "" && batch.AnchorInputAddress != anchorAddress {
+	// OP_RETURN is free to write, but the anchor is not free to spend. This is the
+	// forgery guard, so it is mandatory: the node path always resolves input[0]'s
+	// prevout, and an empty value means the transaction did not spend a resolvable
+	// address as input[0] — fail closed rather than skip the binding.
+	if batch.AnchorInputAddress != anchorAddress {
 		return empty, fmt.Errorf(
-			"batch %s spends %s as input[0], not anchor chain %d's address %s: %w",
+			"batch %s spends %q as input[0], not anchor chain %d's address %s: %w",
 			batch.Txid, batch.AnchorInputAddress, message.AnchorIndex, anchorAddress, paymentdb.ErrDatabase)
 	}
 
@@ -283,7 +351,52 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	if err != nil {
 		return empty, fmt.Errorf("payment %d contradicts batch %s: %v: %w", req.PaymentId, batch.Txid, err, paymentdb.ErrDatabase)
 	}
+	// btcbatch.Match reports StatusUndeliverable purely from "zero value delivered
+	// to the recipient" — it does NOT check dust (by design; see its doc). So an
+	// omitted or censored payment reads the same as a legitimately sub-dust one.
+	// Confirm the claim: an amount at or above the deterministic dust threshold
+	// could have been delivered, so a zero delivery for it is an inconsistency
+	// (fail closed), not a settled sub_dust status. The threshold uses Bitcoin
+	// Core's fixed DUST_RELAY_TX_FEE so every verifier computes the same value.
+	if status == btcbatch.StatusUndeliverable && amount >= dustThresholdSat(recipientScript) {
+		return empty, fmt.Errorf(
+			"payment %d delivered nothing but its amount %d >= dust threshold %d for the recipient: %w",
+			req.PaymentId, amount, dustThresholdSat(recipientScript), paymentdb.ErrDatabase)
+	}
 	return buildResponse(message, status, received, batch)
+}
+
+// dustRelayFeeSatPerKvB is Bitcoin Core's default DUST_RELAY_TX_FEE; the IsDust
+// threshold scales linearly with it. Fixed (not a live feerate) so every verifier
+// computes the same threshold — a disagreement would refuse honest batches or
+// admit the sweep this guards against.
+const dustRelayFeeSatPerKvB int64 = 3000
+
+// dustThresholdSat is Bitcoin Core's IsDust threshold for an output paying
+// pkScript: dustRelayFee * nSize / 1000, where nSize is the serialized output
+// size plus the assumed cost of spending it (67 vbytes witness, 148 legacy). At
+// the 3000 sat/kvB default: P2WPKH 294, P2WSH 330, P2TR 330, P2PKH 546. Mirrors
+// the proposer's and PMWUtxoProposalCheck's dust check so the two agree.
+func dustThresholdSat(pkScript []byte) int64 {
+	outputSize := int64(8 + 1 + len(pkScript))
+	const witnessScale = 4
+	if isWitnessProgram(pkScript) {
+		return (outputSize + (32 + 4 + 1 + 107/witnessScale + 4)) * dustRelayFeeSatPerKvB / 1000
+	}
+	return (outputSize + (32 + 4 + 1 + 107 + 4)) * dustRelayFeeSatPerKvB / 1000
+}
+
+// isWitnessProgram reports whether pkScript is a SegWit witness program: a
+// version opcode (OP_0, or OP_1..OP_16) followed by a single 2..40 byte push.
+func isWitnessProgram(pkScript []byte) bool {
+	if len(pkScript) < 4 || len(pkScript) > 42 {
+		return false
+	}
+	if pkScript[0] != 0x00 && (pkScript[0] < 0x51 || pkScript[0] > 0x60) {
+		return false
+	}
+	pushLen := int(pkScript[1])
+	return pushLen >= 2 && pushLen <= 40 && len(pkScript) == 2+pushLen
 }
 
 // selectPayment decodes every batch event and returns the message whose

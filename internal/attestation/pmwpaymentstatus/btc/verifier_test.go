@@ -68,6 +68,11 @@ type stubIndexer struct {
 	batch      *batchtx.BatchTx
 	batchErr   error
 
+	// keepEmptyAnchor leaves batch.AnchorInputAddress untouched. By default the
+	// stub defaults an empty value to anchorAddr, mimicking the node (which always
+	// resolves input[0]'s prevout); set this to test the empty-fails-closed path.
+	keepEmptyAnchor bool
+
 	// gotLocator records what the verifier asked for, so a test can assert the
 	// request's txid reaches the source rather than being quietly dropped.
 	gotLocator *locator
@@ -80,6 +85,11 @@ func (s stubIndexer) AnchorAddress(context.Context, string, uint32) (string, err
 func (s stubIndexer) Batch(_ context.Context, loc locator) (*batchtx.BatchTx, error) {
 	if s.gotLocator != nil {
 		*s.gotLocator = loc
+	}
+	// A node always reports input[0]'s address, so mirror that unless a test opts
+	// out — otherwise every success fixture would trip the mandatory anchor bind.
+	if s.batch != nil && s.batch.AnchorInputAddress == "" && !s.keepEmptyAnchor {
+		s.batch.AnchorInputAddress = s.anchorAddr
 	}
 	return s.batch, s.batchErr
 }
@@ -374,8 +384,10 @@ func TestVerify_Undeliverable(t *testing.T) {
 	recipAddr, _ := recipient(t)
 	const nonce = uint64(7)
 	const batchID = uint64(900000)
+	// 100 sat is below the P2WPKH dust threshold (294), so a zero delivery is a
+	// legitimately sub-dust (undeliverable) payment.
 	v := newVerifier(t,
-		logsFor(t, sampleMsg(recipAddr, 500, batchID, batchID, nonce, 1)),
+		logsFor(t, sampleMsg(recipAddr, 100, batchID, batchID, nonce, 1)),
 		stubIndexer{anchorAddr: testAnchor, batch: &batchtx.BatchTx{
 			Txid:    testTxid,
 			Outputs: batchOutputs(t, nonce, out([]byte{0x52}, 250)), // only change, no recipient output
@@ -387,6 +399,82 @@ func TestVerify_Undeliverable(t *testing.T) {
 	require.Equal(t, uint8(1), resp.TransactionStatus)
 	require.Equal(t, "sub_dust_amount", resp.RevertReason)
 	require.Equal(t, big.NewInt(0), resp.ReceivedAmount)
+}
+
+// TestVerify_ZeroDeliveryAboveDustFailsClosed guards the soundness hole: a zero
+// delivery is undeliverable ONLY if the instructed amount was actually sub-dust.
+// An amount at or above the dust threshold that delivered nothing is a
+// censored/omitted payment, not a settled sub_dust status — it must fail closed.
+func TestVerify_ZeroDeliveryAboveDustFailsClosed(t *testing.T) {
+	recipAddr, _ := recipient(t)
+	const nonce = uint64(7)
+	const batchID = uint64(900000)
+	// 1000 sat is well above the P2WPKH dust threshold (294).
+	v := newVerifier(t,
+		logsFor(t, sampleMsg(recipAddr, 1000, batchID, batchID, nonce, 1)),
+		stubIndexer{anchorAddr: testAnchor, batch: &batchtx.BatchTx{
+			Txid:    testTxid,
+			Outputs: batchOutputs(t, nonce, out([]byte{0x52}, 250)), // only change, no recipient output
+		}},
+		stubResolver{id: batchID, anchorTxid: strings.Repeat("cd", 32)},
+	)
+	_, err := v.Verify(context.Background(), req(batchID))
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+}
+
+type stubProber struct {
+	chain string
+	err   error
+}
+
+func (s stubProber) Chain(context.Context) (string, error) { return s.chain, s.err }
+
+// TestVerifyNetwork covers the startup chain pin: a wrong chain fails boot, the
+// matching chain passes, an unreachable node does not block boot (request path
+// fails closed separately), and a nil prober is a no-op. testParams is SigNet, so
+// the expected chain is "signet".
+func TestVerifyNetwork(t *testing.T) {
+	withProber := func(p chainProber) *BtcVerifier {
+		v := newVerifier(t, stubRepo{}, stubIndexer{}, stubResolver{})
+		v.prober = p
+		return v
+	}
+	require.ErrorIs(t, withProber(stubProber{chain: "main"}).VerifyNetwork(context.Background()), ErrNetworkMismatch)
+	require.NoError(t, withProber(stubProber{chain: "signet"}).VerifyNetwork(context.Background()))
+	require.NoError(t, withProber(stubProber{err: paymentdb.ErrDatabase}).VerifyNetwork(context.Background()))
+	require.NoError(t, newVerifier(t, stubRepo{}, stubIndexer{}, stubResolver{}).VerifyNetwork(context.Background()))
+}
+
+// TestDustThresholdSat pins Bitcoin Core's IsDust values at the fixed
+// DUST_RELAY_TX_FEE, so the threshold is deterministic across verifiers (a live
+// feerate would let two verifiers disagree on undeliverability).
+func TestDustThresholdSat(t *testing.T) {
+	p2wpkh := append([]byte{0x00, 0x14}, make([]byte, 20)...)
+	p2wsh := append([]byte{0x00, 0x20}, make([]byte, 32)...)
+	p2pkh := append([]byte{0x76, 0xa9, 0x14}, make([]byte, 20)...)
+	p2pkh = append(p2pkh, 0x88, 0xac)
+	require.Equal(t, int64(294), dustThresholdSat(p2wpkh))
+	require.Equal(t, int64(330), dustThresholdSat(p2wsh))
+	require.Equal(t, int64(546), dustThresholdSat(p2pkh))
+}
+
+// TestVerify_EmptyAnchorInputFailsClosed guards the node-path anchor binding: a
+// batch whose input[0] address is unresolved ("") must fail closed, not skip the
+// forgery guard (the guard is what only k-of-n can satisfy).
+func TestVerify_EmptyAnchorInputFailsClosed(t *testing.T) {
+	recipAddr, recipScript := recipient(t)
+	const amount, nonce = 150000, uint64(7)
+	const batchID = uint64(900000)
+	v := newVerifier(t,
+		logsFor(t, sampleMsg(recipAddr, amount, batchID, batchID, nonce, 1)),
+		stubIndexer{anchorAddr: testAnchor, keepEmptyAnchor: true, batch: &batchtx.BatchTx{
+			Txid:    testTxid,
+			Outputs: batchOutputs(t, nonce, out(recipScript, amount)),
+		}},
+		stubResolver{id: batchID, anchorTxid: strings.Repeat("cd", 32)},
+	)
+	_, err := v.Verify(context.Background(), req(batchID))
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
 }
 
 func TestVerify_NotFoundWhenAnchorUnresolved(t *testing.T) {
