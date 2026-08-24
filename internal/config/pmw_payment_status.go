@@ -74,17 +74,24 @@ func buildBtcPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfi
 	}, nil
 }
 
+// maxBtcMinConfirmations bounds BTC_MIN_CONFIRMATIONS. A depth of thousands is
+// already unreachable, and the ceiling keeps the value well inside int64 so the
+// node client's uint64->int64 narrowing cannot wrap negative and silently disable
+// the depth gate (which would then accept a 1-deep, or even orphan, block).
+const maxBtcMinConfirmations uint64 = 1_000_000
+
 // parseMinConfirmations reads BTC_MIN_CONFIRMATIONS, defaulting to
-// DefaultBtcMinConfirmations when unset and rejecting a non-numeric or zero value
-// (a zero floor would silently disable the reorg-safety depth).
+// DefaultBtcMinConfirmations when unset and rejecting a non-numeric, zero, or
+// out-of-range value (a zero floor would disable the reorg-safety depth; an
+// oversized one would wrap negative in the node client and do the same).
 func parseMinConfirmations(raw string) (uint64, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return DefaultBtcMinConfirmations, nil
 	}
 	n, err := strconv.ParseUint(raw, 10, 64)
-	if err != nil || n == 0 {
-		return 0, fmt.Errorf("%s must be a positive integer, got %q", EnvBtcMinConfirmations, raw)
+	if err != nil || n == 0 || n > maxBtcMinConfirmations {
+		return 0, fmt.Errorf("%s must be an integer in [1, %d], got %q", EnvBtcMinConfirmations, maxBtcMinConfirmations, raw)
 	}
 	return n, nil
 }

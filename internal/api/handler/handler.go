@@ -19,6 +19,7 @@ import (
 	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
 	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
 	paymentstatusbtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc/nodechain"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -179,6 +180,8 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, multisigutxobtc.ErrNetworkUnverified),
 		errors.Is(err, btcclient.ErrFetchChainInfo),
 		errors.Is(err, btcclient.ErrGetTxOut),
+		errors.Is(err, paymentstatusbtc.ErrNetworkMismatch),
+		errors.Is(err, nodechain.ErrNodeUnavailable),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, verifiertypes.ErrNetwork),
 		errors.Is(err, verifiertypes.ErrRPC),

@@ -22,6 +22,7 @@ import (
 	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
 	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
 	paymentstatusbtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc/nodechain"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -285,6 +286,16 @@ func TestClassifyVerifyError(t *testing.T) {
 		{
 			name:           "ErrDatabase",
 			err:            fmt.Errorf("db failed: %w", db.ErrDatabase),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrNetworkMismatch (payment-status BTC)",
+			err:            fmt.Errorf("wrong chain: %w", paymentstatusbtc.ErrNetworkMismatch),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrNodeUnavailable (payment-status BTC node)",
+			err:            fmt.Errorf("node down: %w", nodechain.ErrNodeUnavailable),
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{
