@@ -2,7 +2,7 @@ module github.com/flare-foundation/go-verifier-api
 
 go 1.25.1
 
-toolchain go1.26.4
+toolchain go1.26.6
 
 require (
 	github.com/Peersyst/xrpl-go v0.1.18
