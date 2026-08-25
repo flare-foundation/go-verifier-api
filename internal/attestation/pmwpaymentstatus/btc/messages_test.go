@@ -24,8 +24,10 @@ func cspABI(t *testing.T) abi.ABI {
 
 // A PaymentBatched log carries the same struct the diamond path carries, on its
 // own rather than inside an instruction envelope.
-func encodePaymentBatched(t *testing.T, paymentID, batchPaymentID, nonce uint64) *types.Log {
+func encodePaymentBatched(t *testing.T, paymentID uint64) *types.Log {
 	t.Helper()
+	// batchPaymentID and nonce are fixed for the fixture; only paymentID varies per row.
+	const batchPaymentID, nonce = 7, 3
 	addr, _ := recipient(t)
 	msgBytes, err := structs.Encode(utxoArg(t), sampleMsg(addr, 1000, paymentID, batchPaymentID, nonce, 0))
 	require.NoError(t, err)
@@ -48,8 +50,8 @@ func encodePaymentBatched(t *testing.T, paymentID, batchPaymentID, nonce uint64)
 func TestPaymentBatchedMessagesDecodesEveryPaymentInTheBatch(t *testing.T) {
 	src := PaymentBatchedMessages{
 		Repo: stubRepo{logs: []*types.Log{
-			encodePaymentBatched(t, 7, 7, 3),
-			encodePaymentBatched(t, 8, 7, 3),
+			encodePaymentBatched(t, 7),
+			encodePaymentBatched(t, 8),
 		}},
 		ABI: cspABI(t),
 	}
@@ -78,9 +80,55 @@ func TestPaymentBatchedMessagesRejectsAnABIWithoutTheEvent(t *testing.T) {
 // TestPaymentBatchedMessagesRejectsPaymentIdTopicMismatch: the decoded message's
 // paymentId must equal the indexed topic; a disagreement is a corrupt row.
 func TestPaymentBatchedMessagesRejectsPaymentIdTopicMismatch(t *testing.T) {
-	log := encodePaymentBatched(t, 7, 7, 3)                     // body says paymentId 7
+	log := encodePaymentBatched(t, 7)                           // body says paymentId 7
 	log.Topics[2] = common.BigToHash(new(big.Int).SetUint64(8)) // topic says 8
 	src := PaymentBatchedMessages{Repo: stubRepo{logs: []*types.Log{log}}, ABI: cspABI(t)}
 	_, err := src.Messages(context.Background(), common.Hash{}, common.Hash{})
 	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+}
+
+// cloneLog deep-copies a log so a table case can mutate its topics safely.
+func cloneLog(l *types.Log) *types.Log {
+	c := *l
+	c.Topics = append([]common.Hash(nil), l.Topics...)
+	c.Data = append([]byte(nil), l.Data...)
+	return &c
+}
+
+// TestPaymentBatchedMessages_HostileLogs: every malformed/hostile row is refused
+// (fail closed), never decoded into a message.
+func TestPaymentBatchedMessages_HostileLogs(t *testing.T) {
+	valid := encodePaymentBatched(t, 7)
+	overlongEnvelope := func() *types.Log {
+		l := cloneLog(valid)
+		data, err := cspABI(t).Events["PaymentBatched"].Inputs.NonIndexed().Pack([]byte{0xde, 0xad}) // valid envelope, garbage body
+		require.NoError(t, err)
+		l.Data = data
+		return l
+	}()
+	oversizedTopic := cloneLog(valid)
+	oversizedTopic.Topics[2] = common.HexToHash(strings.Repeat("f", 64)) // 2^256-1, not a uint64
+	tooManyBytes := cloneLog(valid)
+	tooManyBytes.Data = make([]byte, (1<<20)+1)
+	fewTopics := cloneLog(valid)
+	fewTopics.Topics = fewTopics.Topics[:2]
+
+	cases := []struct {
+		name string
+		log  *types.Log
+	}{
+		{"fewer than three topics", fewTopics},
+		{"payment topic exceeds uint64", oversizedTopic},
+		{"malformed ABI envelope", &types.Log{Topics: valid.Topics, Data: []byte{0x01, 0x02}}},
+		{"malformed encoded message", overlongEnvelope},
+		{"data larger than 1 MiB", tooManyBytes},
+		{"nil log", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := PaymentBatchedMessages{Repo: stubRepo{logs: []*types.Log{tc.log}}, ABI: cspABI(t)}
+			_, err := src.Messages(context.Background(), common.Hash{}, common.Hash{})
+			require.ErrorIs(t, err, paymentdb.ErrDatabase)
+		})
+	}
 }

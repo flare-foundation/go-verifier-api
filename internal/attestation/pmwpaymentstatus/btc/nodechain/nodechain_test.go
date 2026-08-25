@@ -305,3 +305,24 @@ func TestTransactionValueSumsCannotOverflow(t *testing.T) {
 	require.ErrorIs(t, err, ErrNodeUnavailable)
 	require.ErrorContains(t, err, "money supply")
 }
+
+// FuzzNodeRPCEnvelope: an arbitrary JSON-RPC response body must never panic the
+// client; every method returns either an absence or an error, never a crash. The
+// response-size cap keeps allocation bounded.
+func FuzzNodeRPCEnvelope(f *testing.F) {
+	f.Add([]byte(`{"result":{"txid":"aa11"},"error":null}`))
+	f.Add([]byte(`{"error":{"code":-5,"message":"x"}}`))
+	f.Add([]byte(`{"result":{"chain":"signet"}}`))
+	f.Add([]byte(`garbage`))
+	f.Add([]byte(``))
+	f.Fuzz(func(t *testing.T, response []byte) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(response)
+		}))
+		defer srv.Close()
+		r := NewRepo(srv.URL, 1)
+		_, _ = r.Batch(context.Background(), "aa11")            // must not panic
+		_, _ = r.OutputAddress(context.Background(), "aa11", 0) // must not panic
+		_, _ = r.Chain(context.Background())                    // must not panic
+	})
+}

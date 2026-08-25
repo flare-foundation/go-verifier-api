@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -18,6 +19,9 @@ var testContractAddress = common.HexToAddress("0x0000000000000000000000000000000
 
 // testContractAddressStored is the value of database.Log.Address that matches testContractAddress.
 const testContractAddressStored = "00000000000000000000000000000000000000c1"
+
+// testEventHash is the canonical Topic0 (event signature) used across these tests.
+const testEventHash = "abcd"
 
 func newClosedDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -211,4 +215,98 @@ func TestFetchLogsByInstructionTopic1_RejectsOversizedData(t *testing.T) {
 	_, err := repo.FetchLogsByInstructionTopic1(context.Background(), eventHash, instructionID)
 	require.ErrorIs(t, err, ErrDatabase)
 	require.ErrorContains(t, err, "exceed")
+}
+
+// topic1Log builds a PaymentBatched-shaped row for FetchLogsByInstructionTopic1
+// (topic1 = instruction id), with a unique transaction hash per index.
+func topic1Log(instructionID common.Hash, data, addr string, i int) database.Log {
+	return database.Log{
+		Topic0:          testEventHash,
+		Topic1:          strings.TrimPrefix(instructionID.Hex(), "0x"),
+		Topic2:          strings.Repeat("0", 64),
+		Data:            data,
+		Address:         addr,
+		TransactionHash: fmt.Sprintf("%064x", i),
+		LogIndex:        uint64(i),
+		BlockNumber:     uint64(10 + i),
+		Timestamp:       1700000000,
+	}
+}
+
+func TestFetchLogsByInstructionTopic1_RowCapBoundary(t *testing.T) {
+	const eventHash = "abcd"
+	instructionID := common.HexToHash("0xdeadbeef")
+	insertN := func(t *testing.T, n int) *gorm.DB {
+		t.Helper()
+		db := newMemoryDBWithLogs(t)
+		rows := make([]database.Log, n)
+		for i := range n {
+			rows[i] = topic1Log(instructionID, "", testContractAddressStored, i)
+		}
+		require.NoError(t, db.CreateInBatches(rows, 1000).Error)
+		return db
+	}
+	t.Run("exactly max accepted", func(t *testing.T) {
+		repo := NewDBRepo(nil, insertN(t, maxInstructionLogs), testContractAddress)
+		logs, err := repo.FetchLogsByInstructionTopic1(context.Background(), eventHash, instructionID)
+		require.NoError(t, err)
+		require.Len(t, logs, maxInstructionLogs)
+	})
+	t.Run("one over max rejected", func(t *testing.T) {
+		repo := NewDBRepo(nil, insertN(t, maxInstructionLogs+1), testContractAddress)
+		_, err := repo.FetchLogsByInstructionTopic1(context.Background(), eventHash, instructionID)
+		require.ErrorIs(t, err, ErrDatabase)
+	})
+}
+
+func TestFetchLogsByInstructionTopic1_DataSizeBoundary(t *testing.T) {
+	const eventHash = "abcd"
+	instructionID := common.HexToHash("0xdeadbeef")
+	t.Run("at cap accepted", func(t *testing.T) {
+		db := newMemoryDBWithLogs(t)
+		require.NoError(t, db.Create(&[]database.Log{topic1Log(instructionID, strings.Repeat("a", maxEventDataHexLen), testContractAddressStored, 0)}).Error)
+		repo := NewDBRepo(nil, db, testContractAddress)
+		logs, err := repo.FetchLogsByInstructionTopic1(context.Background(), eventHash, instructionID)
+		require.NoError(t, err)
+		require.Len(t, logs, 1)
+	})
+	t.Run("one over cap rejected", func(t *testing.T) {
+		db := newMemoryDBWithLogs(t)
+		require.NoError(t, db.Create(&[]database.Log{topic1Log(instructionID, strings.Repeat("a", maxEventDataHexLen+2), testContractAddressStored, 0)}).Error)
+		repo := NewDBRepo(nil, db, testContractAddress)
+		_, err := repo.FetchLogsByInstructionTopic1(context.Background(), eventHash, instructionID)
+		require.ErrorIs(t, err, ErrDatabase)
+		require.ErrorContains(t, err, "exceed")
+	})
+}
+
+// TestFetchLogsByInstructionTopic1_OversizedOtherContractDoesNotPoison: the size
+// check is scoped to the query's own filter, so a huge row for a different
+// contract must not reject our (well-formed) result.
+func TestFetchLogsByInstructionTopic1_OversizedOtherContractDoesNotPoison(t *testing.T) {
+	const eventHash = "abcd"
+	instructionID := common.HexToHash("0xdeadbeef")
+	db := newMemoryDBWithLogs(t)
+	other := topic1Log(instructionID, strings.Repeat("a", maxEventDataHexLen+2), "ffffffffffffffffffffffffffffffffffffffff", 0)
+	ours := topic1Log(instructionID, "", testContractAddressStored, 1)
+	require.NoError(t, db.Create(&[]database.Log{other, ours}).Error)
+
+	repo := NewDBRepo(nil, db, testContractAddress)
+	logs, err := repo.FetchLogsByInstructionTopic1(context.Background(), eventHash, instructionID)
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+}
+
+func TestFetchLogsByInstructionTopic1_ClosedDB(t *testing.T) {
+	repo := NewDBRepo(nil, newClosedDB(t), testContractAddress)
+	_, err := repo.FetchLogsByInstructionTopic1(context.Background(), "abcd", common.HexToHash("0x1"))
+	require.ErrorIs(t, err, ErrDatabase)
+}
+
+func TestFetchLogsByInstructionTopic1_CancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	repo := NewDBRepo(nil, newMemoryDBWithLogs(t), testContractAddress)
+	_, err := repo.FetchLogsByInstructionTopic1(ctx, "abcd", common.HexToHash("0x1"))
+	require.ErrorIs(t, err, ErrDatabase)
 }

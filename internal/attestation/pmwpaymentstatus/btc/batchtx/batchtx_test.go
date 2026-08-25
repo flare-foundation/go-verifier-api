@@ -30,3 +30,18 @@ func TestSatsFromBTCAcceptsValidAmount(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(10000), sats)
 }
+
+// FuzzSatsFromBTC: arbitrary node-supplied amount strings must never panic, and a
+// successful parse must be an in-range satoshi value. The length cap keeps runtime
+// bounded regardless of input size.
+func FuzzSatsFromBTC(f *testing.F) {
+	for _, s := range []string{"", "0", "0.00010000", "21000000", "21000001", "-1", "1e9", "0.000000001", "abc", ".", "0x10", strings.Repeat("9", 100)} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		sats, err := SatsFromBTC(s) // must not panic
+		if err == nil && (sats < 0 || sats > MaxMoneySat) {
+			t.Fatalf("SatsFromBTC(%q) = %d with no error, out of range", s, sats)
+		}
+	})
+}

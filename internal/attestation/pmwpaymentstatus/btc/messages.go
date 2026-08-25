@@ -96,6 +96,9 @@ func (p PaymentBatchedMessages) Messages(ctx context.Context, instructionID, _ c
 
 	out := make([]*payments.ITeePaymentsUtxoUtxoPaymentInstructionMessage, 0, len(logs))
 	for _, l := range logs {
+		if l == nil {
+			return nil, fmt.Errorf("%s returned a nil log: %w", PaymentBatchedEvent, paymentdb.ErrDatabase)
+		}
 		// Bound the event data before decoding, matching the diamond decoder: a
 		// hostile/corrupt row must not be ABI-decoded unbounded.
 		if len(l.Data) > maxEventDataSize {
