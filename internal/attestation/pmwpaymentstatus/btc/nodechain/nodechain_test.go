@@ -260,3 +260,48 @@ func TestChainProbeHasDedicatedPool(t *testing.T) {
 	_, err = r.Chain(context.Background())
 	require.ErrorIs(t, err, ErrNodeUnavailable)
 }
+
+// TestBatchRejectsReturnedTxIDMismatch: a node that answers with a different
+// transaction than requested is a fault (or hostile), not this settlement.
+func TestBatchRejectsReturnedTxIDMismatch(t *testing.T) {
+	f := &fakeNode{tx: json.RawMessage(`{"txid":"bb22","blockhash":"beef","vout":[]}`)}
+	srv := f.serve()
+	defer srv.Close()
+	got, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.Nil(t, got)
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestOutputsRejectOutOfOrderVout: the PMW grammar is positional, so outputs must
+// be the exact sequence 0..N-1; a reordered/gapped/duplicated vout index is
+// refused rather than silently shifting group interpretation.
+func TestOutputsRejectOutOfOrderVout(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vin":[{"prevout":{"value":0.001,"scriptPubKey":{"hex":"0014aa","address":"a"}}}],
+		  "vout":[{"value":0.0005,"n":1,"scriptPubKey":{"hex":"0014bb"}},
+		          {"value":0.0004,"n":0,"scriptPubKey":{"hex":"0014cc"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.ErrorContains(t, err, "out of order")
+}
+
+// TestTransactionValueSumsCannotOverflow: summed output values are bounded by the
+// money supply, so a hostile node cannot overflow int64 into a bogus fee.
+func TestTransactionValueSumsCannotOverflow(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vout":[{"value":21000000,"n":0,"scriptPubKey":{"hex":"0014bb"}},
+		          {"value":21000000,"n":1,"scriptPubKey":{"hex":"0014cc"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.ErrorContains(t, err, "money supply")
+}

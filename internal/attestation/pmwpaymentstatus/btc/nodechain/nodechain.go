@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc/batchtx"
@@ -165,6 +166,11 @@ func (r *Repo) Batch(ctx context.Context, txid string) (*batchtx.BatchTx, error)
 		}
 		return nil, asNodeUnavailable(err)
 	}
+	// The node must answer with the transaction we asked for; a different id is a
+	// node fault (or a hostile node) and must not be read as this settlement.
+	if !strings.EqualFold(tx.Txid, txid) {
+		return nil, fmt.Errorf("%w: node returned transaction %q for requested %q", ErrNodeUnavailable, tx.Txid, txid)
+	}
 	if tx.BlockHash == "" {
 		// Known to the node but unconfirmed: in the mempool, or in no block yet.
 		return nil, nil
@@ -213,6 +219,13 @@ func outputsOf(tx rawTx) ([]batchtx.Output, int64, error) {
 	outputs := make([]batchtx.Output, len(tx.Vout))
 	var sum int64
 	for i, o := range tx.Vout {
+		// The PMW grammar is positional (output[0] anchor, [2] nonce, ...), so the
+		// outputs must be the exact sequence 0..N-1. Do not trust the node's array
+		// order: a reordered, gapped, or duplicated vout index would silently shift
+		// every group's interpretation.
+		if o.N != uint32(i) {
+			return nil, 0, fmt.Errorf("transaction %s output at position %d has vout index %d (out of order, gapped, or duplicated)", tx.Txid, i, o.N)
+		}
 		script, err := hex.DecodeString(o.ScriptPubKey.Hex)
 		if err != nil {
 			return nil, 0, fmt.Errorf("output %s:%d has invalid script hex: %w", tx.Txid, o.N, err)
@@ -223,6 +236,11 @@ func outputsOf(tx rawTx) ([]batchtx.Output, int64, error) {
 		}
 		outputs[i] = batchtx.Output{PkScript: script, Value: sats}
 		sum += sats
+		// Each value is <= MaxMoneySat and the sum stays bounded, so this cannot
+		// overflow int64; a sum over the supply is corrupt data.
+		if sum > batchtx.MaxMoneySat {
+			return nil, 0, fmt.Errorf("transaction %s output sum exceeds the money supply", tx.Txid)
+		}
 	}
 	return outputs, sum, nil
 }
@@ -248,6 +266,9 @@ func feeOf(tx rawTx, outSum int64) (int64, error) {
 			return 0, fmt.Errorf("input %d of %s: %w", i, tx.Txid, err)
 		}
 		inSum += sats
+		if inSum > batchtx.MaxMoneySat {
+			return 0, fmt.Errorf("transaction %s input sum exceeds the money supply", tx.Txid)
+		}
 	}
 	fee := inSum - outSum
 	if fee < 0 {
@@ -281,6 +302,9 @@ func (r *Repo) OutputAddress(ctx context.Context, txid string, vout uint32) (str
 		// node, or the wrong chain — never a legitimate absence. Fail closed so a
 		// wrong-chain/misconfigured node cannot mint a false not-found.
 		return "", asNodeUnavailable(err)
+	}
+	if !strings.EqualFold(tx.Txid, txid) {
+		return "", fmt.Errorf("%w: node returned transaction %q for requested anchor %q", ErrNodeUnavailable, tx.Txid, txid)
 	}
 	for _, o := range tx.Vout {
 		if o.N == vout {

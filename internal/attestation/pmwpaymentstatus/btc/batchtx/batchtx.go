@@ -18,6 +18,19 @@ import (
 // decimal BTC, converted to satoshis here.
 const satPerBTC = 100_000_000
 
+// MaxMoneySat is the total Bitcoin supply in satoshis (21,000,000 BTC). No single
+// output or transaction can hold more, so a larger value is corrupt or forged data
+// from the semi-trusted node — rejected rather than summed (fail closed, and it
+// keeps output/input sums well inside int64 so they cannot overflow).
+const MaxMoneySat int64 = 21_000_000 * satPerBTC
+
+// maxBTCAmountLen bounds the decimal string a node/indexer may present for an
+// amount. A real amount is at most 8 integer digits + '.' + 8 fractional digits
+// (17 chars); the slack tolerates leading/trailing zeros. Anything longer is
+// rejected before big.Rat parses it, so a hostile RPC response with millions of
+// digits cannot drive unbounded parsing work.
+const maxBTCAmountLen = 32
+
 // Output is one transaction output: its locking script and value in satoshis.
 type Output struct {
 	PkScript []byte
@@ -55,6 +68,12 @@ type BatchTx struct {
 // overflow, or malformed input. It uses exact rational arithmetic so no amount
 // is rounded through a float.
 func SatsFromBTC(v string) (int64, error) {
+	// Bound the input length BEFORE big.Rat parses it: a real amount is short, and
+	// a hostile node could otherwise send millions of digits to burn CPU/memory.
+	// Report only the length, never echo the oversized string into logs.
+	if len(v) > maxBTCAmountLen {
+		return 0, fmt.Errorf("BTC amount too long: %d characters (max %d)", len(v), maxBTCAmountLen)
+	}
 	if v == "" || strings.ContainsAny(v, "/eE") {
 		return 0, fmt.Errorf("invalid BTC amount %q", v)
 	}
@@ -73,5 +92,9 @@ func SatsFromBTC(v string) (int64, error) {
 	if !n.IsInt64() {
 		return 0, fmt.Errorf("BTC amount %q overflows int64 satoshis", v)
 	}
-	return n.Int64(), nil
+	sats := n.Int64()
+	if sats > MaxMoneySat {
+		return 0, fmt.Errorf("BTC amount %q exceeds the total money supply", v)
+	}
+	return sats, nil
 }
