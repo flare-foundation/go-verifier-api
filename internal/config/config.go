@@ -309,6 +309,10 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 			if cfg.CChainDatabaseURL == "" {
 				missing = append(missing, field)
 			}
+		case EnvChannelAddress:
+			if cfg.ChannelAddress == "" {
+				missing = append(missing, field)
+			}
 		}
 	}
 	if len(missing) > 0 {
