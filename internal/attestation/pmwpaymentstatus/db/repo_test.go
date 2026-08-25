@@ -188,3 +188,27 @@ func TestFetchTransactionBySourceAndSequence_DuplicateRowsAreRejected(t *testing
 	require.ErrorIs(t, err, ErrDatabase)
 	require.ErrorContains(t, err, "duplicate transactions")
 }
+
+// TestFetchLogsByInstructionTopic1_RejectsOversizedData: a row whose data exceeds
+// the per-row byte cap is refused at the DB before materializing, so a hostile set
+// of huge rows cannot be loaded into memory and decoded.
+func TestFetchLogsByInstructionTopic1_RejectsOversizedData(t *testing.T) {
+	cdb := newMemoryDBWithLogs(t)
+	instructionID := common.HexToHash("0xdeadbeef")
+	eventHash := "abcd"
+	require.NoError(t, cdb.Create(&database.Log{
+		Topic0:          eventHash,
+		Topic1:          strings.TrimPrefix(instructionID.Hex(), "0x"),
+		Data:            strings.Repeat("a", maxEventDataHexLen+2), // over the per-row byte cap
+		Address:         testContractAddressStored,
+		TransactionHash: strings.Repeat("0", 64),
+		LogIndex:        0,
+		BlockNumber:     10,
+		Timestamp:       1700000000,
+	}).Error)
+
+	repo := NewDBRepo(nil, cdb, testContractAddress)
+	_, err := repo.FetchLogsByInstructionTopic1(context.Background(), eventHash, instructionID)
+	require.ErrorIs(t, err, ErrDatabase)
+	require.ErrorContains(t, err, "exceed")
+}

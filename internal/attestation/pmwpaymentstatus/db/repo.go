@@ -26,6 +26,16 @@ var (
 // index and is refused rather than loaded and decoded unboundedly.
 const maxInstructionLogs = 4096
 
+// maxEventDataBytes bounds a single event row's data. An ABI-encoded instruction
+// message is a few hundred bytes; a far larger row is corrupt/hostile. Enforced at
+// the DB (LENGTH(data) over its hex encoding, so 2 chars per byte) BEFORE the rows
+// are materialized, so a set of huge rows is refused without being loaded — with
+// maxInstructionLogs this also caps aggregate memory (rows x bytes).
+const (
+	maxEventDataBytes  = 16 * 1024
+	maxEventDataHexLen = 2 * maxEventDataBytes // Log.Data is stored as hex
+)
+
 type ChainQuery struct {
 	SourceAddress string
 	Nonce         uint64
@@ -83,6 +93,12 @@ func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, inst
 // first. Same question, different topic position — which is this method's
 // business rather than something each caller patches around.
 func (r *DBRepo) FetchLogsByInstructionTopic1(ctx context.Context, eventHash string, instructionID common.Hash) ([]*types.Log, error) {
+	if err := r.rejectOversizedLogs(ctx,
+		"address = ? AND topic0 = ? AND topic1 = ?",
+		r.contractAddress, removeHexPrefix(eventHash), removeHexPrefix(instructionID.Hex()),
+	); err != nil {
+		return nil, fmt.Errorf("instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, err)
+	}
 	var dbLogs []database.Log
 	err := r.cChainDb.WithContext(ctx).
 		Where("address = ? AND topic0 = ? AND topic1 = ?",
@@ -118,6 +134,12 @@ func (r *DBRepo) FetchLogsByInstructionTopic1(ctx context.Context, eventHash str
 // — multiple rows are expected here, one per payment in the batch, and duplicates
 // are not an error. The caller filters the decoded messages by paymentId.
 func (r *DBRepo) FetchInstructionLogsForID(ctx context.Context, eventHash string, instructionID common.Hash) ([]*types.Log, error) {
+	if err := r.rejectOversizedLogs(ctx,
+		"address = ? AND topic0 = ? AND topic1 = ? AND topic2 = ?",
+		r.contractAddress, removeHexPrefix(eventHash), removeHexPrefix(common.HexToHash("").String()), removeHexPrefix(instructionID.Hex()),
+	); err != nil {
+		return nil, fmt.Errorf("instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, err)
+	}
 	var dbLogs []database.Log
 	err := r.cChainDb.WithContext(ctx).
 		Where("address = ? AND topic0 = ? AND topic1 = ? AND topic2 = ?",
@@ -146,6 +168,25 @@ func (r *DBRepo) FetchInstructionLogsForID(ctx context.Context, eventHash string
 		logs = append(logs, chainLog)
 	}
 	return logs, nil
+}
+
+// rejectOversizedLogs fails closed if any row matching where has data larger than
+// maxEventDataBytes. It is a COUNT over data LENGTHs only — no row data is
+// transferred — run BEFORE the rows are materialized, so a set of huge rows is
+// refused rather than loaded into memory and decoded.
+func (r *DBRepo) rejectOversizedLogs(ctx context.Context, where string, args ...any) error {
+	countArgs := append(append([]any{}, args...), maxEventDataHexLen)
+	var oversized int64
+	if err := r.cChainDb.WithContext(ctx).
+		Model(&database.Log{}).
+		Where(where+" AND LENGTH(data) > ?", countArgs...).
+		Count(&oversized).Error; err != nil {
+		return fmt.Errorf("cannot size-check event logs: %w: %w", ErrDatabase, err)
+	}
+	if oversized > 0 {
+		return fmt.Errorf("%d event rows exceed %d bytes; refusing to load an unbounded payload: %w", oversized, maxEventDataBytes, ErrDatabase)
+	}
+	return nil
 }
 
 // normalizeAddress returns the address in the lowercase, 0x-stripped form the indexer
