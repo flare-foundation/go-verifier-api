@@ -225,3 +225,15 @@ func TestInFlightCapFailsFast(t *testing.T) {
 	_, err := r.Batch(context.Background(), "aa11")
 	require.ErrorIs(t, err, ErrNodeUnavailable)
 }
+
+// TestOutputAddressFailsClosedOnMissingAnchor: the genesis anchor is
+// registry-guaranteed, so a "no such transaction" (-5) here is a node fault
+// (wrong chain / no -txindex), not absence — it must fail closed, never "".
+func TestOutputAddressFailsClosedOnMissingAnchor(t *testing.T) {
+	f := &fakeNode{txErrCode: rpcTxNotFound}
+	srv := f.serve()
+	defer srv.Close()
+	addr, err := NewRepo(srv.URL, 1).OutputAddress(context.Background(), "aa11", 0)
+	require.Equal(t, "", addr)
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}

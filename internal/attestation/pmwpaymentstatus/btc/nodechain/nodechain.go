@@ -261,17 +261,21 @@ func (r *Repo) OutputAddress(ctx context.Context, txid string, vout uint32) (str
 	var tx rawTx
 	err := r.call(ctx, "getrawtransaction", []any{txid, verbosityPrevout}, &tx)
 	if err != nil {
-		if isTxNotFound(err) {
-			return "", nil
-		}
+		// The genesis anchor is registry-guaranteed to exist, so even "no such
+		// transaction" (-5) is a node fault here — missing -txindex, an unsynced
+		// node, or the wrong chain — never a legitimate absence. Fail closed so a
+		// wrong-chain/misconfigured node cannot mint a false not-found.
 		return "", asNodeUnavailable(err)
 	}
 	for _, o := range tx.Vout {
 		if o.N == vout {
-			return o.ScriptPubKey.address(), nil
+			if addr := o.ScriptPubKey.address(); addr != "" {
+				return addr, nil
+			}
+			return "", fmt.Errorf("%w: anchor output %s:%d pays no single address", ErrNodeUnavailable, txid, vout)
 		}
 	}
-	return "", nil
+	return "", fmt.Errorf("%w: anchor output %s:%d not present in the transaction", ErrNodeUnavailable, txid, vout)
 }
 
 // Chain returns the network the node serves ("main", "test", "signet" or

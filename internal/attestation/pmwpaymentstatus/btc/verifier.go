@@ -9,6 +9,8 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/btcsuite/btcd/btcutil"
@@ -38,8 +40,25 @@ var ErrUnsupportedSource = errors.New("unsupported source id for BTC payment-sta
 // chain than the verifier expects (a wrong-chain node). Maps to HTTP 503.
 var ErrNetworkMismatch = errors.New("bitcoin node is on the wrong network")
 
-// networkPinTimeout bounds a single getblockchaininfo probe used to pin the chain.
-const networkPinTimeout = 5 * time.Second
+// ErrNetworkUnverified is the fail-closed error returned when the node's chain
+// has not yet been confirmed and a probe is in flight or recently failed with no
+// cached cause. Maps to HTTP 503.
+var ErrNetworkUnverified = errors.New("bitcoin chain not yet verified")
+
+const (
+	// networkPinTimeout bounds a single getblockchaininfo probe used to pin the chain.
+	networkPinTimeout = 5 * time.Second
+	// networkVerifyTTL is how long a confirmed chain is trusted before Verify
+	// re-checks, so a node repointed to a different chain is caught within it.
+	networkVerifyTTL = 30 * time.Minute
+	// networkProbeCooldown bounds how often an unverified node is re-probed while
+	// it stays unreachable/wrong, so a request burst does not stampede probes.
+	networkProbeCooldown = 10 * time.Second
+)
+
+// probeResult boxes a probe's error so it can be stored atomically. A nil err
+// means the last probe succeeded.
+type probeResult struct{ err error }
 
 // chainProber reports the chain a Bitcoin node serves; *nodechain.Repo satisfies
 // it. An interface so the pin can be exercised without a live node.
@@ -136,9 +155,95 @@ type BtcVerifier struct {
 	Resolver Resolver
 	Config   *config.PMWPaymentStatusConfig
 	Params   *chaincfg.Params
-	// prober reads the node's chain for the startup network pin (VerifyNetwork);
-	// nil disables the pin (tests that inject stub sources).
+	// prober reads the node's chain for the network pin (VerifyNetwork /
+	// ensureNetworkVerified); nil disables the pin (tests that inject stub sources).
 	prober chainProber
+
+	// Request-path pin state, mirroring PMWMultisigUtxoConfigured: lastVerifiedNano
+	// is when the chain was last confirmed (0 = never); until it is fresh (within
+	// networkVerifyTTL) Verify fails closed, so a node repointed to another chain
+	// is re-detected within the TTL rather than minting false not-founds.
+	lastVerifiedNano atomic.Int64
+	verifyMu         sync.Mutex
+	lastAttemptNano  atomic.Int64
+	lastProbeErr     atomic.Pointer[probeResult]
+	now              func() time.Time // overridable in tests
+}
+
+// clock returns the current time, using the injected now when set (tests).
+func (v *BtcVerifier) clock() time.Time {
+	if v.now != nil {
+		return v.now()
+	}
+	return time.Now()
+}
+
+// verifiedFresh reports whether the chain was confirmed within networkVerifyTTL.
+// The age >= 0 bound guards a wall-clock rollback from extending trust.
+func (v *BtcVerifier) verifiedFresh() bool {
+	last := v.lastVerifiedNano.Load()
+	if last == 0 {
+		return false
+	}
+	age := v.clock().Sub(time.Unix(0, last))
+	return age >= 0 && age < networkVerifyTTL
+}
+
+// checkNetwork probes the node's chain once: nil (and marks verified) when it
+// matches Params; ErrNetworkMismatch on a confirmed wrong chain; a wrapped fetch
+// error when the chain cannot be read.
+func (v *BtcVerifier) checkNetwork(ctx context.Context) error {
+	expected, ok := expectedChain(v.Params)
+	if !ok {
+		return fmt.Errorf("%w: params have no chain mapping", ErrUnsupportedSource)
+	}
+	got, err := v.prober.Chain(ctx)
+	if err != nil {
+		return err
+	}
+	if got != expected {
+		return fmt.Errorf("%w: node chain %q but verifier expects %q", ErrNetworkMismatch, got, expected)
+	}
+	v.lastVerifiedNano.Store(v.clock().UnixNano())
+	return nil
+}
+
+// ensureNetworkVerified fails closed until the node's chain has been confirmed. A
+// fresh confirmation is a lock-free no-op; otherwise it re-probes without
+// stampeding (TryLock + a per-cooldown negative cache), so a wrong-chain or
+// unreachable node keeps every request rejected and a live repoint is caught
+// within the TTL. A nil prober disables the pin (tests with stub sources).
+func (v *BtcVerifier) ensureNetworkVerified(ctx context.Context) error {
+	if v.prober == nil || v.verifiedFresh() {
+		return nil
+	}
+	if !v.verifyMu.TryLock() {
+		return v.cachedProbeErr()
+	}
+	defer v.verifyMu.Unlock()
+	if v.verifiedFresh() {
+		return nil
+	}
+	if last := v.lastAttemptNano.Load(); last != 0 {
+		if age := v.clock().Sub(time.Unix(0, last)); age >= 0 && age < networkProbeCooldown {
+			return v.cachedProbeErr()
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, networkPinTimeout)
+	defer cancel()
+	err := v.checkNetwork(ctx)
+	v.lastAttemptNano.Store(v.clock().UnixNano())
+	v.lastProbeErr.Store(&probeResult{err: err})
+	return err
+}
+
+// cachedProbeErr returns the most recent probe's error so a stampeding caller can
+// fail closed without launching its own probe.
+func (v *BtcVerifier) cachedProbeErr() error {
+	if p := v.lastProbeErr.Load(); p != nil && p.err != nil {
+		return p.err
+	}
+	return ErrNetworkUnverified
 }
 
 // NewBtcVerifier wires a BtcVerifier from config, the verifier-utxo-indexer
@@ -167,7 +272,7 @@ func NewBtcVerifier(cfg *config.PMWPaymentStatusConfig, cChainDB *gorm.DB) (*Btc
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse the PaymentBatched ABI: %w", err)
 	}
-	nodeRepo := nodechain.NewRepo(cfg.SourceRPCURL, cfg.MinConfirmations)
+	nodeRepo := nodechain.NewRepo(cfg.SourceRPCURL, settlementMinConfirmations)
 	return &BtcVerifier{
 		Repo:     repo,
 		Messages: PaymentBatchedMessages{Repo: repo, ABI: channelABI},
@@ -176,8 +281,16 @@ func NewBtcVerifier(cfg *config.PMWPaymentStatusConfig, cChainDB *gorm.DB) (*Btc
 		Config:   cfg,
 		Params:   params,
 		prober:   nodeRepo,
+		now:      time.Now,
 	}, nil
 }
+
+// settlementMinConfirmations is the confirmation-depth floor a settling batch
+// must meet. It is a FIXED constant, not per-deployment config: the depth changes
+// the verdict (status 0 vs 2 for a borderline-depth batch), so every data
+// provider must use the same value or they split attestation consensus. Six
+// blocks is Bitcoin's conventional finality for a proof that closes a redemption.
+const settlementMinConfirmations uint64 = 6
 
 // expectedChain returns the getblockchaininfo chain name the verifier's params
 // correspond to ("main", "test", "signet" or "regtest"), and whether they map.
@@ -197,33 +310,27 @@ func expectedChain(params *chaincfg.Params) (string, bool) {
 }
 
 // VerifyNetwork pins the configured Bitcoin node to the chain the verifier's
-// network expects, so a node misconfigured to a different chain cannot answer a
-// genesis-anchor lookup as "missing" and mint a false not-found. Run once at
-// startup: a confirmed wrong chain fails boot; an unreachable node does not block
-// boot (the request path already fails closed — node faults map to 503 via
-// ErrNodeUnavailable, never a status-2). Mirrors the PMWMultisigUtxoConfigured
-// startup pin. (A post-boot repoint to a different REACHABLE chain is not
-// re-checked here — that request-path TTL guard is a deferred follow-up.)
+// network expects. Run once at startup: a confirmed wrong chain fails boot; an
+// unreachable node does not block boot, because the request path stays fail-closed
+// via ensureNetworkVerified (which re-checks within networkVerifyTTL and rejects
+// until the chain is confirmed). Mirrors the PMWMultisigUtxoConfigured pin.
 func (v *BtcVerifier) VerifyNetwork(ctx context.Context) error {
 	if v.prober == nil {
 		return nil
 	}
-	expected, ok := expectedChain(v.Params)
-	if !ok {
-		return fmt.Errorf("%w: params have no chain mapping", ErrUnsupportedSource)
-	}
 	ctx, cancel := context.WithTimeout(ctx, networkPinTimeout)
 	defer cancel()
-	got, err := v.prober.Chain(ctx)
-	if err != nil {
-		logger.Warnf("PMWPaymentStatus: Bitcoin chain not verified at startup for source %s: %v; requests fail closed until the node is reachable",
+	err := v.checkNetwork(ctx)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ErrNetworkMismatch):
+		return err
+	default:
+		logger.Warnf("PMWPaymentStatus: Bitcoin chain not verified at startup for source %s: %v; requests fail closed until it verifies",
 			v.Config.SourceIDPair.SourceID, err)
 		return nil
 	}
-	if got != expected {
-		return fmt.Errorf("%w: node chain %q but verifier expects %q", ErrNetworkMismatch, got, expected)
-	}
-	return nil
 }
 
 // Close releases the resolver's RPC connection, mirroring the XRP verifier.
@@ -246,6 +353,14 @@ func paramsForSource(source config.SourceName, network string) (*chaincfg.Params
 
 func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequestBody) (fdc2.IPMWPaymentStatusResponseBody, error) {
 	empty := fdc2.IPMWPaymentStatusResponseBody{}
+
+	// Fail closed until the node's chain is confirmed. Defense-in-depth alongside
+	// the fail-closed anchor lookup: a node repointed to a different chain after
+	// boot is re-detected within networkVerifyTTL rather than answering off it.
+	if err := v.ensureNetworkVerified(ctx); err != nil {
+		return empty, err
+	}
+
 	account := req.SenderAddress
 	sourceID := v.Config.SourceIDPair.SourceIDEncoded
 
@@ -273,11 +388,22 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 	if err := checkMessageConsistency(message, sourceID, account, req.PaymentId, batchPaymentID); err != nil {
 		return empty, err
 	}
+	// This verifier proves only native satoshi delivery: it matches value outputs
+	// to the recipient script, nothing about a token. A non-empty TokenId means the
+	// instruction is for another asset, so attesting delivery from the sat outputs
+	// would sign a claim about an asset never checked. Reject it (as the XRP path
+	// does), fail closed rather than mis-prove.
+	if len(message.TokenId) != 0 {
+		return empty, fmt.Errorf("non-native BTC payment (TokenId set) is not supported: %w", paymentdb.ErrDatabase)
+	}
 
 	// Locate the settling batch. The anchor chain is identified by its reused
 	// anchor address: resolve the chain's genesis anchor outpoint on-chain and
-	// turn it into an address. An absent anchor or batch means the settlement is
-	// not confirmed — a not-found (status 2) attestation.
+	// turn it into an address. The anchor is registry-guaranteed to exist, so —
+	// unlike an absent settling batch below — an unresolvable anchor is NOT a
+	// legitimate not-found: it means the node cannot see a transaction the chain
+	// definitely has (no -txindex, unsynced, or wrong chain). Fail closed so a
+	// misconfigured node cannot mint a false status-2.
 	anchorTxid, anchorVout, err := v.Resolver.ResolveAnchorOutpoint(ctx, sourceID, account, message.AnchorIndex)
 	if err != nil {
 		return empty, err
@@ -287,7 +413,8 @@ func (v *BtcVerifier) Verify(ctx context.Context, req fdc2.IPMWPaymentStatusRequ
 		return empty, err
 	}
 	if anchorAddress == "" {
-		return notFoundResponse(message), nil
+		return empty, fmt.Errorf("registry anchor %s:%d for chain %d did not resolve to an address: %w",
+			anchorTxid, anchorVout, message.AnchorIndex, paymentdb.ErrDatabase)
 	}
 	batch, err := v.Source.Batch(ctx, locator{
 		TransactionID: txidToHex(req.TransactionId),
