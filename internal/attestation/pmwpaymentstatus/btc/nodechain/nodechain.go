@@ -52,6 +52,11 @@ const (
 	// maxConcurrentRPC is the hard in-flight cap; beyond it calls fail fast
 	// (retryable) rather than piling up goroutines/memory.
 	maxConcurrentRPC = 64
+	// maxConcurrentChainRPC is a small RESERVED pool for the getblockchaininfo
+	// network pin, kept separate from maxConcurrentRPC (and on its own transport)
+	// so a burst of transaction lookups cannot starve the safety-critical chain
+	// probe — the same split PMWMultisigUtxoConfigured's client uses.
+	maxConcurrentChainRPC = 4
 )
 
 // ErrNodeUnavailable marks a Bitcoin-node fault that is NOT a definitive "no such
@@ -63,9 +68,11 @@ var ErrNodeUnavailable = errors.New("bitcoin node unavailable")
 // Repo reads batch transactions from a Bitcoin node over JSON-RPC.
 type Repo struct {
 	url              string
-	http             *http.Client
+	http             *http.Client // transaction calls (getrawtransaction/getblockheader)
+	chainHTTP        *http.Client // separate pool for the getblockchaininfo pin
 	minConfirmations int64
-	sem              chan struct{} // in-flight RPC cap; fail-fast when full
+	sem              chan struct{} // transaction in-flight cap; fail-fast when full
+	chainSem         chan struct{} // reserved pool for the chain pin
 }
 
 // NewRepo constructs a Repo against a Bitcoin JSON-RPC endpoint. minConfirmations
@@ -81,8 +88,16 @@ func NewRepo(url string, minConfirmations uint64) *Repo {
 				MaxIdleConnsPerHost: maxIdleConnsPerHost,
 			},
 		},
+		chainHTTP: &http.Client{
+			Timeout: requestTimeout,
+			Transport: &http.Transport{
+				MaxConnsPerHost:     maxConcurrentChainRPC,
+				MaxIdleConnsPerHost: maxConcurrentChainRPC,
+			},
+		},
 		minConfirmations: int64(minConfirmations),
 		sem:              make(chan struct{}, maxConcurrentRPC),
+		chainSem:         make(chan struct{}, maxConcurrentChainRPC),
 	}
 }
 
@@ -143,7 +158,7 @@ type blockHeader struct {
 // as a payment that did not happen.
 func (r *Repo) Batch(ctx context.Context, txid string) (*batchtx.BatchTx, error) {
 	var tx rawTx
-	err := r.call(ctx, "getrawtransaction", []any{txid, verbosityPrevout}, &tx)
+	err := r.call(ctx, r.sem, r.http, "getrawtransaction", []any{txid, verbosityPrevout}, &tx)
 	if err != nil {
 		if isTxNotFound(err) {
 			return nil, nil
@@ -160,7 +175,7 @@ func (r *Repo) Batch(ctx context.Context, txid string) (*batchtx.BatchTx, error)
 	// that orphaned block, so the header's own confirmations are what separate
 	// a settled batch from one the chain has abandoned.
 	var header blockHeader
-	if err := r.call(ctx, "getblockheader", []any{tx.BlockHash}, &header); err != nil {
+	if err := r.call(ctx, r.sem, r.http, "getblockheader", []any{tx.BlockHash}, &header); err != nil {
 		if isTxNotFound(err) {
 			return nil, nil
 		}
@@ -259,7 +274,7 @@ func anchorInputAddress(tx rawTx) string {
 // -txindex=1 is what makes that lookup possible.
 func (r *Repo) OutputAddress(ctx context.Context, txid string, vout uint32) (string, error) {
 	var tx rawTx
-	err := r.call(ctx, "getrawtransaction", []any{txid, verbosityPrevout}, &tx)
+	err := r.call(ctx, r.sem, r.http, "getrawtransaction", []any{txid, verbosityPrevout}, &tx)
 	if err != nil {
 		// The genesis anchor is registry-guaranteed to exist, so even "no such
 		// transaction" (-5) is a node fault here — missing -txindex, an unsynced
@@ -285,7 +300,7 @@ func (r *Repo) Chain(ctx context.Context) (string, error) {
 	var info struct {
 		Chain string `json:"chain"`
 	}
-	if err := r.call(ctx, "getblockchaininfo", []any{}, &info); err != nil {
+	if err := r.call(ctx, r.chainSem, r.chainHTTP, "getblockchaininfo", []any{}, &info); err != nil {
 		return "", asNodeUnavailable(err)
 	}
 	return info.Chain, nil
@@ -326,12 +341,12 @@ func asNodeUnavailable(err error) error {
 	return fmt.Errorf("%w: %w", ErrNodeUnavailable, err)
 }
 
-func (r *Repo) call(ctx context.Context, method string, params []any, out any) error {
+func (r *Repo) call(ctx context.Context, sem chan struct{}, httpClient *http.Client, method string, params []any, out any) error {
 	// Fail fast when already at the in-flight cap so a flood cannot grow
 	// goroutines/memory without bound; the miss is retryable.
 	select {
-	case r.sem <- struct{}{}:
-		defer func() { <-r.sem }()
+	case sem <- struct{}{}:
+		defer func() { <-sem }()
 	default:
 		return fmt.Errorf("%w: too many concurrent node RPC calls", ErrNodeUnavailable)
 	}
@@ -346,7 +361,7 @@ func (r *Repo) call(ctx context.Context, method string, params []any, out any) e
 	}
 	req.Header.Set("Content-Type", "text/plain")
 
-	resp, err := r.http.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("%w: calling %s: %w", ErrNodeUnavailable, method, err)
 	}

@@ -237,3 +237,26 @@ func TestOutputAddressFailsClosedOnMissingAnchor(t *testing.T) {
 	require.Equal(t, "", addr)
 	require.ErrorIs(t, err, ErrNodeUnavailable)
 }
+
+// TestChainProbeHasDedicatedPool: the chain pin uses its own semaphore, so a
+// transaction-call flood that fills the gettxout pool cannot starve the
+// safety-critical probe.
+func TestChainProbeHasDedicatedPool(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"chain": "signet"}, "error": nil})
+	}))
+	defer srv.Close()
+	r := NewRepo(srv.URL, 1)
+	for range cap(r.sem) { // saturate the transaction pool
+		r.sem <- struct{}{}
+	}
+	got, err := r.Chain(context.Background()) // still served from the reserved chain pool
+	require.NoError(t, err)
+	require.Equal(t, "signet", got)
+
+	for range cap(r.chainSem) { // now saturate the chain pool too
+		r.chainSem <- struct{}{}
+	}
+	_, err = r.Chain(context.Background())
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
