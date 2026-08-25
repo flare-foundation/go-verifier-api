@@ -297,6 +297,29 @@ func TestFetchLogsByInstructionTopic1_OversizedOtherContractDoesNotPoison(t *tes
 	require.Len(t, logs, 1)
 }
 
+// TestFetchLogsByInstructionTopic1_NotFound: an empty result set is a definite
+// absence (ErrRecordNotFound), distinct from a database fault.
+func TestFetchLogsByInstructionTopic1_NotFound(t *testing.T) {
+	repo := NewDBRepo(nil, newMemoryDBWithLogs(t), testContractAddress)
+	_, err := repo.FetchLogsByInstructionTopic1(context.Background(), testEventHash, common.HexToHash("0xdeadbeef"))
+	require.ErrorIs(t, err, ErrRecordNotFound)
+}
+
+// TestFetchLogsByInstructionTopic1_MalformedStoredLog: a stored row whose data is
+// not valid hex cannot be converted to a chain log, so the fetch fails rather than
+// returning a partial set.
+func TestFetchLogsByInstructionTopic1_MalformedStoredLog(t *testing.T) {
+	instructionID := common.HexToHash("0xdeadbeef")
+	db := newMemoryDBWithLogs(t)
+	require.NoError(t, db.Create(&[]database.Log{
+		topic1Log(instructionID, "zz", testContractAddressStored, 0), // "zz" is not valid hex
+	}).Error)
+
+	repo := NewDBRepo(nil, db, testContractAddress)
+	_, err := repo.FetchLogsByInstructionTopic1(context.Background(), testEventHash, instructionID)
+	require.Error(t, err)
+}
+
 // instructionLog builds a TeeInstructionsSent-shaped row for
 // FetchInstructionLogsForID, where topic1 is the (zero) extension id and topic2
 // is the instruction id — the opposite topic layout from PaymentBatched.
@@ -398,6 +421,22 @@ func TestFetchInstructionLogsForID_ClosedDB(t *testing.T) {
 	repo := NewDBRepo(nil, newClosedDB(t), testContractAddress)
 	_, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, common.HexToHash("0xdeadbeef"))
 	require.ErrorIs(t, err, ErrDatabase)
+}
+
+// TestFetchInstructionLogsForID_MalformedStoredLog: a stored row whose data is not
+// valid hex cannot be converted to a chain log, so the fetch fails rather than
+// returning a partial batch.
+func TestFetchInstructionLogsForID_MalformedStoredLog(t *testing.T) {
+	instructionID := common.HexToHash("0xdeadbeef")
+	db := newMemoryDBWithLogs(t)
+	require.NoError(t, db.Create(&[]database.Log{
+		instructionLog(instructionID, "zz", testContractAddressStored, 0), // "zz" is not valid hex
+	}).Error)
+
+	repo := NewDBRepo(nil, db, testContractAddress)
+	_, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, instructionID)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "cannot convert log for instruction")
 }
 
 func TestFetchLogsByInstructionTopic1_ClosedDB(t *testing.T) {

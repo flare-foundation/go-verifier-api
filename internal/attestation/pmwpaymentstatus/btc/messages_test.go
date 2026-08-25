@@ -77,6 +77,15 @@ func TestPaymentBatchedMessagesRejectsAnABIWithoutTheEvent(t *testing.T) {
 	require.ErrorContains(t, err, "PaymentBatched")
 }
 
+// TestTeeInstructionMessagesRejectsMissingEventABI: an ABI without the
+// TeeInstructionsSent event is a misconfiguration, caught before any repo access —
+// never read as a missing payment.
+func TestTeeInstructionMessagesRejectsMissingEventABI(t *testing.T) {
+	src := TeeInstructionMessages{Repo: stubRepo{}, ABI: abi.ABI{}}
+	_, err := src.Messages(context.Background(), common.Hash{}, common.Hash{})
+	require.Error(t, err)
+}
+
 // TestPaymentBatchedMessagesPropagatesRepoError: a repo/database fault is a node
 // fault (retryable), never an empty batch that would read as "payment not found".
 func TestPaymentBatchedMessagesPropagatesRepoError(t *testing.T) {

@@ -168,6 +168,20 @@ func TestBuildBtcPMWPaymentStatusConfigError(t *testing.T) {
 		require.Nil(t, cfg)
 		require.ErrorContains(t, err, "nosuchnet")
 	})
+	t.Run("invalid TEE_PAYMENTS_CONTRACT_ADDRESS hex", func(t *testing.T) {
+		env := btcEnv()
+		env.TeePaymentsContractAddress = "not-hex"
+		cfg, err := config.BuildPMWPaymentStatusConfig(env)
+		require.Nil(t, cfg)
+		require.ErrorContains(t, err, "TEE_PAYMENTS_CONTRACT_ADDRESS is not a valid hex address")
+	})
+	t.Run("invalid attestation type", func(t *testing.T) {
+		env := btcEnv()
+		env.AttestationType = "UnknownType"
+		cfg, err := config.BuildPMWPaymentStatusConfig(env)
+		require.Nil(t, cfg)
+		require.ErrorContains(t, err, "UnknownType")
+	})
 }
 
 func TestBuildPMWPaymentStatusConfigSuccess(t *testing.T) {

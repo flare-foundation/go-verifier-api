@@ -488,6 +488,38 @@ func TestBatchRejectsNegativeOutputValue(t *testing.T) {
 	require.ErrorIs(t, err, ErrNodeUnavailable)
 }
 
+// TestBatchRejectsInvalidPrevoutValue: with no fee field, the fee is summed from
+// prevouts; a negative prevout amount is corrupt node data and fails closed.
+func TestBatchRejectsInvalidPrevoutValue(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vin":[{"prevout":{"value":-1,"scriptPubKey":{"hex":"0014aa","address":"a"}}}],
+		  "vout":[{"value":0.0005,"n":0,"scriptPubKey":{"hex":"0014bb"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestBatchRejectsPrevoutSumOverflow: summed prevout values are bounded by the
+// money supply, so a hostile node cannot overflow the input sum into a bogus fee.
+func TestBatchRejectsPrevoutSumOverflow(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vin":[{"prevout":{"value":21000000,"scriptPubKey":{"hex":"0014aa","address":"a"}}},
+		         {"prevout":{"value":21000000,"scriptPubKey":{"hex":"0014aa","address":"a"}}}],
+		  "vout":[{"value":0.0005,"n":0,"scriptPubKey":{"hex":"0014bb"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.ErrorContains(t, err, "money supply")
+}
+
 // TestChainRejectsMalformedResult: a getblockchaininfo result that is not an
 // object cannot be decoded into the chain field, so the pin fails closed rather
 // than reading an empty chain.

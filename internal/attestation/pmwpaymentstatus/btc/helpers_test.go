@@ -14,6 +14,14 @@ import (
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 )
 
+// TestNewOnChainResolverRejectsMalformedURL: a Flare RPC URL that does not parse
+// fails resolver construction rather than deferring to first use.
+func TestNewOnChainResolverRejectsMalformedURL(t *testing.T) {
+	r, err := NewOnChainResolver("http://[::1", common.HexToAddress("0xC1"))
+	require.Error(t, err)
+	require.Nil(t, r)
+}
+
 // TestBaseResponseNormalizesNilFields: a message with nil TokenId/Amount/MaxFee
 // must yield a response whose monetary fields are never nil, so the ABI encoder
 // cannot panic on a missing big.Int.
