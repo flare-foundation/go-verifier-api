@@ -30,14 +30,7 @@ const (
 	EnvChainID                        = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
 	EnvBtcNetwork                     = "BTC_NETWORK"                   // Bitcoin network (mainnet/signet/testnet/regtest) — used by PMWMultisigUtxoConfigured/PMWPaymentStatus. Optional; defaults from SOURCE_ID (BTC→mainnet, testBTC→signet).
 	EnvChannelAddress                 = "CHANNEL_ADDRESS"               // UtxoInstructionChannel address — used by BTC PMWPaymentStatus (node mode: PaymentBatched event source).
-	EnvBtcMinConfirmations            = "BTC_MIN_CONFIRMATIONS"         // Confirmation-depth floor for BTC PMWPaymentStatus batch reads. Optional; defaults to DefaultBtcMinConfirmations.
 )
-
-// DefaultBtcMinConfirmations is the confirmation-depth floor a BTC PMWPaymentStatus
-// batch must meet when BTC_MIN_CONFIRMATIONS is unset. A settlement proof closes a
-// redemption, so a shallow depth is reorg-fragile; six blocks is Bitcoin's
-// conventional finality.
-const DefaultBtcMinConfirmations uint64 = 6
 
 // DefaultTeeAudience is the aud claim the verifier expects on Confidential Space
 // attestation tokens when TEE_AUDIENCE is not set. It must match the audience
@@ -61,7 +54,6 @@ type EnvConfig struct {
 	ChainID                        string
 	BtcNetwork                     string
 	ChannelAddress                 string
-	BtcMinConfirmations            string
 	Port                           string
 	APIKeys                        []string
 	// AttestationType is the single type view used by the per-type config loaders
@@ -192,8 +184,6 @@ type PMWPaymentStatusConfig struct {
 	// BtcNetwork overrides the network the source id implies; addresses are
 	// ENCODED with these parameters (see BtcNetworkParams).
 	BtcNetwork string
-	// MinConfirmations is the confirmation-depth floor for a settling batch.
-	MinConfirmations uint64
 }
 
 type PMWFeeProofConfig struct {

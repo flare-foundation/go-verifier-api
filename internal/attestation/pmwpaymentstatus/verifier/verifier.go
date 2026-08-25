@@ -41,6 +41,7 @@ var btcConstructor = func(
 	}
 	// Pin the node's chain at startup: a definite wrong-chain node fails boot.
 	if err := v.VerifyNetwork(context.Background()); err != nil {
+		_ = v.Close() // release the Flare RPC client the verifier just dialed
 		return nil, err
 	}
 	return v, nil
