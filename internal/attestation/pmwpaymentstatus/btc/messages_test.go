@@ -2,6 +2,7 @@ package btcverifier
 
 import (
 	"context"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/stretchr/testify/require"
+
+	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 )
 
 func cspABI(t *testing.T) abi.ABI {
@@ -29,7 +32,17 @@ func encodePaymentBatched(t *testing.T, paymentID, batchPaymentID, nonce uint64)
 
 	data, err := cspABI(t).Events["PaymentBatched"].Inputs.NonIndexed().Pack(msgBytes)
 	require.NoError(t, err)
-	return &types.Log{Data: data}
+	// PaymentBatched indexes (instructionId, paymentId): topic[0]=signature,
+	// topic[1]=instructionId, topic[2]=paymentId. The decoder binds the message's
+	// paymentId to topic[2], so the fixture must carry it.
+	return &types.Log{
+		Topics: []common.Hash{
+			{}, // [0] event signature (unchecked)
+			{}, // [1] instruction id (unchecked here)
+			common.BigToHash(new(big.Int).SetUint64(paymentID)),
+		},
+		Data: data,
+	}
 }
 
 func TestPaymentBatchedMessagesDecodesEveryPaymentInTheBatch(t *testing.T) {
@@ -60,4 +73,14 @@ func TestPaymentBatchedMessagesRejectsAnABIWithoutTheEvent(t *testing.T) {
 	src := PaymentBatchedMessages{Repo: stubRepo{}, ABI: abi.ABI{}}
 	_, err := src.Messages(context.Background(), common.Hash{}, common.Hash{})
 	require.ErrorContains(t, err, "PaymentBatched")
+}
+
+// TestPaymentBatchedMessagesRejectsPaymentIdTopicMismatch: the decoded message's
+// paymentId must equal the indexed topic; a disagreement is a corrupt row.
+func TestPaymentBatchedMessagesRejectsPaymentIdTopicMismatch(t *testing.T) {
+	log := encodePaymentBatched(t, 7, 7, 3)                     // body says paymentId 7
+	log.Topics[2] = common.BigToHash(new(big.Int).SetUint64(8)) // topic says 8
+	src := PaymentBatchedMessages{Repo: stubRepo{logs: []*types.Log{log}}, ABI: cspABI(t)}
+	_, err := src.Messages(context.Background(), common.Hash{}, common.Hash{})
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
 }

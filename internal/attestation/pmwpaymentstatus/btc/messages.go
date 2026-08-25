@@ -75,6 +75,10 @@ type PaymentBatchedMessages struct {
 // PaymentBatchedEvent is the event name this source reads.
 const PaymentBatchedEvent = "PaymentBatched"
 
+// maxEventDataSize bounds a single event's data before ABI decoding, matching the
+// diamond decoder's guard so a hostile row cannot drive unbounded work.
+const maxEventDataSize = 1 << 20 // 1 MB
+
 func (p PaymentBatchedMessages) Messages(ctx context.Context, instructionID, _ common.Hash) (
 	[]*payments.ITeePaymentsUtxoUtxoPaymentInstructionMessage, error,
 ) {
@@ -92,6 +96,21 @@ func (p PaymentBatchedMessages) Messages(ctx context.Context, instructionID, _ c
 
 	out := make([]*payments.ITeePaymentsUtxoUtxoPaymentInstructionMessage, 0, len(logs))
 	for _, l := range logs {
+		// Bound the event data before decoding, matching the diamond decoder: a
+		// hostile/corrupt row must not be ABI-decoded unbounded.
+		if len(l.Data) > maxEventDataSize {
+			return nil, fmt.Errorf("%s event data too large (%d bytes, max %d): %w",
+				PaymentBatchedEvent, len(l.Data), maxEventDataSize, paymentdb.ErrDatabase)
+		}
+		// PaymentBatched indexes (instructionId, paymentId): topic[0] is the event
+		// signature, topic[1] the instruction id, topic[2] the paymentId. The topic
+		// is the indexer's authoritative paymentId, so bind the decoded message to
+		// it — a decoded body disagreeing with its own topic is a corrupt row.
+		if len(l.Topics) < 3 {
+			return nil, fmt.Errorf("%s log has %d topics, expected at least 3: %w",
+				PaymentBatchedEvent, len(l.Topics), paymentdb.ErrDatabase)
+		}
+
 		// The struct travels as a single `bytes` argument, so the event data is
 		// an ABI-encoded bytes wrapping an ABI-encoded struct: unwrap, then
 		// decode.
@@ -111,6 +130,11 @@ func (p PaymentBatchedMessages) Messages(ctx context.Context, instructionID, _ c
 		m, err := teeinstruction.DecodeUtxoPaymentInstructionMessage(raw)
 		if err != nil {
 			return nil, fmt.Errorf("cannot decode %s message: %v: %w", PaymentBatchedEvent, err, paymentdb.ErrDatabase)
+		}
+		topicPaymentID := l.Topics[2].Big()
+		if !topicPaymentID.IsUint64() || topicPaymentID.Uint64() != m.PaymentId {
+			return nil, fmt.Errorf("%s message paymentId %d disagrees with indexed topic %s: %w",
+				PaymentBatchedEvent, m.PaymentId, l.Topics[2].Hex(), paymentdb.ErrDatabase)
 		}
 		out = append(out, m)
 	}

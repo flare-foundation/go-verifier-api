@@ -20,6 +20,12 @@ var (
 	ErrDatabase = errors.New("database error")
 )
 
+// maxInstructionLogs bounds how many event rows one instruction id may load. A
+// batch's payments share an instruction id, so multiple rows are expected, but the
+// count is bounded by real batch sizes; a larger set signals a corrupt/hostile
+// index and is refused rather than loaded and decoded unboundedly.
+const maxInstructionLogs = 4096
+
 type ChainQuery struct {
 	SourceAddress string
 	Nonce         uint64
@@ -84,12 +90,16 @@ func (r *DBRepo) FetchLogsByInstructionTopic1(ctx context.Context, eventHash str
 			removeHexPrefix(eventHash),
 			removeHexPrefix(instructionID.Hex())).
 		Order("block_number ASC, log_index ASC").
+		Limit(maxInstructionLogs + 1). // +1 to detect an over-cap set rather than silently truncating
 		Find(&dbLogs).Error
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w: %w", instructionID.Hex(), eventHash, ErrDatabase, err)
 	}
 	if len(dbLogs) == 0 {
 		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrRecordNotFound)
+	}
+	if len(dbLogs) > maxInstructionLogs {
+		return nil, fmt.Errorf("instruction %s has more than %d logs; refusing to load an unbounded set: %w", instructionID.Hex(), maxInstructionLogs, ErrDatabase)
 	}
 	logs := make([]*types.Log, 0, len(dbLogs))
 	for _, dbLog := range dbLogs {
@@ -116,12 +126,16 @@ func (r *DBRepo) FetchInstructionLogsForID(ctx context.Context, eventHash string
 			removeHexPrefix(common.HexToHash("").String()), // Only checking for extensionID = 0.
 			removeHexPrefix(instructionID.Hex())).
 		Order("block_number ASC, log_index ASC").
+		Limit(maxInstructionLogs + 1). // +1 to detect an over-cap set rather than silently truncating
 		Find(&dbLogs).Error
 	if err != nil {
 		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w: %w", instructionID.Hex(), eventHash, ErrDatabase, err)
 	}
 	if len(dbLogs) == 0 {
 		return nil, fmt.Errorf("cannot fetch logs for instruction %s, eventHash %s: %w", instructionID.Hex(), eventHash, ErrRecordNotFound)
+	}
+	if len(dbLogs) > maxInstructionLogs {
+		return nil, fmt.Errorf("instruction %s has more than %d logs; refusing to load an unbounded set: %w", instructionID.Hex(), maxInstructionLogs, ErrDatabase)
 	}
 	logs := make([]*types.Log, 0, len(dbLogs))
 	for _, dbLog := range dbLogs {
