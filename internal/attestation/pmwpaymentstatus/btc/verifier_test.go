@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -24,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc/batchtx"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc/nodechain"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
@@ -378,6 +382,51 @@ func TestVerify_MatchingAnchorChainPasses(t *testing.T) {
 func TestNodeSourceRefusesMissingTxid(t *testing.T) {
 	_, err := nodeSource{}.Batch(context.Background(), locator{AnchorAddress: testAnchor, Nonce: 7})
 	require.ErrorIs(t, err, ErrMissingTransactionID)
+}
+
+// nodeServing stands in for a bitcoind, answering getrawtransaction with the
+// given raw transaction JSON so the real nodeSource path can be exercised.
+func nodeServing(t *testing.T, tx string) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch req.Method {
+		case "getrawtransaction":
+			_, _ = w.Write([]byte(`{"result":` + tx + `,"error":null}`))
+		case "getblockheader":
+			_, _ = w.Write([]byte(`{"result":{"height":1,"time":2,"confirmations":6},"error":null}`))
+		default:
+			_, _ = w.Write([]byte(`{"result":null,"error":{"code":-32601,"message":"x"}}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+// TestNodeSourceAnchorAddressReadsNode wires the real nodeSource to a node and
+// confirms AnchorAddress resolves the output's address through nodechain.
+func TestNodeSourceAnchorAddressReadsNode(t *testing.T) {
+	url := nodeServing(t, `{"txid":"aa11","vout":[{"value":0.0005,"n":0,"scriptPubKey":{"hex":"0014bb","address":"bcrt1out0"}}]}`)
+	src := nodeSource{repo: nodechain.NewRepo(url, settlementMinConfirmations)}
+	addr, err := src.AnchorAddress(context.Background(), "aa11", 0)
+	require.NoError(t, err)
+	require.Equal(t, "bcrt1out0", addr)
+}
+
+// TestNodeSourceBatchReadsNode confirms the real nodeSource reads a settled batch
+// by txid through nodechain.
+func TestNodeSourceBatchReadsNode(t *testing.T) {
+	url := nodeServing(t, `{"txid":"aa11","blockhash":"beef","fee":0.00001,
+	  "vin":[{"prevout":{"value":0.001,"scriptPubKey":{"hex":"0014aa","address":"bcrt1anchor"}}}],
+	  "vout":[{"value":0.0009,"n":0,"scriptPubKey":{"hex":"0014bb","address":"bcrt1out0"}}]}`)
+	src := nodeSource{repo: nodechain.NewRepo(url, settlementMinConfirmations)}
+	got, err := src.Batch(context.Background(), locator{TransactionID: "aa11", Nonce: 7})
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, "aa11", got.Txid)
 }
 
 func TestVerify_Undeliverable(t *testing.T) {

@@ -3,8 +3,10 @@ package nodechain
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -304,6 +306,198 @@ func TestTransactionValueSumsCannotOverflow(t *testing.T) {
 	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
 	require.ErrorIs(t, err, ErrNodeUnavailable)
 	require.ErrorContains(t, err, "money supply")
+}
+
+// TestOutputAddressUsesLegacyAddressesField: a pre-22 node reports a single
+// address in the array `addresses` rather than the scalar `address`; the resolver
+// must still return it.
+func TestOutputAddressUsesLegacyAddressesField(t *testing.T) {
+	f := &fakeNode{tx: json.RawMessage(`{"txid":"aa11","vout":[
+	  {"value":0.0005,"n":0,"scriptPubKey":{"hex":"0014bb","addresses":["bcrt1legacy"]}}]}`)}
+	srv := f.serve()
+	defer srv.Close()
+	addr, err := NewRepo(srv.URL, 1).OutputAddress(context.Background(), "aa11", 0)
+	require.NoError(t, err)
+	require.Equal(t, "bcrt1legacy", addr)
+}
+
+// TestOutputAddressFailsWhenOutputPaysNoSingleAddress: an output whose script pays
+// zero or many addresses cannot be turned into the anchor address, so it fails
+// closed rather than returning "".
+func TestOutputAddressFailsWhenOutputPaysNoSingleAddress(t *testing.T) {
+	f := &fakeNode{tx: json.RawMessage(`{"txid":"aa11","vout":[
+	  {"value":0.0005,"n":0,"scriptPubKey":{"hex":"6a00","addresses":["a","b"]}}]}`)}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).OutputAddress(context.Background(), "aa11", 0)
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.ErrorContains(t, err, "no single address")
+}
+
+// TestOutputAddressFailsWhenVoutAbsent: asking for a vout the transaction does not
+// have is a node/registry fault, not an empty address.
+func TestOutputAddressFailsWhenVoutAbsent(t *testing.T) {
+	f := &fakeNode{tx: json.RawMessage(confirmedTxJSON)}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).OutputAddress(context.Background(), "aa11", 9)
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.ErrorContains(t, err, "not present")
+}
+
+// TestOutputAddressRejectsReturnedTxIDMismatch: a node answering with a different
+// transaction than requested is a fault, not this anchor.
+func TestOutputAddressRejectsReturnedTxIDMismatch(t *testing.T) {
+	f := &fakeNode{tx: json.RawMessage(`{"txid":"bb22","vout":[]}`)}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).OutputAddress(context.Background(), "aa11", 0)
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestBatchRejectsInvalidScriptHex: a vout whose scriptPubKey hex is not valid hex
+// is corrupt node data, surfaced as a node fault rather than a settlement.
+func TestBatchRejectsInvalidScriptHex(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vout":[{"value":0.0005,"n":0,"scriptPubKey":{"hex":"zzzz"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestBatchRejectsInvalidFee: a node-reported fee that is not a valid amount is
+// corrupt data, not a zero fee.
+func TestBatchRejectsInvalidFee(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef","fee":21000001,
+		  "vout":[{"value":0.0005,"n":0,"scriptPubKey":{"hex":"0014bb"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestBatchFailsWhenNeitherFeeNorPrevout: with no fee field and an input carrying
+// no prevout, the fee is unknowable — fail closed rather than emit a silent zero.
+func TestBatchFailsWhenNeitherFeeNorPrevout(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vin":[{"txid":"parent","vout":0}],
+		  "vout":[{"value":0.0005,"n":0,"scriptPubKey":{"hex":"0014bb"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.ErrorContains(t, err, "neither a fee nor a prevout")
+}
+
+// TestBatchFailsWhenOutputsExceedInputs: a transaction whose outputs exceed its
+// summed prevouts implies a negative fee, which is corrupt data.
+func TestBatchFailsWhenOutputsExceedInputs(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vin":[{"prevout":{"value":0.0001,"scriptPubKey":{"hex":"0014aa","address":"a"}}}],
+		  "vout":[{"value":0.0009,"n":0,"scriptPubKey":{"hex":"0014bb"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.ErrorContains(t, err, "spends more than it holds")
+}
+
+// TestBatchOmitsAnchorInputAddressWhenNoPrevout: a confirmed transaction whose
+// input carries no prevout yields an empty AnchorInputAddress (the fee still comes
+// from the node's own fee field), not a failure.
+func TestBatchOmitsAnchorInputAddressWhenNoPrevout(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef","fee":0.00001,
+		  "vin":[{"txid":"parent","vout":0}],
+		  "vout":[{"value":0.0005,"n":0,"scriptPubKey":{"hex":"0014bb","address":"o"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	got, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, "", got.AnchorInputAddress)
+}
+
+// TestBatchTreatsMissingHeaderAsAbsent: getblockheader returning "no such block"
+// (the block was reorged out from under us between the two calls) is an absence,
+// not an error.
+func TestBatchTreatsMissingHeaderAsAbsent(t *testing.T) {
+	f := &fakeNode{tx: json.RawMessage(confirmedTxJSON), headerErr: rpcTxNotFound}
+	srv := f.serve()
+	defer srv.Close()
+	got, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.NoError(t, err)
+	require.Nil(t, got)
+}
+
+// TestBatchReportsHeaderFaultAsError: a getblockheader fault that is not a
+// not-found is a node outage, never a settlement that did not happen.
+func TestBatchReportsHeaderFaultAsError(t *testing.T) {
+	f := &fakeNode{tx: json.RawMessage(confirmedTxJSON), headerErr: -8}
+	srv := f.serve()
+	defer srv.Close()
+	got, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	// Must be the retryable sentinel (→ 503), never a false not-found or a 500.
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+	require.Nil(t, got)
+}
+
+// TestCallRejectsOversizedResponse: a response larger than maxResponseSize is
+// truncated by the read cap and fails to decode, surfacing as a node fault rather
+// than exhausting memory. This proves the bound deterministically, not just under
+// fuzzing.
+func TestCallRejectsOversizedResponse(t *testing.T) {
+	// A valid JSON prefix whose string value runs past the 4 MiB read cap, so the
+	// LimitReader truncates it mid-token and the decode fails.
+	huge := `{"result":{"txid":"` + strings.Repeat("a", maxResponseSize+(1<<20)) + `"},"error":null}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, huge)
+	}))
+	defer srv.Close()
+	got, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.Nil(t, got)
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestBatchRejectsNegativeOutputValue: a negative output value is corrupt node
+// data (SatsFromBTC rejects it), surfaced as a node fault rather than a batch.
+func TestBatchRejectsNegativeOutputValue(t *testing.T) {
+	f := &fakeNode{
+		tx: json.RawMessage(`{"txid":"aa11","blockhash":"beef",
+		  "vout":[{"value":-1,"n":0,"scriptPubKey":{"hex":"0014bb"}}]}`),
+		header: json.RawMessage(`{"height":1,"time":2,"confirmations":6}`),
+	}
+	srv := f.serve()
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Batch(context.Background(), "aa11")
+	require.ErrorIs(t, err, ErrNodeUnavailable)
+}
+
+// TestChainRejectsMalformedResult: a getblockchaininfo result that is not an
+// object cannot be decoded into the chain field, so the pin fails closed rather
+// than reading an empty chain.
+func TestChainRejectsMalformedResult(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"result":"not-an-object","error":null}`)
+	}))
+	defer srv.Close()
+	_, err := NewRepo(srv.URL, 1).Chain(context.Background())
+	require.ErrorIs(t, err, ErrNodeUnavailable)
 }
 
 // FuzzNodeRPCEnvelope: an arbitrary JSON-RPC response body must never panic the

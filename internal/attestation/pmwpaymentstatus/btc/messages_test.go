@@ -77,6 +77,14 @@ func TestPaymentBatchedMessagesRejectsAnABIWithoutTheEvent(t *testing.T) {
 	require.ErrorContains(t, err, "PaymentBatched")
 }
 
+// TestPaymentBatchedMessagesPropagatesRepoError: a repo/database fault is a node
+// fault (retryable), never an empty batch that would read as "payment not found".
+func TestPaymentBatchedMessagesPropagatesRepoError(t *testing.T) {
+	src := PaymentBatchedMessages{Repo: stubRepo{err: paymentdb.ErrDatabase}, ABI: cspABI(t)}
+	_, err := src.Messages(context.Background(), common.Hash{}, common.Hash{})
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+}
+
 // TestPaymentBatchedMessagesRejectsPaymentIdTopicMismatch: the decoded message's
 // paymentId must equal the indexed topic; a disagreement is a corrupt row.
 func TestPaymentBatchedMessagesRejectsPaymentIdTopicMismatch(t *testing.T) {

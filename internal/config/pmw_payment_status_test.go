@@ -103,6 +103,73 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	})
 }
 
+// btcEnv returns a fully-populated BTC (node-mode) PMWPaymentStatus env config;
+// individual subtests blank or corrupt one field to exercise a validation branch.
+func btcEnv() config.EnvConfig {
+	return config.EnvConfig{
+		SourceID:                   config.SourceTestBTC,
+		AttestationType:            fdc2.PMWPaymentStatus,
+		CChainDatabaseURL:          "root:root@tcp(localhost)/db",
+		TeePaymentsContractAddress: "0x00000000000000000000000000000000000000C2",
+		FlareRPCURL:                "http://127.0.0.1:8545",
+		ChannelAddress:             "0x00000000000000000000000000000000000000C1",
+		SourceRPCURL:               "http://127.0.0.1:8332",
+		BtcNetwork:                 "signet",
+	}
+}
+
+// TestBtcNetworkParamsOverrides: an explicit BTC_NETWORK overrides the source
+// default, mapping each supported name to its chain params.
+func TestBtcNetworkParamsOverrides(t *testing.T) {
+	for _, c := range []struct{ network, wantName string }{
+		{"mainnet", "mainnet"},
+		{"testnet3", "testnet3"},
+		{"signet", "signet"},
+		{"regtest", "regtest"},
+	} {
+		params, err := config.BtcNetworkParams(config.SourceTestBTC, c.network)
+		require.NoError(t, err)
+		require.Equal(t, c.wantName, params.Name)
+	}
+	_, err := config.BtcNetworkParams(config.SourceTestBTC, "nosuchnet")
+	require.Error(t, err)
+}
+
+func TestBuildBtcPMWPaymentStatusConfigSuccess(t *testing.T) {
+	cfg, err := config.BuildPMWPaymentStatusConfig(btcEnv())
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, common.HexToAddress("0xC1"), cfg.ChannelAddress)
+	require.Equal(t, common.HexToAddress("0xC2"), cfg.TeePaymentsContractAddress)
+	require.Equal(t, "http://127.0.0.1:8332", cfg.SourceRPCURL)
+	require.Equal(t, "signet", cfg.BtcNetwork)
+	// The XRP-only source database is not part of the BTC node-mode config.
+	require.Empty(t, cfg.SourceDatabaseURL)
+}
+
+func TestBuildBtcPMWPaymentStatusConfigError(t *testing.T) {
+	t.Run("missing node and channel fields", func(t *testing.T) {
+		cfg, err := config.BuildPMWPaymentStatusConfig(config.EnvConfig{SourceID: config.SourceBTC})
+		require.Nil(t, cfg)
+		require.ErrorContains(t, err, "CHANNEL_ADDRESS")
+		require.ErrorContains(t, err, "SOURCE_RPC_URL")
+	})
+	t.Run("invalid CHANNEL_ADDRESS hex", func(t *testing.T) {
+		env := btcEnv()
+		env.ChannelAddress = "not-hex"
+		cfg, err := config.BuildPMWPaymentStatusConfig(env)
+		require.Nil(t, cfg)
+		require.ErrorContains(t, err, "CHANNEL_ADDRESS is not a valid hex address")
+	})
+	t.Run("unresolvable BTC network", func(t *testing.T) {
+		env := btcEnv()
+		env.BtcNetwork = "nosuchnet"
+		cfg, err := config.BuildPMWPaymentStatusConfig(env)
+		require.Nil(t, cfg)
+		require.ErrorContains(t, err, "nosuchnet")
+	})
+}
+
 func TestBuildPMWPaymentStatusConfigSuccess(t *testing.T) {
 	config.ClearPMWPaymentStatusConfigForTest()
 	envConfig := config.EnvConfig{

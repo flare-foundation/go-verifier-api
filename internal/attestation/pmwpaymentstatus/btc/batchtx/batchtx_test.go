@@ -24,6 +24,15 @@ func TestSatsFromBTCRejectsAboveMoneySupply(t *testing.T) {
 	require.ErrorContains(t, err, "money supply")
 }
 
+// TestSatsFromBTCRejectsInt64Overflow: an amount whose satoshi value is exactly
+// 2^63 overflows int64 and is rejected at the int64 guard (before the money-supply
+// check), never wrapping to a negative value.
+func TestSatsFromBTCRejectsInt64Overflow(t *testing.T) {
+	_, err := SatsFromBTC("92233720368.54775808") // 2^63 satoshis
+	require.Error(t, err)
+	require.ErrorContains(t, err, "overflows int64")
+}
+
 // TestSatsFromBTCAcceptsValidAmount pins the exact conversion.
 func TestSatsFromBTCAcceptsValidAmount(t *testing.T) {
 	sats, err := SatsFromBTC("0.00010000")

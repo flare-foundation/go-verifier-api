@@ -297,6 +297,109 @@ func TestFetchLogsByInstructionTopic1_OversizedOtherContractDoesNotPoison(t *tes
 	require.Len(t, logs, 1)
 }
 
+// instructionLog builds a TeeInstructionsSent-shaped row for
+// FetchInstructionLogsForID, where topic1 is the (zero) extension id and topic2
+// is the instruction id — the opposite topic layout from PaymentBatched.
+func instructionLog(instructionID common.Hash, data, addr string, i int) database.Log {
+	return database.Log{
+		Topic0:          testEventHash,
+		Topic1:          strings.Repeat("0", 64), // extension id 0
+		Topic2:          strings.TrimPrefix(instructionID.Hex(), "0x"),
+		Data:            data,
+		Address:         addr,
+		TransactionHash: fmt.Sprintf("%064x", i),
+		LogIndex:        uint64(i),
+		BlockNumber:     uint64(10 + i),
+		Timestamp:       1700000000,
+	}
+}
+
+// A Bitcoin batch's payments share one instruction id, so FetchInstructionLogsForID
+// returns every matching row (unlike the XRP single-log fetch) in block/log order.
+func TestFetchInstructionLogsForID_ReturnsEveryRowInOrder(t *testing.T) {
+	instructionID := common.HexToHash("0xdeadbeef")
+	db := newMemoryDBWithLogs(t)
+	rows := []database.Log{
+		instructionLog(instructionID, "", testContractAddressStored, 2),
+		instructionLog(instructionID, "", testContractAddressStored, 0),
+		instructionLog(instructionID, "", testContractAddressStored, 1),
+	}
+	require.NoError(t, db.Create(&rows).Error)
+
+	repo := NewDBRepo(nil, db, testContractAddress)
+	logs, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, instructionID)
+	require.NoError(t, err)
+	require.Len(t, logs, 3)
+	require.Equal(t, uint64(10), logs[0].BlockNumber)
+	require.Equal(t, uint64(12), logs[2].BlockNumber)
+}
+
+func TestFetchInstructionLogsForID_NotFound(t *testing.T) {
+	repo := NewDBRepo(nil, newMemoryDBWithLogs(t), testContractAddress)
+	_, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, common.HexToHash("0xdeadbeef"))
+	require.ErrorIs(t, err, ErrRecordNotFound)
+}
+
+// A log emitted by a different contract must not be read as this batch's instruction.
+func TestFetchInstructionLogsForID_WrongContractIgnored(t *testing.T) {
+	instructionID := common.HexToHash("0xdeadbeef")
+	db := newMemoryDBWithLogs(t)
+	require.NoError(t, db.Create(&[]database.Log{
+		instructionLog(instructionID, "", "ffffffffffffffffffffffffffffffffffffffff", 0),
+	}).Error)
+
+	repo := NewDBRepo(nil, db, testContractAddress)
+	_, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, instructionID)
+	require.ErrorIs(t, err, ErrRecordNotFound)
+}
+
+// An over-cap set is refused rather than silently truncated: a batch cannot carry
+// an unbounded number of instruction logs.
+func TestFetchInstructionLogsForID_RowCapBoundary(t *testing.T) {
+	instructionID := common.HexToHash("0xdeadbeef")
+	insertN := func(t *testing.T, n int) *gorm.DB {
+		t.Helper()
+		db := newMemoryDBWithLogs(t)
+		rows := make([]database.Log, n)
+		for i := range n {
+			rows[i] = instructionLog(instructionID, "", testContractAddressStored, i)
+		}
+		require.NoError(t, db.CreateInBatches(rows, 1000).Error)
+		return db
+	}
+	t.Run("exactly max accepted", func(t *testing.T) {
+		repo := NewDBRepo(nil, insertN(t, maxInstructionLogs), testContractAddress)
+		logs, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, instructionID)
+		require.NoError(t, err)
+		require.Len(t, logs, maxInstructionLogs)
+	})
+	t.Run("one over max refused", func(t *testing.T) {
+		repo := NewDBRepo(nil, insertN(t, maxInstructionLogs+1), testContractAddress)
+		_, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, instructionID)
+		require.ErrorIs(t, err, ErrDatabase)
+	})
+}
+
+// A row whose data exceeds the per-row byte cap is refused at the COUNT stage,
+// before any row is materialized or decoded.
+func TestFetchInstructionLogsForID_RejectsOversizedData(t *testing.T) {
+	instructionID := common.HexToHash("0xdeadbeef")
+	db := newMemoryDBWithLogs(t)
+	require.NoError(t, db.Create(&[]database.Log{
+		instructionLog(instructionID, strings.Repeat("a", maxEventDataHexLen+2), testContractAddressStored, 0),
+	}).Error)
+
+	repo := NewDBRepo(nil, db, testContractAddress)
+	_, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, instructionID)
+	require.ErrorIs(t, err, ErrDatabase)
+}
+
+func TestFetchInstructionLogsForID_ClosedDB(t *testing.T) {
+	repo := NewDBRepo(nil, newClosedDB(t), testContractAddress)
+	_, err := repo.FetchInstructionLogsForID(context.Background(), testEventHash, common.HexToHash("0xdeadbeef"))
+	require.ErrorIs(t, err, ErrDatabase)
+}
+
 func TestFetchLogsByInstructionTopic1_ClosedDB(t *testing.T) {
 	repo := NewDBRepo(nil, newClosedDB(t), testContractAddress)
 	_, err := repo.FetchLogsByInstructionTopic1(context.Background(), "abcd", common.HexToHash("0x1"))
