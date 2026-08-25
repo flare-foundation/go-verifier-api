@@ -181,6 +181,7 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, btcclient.ErrFetchChainInfo),
 		errors.Is(err, btcclient.ErrGetTxOut),
 		errors.Is(err, paymentstatusbtc.ErrNetworkMismatch),
+		errors.Is(err, paymentstatusbtc.ErrNetworkUnverified),
 		errors.Is(err, nodechain.ErrNodeUnavailable),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, verifiertypes.ErrNetwork),

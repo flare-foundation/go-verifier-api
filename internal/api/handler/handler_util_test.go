@@ -294,6 +294,11 @@ func TestClassifyVerifyError(t *testing.T) {
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{
+			name:           "ErrNetworkUnverified (payment-status BTC)",
+			err:            fmt.Errorf("probe in flight: %w", paymentstatusbtc.ErrNetworkUnverified),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
 			name:           "ErrNodeUnavailable (payment-status BTC node)",
 			err:            fmt.Errorf("node down: %w", nodechain.ErrNodeUnavailable),
 			expectedStatus: http.StatusServiceUnavailable,
