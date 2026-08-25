@@ -477,18 +477,54 @@ func TestVerify_EmptyAnchorInputFailsClosed(t *testing.T) {
 	require.ErrorIs(t, err, paymentdb.ErrDatabase)
 }
 
-func TestVerify_NotFoundWhenAnchorUnresolved(t *testing.T) {
+// The genesis anchor is registry-guaranteed, so a node/index that cannot resolve
+// it is a fault (wrong chain, no -txindex, unsynced) — fail closed, never a
+// false not-found.
+func TestVerify_AnchorUnresolvedFailsClosed(t *testing.T) {
 	recipAddr, _ := recipient(t)
 	const batchID = uint64(900000)
 	v := newVerifier(t,
 		logsFor(t, sampleMsg(recipAddr, 1000, batchID, batchID, 7, 1)),
-		stubIndexer{anchorAddr: ""}, // anchor output not indexed yet
+		stubIndexer{anchorAddr: ""}, // registry anchor did not resolve
 		stubResolver{id: batchID, anchorTxid: strings.Repeat("cd", 32)},
 	)
-	resp, err := v.Verify(context.Background(), req(batchID))
-	require.NoError(t, err)
-	require.Equal(t, uint8(2), resp.TransactionStatus)
-	require.Equal(t, recipAddr, resp.RecipientAddress)
+	_, err := v.Verify(context.Background(), req(batchID))
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+}
+
+// TestVerify_NonNativeTokenFailsClosed: this verifier proves only native sat
+// delivery, so an instruction for another asset (TokenId set) must fail closed
+// rather than sign a claim from the sat outputs.
+func TestVerify_NonNativeTokenFailsClosed(t *testing.T) {
+	recipAddr, recipScript := recipient(t)
+	const amount, nonce = 150000, uint64(7)
+	const batchID = uint64(900000)
+	msg := sampleMsg(recipAddr, amount, batchID, batchID, nonce, 1)
+	msg.TokenId = []byte{0x01} // non-native asset
+	v := newVerifier(t,
+		logsFor(t, msg),
+		stubIndexer{anchorAddr: testAnchor, batch: &batchtx.BatchTx{Txid: testTxid, Outputs: batchOutputs(t, nonce, out(recipScript, amount))}},
+		stubResolver{id: batchID, anchorTxid: strings.Repeat("cd", 32)},
+	)
+	_, err := v.Verify(context.Background(), req(batchID))
+	require.ErrorIs(t, err, paymentdb.ErrDatabase)
+}
+
+// TestVerify_RequestPathRepinFailsClosed: the request path re-pins the chain, so
+// a node that (post-boot) serves the wrong chain fails closed rather than
+// answering off it — defense-in-depth for the fail-closed anchor lookup.
+func TestVerify_RequestPathRepinFailsClosed(t *testing.T) {
+	recipAddr, recipScript := recipient(t)
+	const amount, nonce = 150000, uint64(7)
+	const batchID = uint64(900000)
+	v := newVerifier(t,
+		logsFor(t, sampleMsg(recipAddr, amount, batchID, batchID, nonce, 1)),
+		stubIndexer{anchorAddr: testAnchor, batch: &batchtx.BatchTx{Txid: testTxid, Outputs: batchOutputs(t, nonce, out(recipScript, amount))}},
+		stubResolver{id: batchID, anchorTxid: strings.Repeat("cd", 32)},
+	)
+	v.prober = stubProber{chain: "main"} // node on mainnet, verifier expects signet (testParams)
+	_, err := v.Verify(context.Background(), req(batchID))
+	require.ErrorIs(t, err, ErrNetworkMismatch)
 }
 
 func TestVerify_NotFoundWhenBatchAbsent(t *testing.T) {
@@ -726,7 +762,6 @@ func TestNewBtcVerifier_OK(t *testing.T) {
 	cfg.TeePaymentsContractAddress = common.HexToAddress("0x1")
 	cfg.ChannelAddress = common.HexToAddress("0x2") // node mode
 	cfg.SourceRPCURL = "http://127.0.0.1:1"
-	cfg.MinConfirmations = config.DefaultBtcMinConfirmations
 	v, err := NewBtcVerifier(cfg, nil)
 	require.NoError(t, err)
 	require.NoError(t, v.Close()) // real OnChainResolver -> exercises its io.Closer
