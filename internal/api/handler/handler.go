@@ -169,8 +169,11 @@ func classifyVerifyStatus(err error) (status, message string) {
 	switch {
 	case errors.Is(err, feeproofxrp.ErrBatchRangeTooLarge),
 		errors.Is(err, feeproofxrp.ErrReissueLimitExceeded),
-		errors.Is(err, multisigxrp.ErrInvalidRequest):
+		errors.Is(err, multisigxrp.ErrInvalidRequest),
+		errors.Is(err, multisigutxobtc.ErrInvalidRequest):
 		return types.StatusRejected, "invalid request"
+	case errors.Is(err, paymentstatusbtc.ErrMissingTransactionID):
+		return types.StatusRejected, "missing transaction id"
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
 		errors.Is(err, feeproofxrp.ErrMissingTransaction):
 		return types.StatusRejected, "missing data for the requested payment"
@@ -202,8 +205,19 @@ func classifyVerifyStatus(err error) (status, message string) {
 		errors.Is(err, context.Canceled):
 		return types.StatusRetry, "verification timed out"
 	case errors.Is(err, client.ErrFetchAccountInfo),
+		errors.Is(err, client.ErrFetchServerInfo),
 		errors.Is(err, client.ErrRPCTransient):
 		return types.StatusRetry, "source RPC unavailable"
+	case errors.Is(err, nodechain.ErrNodeUnavailable),
+		errors.Is(err, btcclient.ErrFetchChainInfo),
+		errors.Is(err, btcclient.ErrGetTxOut):
+		return types.StatusRetry, "source node unavailable"
+	case errors.Is(err, multisigxrp.ErrNetworkMismatch),
+		errors.Is(err, multisigutxobtc.ErrNetworkMismatch),
+		errors.Is(err, multisigutxobtc.ErrNetworkUnverified),
+		errors.Is(err, paymentstatusbtc.ErrNetworkMismatch),
+		errors.Is(err, paymentstatusbtc.ErrNetworkUnverified):
+		return types.StatusRetry, "source network not verified"
 	case errors.Is(err, db.ErrDatabase):
 		return types.StatusRetry, "database unavailable"
 	case errors.Is(err, db.ErrDataSource):

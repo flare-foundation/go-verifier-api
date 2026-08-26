@@ -487,6 +487,64 @@ func TestClassifyVerifyStatusTEEGranularMessages(t *testing.T) {
 		"a CRL fetch outage must not be classifiable as a terminal TEE validation failure")
 }
 
+// TestClassifyVerifyStatusParity guards against the two classifiers drifting: every
+// sentinel classifyVerifyError knows about (across ALL attestation types) must be
+// handled explicitly by classifyVerifyStatus too — never falling to the generic
+// "unexpected error" default — with the same terminal-vs-retryable verdict. If a
+// new sentinel is wired into the HTTP classifier but not the /verify envelope,
+// adding it here fails until parity is restored.
+func TestClassifyVerifyStatusParity(t *testing.T) {
+	rejected := []error{
+		feeproofxrp.ErrBatchRangeTooLarge,
+		feeproofxrp.ErrReissueLimitExceeded,
+		feeproofxrp.ErrMissingPayEvent,
+		feeproofxrp.ErrMissingTransaction,
+		multisigxrp.ErrInvalidRequest,
+		multisigutxobtc.ErrInvalidRequest,
+		paymentstatusbtc.ErrMissingTransactionID,
+		client.ErrRPCNonSuccess,
+		db.ErrRecordNotFound,
+		verifier.ErrTEEDataValidation,
+		verifiertypes.ErrInvalidInput,
+	}
+	retry := []error{
+		context.DeadlineExceeded,
+		context.Canceled,
+		client.ErrFetchAccountInfo,
+		client.ErrFetchServerInfo,
+		client.ErrRPCTransient,
+		multisigxrp.ErrNetworkMismatch,
+		multisigutxobtc.ErrNetworkMismatch,
+		multisigutxobtc.ErrNetworkUnverified,
+		btcclient.ErrFetchChainInfo,
+		btcclient.ErrGetTxOut,
+		paymentstatusbtc.ErrNetworkMismatch,
+		paymentstatusbtc.ErrNetworkUnverified,
+		nodechain.ErrNodeUnavailable,
+		db.ErrDatabase,
+		db.ErrDataSource,
+		verifiertypes.ErrNetwork,
+		verifiertypes.ErrRPC,
+		verifiertypes.ErrContext,
+		verifiertypes.ErrUnknown,
+		fetcher.ErrHTTPFetch,
+		verifier.ErrActionResultNotFound,
+	}
+	check := func(t *testing.T, sentinel error, wantStatus string) {
+		t.Helper()
+		status, message := classifyVerifyStatus(fmt.Errorf("context: %w", sentinel))
+		require.Equal(t, wantStatus, status, "wrong verdict for %v", sentinel)
+		require.NotEqual(t, "unexpected error", message,
+			"%v falls to the default — classifyVerifyStatus is missing a case (drifted from classifyVerifyError)", sentinel)
+	}
+	for _, s := range rejected {
+		check(t, s, types.StatusRejected)
+	}
+	for _, s := range retry {
+		check(t, s, types.StatusRetry)
+	}
+}
+
 func TestClassifyVerifyStatusDistinguishesRetryReasons(t *testing.T) {
 	// An unreachable store and a reachable store that returns unusable data are
 	// both RETRY, but must carry distinct messages so operators can tell them apart.
