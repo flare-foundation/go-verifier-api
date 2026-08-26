@@ -176,7 +176,10 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 
 		data, err := c.fetchFn(context.Background(), url, crlFetchTimeout)
 		if err != nil {
-			return nil, fmt.Errorf("fetching CRL: %w", err)
+			// Only the network fetch is transient (→ retryable). Everything below
+			// (parse, issuer verification, NextUpdate) and every attestation-level
+			// check in FetchCRLsForToken is deterministic and must stay terminal.
+			return nil, fmt.Errorf("fetching CRL: %w: %w", ErrTEERevocationUnavailable, err)
 		}
 
 		// Try PEM decode first (Google Cloud CRLs are PEM-encoded), fall back to raw DER.

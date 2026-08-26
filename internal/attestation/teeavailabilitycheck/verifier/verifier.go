@@ -235,7 +235,12 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 		var crlErr error
 		leafCRL, intermediateCRL, crlErr = v.CRLCache.FetchCRLsForToken(ctx, attestationToken, v.Cfg.GoogleRootCertificate)
 		if crlErr != nil {
-			return StatusInfo{}, fmt.Errorf("CRL fetch failed: %w: %w", ErrTEERevocationUnavailable, crlErr)
+			// Propagate crlErr as-is: only a genuine CRL network fetch is tagged
+			// ErrTEERevocationUnavailable (retryable) at its source in the cache.
+			// Deterministic attestation failures (bad token, missing/invalid x5c,
+			// untrusted root, broken/expired chain) stay untagged and are rejected
+			// as invalid attestations by the caller, not retried.
+			return StatusInfo{}, fmt.Errorf("CRL preprocessing failed: %w", crlErr)
 		}
 	}
 
