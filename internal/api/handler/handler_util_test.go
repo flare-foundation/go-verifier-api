@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"net/http"
 	"testing"
 	"time"
@@ -487,13 +490,11 @@ func TestClassifyVerifyStatusTEEGranularMessages(t *testing.T) {
 		"a CRL fetch outage must not be classifiable as a terminal TEE validation failure")
 }
 
-// TestClassifyVerifyStatusParity guards against the two classifiers drifting: every
-// sentinel classifyVerifyError knows about (across ALL attestation types) must be
-// handled explicitly by classifyVerifyStatus too — never falling to the generic
-// "unexpected error" default — with the same terminal-vs-retryable verdict. If a
-// new sentinel is wired into the HTTP classifier but not the /verify envelope,
-// adding it here fails until parity is restored.
-func TestClassifyVerifyStatusParity(t *testing.T) {
+// TestClassifyVerifyStatusVerdicts locks the terminal-vs-retryable verdict (and a
+// non-default message) for each known sentinel. It documents intent but does NOT
+// detect drift on its own (the list is manual) — TestClassifierNoDrift does that
+// structurally.
+func TestClassifyVerifyStatusVerdicts(t *testing.T) {
 	rejected := []error{
 		feeproofxrp.ErrBatchRangeTooLarge,
 		feeproofxrp.ErrReissueLimitExceeded,
@@ -553,6 +554,66 @@ func TestClassifyVerifyStatusDistinguishesRetryReasons(t *testing.T) {
 	require.NotEqual(t, unreachable, unusable)
 	require.Equal(t, "database unavailable", unreachable)
 	require.Equal(t, "data source returned unusable data", unusable)
+}
+
+// sentinelsInFunc statically extracts the set of "pkg.Sentinel" names referenced in
+// errors.Is(err, pkg.Sentinel) calls within the named function, by parsing the
+// source. Used to compare the two classifiers structurally.
+func sentinelsInFunc(t *testing.T, file *ast.File, fnName string) map[string]bool {
+	t.Helper()
+	set := map[string]bool{}
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != fnName || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			fun, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || fun.Sel.Name != "Is" {
+				return true
+			}
+			if pkg, ok := fun.X.(*ast.Ident); !ok || pkg.Name != "errors" || len(call.Args) != 2 {
+				return true
+			}
+			if sel, ok := call.Args[1].(*ast.SelectorExpr); ok {
+				if x, ok := sel.X.(*ast.Ident); ok {
+					set[x.Name+"."+sel.Sel.Name] = true
+				}
+			}
+			return true
+		})
+	}
+	return set
+}
+
+// TestClassifierNoDrift structurally guarantees the two classifiers cannot drift:
+// every error sentinel the HTTP classifier (classifyVerifyError) handles must also
+// be handled by the /verify envelope classifier (classifyVerifyStatus). The
+// envelope may add granular extras (e.g. per-check TEE messages), so the check is a
+// subset, not equality. Because it reads the actual source, wiring a sentinel into
+// one classifier but not the other fails this test with no manual list to update.
+func TestClassifierNoDrift(t *testing.T) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "handler.go", nil, 0)
+	require.NoError(t, err)
+
+	statusSet := sentinelsInFunc(t, f, "classifyVerifyStatus")
+	errorSet := sentinelsInFunc(t, f, "classifyVerifyError")
+	require.NotEmpty(t, statusSet)
+	require.NotEmpty(t, errorSet)
+
+	var missing []string
+	for s := range errorSet {
+		if !statusSet[s] {
+			missing = append(missing, s)
+		}
+	}
+	require.Empty(t, missing,
+		"classifyVerifyStatus is missing sentinels that classifyVerifyError handles (classifier drift): %v", missing)
 }
 
 func TestVerifyResponseHelpers(t *testing.T) {

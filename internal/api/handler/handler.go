@@ -275,7 +275,8 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, verifiertypes.ErrContext),
 		errors.Is(err, verifiertypes.ErrUnknown),
 		errors.Is(err, fetcher.ErrHTTPFetch),
-		errors.Is(err, verifier.ErrActionResultNotFound):
+		errors.Is(err, verifier.ErrActionResultNotFound),
+		errors.Is(err, verifier.ErrTEERevocationUnavailable):
 		return warnHuma503(reqID, msg, err)
 	// 500 — unexpected/ambiguous errors
 	default:
