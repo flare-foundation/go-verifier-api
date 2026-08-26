@@ -12,13 +12,42 @@ import (
 )
 
 var (
-	// ErrRPCNonSuccess indicates the XRP RPC returned a non-success status (e.g. account not found).
+	// ErrRPCNonSuccess indicates the XRP RPC returned a DETERMINISTIC non-success
+	// status — a real negative answer such as actNotFound. Terminal: the account
+	// state is settled, so it maps to a rejection, not a retry.
 	ErrRPCNonSuccess = errors.New("XRP RPC returned non-success status")
+	// ErrRPCTransient indicates the node is momentarily unable to answer (not synced,
+	// too busy, rate-limited, ...) rather than a deterministic negative. Retryable:
+	// a transient node state must not mint a terminal rejection.
+	ErrRPCTransient = errors.New("XRP RPC temporarily unavailable")
 	// ErrFetchAccountInfo indicates a network/transport failure when fetching account info.
 	ErrFetchAccountInfo = errors.New("cannot get account info")
 	// ErrFetchServerInfo indicates a failure fetching server info (used for the network pin).
 	ErrFetchServerInfo = errors.New("cannot get server info")
 )
+
+// transientRPCStatuses are XRPL result statuses that mean "the node cannot answer
+// right now" — retryable, not a deterministic negative. Anything not listed here
+// (notably actNotFound, and malformed-request statuses) is treated as a terminal
+// non-success. Extend this set as new transient statuses are encountered.
+var transientRPCStatuses = map[string]bool{
+	"noNetwork":        true, // not synced to the network
+	"noCurrent":        true, // no current ledger available
+	"noClosed":         true, // no closed ledger available
+	"tooBusy":          true, // server overloaded
+	"slowDown":         true, // rate limited
+	"internal":         true, // internal server error
+	"amendmentBlocked": true, // node needs upgrade; another node can answer
+}
+
+// rpcStatusError maps a non-success XRPL status to the right sentinel: retryable
+// for transient node states, terminal otherwise.
+func rpcStatusError(account, status string) error {
+	if transientRPCStatuses[status] {
+		return fmt.Errorf("%w for account %s: %s", ErrRPCTransient, account, status)
+	}
+	return fmt.Errorf("%w for account %s: %s", ErrRPCNonSuccess, account, status)
+}
 
 const (
 	chainMaxAttempts           = 2
@@ -71,7 +100,7 @@ func (c *Client) FetchAccountInfo(ctx context.Context, account string) (*types.A
 		return nil, fmt.Errorf("%w: %w", ErrFetchAccountInfo, err)
 	}
 	if resp.Message.Result.Status != "success" {
-		return nil, fmt.Errorf("%w for account %s: %s", ErrRPCNonSuccess, account, resp.Message.Result.Status)
+		return nil, rpcStatusError(account, resp.Message.Result.Status)
 	}
 
 	return resp.Message, nil

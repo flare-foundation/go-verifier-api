@@ -105,6 +105,33 @@ func TestFetchAccountInfo(t *testing.T) {
 	}
 }
 
+// TestFetchAccountInfoStatusClassification: a transient node status is retryable
+// (ErrRPCTransient) and must NOT be classifiable as the terminal ErrRPCNonSuccess,
+// while a deterministic negative (actNotFound) stays terminal.
+func TestFetchAccountInfoStatusClassification(t *testing.T) {
+	statusServer := func(status string) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(types.AccountInfoResponse{
+				Result: types.AccountInfoResult{Status: status},
+			})
+		}))
+	}
+	t.Run("transient status is retryable", func(t *testing.T) {
+		srv := statusServer("tooBusy")
+		defer srv.Close()
+		_, err := NewClient(srv.URL).FetchAccountInfo(context.Background(), "rEXAMPLE")
+		require.ErrorIs(t, err, ErrRPCTransient)
+		require.NotErrorIs(t, err, ErrRPCNonSuccess, "a transient node state must not be a terminal rejection")
+	})
+	t.Run("actNotFound is terminal", func(t *testing.T) {
+		srv := statusServer("actNotFound")
+		defer srv.Close()
+		_, err := NewClient(srv.URL).FetchAccountInfo(context.Background(), "rEXAMPLE")
+		require.ErrorIs(t, err, ErrRPCNonSuccess)
+		require.NotErrorIs(t, err, ErrRPCTransient)
+	})
+}
+
 func TestNetworkID(t *testing.T) {
 	t.Run("reports the network id", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

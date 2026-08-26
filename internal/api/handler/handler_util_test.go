@@ -257,6 +257,13 @@ func TestClassifyVerifyError(t *testing.T) {
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
+			// A transient node status (tooBusy/noNetwork/...) is retryable, NOT a
+			// terminal 422 like a deterministic actNotFound.
+			name:           "ErrRPCTransient",
+			err:            fmt.Errorf("rpc transient: %w", client.ErrRPCTransient),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
 			name:           "ErrRecordNotFound",
 			err:            fmt.Errorf("record not found: %w", db.ErrRecordNotFound),
 			expectedStatus: http.StatusUnprocessableEntity,
@@ -417,6 +424,7 @@ func TestClassifyVerifyStatus(t *testing.T) {
 		{"context deadline exceeded", fmt.Errorf("verifier work timed out: %w", context.DeadlineExceeded), types.StatusRetry},
 		{"context canceled", fmt.Errorf("client disconnected: %w", context.Canceled), types.StatusRetry},
 		{"ErrFetchAccountInfo", fmt.Errorf("account info failed: %w", client.ErrFetchAccountInfo), types.StatusRetry},
+		{"ErrRPCTransient", fmt.Errorf("too busy: %w for account rX: tooBusy", client.ErrRPCTransient), types.StatusRetry},
 		{"ErrDatabase", fmt.Errorf("db failed: %w", db.ErrDatabase), types.StatusRetry},
 		{"ErrDataSource", fmt.Errorf("cannot decode event: %w (boom)", db.ErrDataSource), types.StatusRetry},
 		{"ErrNetwork", fmt.Errorf("rpc call failed: %w", verifiertypes.ErrNetwork), types.StatusRetry},

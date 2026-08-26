@@ -201,7 +201,8 @@ func classifyVerifyStatus(err error) (status, message string) {
 	case errors.Is(err, context.DeadlineExceeded),
 		errors.Is(err, context.Canceled):
 		return types.StatusRetry, "verification timed out"
-	case errors.Is(err, client.ErrFetchAccountInfo):
+	case errors.Is(err, client.ErrFetchAccountInfo),
+		errors.Is(err, client.ErrRPCTransient):
 		return types.StatusRetry, "source RPC unavailable"
 	case errors.Is(err, db.ErrDatabase):
 		return types.StatusRetry, "database unavailable"
@@ -244,6 +245,7 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, context.Canceled),
 		errors.Is(err, client.ErrFetchAccountInfo),
 		errors.Is(err, client.ErrFetchServerInfo),
+		errors.Is(err, client.ErrRPCTransient),
 		errors.Is(err, multisigxrp.ErrNetworkMismatch),
 		errors.Is(err, multisigutxobtc.ErrNetworkMismatch),
 		errors.Is(err, multisigutxobtc.ErrNetworkUnverified),
