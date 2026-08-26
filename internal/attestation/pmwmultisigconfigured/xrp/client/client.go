@@ -26,11 +26,12 @@ var (
 	ErrFetchServerInfo = errors.New("cannot get server info")
 )
 
-// transientRPCStatuses are XRPL result statuses that mean "the node cannot answer
-// right now" — retryable, not a deterministic negative. Anything not listed here
-// (notably actNotFound, and malformed-request statuses) is treated as a terminal
-// non-success. Extend this set as new transient statuses are encountered.
-var transientRPCStatuses = map[string]bool{
+// transientRPCErrors are XRPL error codes (carried in result.error, with
+// result.status == "error") that mean "the node cannot answer right now" —
+// retryable, not a deterministic negative. Anything not listed here (notably
+// actNotFound, and malformed-request codes) is treated as a terminal non-success.
+// Extend this set as new transient codes are encountered.
+var transientRPCErrors = map[string]bool{
 	"noNetwork":        true, // not synced to the network
 	"noCurrent":        true, // no current ledger available
 	"noClosed":         true, // no closed ledger available
@@ -40,13 +41,15 @@ var transientRPCStatuses = map[string]bool{
 	"amendmentBlocked": true, // node needs upgrade; another node can answer
 }
 
-// rpcStatusError maps a non-success XRPL status to the right sentinel: retryable
-// for transient node states, terminal otherwise.
-func rpcStatusError(account, status string) error {
-	if transientRPCStatuses[status] {
-		return fmt.Errorf("%w for account %s: %s", ErrRPCTransient, account, status)
+// rpcStatusError maps a non-success XRPL response to the right sentinel. XRPL puts
+// the error CODE in result.error (result.status is just "error"), so the transient
+// decision reads errorCode, not status: retryable for transient node states,
+// terminal otherwise.
+func rpcStatusError(account, status, errorCode string) error {
+	if transientRPCErrors[errorCode] {
+		return fmt.Errorf("%w for account %s: %s (%s)", ErrRPCTransient, account, errorCode, status)
 	}
-	return fmt.Errorf("%w for account %s: %s", ErrRPCNonSuccess, account, status)
+	return fmt.Errorf("%w for account %s: %s (%s)", ErrRPCNonSuccess, account, errorCode, status)
 }
 
 const (
@@ -100,7 +103,7 @@ func (c *Client) FetchAccountInfo(ctx context.Context, account string) (*types.A
 		return nil, fmt.Errorf("%w: %w", ErrFetchAccountInfo, err)
 	}
 	if resp.Message.Result.Status != "success" {
-		return nil, rpcStatusError(account, resp.Message.Result.Status)
+		return nil, rpcStatusError(account, resp.Message.Result.Status, resp.Message.Result.Error)
 	}
 
 	return resp.Message, nil

@@ -27,8 +27,12 @@ type AccountInfoResult struct {
 	AccountFlags *AccountFlags `json:"account_flags,omitempty"`
 	SignerLists  []SignerList  `json:"signer_lists"` // API v2/Clio returns signer_lists at result level
 	Status       string        `json:"status"`
-	Validated    *bool         `json:"validated,omitempty"`
-	LedgerIndex  *uint64       `json:"ledger_index,omitempty"`
+	// Error is the XRPL error code on a non-success response (status == "error"),
+	// e.g. "actNotFound" (deterministic) or "noNetwork"/"tooBusy" (transient). The
+	// code lives here, not in Status, so classification must read this field.
+	Error       string  `json:"error,omitempty"`
+	Validated   *bool   `json:"validated,omitempty"`
+	LedgerIndex *uint64 `json:"ledger_index,omitempty"`
 }
 
 // ResolveSignerLists returns signer lists from whichever location they appear in the response.

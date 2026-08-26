@@ -105,26 +105,28 @@ func TestFetchAccountInfo(t *testing.T) {
 	}
 }
 
-// TestFetchAccountInfoStatusClassification: a transient node status is retryable
-// (ErrRPCTransient) and must NOT be classifiable as the terminal ErrRPCNonSuccess,
-// while a deterministic negative (actNotFound) stays terminal.
+// TestFetchAccountInfoStatusClassification: XRPL returns status:"error" and the
+// actual code in result.error. A transient code (tooBusy) is retryable
+// (ErrRPCTransient) and must NOT be classifiable as terminal; a deterministic code
+// (actNotFound) stays terminal (ErrRPCNonSuccess).
 func TestFetchAccountInfoStatusClassification(t *testing.T) {
-	statusServer := func(status string) *httptest.Server {
+	// errorServer mimics rippled's JSON-RPC error shape: status "error" + code in error.
+	errorServer := func(errorCode string) *httptest.Server {
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			_ = json.NewEncoder(w).Encode(types.AccountInfoResponse{
-				Result: types.AccountInfoResult{Status: status},
+				Result: types.AccountInfoResult{Status: "error", Error: errorCode},
 			})
 		}))
 	}
-	t.Run("transient status is retryable", func(t *testing.T) {
-		srv := statusServer("tooBusy")
+	t.Run("transient error code is retryable", func(t *testing.T) {
+		srv := errorServer("tooBusy")
 		defer srv.Close()
 		_, err := NewClient(srv.URL).FetchAccountInfo(context.Background(), "rEXAMPLE")
 		require.ErrorIs(t, err, ErrRPCTransient)
 		require.NotErrorIs(t, err, ErrRPCNonSuccess, "a transient node state must not be a terminal rejection")
 	})
 	t.Run("actNotFound is terminal", func(t *testing.T) {
-		srv := statusServer("actNotFound")
+		srv := errorServer("actNotFound")
 		defer srv.Close()
 		_, err := NewClient(srv.URL).FetchAccountInfo(context.Background(), "rEXAMPLE")
 		require.ErrorIs(t, err, ErrRPCNonSuccess)
