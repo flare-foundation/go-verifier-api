@@ -406,6 +406,12 @@ func TestClassifyVerifyStatus(t *testing.T) {
 		{"ErrRPCNonSuccess", fmt.Errorf("rpc non-success: %w", client.ErrRPCNonSuccess), types.StatusRejected},
 		{"ErrRecordNotFound", fmt.Errorf("record not found: %w", db.ErrRecordNotFound), types.StatusRejected},
 		{"ErrTEEDataValidation", fmt.Errorf("challenge mismatch: %w", verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEChallengeMismatch", fmt.Errorf("challenge does not match: %w: %w", verifier.ErrTEEChallengeMismatch, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEChainIDMismatch", fmt.Errorf("chainID does not match: %w: %w", verifier.ErrTEEChainIDMismatch, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEProxySignerMismatch", fmt.Errorf("proxy signer does not match: %w: %w", verifier.ErrTEEProxySignerMismatch, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEESigningPolicyHash", fmt.Errorf("failed to validate initial signing policy hash: %w: %w", verifier.ErrTEESigningPolicyHash, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEAttestationInvalid", fmt.Errorf("%w: cannot validate certificate signature", verifier.ErrTEEAttestationInvalid), types.StatusRejected},
+		{"ErrTEEResponseMalformed", fmt.Errorf("%w: TEE challenge result data is empty", verifier.ErrTEEResponseMalformed), types.StatusRejected},
 		{"ErrInvalidInput", fmt.Errorf("bad input: %w", verifiertypes.ErrInvalidInput), types.StatusRejected},
 		// RETRY — transient (mirrors classifyVerifyError's 503 cases)
 		{"context deadline exceeded", fmt.Errorf("verifier work timed out: %w", context.DeadlineExceeded), types.StatusRetry},
@@ -419,6 +425,7 @@ func TestClassifyVerifyStatus(t *testing.T) {
 		{"ErrUnknown", fmt.Errorf("unknown error: %w", verifiertypes.ErrUnknown), types.StatusRetry},
 		{"ErrHTTPFetch", fmt.Errorf("HTTP failed: %w", fetcher.ErrHTTPFetch), types.StatusRetry},
 		{"ErrActionResultNotFound", fmt.Errorf("action result not ready: %w", verifier.ErrActionResultNotFound), types.StatusRetry},
+		{"ErrTEERevocationUnavailable", fmt.Errorf("attestation revocation check failed: CRL fetch failed: %w", verifier.ErrTEERevocationUnavailable), types.StatusRetry},
 		// RETRY — default (mirrors classifyVerifyError's 500 case)
 		{"unknown error falls to RETRY", errors.New("something unexpected"), types.StatusRetry},
 	}
@@ -432,6 +439,44 @@ func TestClassifyVerifyStatus(t *testing.T) {
 			require.NotContains(t, message, tt.err.Error())
 		})
 	}
+}
+
+// TestClassifyVerifyStatusTEEGranularMessages: the specific TEE checks each carry
+// their own curated message (so the relay can tell which check failed), the
+// specific case wins over the generic one it is chained with, and the generic
+// sentinel still matches for any code that keys off ErrTEEDataValidation.
+func TestClassifyVerifyStatusTEEGranularMessages(t *testing.T) {
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{fmt.Errorf("challenge does not match: %w: %w", verifier.ErrTEEChallengeMismatch, verifier.ErrTEEDataValidation), "TEE challenge mismatch"},
+		{fmt.Errorf("chainID does not match: %w: %w", verifier.ErrTEEChainIDMismatch, verifier.ErrTEEDataValidation), "TEE chain id mismatch"},
+		{fmt.Errorf("proxy signer does not match: %w: %w", verifier.ErrTEEProxySignerMismatch, verifier.ErrTEEDataValidation), "TEE proxy signer mismatch"},
+		{fmt.Errorf("failed to validate initial signing policy hash: %w: %w", verifier.ErrTEESigningPolicyHash, verifier.ErrTEEDataValidation), "TEE signing policy hash mismatch"},
+		{fmt.Errorf("%w: cannot validate certificate signature", verifier.ErrTEEAttestationInvalid), "TEE attestation invalid"},
+		{fmt.Errorf("%w: unmarshal TEE result", verifier.ErrTEEResponseMalformed), "TEE response malformed"},
+	}
+	for _, c := range cases {
+		status, message := classifyVerifyStatus(c.err)
+		require.Equal(t, types.StatusRejected, status)
+		require.Equal(t, c.want, message, "specific TEE reason must win over the generic category")
+		// Backward compatibility: the generic sentinel still matches.
+		require.ErrorIs(t, c.err, verifier.ErrTEEDataValidation)
+	}
+	// The generic (unspecific) TEE failure still falls back to the coarse message.
+	_, generic := classifyVerifyStatus(fmt.Errorf("some tee issue: %w", verifier.ErrTEEDataValidation))
+	require.Equal(t, "TEE data validation failed", generic)
+
+	// Correctness: a transient revocation-check (CRL) fetch failure must be RETRY,
+	// never a terminal REJECTED — and it must NOT chain the generic validation
+	// sentinel, or it would be swallowed as a terminal "TEE invalid".
+	crlErr := fmt.Errorf("attestation revocation check failed: CRL fetch failed: %w", verifier.ErrTEERevocationUnavailable)
+	status, message := classifyVerifyStatus(crlErr)
+	require.Equal(t, types.StatusRetry, status)
+	require.Equal(t, "TEE revocation check unavailable", message)
+	require.NotErrorIs(t, crlErr, verifier.ErrTEEDataValidation,
+		"a CRL fetch outage must not be classifiable as a terminal TEE validation failure")
 }
 
 func TestClassifyVerifyStatusDistinguishesRetryReasons(t *testing.T) {

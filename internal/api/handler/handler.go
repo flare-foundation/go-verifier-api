@@ -178,6 +178,22 @@ func classifyVerifyStatus(err error) (status, message string) {
 		return types.StatusRejected, "source reported a non-success result"
 	case errors.Is(err, db.ErrRecordNotFound):
 		return types.StatusRejected, "record not found"
+	case errors.Is(err, verifier.ErrTEEChallengeMismatch):
+		return types.StatusRejected, "TEE challenge mismatch"
+	case errors.Is(err, verifier.ErrTEEChainIDMismatch):
+		return types.StatusRejected, "TEE chain id mismatch"
+	case errors.Is(err, verifier.ErrTEEProxySignerMismatch):
+		return types.StatusRejected, "TEE proxy signer mismatch"
+	case errors.Is(err, verifier.ErrTEESigningPolicyHash):
+		return types.StatusRejected, "TEE signing policy hash mismatch"
+	case errors.Is(err, verifier.ErrTEEAttestationInvalid):
+		return types.StatusRejected, "TEE attestation invalid"
+	case errors.Is(err, verifier.ErrTEEResponseMalformed):
+		return types.StatusRejected, "TEE response malformed"
+	// Transient: a revocation-check (CRL) fetch failure must retry, not reject.
+	// Checked before the generic ErrTEEDataValidation case (which it does NOT chain).
+	case errors.Is(err, verifier.ErrTEERevocationUnavailable):
+		return types.StatusRetry, "TEE revocation check unavailable"
 	case errors.Is(err, verifier.ErrTEEDataValidation):
 		return types.StatusRejected, "TEE data validation failed"
 	case errors.Is(err, verifiertypes.ErrInvalidInput):
