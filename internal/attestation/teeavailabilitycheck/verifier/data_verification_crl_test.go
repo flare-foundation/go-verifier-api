@@ -3,6 +3,7 @@ package verifier
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -67,4 +68,22 @@ func TestDataVerification_CorruptCRLIsTerminal(t *testing.T) {
 	require.Error(t, err)
 	require.NotErrorIs(t, err, ErrTEERevocationUnavailable,
 		"a corrupt CRL (fetch succeeded) is deterministic and must not be retryable")
+}
+
+// TestClassifyDataVerificationError: a verifier timeout/cancellation (or CRL fetch
+// outage) during data verification must stay retryable — never be wrapped as a
+// terminal ErrTEEAttestationInvalid, which the classifier would match before the
+// context case and report as REJECTED.
+func TestClassifyDataVerificationError(t *testing.T) {
+	for _, transient := range []error{ErrTEERevocationUnavailable, context.Canceled, context.DeadlineExceeded} {
+		got := classifyDataVerificationError(fmt.Errorf("during CRL work: %w", transient))
+		require.ErrorIs(t, got, transient)
+		require.NotErrorIs(t, got, ErrTEEAttestationInvalid,
+			"transient/cancelled data verification must not become a terminal invalid attestation")
+		require.NotErrorIs(t, got, ErrTEEDataValidation)
+	}
+	// A genuinely deterministic failure is a terminal invalid attestation.
+	det := classifyDataVerificationError(errors.New("cannot validate certificate signature"))
+	require.ErrorIs(t, det, ErrTEEAttestationInvalid)
+	require.ErrorIs(t, det, ErrTEEDataValidation, "the terminal sentinel chains the generic one")
 }

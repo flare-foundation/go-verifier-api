@@ -159,13 +159,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	spRes := <-spCh
 
 	if dvRes.err != nil {
-		// A revocation-check (CRL) fetch failure is a transient infra fault, not an
-		// invalid attestation: it must retry, never mint a terminal "TEE invalid".
-		if errors.Is(dvRes.err, ErrTEERevocationUnavailable) {
-			return zero, fmt.Errorf("attestation revocation check failed: %w", dvRes.err)
-		}
-		// Any other data-verification failure is a terminal invalid attestation.
-		return zero, fmt.Errorf("%w: %w", ErrTEEAttestationInvalid, dvRes.err)
+		return zero, classifyDataVerificationError(dvRes.err)
 	}
 	if spRes.err != nil {
 		return zero, spRes.err
@@ -186,6 +180,21 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 			StateVersion:       infoData.State.StateVersion,
 		},
 	}, nil
+}
+
+// classifyDataVerificationError maps a DataVerification failure to the error Verify
+// returns. Transient failures — a CRL network-fetch outage, or a verifier
+// timeout/cancellation while waiting on CRL work — propagate untagged so they stay
+// retryable. Only a genuinely deterministic failure becomes a terminal invalid
+// attestation. Wrapping a cancellation as ErrTEEAttestationInvalid would make it
+// REJECTED (the classifier matches that sentinel before context), not RETRY.
+func classifyDataVerificationError(err error) error {
+	if errors.Is(err, ErrTEERevocationUnavailable) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("data verification could not complete: %w", err)
+	}
+	return fmt.Errorf("%w: %w", ErrTEEAttestationInvalid, err)
 }
 
 func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (StatusInfo, error) {
