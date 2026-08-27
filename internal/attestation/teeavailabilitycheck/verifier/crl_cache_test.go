@@ -10,7 +10,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -36,10 +38,17 @@ func TestIsTransientFetchError(t *testing.T) {
 		transient bool
 	}{
 		{"transport failure", fmt.Errorf("HTTP request failed: %w: %w", errors.New("connection refused"), fetcher.ErrHTTPFetch), true},
+		{"body-read drop (now tagged ErrHTTPFetch)", fmt.Errorf("reading response body: %w: %w", io.ErrUnexpectedEOF, fetcher.ErrHTTPFetch), true},
 		{"fetch timeout", context.DeadlineExceeded, true},
 		{"cancelled", context.Canceled, true},
 		{"5xx server error", &fetcher.HTTPStatusError{URL: "u", Code: 503}, true},
+		{"408 request timeout", &fetcher.HTTPStatusError{URL: "u", Code: http.StatusRequestTimeout}, true},
+		{"429 too many requests", &fetcher.HTTPStatusError{URL: "u", Code: http.StatusTooManyRequests}, true},
 		{"4xx client error", &fetcher.HTTPStatusError{URL: "u", Code: 403}, false},
+		{"temporary DNS failure (wrapped in ErrURLValidation)", fmt.Errorf("%w: cannot resolve: %w", ErrURLValidation, &net.DNSError{IsTemporary: true}), true},
+		{"DNS timeout (wrapped in ErrURLValidation)", fmt.Errorf("%w: cannot resolve: %w", ErrURLValidation, &net.DNSError{IsTimeout: true}), true},
+		{"NXDOMAIN (deterministic)", fmt.Errorf("%w: cannot resolve: %w", ErrURLValidation, &net.DNSError{IsNotFound: true}), false},
+		{"SSRF-blocked (deterministic)", fmt.Errorf("%w: local hostnames are not allowed", ErrURLValidation), false},
 		{"404 not found", fetcher.ErrNotFound, false},
 		{"refused redirect wrapped in ErrHTTPFetch", fmt.Errorf("HTTP request failed: %w: %w", fetcher.ErrRedirect, fetcher.ErrHTTPFetch), false},
 		{"oversized response", fmt.Errorf("%w: too big", fetcher.ErrResponseTooLarge), false},

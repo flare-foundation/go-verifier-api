@@ -6,6 +6,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"sync"
 	"time"
 
@@ -160,14 +162,25 @@ func isTransientFetchError(err error) bool {
 		errors.Is(err, fetcher.ErrResponseTooLarge) {
 		return false
 	}
-	// A non-2xx status: 5xx is a server-side hiccup that may recover; 4xx is a
-	// deterministic client error. HTTPStatusError.Unwrap is ErrHTTPFetch, so this
-	// must be checked before the transport case below.
+	// A non-2xx status: 5xx is a server-side hiccup that may recover, and the
+	// retryable 4xx (408 Request Timeout, 429 Too Many Requests) likewise; other
+	// 4xx are deterministic. HTTPStatusError.Unwrap is ErrHTTPFetch, so this must be
+	// checked before the transport case below.
 	var httpErr *fetcher.HTTPStatusError
 	if errors.As(err, &httpErr) {
-		return httpErr.Code >= 500 && httpErr.Code < 600
+		return (httpErr.Code >= 500 && httpErr.Code < 600) ||
+			httpErr.Code == http.StatusRequestTimeout ||
+			httpErr.Code == http.StatusTooManyRequests
 	}
-	// Genuine transport failure (connection/TLS/read) or a fetch timeout.
+	// A temporary or timed-out DNS resolution (surfaced wrapped in ErrURLValidation)
+	// is transient; a deterministic resolution failure (NXDOMAIN, SSRF-blocked,
+	// invalid URL) is not.
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return dnsErr.IsTemporary || dnsErr.IsTimeout
+	}
+	// Genuine transport failure (connection/TLS/read, incl. a dropped body read now
+	// tagged ErrHTTPFetch) or a fetch timeout/cancellation.
 	return errors.Is(err, fetcher.ErrHTTPFetch) ||
 		errors.Is(err, context.DeadlineExceeded) ||
 		errors.Is(err, context.Canceled)

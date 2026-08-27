@@ -120,7 +120,9 @@ func FetchBytesPinned(ctx context.Context, url string, fetchTimeout time.Duratio
 	limitReader := io.LimitReader(resp.Body, maxResponseSize+1)
 	data, err := io.ReadAll(limitReader)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body from %s: %w", url, err)
+		// A dropped/timed-out connection mid-body is a transport failure like any
+		// other fetch error — tag it ErrHTTPFetch so callers classify it retryable.
+		return nil, fmt.Errorf("reading response body from %s: %w: %w", url, err, ErrHTTPFetch)
 	}
 	if len(data) > maxResponseSize {
 		return nil, fmt.Errorf("%w: %s (max %d bytes)", ErrResponseTooLarge, url, maxResponseSize)
