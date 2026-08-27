@@ -167,16 +167,19 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 // non-sensitive category; internal error detail stays in the server log only.
 func classifyVerifyStatus(err error) (status, message string) {
 	switch {
-	case errors.Is(err, feeproofxrp.ErrBatchRangeTooLarge),
-		errors.Is(err, feeproofxrp.ErrReissueLimitExceeded),
-		errors.Is(err, multisigxrp.ErrInvalidRequest),
+	case errors.Is(err, feeproofxrp.ErrBatchRangeTooLarge):
+		return types.StatusRejected, "batch range too large"
+	case errors.Is(err, feeproofxrp.ErrReissueLimitExceeded):
+		return types.StatusRejected, "reissue limit exceeded"
+	case errors.Is(err, multisigxrp.ErrInvalidRequest),
 		errors.Is(err, multisigutxobtc.ErrInvalidRequest):
 		return types.StatusRejected, "invalid request"
 	case errors.Is(err, paymentstatusbtc.ErrMissingTransactionID):
 		return types.StatusRejected, "missing transaction id"
-	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
-		errors.Is(err, feeproofxrp.ErrMissingTransaction):
-		return types.StatusRejected, "missing data for the requested payment"
+	case errors.Is(err, feeproofxrp.ErrMissingPayEvent):
+		return types.StatusRejected, "missing pay event for the payment"
+	case errors.Is(err, feeproofxrp.ErrMissingTransaction):
+		return types.StatusRejected, "missing transaction for the payment"
 	case errors.Is(err, client.ErrRPCNonSuccess):
 		return types.StatusRejected, "source reported a non-success result"
 	case errors.Is(err, db.ErrRecordNotFound):
@@ -193,6 +196,8 @@ func classifyVerifyStatus(err error) (status, message string) {
 		return types.StatusRejected, "TEE attestation invalid"
 	case errors.Is(err, verifier.ErrTEEResponseMalformed):
 		return types.StatusRejected, "TEE response malformed"
+	case errors.Is(err, verifier.ErrTEEActionResultMismatch):
+		return types.StatusRejected, "TEE action result mismatch"
 	// Transient: a revocation-check (CRL) fetch failure must retry, not reject.
 	// Checked before the generic ErrTEEDataValidation case (which it does NOT chain).
 	case errors.Is(err, verifier.ErrTEERevocationUnavailable):

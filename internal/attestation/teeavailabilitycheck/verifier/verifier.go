@@ -68,6 +68,10 @@ var (
 	// ErrTEEAttestationInvalid is a terminal attestation failure (certificate,
 	// claims, or TEE-ID) surfaced by DataVerification; it chains ErrTEEDataValidation.
 	ErrTEEAttestationInvalid = fmt.Errorf("TEE attestation invalid: %w", ErrTEEDataValidation)
+	// ErrTEEActionResultMismatch is a terminal failure where the action result does
+	// not bind to the request (instruction id, op type/command, TEE signature); it
+	// chains ErrTEEDataValidation.
+	ErrTEEActionResultMismatch = fmt.Errorf("TEE action result mismatch: %w", ErrTEEDataValidation)
 	// ErrTEEResponseMalformed is a terminal failure where the proxy is reachable but
 	// returns unusable data (empty/oversized/invalid JSON/unrecoverable signature);
 	// it chains ErrTEEDataValidation.
@@ -131,7 +135,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	}
 	// Verify the action result is from the expected TEE and bound to this instruction.
 	if err := verifyActionResult(actionResp, req.InstructionId, req.TeeId, response.TeeInfo.ChainID); err != nil {
-		return zero, fmt.Errorf("%w: %w", ErrTEEDataValidation, err)
+		return zero, fmt.Errorf("%w: %w", ErrTEEActionResultMismatch, err)
 	}
 	// Run DataVerification and CheckSigningPolicies in parallel (independent after challenge fetch).
 	infoData := response.TeeInfo

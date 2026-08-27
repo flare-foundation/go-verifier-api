@@ -467,6 +467,7 @@ func TestClassifyVerifyStatusTEEGranularMessages(t *testing.T) {
 		{fmt.Errorf("failed to validate initial signing policy hash: %w: %w", verifier.ErrTEESigningPolicyHash, verifier.ErrTEEDataValidation), "TEE signing policy hash mismatch"},
 		{fmt.Errorf("%w: cannot validate certificate signature", verifier.ErrTEEAttestationInvalid), "TEE attestation invalid"},
 		{fmt.Errorf("%w: unmarshal TEE result", verifier.ErrTEEResponseMalformed), "TEE response malformed"},
+		{fmt.Errorf("%w: action result instruction ID mismatch", verifier.ErrTEEActionResultMismatch), "TEE action result mismatch"},
 	}
 	for _, c := range cases {
 		status, message := classifyVerifyStatus(c.err)
@@ -506,6 +507,7 @@ func TestClassifyVerifyStatusVerdicts(t *testing.T) {
 		client.ErrRPCNonSuccess,
 		db.ErrRecordNotFound,
 		verifier.ErrTEEDataValidation,
+		verifier.ErrTEEActionResultMismatch,
 		verifiertypes.ErrInvalidInput,
 	}
 	retry := []error{
@@ -543,6 +545,28 @@ func TestClassifyVerifyStatusVerdicts(t *testing.T) {
 	}
 	for _, s := range retry {
 		check(t, s, types.StatusRetry)
+	}
+}
+
+// TestClassifyVerifyStatusDistinctRejectReasons locks the per-cause reject messages
+// so distinct failures are not collapsed into one coarse string.
+func TestClassifyVerifyStatusDistinctRejectReasons(t *testing.T) {
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{fmt.Errorf("range: %w", feeproofxrp.ErrBatchRangeTooLarge), "batch range too large"},
+		{fmt.Errorf("nonce: %w", feeproofxrp.ErrReissueLimitExceeded), "reissue limit exceeded"},
+		{fmt.Errorf("no pay event: %w", feeproofxrp.ErrMissingPayEvent), "missing pay event for the payment"},
+		{fmt.Errorf("no tx: %w", feeproofxrp.ErrMissingTransaction), "missing transaction for the payment"},
+	}
+	seen := map[string]bool{}
+	for _, c := range cases {
+		status, message := classifyVerifyStatus(c.err)
+		require.Equal(t, types.StatusRejected, status)
+		require.Equal(t, c.want, message)
+		require.False(t, seen[message], "reject reason %q is not distinct", message)
+		seen[message] = true
 	}
 }
 
