@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -21,7 +22,35 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
+
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 )
+
+// TestIsTransientFetchError: only transport outages, timeouts, and 5xx are
+// retryable; deterministic fetch failures (redirect, 404, 4xx, oversized, invalid
+// URL) must be rejected, not retried forever — even the ones that wrap ErrHTTPFetch.
+func TestIsTransientFetchError(t *testing.T) {
+	cases := []struct {
+		name      string
+		err       error
+		transient bool
+	}{
+		{"transport failure", fmt.Errorf("HTTP request failed: %w: %w", errors.New("connection refused"), fetcher.ErrHTTPFetch), true},
+		{"fetch timeout", context.DeadlineExceeded, true},
+		{"cancelled", context.Canceled, true},
+		{"5xx server error", &fetcher.HTTPStatusError{URL: "u", Code: 503}, true},
+		{"4xx client error", &fetcher.HTTPStatusError{URL: "u", Code: 403}, false},
+		{"404 not found", fetcher.ErrNotFound, false},
+		{"refused redirect wrapped in ErrHTTPFetch", fmt.Errorf("HTTP request failed: %w: %w", fetcher.ErrRedirect, fetcher.ErrHTTPFetch), false},
+		{"oversized response", fmt.Errorf("%w: too big", fetcher.ErrResponseTooLarge), false},
+		{"invalid/unresolvable URL", errors.New("resolving CRL URL: parse error"), false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			require.Equal(t, c.transient, isTransientFetchError(c.err))
+		})
+	}
+}
 
 // createTestCRL creates a signed CRL issued by the given CA with the specified nextUpdate.
 //

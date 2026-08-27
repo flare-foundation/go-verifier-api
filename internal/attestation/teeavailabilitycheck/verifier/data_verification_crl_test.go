@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,8 @@ func TestDataVerification_CRLFetchFailure(t *testing.T) {
 		CRLCache: &CRLCache{
 			entries: make(map[string]*crlEntry),
 			fetchFn: func(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
-				return nil, errors.New("fetch failed")
+				// A transport outage (connection refused) — genuinely transient.
+				return nil, fmt.Errorf("dial tcp: connection refused: %w", fetcher.ErrHTTPFetch)
 			},
 		},
 	}
@@ -43,6 +45,32 @@ func TestDataVerification_CRLFetchFailure(t *testing.T) {
 	require.ErrorIs(t, err, ErrTEERevocationUnavailable)
 	require.NotErrorIs(t, err, ErrTEEDataValidation,
 		"a CRL fetch outage must not be classifiable as a terminal TEE validation failure")
+}
+
+// TestDataVerification_DeterministicCRLFetchIsTerminal: a deterministic fetch
+// failure (e.g. a 404 from the distribution point) is a bad/misconfigured CRL URL,
+// not a transient outage — it must NOT be retryable, so it fails closed rather than
+// retrying forever.
+func TestDataVerification_DeterministicCRLFetchIsTerminal(t *testing.T) {
+	signedToken, _, _, _, _ := buildTestTokenWithCRLDists(t,
+		[]string{"http://example.com/leaf.crl"},
+		[]string{"http://example.com/intermediate.crl"},
+	)
+	v := &TeeVerifier{
+		Cfg: &config.TeeAvailabilityCheckConfig{TeeAudience: "test-audience"},
+		CRLCache: &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
+				return nil, fetcher.ErrNotFound // 404: the distribution point is wrong/gone
+			},
+		},
+	}
+	resp := teenodetypes.TeeInfoResponse{Attestation: signedToken}
+
+	_, err := v.DataVerification(context.Background(), resp, common.Address{})
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrTEERevocationUnavailable,
+		"a deterministic CRL fetch failure (404) must not be retryable")
 }
 
 // TestDataVerification_CorruptCRLIsTerminal: when the fetch SUCCEEDS but the served

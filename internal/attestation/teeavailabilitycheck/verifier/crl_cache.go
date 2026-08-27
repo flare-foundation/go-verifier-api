@@ -148,6 +148,31 @@ func (c *CRLCache) fetchFirstCRL(ctx context.Context, certName string, distribut
 	return nil, fmt.Errorf("fetching %s CRL failed for all distribution points: %w", certName, errors.Join(errs...))
 }
 
+// isTransientFetchError reports whether a CRL fetch failure is transient (→
+// retryable). Only transport outages, fetch timeouts, and 5xx responses qualify;
+// deterministic failures (invalid/unresolvable URL, refused redirect, 404, other
+// 4xx, oversized body) do not, so they are rejected rather than retried forever.
+func isTransientFetchError(err error) bool {
+	// These surface through the HTTP client — some even wrap ErrHTTPFetch — but are
+	// deterministic, so they must be excluded before the ErrHTTPFetch transport case.
+	if errors.Is(err, fetcher.ErrRedirect) ||
+		errors.Is(err, fetcher.ErrNotFound) ||
+		errors.Is(err, fetcher.ErrResponseTooLarge) {
+		return false
+	}
+	// A non-2xx status: 5xx is a server-side hiccup that may recover; 4xx is a
+	// deterministic client error. HTTPStatusError.Unwrap is ErrHTTPFetch, so this
+	// must be checked before the transport case below.
+	var httpErr *fetcher.HTTPStatusError
+	if errors.As(err, &httpErr) {
+		return httpErr.Code >= 500 && httpErr.Code < 600
+	}
+	// Genuine transport failure (connection/TLS/read) or a fetch timeout.
+	return errors.Is(err, fetcher.ErrHTTPFetch) ||
+		errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, context.Canceled)
+}
+
 // getOrFetchCRL returns a cached CRL if fresh, otherwise fetches it.
 // The issuer certificate is used to verify the CRL signature before caching.
 func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.Certificate) (*x509.RevocationList, error) {
@@ -176,10 +201,17 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 
 		data, err := c.fetchFn(context.Background(), url, crlFetchTimeout)
 		if err != nil {
-			// Only the network fetch is transient (→ retryable). Everything below
-			// (parse, issuer verification, NextUpdate) and every attestation-level
-			// check in FetchCRLsForToken is deterministic and must stay terminal.
-			return nil, fmt.Errorf("fetching CRL: %w: %w", ErrTEERevocationUnavailable, err)
+			// Only a genuinely transient fetch failure (transport outage, timeout,
+			// 5xx) is retryable. A deterministic failure — invalid/unresolvable URL,
+			// refused redirect, 404, other 4xx, oversized body — is a bad or
+			// misconfigured distribution point and must be rejected, not retried
+			// forever. (Parse, issuer verification and NextUpdate below, plus every
+			// attestation-level check in FetchCRLsForToken, are likewise deterministic
+			// and stay untagged.)
+			if isTransientFetchError(err) {
+				return nil, fmt.Errorf("fetching CRL: %w: %w", ErrTEERevocationUnavailable, err)
+			}
+			return nil, fmt.Errorf("fetching CRL: %w", err)
 		}
 
 		// Try PEM decode first (Google Cloud CRLs are PEM-encoded), fall back to raw DER.
