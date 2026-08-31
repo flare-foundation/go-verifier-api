@@ -1,12 +1,10 @@
 package verifier
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
-	btcverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc"
 	xrpverifier "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"gorm.io/gorm"
@@ -28,30 +26,9 @@ var xrpConstructor = func(
 	return xrpverifier.NewXRPVerifier(cfg, db, cChainDB)
 }
 
-// btcConstructor builds the BTC (node-path) verifier. The source DB is the
-// verifier-utxo-indexer, which the node path does not use, so the first *gorm.DB
-// is ignored; only the C-chain DB (PaymentBatched events) is passed through.
-var btcConstructor = func(
-	cfg *config.PMWPaymentStatusConfig,
-	_, cChainDB *gorm.DB,
-) (attestation.Verifier[fdc2.IPMWPaymentStatusRequestBody, fdc2.IPMWPaymentStatusResponseBody], error) {
-	v, err := btcverifier.NewBtcVerifier(cfg, cChainDB)
-	if err != nil {
-		return nil, err
-	}
-	// Pin the node's chain at startup: a definite wrong-chain node fails boot.
-	if err := v.VerifyNetwork(context.Background()); err != nil {
-		_ = v.Close() // release the Flare RPC client the verifier just dialed
-		return nil, err
-	}
-	return v, nil
-}
-
 var registry = map[string]VerifierConstructor{
 	string(config.SourceXRP):     xrpConstructor,
 	string(config.SourceTestXRP): xrpConstructor,
-	string(config.SourceBTC):     btcConstructor,
-	string(config.SourceTestBTC): btcConstructor,
 }
 
 // ConstructorForSource returns the verifier constructor for the given source ID,

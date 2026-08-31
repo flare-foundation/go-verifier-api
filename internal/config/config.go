@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
@@ -28,8 +27,6 @@ const (
 	EnvAllowPrivateNetworks           = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
 	EnvTeeAudience                    = "TEE_AUDIENCE"                  // Optional override for the expected aud claim on Confidential Space attestation tokens. Defaults to DefaultTeeAudience when unset.
 	EnvChainID                        = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
-	EnvBtcNetwork                     = "BTC_NETWORK"                   // Bitcoin network (mainnet/signet/testnet/regtest) — used by PMWMultisigUtxoConfigured/PMWPaymentStatus. Optional; defaults from SOURCE_ID (BTC→mainnet, testBTC→signet).
-	EnvChannelAddress                 = "CHANNEL_ADDRESS"               // UtxoInstructionChannel address — used by BTC PMWPaymentStatus (node mode: PaymentBatched event source).
 )
 
 // DefaultTeeAudience is the aud claim the verifier expects on Confidential Space
@@ -52,8 +49,6 @@ type EnvConfig struct {
 	AllowPrivateNetworks           string
 	TeeAudience                    string
 	ChainID                        string
-	BtcNetwork                     string
-	ChannelAddress                 string
 	Port                           string
 	APIKeys                        []string
 	// AttestationType is the single type view used by the per-type config loaders
@@ -85,8 +80,6 @@ const (
 	SourceTEE     SourceName = "TEE"
 	SourceXRP     SourceName = "XRP"
 	SourceTestXRP SourceName = "testXRP"
-	SourceBTC     SourceName = "BTC"
-	SourceTestBTC SourceName = "testBTC"
 )
 
 // SourceAttestationTypes is the canonical set of attestation types each source
@@ -97,38 +90,6 @@ var SourceAttestationTypes = map[SourceName][]fdc2.AttestationType{
 	SourceTEE:     {fdc2.AvailabilityCheck},
 	SourceXRP:     {fdc2.PMWMultisigAccountConfigured, fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
 	SourceTestXRP: {fdc2.PMWMultisigAccountConfigured, fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
-	SourceBTC:     {fdc2.PMWMultisigUtxoConfigured, fdc2.PMWPaymentStatus},
-	SourceTestBTC: {fdc2.PMWMultisigUtxoConfigured, fdc2.PMWPaymentStatus},
-}
-
-// BtcNetworkParams resolves the Bitcoin network parameters a BTC deployment uses:
-// an explicit BTC_NETWORK override wins (so a deployment can target testnet or a
-// local regtest), otherwise the source id implies the default. Addresses are
-// ENCODED with these parameters, so a wrong network silently matches nothing —
-// an unknown value fails rather than defaulting.
-func BtcNetworkParams(source SourceName, network string) (*chaincfg.Params, error) {
-	if network != "" {
-		switch strings.ToLower(network) {
-		case "mainnet", "main":
-			return &chaincfg.MainNetParams, nil
-		case "testnet", "testnet3", "test":
-			return &chaincfg.TestNet3Params, nil
-		case "signet":
-			return &chaincfg.SigNetParams, nil
-		case "regtest":
-			return &chaincfg.RegressionNetParams, nil
-		default:
-			return nil, fmt.Errorf("unknown %s %q: want mainnet, testnet3, signet or regtest", EnvBtcNetwork, network)
-		}
-	}
-	switch source {
-	case SourceBTC:
-		return &chaincfg.MainNetParams, nil
-	case SourceTestBTC:
-		return &chaincfg.SigNetParams, nil
-	default:
-		return nil, fmt.Errorf("source %s has no Bitcoin network", source)
-	}
 }
 
 // AttestationTypesForSource returns the attestation types a per-source deployment
@@ -173,17 +134,6 @@ type PMWPaymentStatusConfig struct {
 	TeePaymentsContractAddress     common.Address
 	FlareRPCURL                    string
 	ParsedTeeInstructionsABI       abi.ABI
-	// BTC-only fields (unused by the XRP verifier).
-	//
-	// ChannelAddress is the UtxoInstructionChannel; when set it selects the BTC
-	// node mode — per-payment records come from its PaymentBatched events and the
-	// settling batch is read from the Bitcoin node at SourceRPCURL.
-	ChannelAddress common.Address
-	// SourceRPCURL is the Bitcoin node (getrawtransaction/getblockheader).
-	SourceRPCURL string
-	// BtcNetwork overrides the network the source id implies; addresses are
-	// ENCODED with these parameters (see BtcNetworkParams).
-	BtcNetwork string
 }
 
 type PMWFeeProofConfig struct {
@@ -199,15 +149,6 @@ type PMWFeeProofConfig struct {
 type PMWMultisigAccountConfig struct {
 	EncodedAndABI
 	SourceRPCURL string
-}
-
-type PMWMultisigUtxoConfig struct {
-	EncodedAndABI
-	// SourceRPCURL is the Bitcoin node reached for gettxout.
-	SourceRPCURL string
-	// BtcNetwork is the explicit Bitcoin network (BTC_NETWORK). Empty means the
-	// source id implies the default (BTC→mainnet, testBTC→signet).
-	BtcNetwork string
 }
 
 type EncodedAndABI struct {
@@ -234,10 +175,6 @@ var abiStructNames = map[fdc2.AttestationType]struct {
 	fdc2.PMWMultisigAccountConfigured: {
 		Request:  "pmwMultisigAccountConfiguredRequestBodyStruct",
 		Response: "pmwMultisigAccountConfiguredResponseBodyStruct",
-	},
-	fdc2.PMWMultisigUtxoConfigured: {
-		Request:  "pmwMultisigUtxoConfiguredRequestBodyStruct",
-		Response: "pmwMultisigUtxoConfiguredResponseBodyStruct",
 	},
 	fdc2.PMWPaymentStatus: {
 		Request:  "pmwPaymentStatusRequestBodyStruct",
@@ -307,10 +244,6 @@ func CheckMissingFields(cfg EnvConfig, fields []string) error {
 			}
 		case EnvCChainDatabaseURL:
 			if cfg.CChainDatabaseURL == "" {
-				missing = append(missing, field)
-			}
-		case EnvChannelAddress:
-			if cfg.ChannelAddress == "" {
 				missing = append(missing, field)
 			}
 		}

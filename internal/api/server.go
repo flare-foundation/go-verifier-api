@@ -99,8 +99,6 @@ var SourceIDs = []config.SourceName{
 	config.SourceTEE,
 	config.SourceXRP,
 	config.SourceTestXRP,
-	config.SourceBTC,
-	config.SourceTestBTC,
 }
 
 func parseSourceID(value string) (config.SourceName, error) {
@@ -180,8 +178,6 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		AllowPrivateNetworks:           os.Getenv(config.EnvAllowPrivateNetworks),
 		TeeAudience:                    os.Getenv(config.EnvTeeAudience),
 		ChainID:                        os.Getenv(config.EnvChainID),
-		BtcNetwork:                     os.Getenv(config.EnvBtcNetwork),
-		ChannelAddress:                 os.Getenv(config.EnvChannelAddress),
 		Port:                           port,
 		APIKeys:                        apiKeys,
 		AttestationTypes:               attestationTypes,

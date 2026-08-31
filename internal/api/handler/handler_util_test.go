@@ -22,10 +22,6 @@ import (
 	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
 	multisigxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
-	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
-	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
-	paymentstatusbtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc/nodechain"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -243,16 +239,6 @@ func TestClassifyVerifyError(t *testing.T) {
 			err:            fmt.Errorf("too many keys: %w", multisigxrp.ErrInvalidRequest),
 			expectedStatus: http.StatusBadRequest,
 		},
-		{
-			name:           "ErrInvalidRequest (utxo multisig BTC)",
-			err:            fmt.Errorf("bad anchor set: %w", multisigutxobtc.ErrInvalidRequest),
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "ErrMissingTransactionID (payment-status BTC)",
-			err:            fmt.Errorf("no locator: %w", paymentstatusbtc.ErrMissingTransactionID),
-			expectedStatus: http.StatusBadRequest,
-		},
 		// 422 — PMW errors
 		{
 			name:           "ErrRPCNonSuccess",
@@ -296,41 +282,6 @@ func TestClassifyVerifyError(t *testing.T) {
 		{
 			name:           "ErrDatabase",
 			err:            fmt.Errorf("db failed: %w", db.ErrDatabase),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:           "ErrNetworkMismatch (payment-status BTC)",
-			err:            fmt.Errorf("wrong chain: %w", paymentstatusbtc.ErrNetworkMismatch),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:           "ErrNetworkUnverified (payment-status BTC)",
-			err:            fmt.Errorf("probe in flight: %w", paymentstatusbtc.ErrNetworkUnverified),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:           "ErrNodeUnavailable (payment-status BTC node)",
-			err:            fmt.Errorf("node down: %w", nodechain.ErrNodeUnavailable),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:           "ErrNetworkMismatch (utxo multisig BTC)",
-			err:            fmt.Errorf("wrong chain: %w", multisigutxobtc.ErrNetworkMismatch),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:           "ErrNetworkUnverified (utxo multisig BTC)",
-			err:            fmt.Errorf("probe in flight: %w", multisigutxobtc.ErrNetworkUnverified),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:           "ErrFetchChainInfo (BTC)",
-			err:            fmt.Errorf("node unreachable: %w", btcclient.ErrFetchChainInfo),
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			name:           "ErrGetTxOut (BTC)",
-			err:            fmt.Errorf("gettxout failed: %w", btcclient.ErrGetTxOut),
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		{
@@ -502,8 +453,6 @@ func TestClassifyVerifyStatusVerdicts(t *testing.T) {
 		feeproofxrp.ErrMissingPayEvent,
 		feeproofxrp.ErrMissingTransaction,
 		multisigxrp.ErrInvalidRequest,
-		multisigutxobtc.ErrInvalidRequest,
-		paymentstatusbtc.ErrMissingTransactionID,
 		client.ErrRPCNonSuccess,
 		db.ErrRecordNotFound,
 		verifier.ErrTEEDataValidation,
@@ -517,13 +466,6 @@ func TestClassifyVerifyStatusVerdicts(t *testing.T) {
 		client.ErrFetchServerInfo,
 		client.ErrRPCTransient,
 		multisigxrp.ErrNetworkMismatch,
-		multisigutxobtc.ErrNetworkMismatch,
-		multisigutxobtc.ErrNetworkUnverified,
-		btcclient.ErrFetchChainInfo,
-		btcclient.ErrGetTxOut,
-		paymentstatusbtc.ErrNetworkMismatch,
-		paymentstatusbtc.ErrNetworkUnverified,
-		nodechain.ErrNodeUnavailable,
 		db.ErrDatabase,
 		db.ErrDataSource,
 		verifiertypes.ErrNetwork,

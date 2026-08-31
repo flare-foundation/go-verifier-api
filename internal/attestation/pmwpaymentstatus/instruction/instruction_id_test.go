@@ -79,26 +79,6 @@ func TestGenerateInstructionIDPinnedToContract(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-// TestGenerateInstructionIDBtcPinnedToContract is the BTC (F_BTC) counterpart of
-// the pin test above: the BTC PMWPaymentStatus path derives its batch instruction
-// id from the same _computeInstructionId encoding, differing only in opType and
-// the resolved batchPaymentId (which stands in for paymentId). A golden digest,
-// re-confirmed against the independent reconstruction, guards that path.
-func TestGenerateInstructionIDBtcPinnedToContract(t *testing.T) {
-	account := "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh" // opaque to the digest
-	batchPaymentID := uint64(42)
-	opType := rightPad32(string(op.BTC)) // F_BTC — the BTC source op type
-	sourceID := rightPad32(string(config.SourceBTC))
-	payCmd := rightPad32("PAY") // a batch's instruction id uses the PAY tag, reissue 0
-
-	want := encodeInstructionIDLikeSolidity(opType, payCmd, sourceID, account, batchPaymentID, 0)
-	require.Equal(t, "0x4fdf68515abacfa1764930a7720523420270f66a28bce2db61eb9c50b6bbb210", want.Hex())
-
-	got, err := instruction.GenerateInstructionID(opType, sourceID, account, batchPaymentID)
-	require.NoError(t, err)
-	require.Equal(t, want, got)
-}
-
 func TestGenerateInstructionID(t *testing.T) {
 	expected := "0xe5add181f8ca03c9d20dad331b07fb7386d957ca35dcd643bb0a16f48ec0ec09"
 	senderAddress := "renoX7N3xcss6nbh62tYAhaTH1XG17Arc"

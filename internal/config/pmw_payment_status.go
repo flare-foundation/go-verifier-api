@@ -24,51 +24,7 @@ func LoadPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, e
 }
 
 func BuildPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
-	switch envConfig.SourceID {
-	case SourceBTC, SourceTestBTC:
-		return buildBtcPMWPaymentStatusConfig(envConfig)
-	default:
-		return buildXrpPMWPaymentStatusConfig(envConfig)
-	}
-}
-
-// buildBtcPMWPaymentStatusConfig builds the BTC node-mode config: the settling
-// batch is read from a Bitcoin node (SOURCE_RPC_URL) and per-payment records from
-// the channel's PaymentBatched events (CHANNEL_ADDRESS); the verifier-utxo-indexer
-// (SOURCE_DATABASE_URL) is not used, so it is not required.
-func buildBtcPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {
-	if err := CheckMissingFields(envConfig, []string{EnvCChainDatabaseURL, EnvTeePaymentsContractAddress, EnvFlareRPCURL, EnvChannelAddress, EnvSourceRPCURL}); err != nil {
-		return nil, err
-	}
-	teePaymentsAddr, err := parseContractAddress(envConfig.TeePaymentsContractAddress, EnvTeePaymentsContractAddress)
-	if err != nil {
-		return nil, err
-	}
-	channelAddr, err := parseContractAddress(envConfig.ChannelAddress, EnvChannelAddress)
-	if err != nil {
-		return nil, err
-	}
-	// Fail fast on an unresolvable network rather than encoding addresses no chain
-	// serves (BtcNetworkParams is also called at verifier construction).
-	if _, err := BtcNetworkParams(envConfig.SourceID, envConfig.BtcNetwork); err != nil {
-		return nil, err
-	}
-	commonConfig, err := LoadEncodedAndABI(envConfig)
-	if err != nil {
-		return nil, err
-	}
-	// The confirmation-depth floor is intentionally NOT configurable here: it is a
-	// consensus parameter (a fixed constant in the verifier), because a per-DP
-	// value would split attestation agreement on borderline-depth batches.
-	return &PMWPaymentStatusConfig{
-		EncodedAndABI:              commonConfig,
-		CchainDatabaseURL:          envConfig.CChainDatabaseURL,
-		TeePaymentsContractAddress: teePaymentsAddr,
-		FlareRPCURL:                envConfig.FlareRPCURL,
-		ChannelAddress:             channelAddr,
-		SourceRPCURL:               envConfig.SourceRPCURL,
-		BtcNetwork:                 envConfig.BtcNetwork,
-	}, nil
+	return buildXrpPMWPaymentStatusConfig(envConfig)
 }
 
 func buildXrpPMWPaymentStatusConfig(envConfig EnvConfig) (*PMWPaymentStatusConfig, error) {

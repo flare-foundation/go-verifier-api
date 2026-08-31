@@ -16,10 +16,6 @@ import (
 	feeproofxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/xrp"
 	multisigxrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp/client"
-	multisigutxobtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc"
-	btcclient "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigutxoconfigured/btc/client"
-	paymentstatusbtc "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc"
-	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/btc/nodechain"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier"
@@ -171,11 +167,8 @@ func classifyVerifyStatus(err error) (status, message string) {
 		return types.StatusRejected, "batch range too large"
 	case errors.Is(err, feeproofxrp.ErrReissueLimitExceeded):
 		return types.StatusRejected, "reissue limit exceeded"
-	case errors.Is(err, multisigxrp.ErrInvalidRequest),
-		errors.Is(err, multisigutxobtc.ErrInvalidRequest):
+	case errors.Is(err, multisigxrp.ErrInvalidRequest):
 		return types.StatusRejected, "invalid request"
-	case errors.Is(err, paymentstatusbtc.ErrMissingTransactionID):
-		return types.StatusRejected, "missing transaction id"
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent):
 		return types.StatusRejected, "missing pay event for the payment"
 	case errors.Is(err, feeproofxrp.ErrMissingTransaction):
@@ -213,15 +206,7 @@ func classifyVerifyStatus(err error) (status, message string) {
 		errors.Is(err, client.ErrFetchServerInfo),
 		errors.Is(err, client.ErrRPCTransient):
 		return types.StatusRetry, "source RPC unavailable"
-	case errors.Is(err, nodechain.ErrNodeUnavailable),
-		errors.Is(err, btcclient.ErrFetchChainInfo),
-		errors.Is(err, btcclient.ErrGetTxOut):
-		return types.StatusRetry, "source node unavailable"
-	case errors.Is(err, multisigxrp.ErrNetworkMismatch),
-		errors.Is(err, multisigutxobtc.ErrNetworkMismatch),
-		errors.Is(err, multisigutxobtc.ErrNetworkUnverified),
-		errors.Is(err, paymentstatusbtc.ErrNetworkMismatch),
-		errors.Is(err, paymentstatusbtc.ErrNetworkUnverified):
+	case errors.Is(err, multisigxrp.ErrNetworkMismatch):
 		return types.StatusRetry, "source network not verified"
 	case errors.Is(err, db.ErrDatabase):
 		return types.StatusRetry, "database unavailable"
@@ -247,9 +232,7 @@ func classifyVerifyError(reqID string, err error) error {
 	// 400 — bad request
 	case errors.Is(err, feeproofxrp.ErrBatchRangeTooLarge),
 		errors.Is(err, feeproofxrp.ErrReissueLimitExceeded),
-		errors.Is(err, multisigxrp.ErrInvalidRequest),
-		errors.Is(err, multisigutxobtc.ErrInvalidRequest),
-		errors.Is(err, paymentstatusbtc.ErrMissingTransactionID):
+		errors.Is(err, multisigxrp.ErrInvalidRequest):
 		return warnHuma400(reqID, msg, err)
 	// 422 — data/validation errors
 	case errors.Is(err, feeproofxrp.ErrMissingPayEvent),
@@ -266,13 +249,6 @@ func classifyVerifyError(reqID string, err error) error {
 		errors.Is(err, client.ErrFetchServerInfo),
 		errors.Is(err, client.ErrRPCTransient),
 		errors.Is(err, multisigxrp.ErrNetworkMismatch),
-		errors.Is(err, multisigutxobtc.ErrNetworkMismatch),
-		errors.Is(err, multisigutxobtc.ErrNetworkUnverified),
-		errors.Is(err, btcclient.ErrFetchChainInfo),
-		errors.Is(err, btcclient.ErrGetTxOut),
-		errors.Is(err, paymentstatusbtc.ErrNetworkMismatch),
-		errors.Is(err, paymentstatusbtc.ErrNetworkUnverified),
-		errors.Is(err, nodechain.ErrNodeUnavailable),
 		errors.Is(err, db.ErrDatabase),
 		errors.Is(err, db.ErrDataSource),
 		errors.Is(err, verifiertypes.ErrNetwork),
@@ -301,8 +277,6 @@ func logRequestBody[T any](requestData T) {
 		types.LogTeeAvailabilityCheckRequestBody(req)
 	case fdc2.IPMWMultisigAccountConfiguredRequestBody:
 		types.LogPMWMultisigAccountConfiguredRequestBody(req)
-	case fdc2.IPMWMultisigUtxoConfiguredRequestBody:
-		types.LogPMWMultisigUtxoConfiguredRequestBody(req)
 	case fdc2.IPMWPaymentStatusRequestBody:
 		types.LogPMWPaymentStatusRequestBody(req)
 	case fdc2.IPMWFeeProofRequestBody:
