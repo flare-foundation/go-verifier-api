@@ -34,6 +34,18 @@ RELAY_CONTRACT_ADDRESS=0x...
 FLARE_RPC_URL=https://<flare>
 CHAIN_ID=<evm_chain_id>
 
+# Relay cutover (optional, set BOTH or neither) — deploy ahead of a known
+# Relay redeployment. Signing-policy ids at or above the starting reward epoch
+# route to the next Relay; lower ids stay on RELAY_CONTRACT_ADDRESS, which
+# keeps serving history. Each lookup routes independently (one TEE response may
+# span the boundary), so the switch needs no redeploy or restart. A reward
+# epoch and a signing-policy id are the same identifier: this value must equal
+# the [relay_cutover] starting_reward_epoch configured in the other Flare
+# clients (tee-relay-client, FDC, FSP) — a mismatch fails every proof on one
+# side of the boundary.
+RELAY_CUTOVER_CONTRACT_ADDRESS=0x...
+RELAY_CUTOVER_STARTING_REWARD_EPOCH=<first reward epoch the next Relay serves>
+
 # Test/E2E-only flags (optional, default to false):
 ALLOW_TEE_DEBUG=false
 DISABLE_ATTESTATION_CHECK_E2E=false
@@ -43,6 +55,8 @@ ALLOW_PRIVATE_NETWORKS=false
 > **NOTE**: `ALLOW_TEE_DEBUG`, `DISABLE_ATTESTATION_CHECK_E2E`, and `ALLOW_PRIVATE_NETWORKS` are test/E2E-only flags. In production, you should leave them unset (they default to false). `ALLOW_TEE_DEBUG=true` *additionally* accepts debug-mode TEEs alongside production TEEs (every debug admission logs a WARN); debug TEEs have the debugger attached and secrets are extractable, so this must never be set on production deployments. `ALLOW_PRIVATE_NETWORKS` permits private/loopback IPs (e.g. Docker bridge `172.17.0.1`) while still blocking dangerous IPs (link-local/metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) and preserving DNS pinning.
 
 > **WARNING: MagicPass bypass** — TEE nodes running in non-production mode (`settings.Mode != 0`) return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts this token and skips ALL attestation validation (PKI, claims, CRL). This exists to support hackathon and development environments where real Google Confidential Space attestation is unavailable. **Do NOT rely on this in production** — any TEE returning this string will be trusted without verification.
+
+> **NOTE (Relay cutover)**: the next Relay must be **deployed and initialized before the starting reward epoch arrives** — the verifier deliberately does **not** probe it at startup, so data providers can deploy this configuration early. Lookups fail closed on their own Relay (no fallback between the contracts). Keep the old Relay configured until **no valid TEE references an initial signing policy stored only there** (re-attestation refreshes `LastSigningPolicyID`, not necessarily `InitialSigningPolicyID`) or the next Relay carries the complete historical mapping; only then collapse to a single `RELAY_CONTRACT_ADDRESS`. Note the semantics differ from tee-relay-client's `[relay_cutover]`: there, an **absent** block means the switch already happened, while here an absent pair means **no cutover** — do not assume symmetry.
 
 The `TeeAvailabilityCheck` attestation type also uses Google Confidential Space Root Certificate, which is stored locally in the folder _internal/config/assets_. Read more about it [here](./internal/config/assets/README.md).
 

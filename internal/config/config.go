@@ -12,21 +12,23 @@ import (
 )
 
 const (
-	EnvSourceRPCURL                   = "SOURCE_RPC_URL" // source-chain node (e.g. XRP) — used by PMWMultisigAccountConfigured
-	EnvFlareRPCURL                    = "FLARE_RPC_URL"  // Flare C-chain node — used by PMWPaymentStatus/PMWFeeProof (getInitialNonce) and TeeAvailabilityCheck (Relay)
-	EnvRelayContractAddress           = "RELAY_CONTRACT_ADDRESS"
-	EnvFlareTeeManagerContractAddress = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
-	EnvTeePaymentsContractAddress     = "TEE_PAYMENTS_CONTRACT_ADDRESS"
-	EnvSourceDatabaseURL              = "SOURCE_DATABASE_URL"
-	EnvCChainDatabaseURL              = "CCHAIN_DATABASE_URL"
-	EnvPort                           = "PORT"
-	EnvAPIKeys                        = "API_KEYS"
-	EnvSourceID                       = "SOURCE_ID"
-	EnvAllowTeeDebug                  = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
-	EnvDisableAttestationCheckE2E     = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
-	EnvAllowPrivateNetworks           = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
-	EnvTeeAudience                    = "TEE_AUDIENCE"                  // Optional override for the expected aud claim on Confidential Space attestation tokens. Defaults to DefaultTeeAudience when unset.
-	EnvChainID                        = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
+	EnvSourceRPCURL                    = "SOURCE_RPC_URL" // source-chain node (e.g. XRP) — used by PMWMultisigAccountConfigured
+	EnvFlareRPCURL                     = "FLARE_RPC_URL"  // Flare C-chain node — used by PMWPaymentStatus/PMWFeeProof (getInitialNonce) and TeeAvailabilityCheck (Relay)
+	EnvRelayContractAddress            = "RELAY_CONTRACT_ADDRESS"
+	EnvRelayCutoverContractAddress     = "RELAY_CUTOVER_CONTRACT_ADDRESS"      // optional Relay cutover: the redeployed Relay; set together with RELAY_CUTOVER_STARTING_REWARD_EPOCH
+	EnvRelayCutoverStartingRewardEpoch = "RELAY_CUTOVER_STARTING_REWARD_EPOCH" // optional Relay cutover: first reward epoch (= signing-policy id) the next Relay serves; lower ids stay on RELAY_CONTRACT_ADDRESS
+	EnvFlareTeeManagerContractAddress  = "FLARE_TEE_MANAGER_CONTRACT_ADDRESS"
+	EnvTeePaymentsContractAddress      = "TEE_PAYMENTS_CONTRACT_ADDRESS"
+	EnvSourceDatabaseURL               = "SOURCE_DATABASE_URL"
+	EnvCChainDatabaseURL               = "CCHAIN_DATABASE_URL"
+	EnvPort                            = "PORT"
+	EnvAPIKeys                         = "API_KEYS"
+	EnvSourceID                        = "SOURCE_ID"
+	EnvAllowTeeDebug                   = "ALLOW_TEE_DEBUG"               // Needed only for test deployment. Not mandatory to set. Defaults to false.
+	EnvDisableAttestationCheckE2E      = "DISABLE_ATTESTATION_CHECK_E2E" // Needed only for e2e test. Not mandatory to set. Defaults to false.
+	EnvAllowPrivateNetworks            = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
+	EnvTeeAudience                     = "TEE_AUDIENCE"                  // Optional override for the expected aud claim on Confidential Space attestation tokens. Defaults to DefaultTeeAudience when unset.
+	EnvChainID                         = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
 )
 
 // DefaultTeeAudience is the aud claim the verifier expects on Confidential Space
@@ -37,20 +39,22 @@ const (
 const DefaultTeeAudience = "https://sts.google.com"
 
 type EnvConfig struct {
-	SourceRPCURL                   string
-	FlareRPCURL                    string
-	RelayContractAddress           string
-	FlareTeeManagerContractAddress string
-	TeePaymentsContractAddress     string
-	SourceDatabaseURL              string
-	CChainDatabaseURL              string
-	AllowTeeDebug                  string
-	DisableAttestationCheckE2E     string
-	AllowPrivateNetworks           string
-	TeeAudience                    string
-	ChainID                        string
-	Port                           string
-	APIKeys                        []string
+	SourceRPCURL                    string
+	FlareRPCURL                     string
+	RelayContractAddress            string
+	RelayCutoverContractAddress     string
+	RelayCutoverStartingRewardEpoch string
+	FlareTeeManagerContractAddress  string
+	TeePaymentsContractAddress      string
+	SourceDatabaseURL               string
+	CChainDatabaseURL               string
+	AllowTeeDebug                   string
+	DisableAttestationCheckE2E      string
+	AllowPrivateNetworks            string
+	TeeAudience                     string
+	ChainID                         string
+	Port                            string
+	APIKeys                         []string
 	// AttestationType is the single type view used by the per-type config loaders
 	// and service constructors. In a multi-type deployment LoadModule sets it per
 	// type while iterating AttestationTypes.
@@ -116,14 +120,20 @@ type ABIArgPair struct {
 
 type TeeAvailabilityCheckConfig struct {
 	EncodedAndABI
-	RelayContractAddress       common.Address
-	AllowTeeDebug              bool
-	DisableAttestationCheckE2E bool
-	AllowPrivateNetworks       bool
-	FlareRPCURL                string
-	GoogleRootCertificate      *x509.Certificate
-	TeeAudience                string
-	ChainID                    uint64
+	RelayContractAddress common.Address
+	// RelayCutoverContractAddress and RelayCutoverStartingRewardEpoch configure a Relay
+	// cutover: signing-policy ids at or above the starting epoch route to the next
+	// Relay, lower ids stay on RelayContractAddress. A zero address means no
+	// cutover is configured.
+	RelayCutoverContractAddress     common.Address
+	RelayCutoverStartingRewardEpoch uint32
+	AllowTeeDebug                   bool
+	DisableAttestationCheckE2E      bool
+	AllowPrivateNetworks            bool
+	FlareRPCURL                     string
+	GoogleRootCertificate           *x509.Certificate
+	TeeAudience                     string
+	ChainID                         uint64
 }
 
 type PMWPaymentStatusConfig struct {

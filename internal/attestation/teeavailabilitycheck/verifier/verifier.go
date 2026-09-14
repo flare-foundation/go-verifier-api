@@ -93,6 +93,45 @@ type RelayCallerInterface interface {
 	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
 }
 
+// cutoverRelay routes each signing-policy lookup to the Relay that owns the
+// id: ids at or above the cutover's starting reward epoch (a reward epoch and
+// a signing-policy id are the same identifier) go to the next Relay, lower ids
+// to the current one, which keeps serving history. Each id routes
+// independently — one TEE response may reference an initial policy on the old
+// Relay and a latest policy on the new — and there is no fallback between the
+// two: a failed lookup fails closed on its own Relay.
+// maxRewardEpochID is the largest reward-epoch (signing-policy) id the
+// protocol can produce: the Relay contract packs the id as uint24.
+const maxRewardEpochID = 1<<24 - 1
+
+type cutoverRelay struct {
+	current, next RelayCallerInterface
+	// startingRewardEpoch is the first signing-policy id the next Relay serves.
+	// uint32 is the Go carrier (TeeInfo's width); the protocol value is uint24.
+	startingRewardEpoch uint32
+}
+
+var _ RelayCallerInterface = cutoverRelay{}
+
+// NewCutoverRelay wraps two Relay callers into one that routes by
+// signing-policy id (see cutoverRelay).
+func NewCutoverRelay(current, next RelayCallerInterface, startingRewardEpoch uint32) RelayCallerInterface {
+	return cutoverRelay{current: current, next: next, startingRewardEpoch: startingRewardEpoch}
+}
+
+func (r cutoverRelay) ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error) {
+	// An id no Relay can own — signing-policy ids are uint24 — is refused,
+	// never default-routed: silently asking the current Relay about it would
+	// turn a caller bug into a wrong answer.
+	if id == nil || id.Sign() < 0 || !id.IsUint64() || id.Uint64() > maxRewardEpochID {
+		return [32]byte{}, fmt.Errorf("signing-policy id %v is outside the supported range", id)
+	}
+	if uint32(id.Uint64()) >= r.startingRewardEpoch {
+		return r.next.ToSigningPolicyHash(opts, id)
+	}
+	return r.current.ToSigningPolicyHash(opts, id)
+}
+
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody], error) {
 	client, err := ethclient.Dial(cfg.FlareRPCURL)
 	if err != nil {
@@ -103,10 +142,23 @@ func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[f
 		client.Close()
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress.Hex(), err)
 	}
+	caller := RelayCallerInterface(relayCaller)
+	// A configured cutover wraps both Relays behind the same interface, over
+	// the same connection — the cutover changes contract addresses, not the
+	// RPC endpoint. The next Relay is deliberately NOT probed here: verifiers
+	// deploy ahead of the switch, possibly before it can answer.
+	if cfg.RelayCutoverContractAddress != (common.Address{}) {
+		next, err := relay.NewRelayCaller(cfg.RelayCutoverContractAddress, client)
+		if err != nil {
+			client.Close()
+			return nil, fmt.Errorf("cannot create next Relay caller at %s: %w", cfg.RelayCutoverContractAddress.Hex(), err)
+		}
+		caller = NewCutoverRelay(relayCaller, next, cfg.RelayCutoverStartingRewardEpoch)
+	}
 	return &TeeVerifier{
 		Cfg:         cfg,
 		EthClient:   client,
-		RelayCaller: relayCaller,
+		RelayCaller: caller,
 		CRLCache:    NewCRLCache(),
 	}, nil
 }

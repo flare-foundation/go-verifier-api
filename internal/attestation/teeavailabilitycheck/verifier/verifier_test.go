@@ -113,6 +113,93 @@ func TestFetchSigningPolicyHashFromChainWithRetry(t *testing.T) {
 	})
 }
 
+// The cutover relay routes each signing-policy id to the Relay that owns it:
+// ids below the next Relay's first policy id stay on the current Relay, ids at
+// or above it go to the next — no wall clock, no fallback.
+func TestCutoverRelayRoutesBySigningPolicyID(t *testing.T) {
+	const firstNextID = 250
+	hash := func(b byte) [32]byte { return [32]byte{b} }
+
+	current, next := &MockRelayCaller{}, &MockRelayCaller{}
+	current.On("ToSigningPolicyHash", mock.Anything, big.NewInt(firstNextID-1)).Return(hash(0xaa), nil)
+	next.On("ToSigningPolicyHash", mock.Anything, big.NewInt(firstNextID)).Return(hash(0xbb), nil)
+	next.On("ToSigningPolicyHash", mock.Anything, big.NewInt(firstNextID+1)).Return(hash(0xcc), nil)
+	r := verifier.NewCutoverRelay(current, next, firstNextID)
+
+	got, err := r.ToSigningPolicyHash(nil, big.NewInt(firstNextID-1))
+	require.NoError(t, err)
+	require.Equal(t, hash(0xaa), got, "the boundary's predecessor stays on the current Relay")
+
+	got, err = r.ToSigningPolicyHash(nil, big.NewInt(firstNextID))
+	require.NoError(t, err)
+	require.Equal(t, hash(0xbb), got, "the first new policy id is the next Relay's")
+
+	got, err = r.ToSigningPolicyHash(nil, big.NewInt(firstNextID+1))
+	require.NoError(t, err)
+	require.Equal(t, hash(0xcc), got)
+
+	current.AssertExpectations(t)
+	next.AssertExpectations(t)
+}
+
+// An id no Relay can own is refused, never default-routed to either contract.
+func TestCutoverRelayRefusesUnroutableIDs(t *testing.T) {
+	current, next := &MockRelayCaller{}, &MockRelayCaller{}
+	r := verifier.NewCutoverRelay(current, next, 250)
+
+	for name, id := range map[string]*big.Int{
+		"nil":           nil,
+		"negative":      big.NewInt(-1),
+		"beyond uint24": big.NewInt(1 << 24), // first invalid value
+		"beyond uint64": new(big.Int).Lsh(big.NewInt(1), 64),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := r.ToSigningPolicyHash(nil, id)
+			require.ErrorContains(t, err, "outside the supported range")
+		})
+	}
+	// Neither mock was called: the guard fires before any routing.
+	current.AssertExpectations(t)
+	next.AssertExpectations(t)
+}
+
+// A lookup failure on one Relay is that Relay's failure — no silent fallback
+// to the other contract, which would mask a mis-seeded cutover as flakiness.
+func TestCutoverRelayDoesNotFallBack(t *testing.T) {
+	current, next := &MockRelayCaller{}, &MockRelayCaller{}
+	next.On("ToSigningPolicyHash", mock.Anything, big.NewInt(250)).Return([32]byte{}, errors.New("execution reverted"))
+	r := verifier.NewCutoverRelay(current, next, 250)
+
+	_, err := r.ToSigningPolicyHash(nil, big.NewInt(250))
+	require.ErrorContains(t, err, "execution reverted")
+	current.AssertExpectations(t) // never called
+	next.AssertExpectations(t)
+}
+
+// One TEE response may span the cutover: its initial policy on the old Relay
+// and its latest on the new. Each id routes independently.
+func TestCheckSigningPoliciesAcrossTheCutover(t *testing.T) {
+	const firstNextID = 250
+	initialHash := common.HexToHash("0x11")
+	lastHash := common.HexToHash("0x22")
+
+	current, next := &MockRelayCaller{}, &MockRelayCaller{}
+	current.On("ToSigningPolicyHash", mock.Anything, big.NewInt(firstNextID-10)).Return([32]byte(initialHash), nil)
+	next.On("ToSigningPolicyHash", mock.Anything, big.NewInt(firstNextID+10)).Return([32]byte(lastHash), nil)
+
+	v := &verifier.TeeVerifier{RelayCaller: verifier.NewCutoverRelay(current, next, firstNextID)}
+	state, err := v.CheckSigningPolicies(context.Background(), teenodetypes.TeeInfo{
+		InitialSigningPolicyID:   firstNextID - 10,
+		InitialSigningPolicyHash: initialHash,
+		LastSigningPolicyID:      firstNextID + 10,
+		LastSigningPolicyHash:    lastHash,
+	})
+	require.NoError(t, err)
+	require.Equal(t, verifiertypes.TeeSampleValid, state)
+	current.AssertExpectations(t)
+	next.AssertExpectations(t)
+}
+
 func TestCheckSigningPolicies(t *testing.T) {
 	expectedInitialHash := common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111")
 	expectedLastHash := common.HexToHash("0x2222222222222222222222222222222222222222222222222222222222222222")
