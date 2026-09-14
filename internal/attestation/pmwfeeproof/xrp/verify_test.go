@@ -343,6 +343,26 @@ func TestVerifyFeeProof(t *testing.T) {
 		require.ErrorContains(t, err, "expected non-negative big.Int")
 	})
 
+	t.Run("reissue after untilTimestamp is ignored", func(t *testing.T) {
+		// Reissue #1 exists but its block timestamp is past untilTimestamp: the
+		// scan stops at the window and the estimated fee is the payment's alone.
+		f := setupFeeProofFixture(t, "fp_reissue_after_window",
+			[]uint64{100},
+			[]int64{50},
+			[]string{"10"},
+		)
+		f.seedReissue(t, 1, 1900000000) // after the 1800000000 cutoff
+		resp, err := f.verifier.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
+			OpType:         f.opType,
+			SenderAddress:  "rSender",
+			FirstPaymentId: 100,
+			BatchCount:     1,
+			UntilTimestamp: 1800000000,
+		})
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(50), resp.EstimatedFee, "the out-of-window reissue must not contribute")
+	})
+
 	t.Run("reissue scan at cap succeeds", func(t *testing.T) {
 		// Seed pay + exactly MaxReissuesPerPayment reissue events. The next
 		// reissueNumber (== MaxReissuesPerPayment + 1) does NOT exist, so the loop

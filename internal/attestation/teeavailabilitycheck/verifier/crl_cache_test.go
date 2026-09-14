@@ -179,6 +179,28 @@ func TestIsEntryStale(t *testing.T) {
 	})
 }
 
+// A correctly signed CRL without a NextUpdate has no validity horizon: it is
+// rejected outright and never cached.
+func TestGetOrFetchCRLRejectsMissingNextUpdate(t *testing.T) {
+	caCert, caKey := generateTestCert(t, true, nil, nil, nil)
+	// createTestCRL is not used: its ThisUpdate would sort after a zero
+	// NextUpdate and CreateRevocationList refuses that. Zero for both encodes
+	// a CRL whose parsed NextUpdate.IsZero() holds, with a valid signature.
+	crlBytes, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{Number: big.NewInt(1)}, caCert, caKey)
+	require.NoError(t, err)
+
+	cache := &CRLCache{
+		entries: make(map[string]*crlEntry),
+		fetchFn: func(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
+			return crlBytes, nil
+		},
+	}
+
+	_, err = cache.getOrFetchCRL(context.Background(), "http://example.com/crl", caCert)
+	require.ErrorContains(t, err, "no NextUpdate")
+	require.Empty(t, cache.entries, "a rejected CRL must not be cached")
+}
+
 func TestGetOrFetchCRL(t *testing.T) {
 	t.Run("cache miss then hit", func(t *testing.T) {
 		// Create a CA to sign the CRL
