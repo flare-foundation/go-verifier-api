@@ -75,8 +75,8 @@ func FuzzGetOrFetchCRL(f *testing.F) {
 
 		crl, err := cache.getOrFetchCRL(context.Background(), crlURL, caCert)
 		if err != nil {
-			if _, ok := cache.entries[crlURL]; ok {
-				t.Fatalf("failed CRL fetch cached entry for %q", crlURL)
+			if len(cache.entries) != 0 {
+				t.Fatalf("failed CRL fetch cached an entry for %q", crlURL)
 			}
 			return
 		}
@@ -84,7 +84,7 @@ func FuzzGetOrFetchCRL(f *testing.F) {
 		if crl == nil {
 			t.Fatal("successful CRL fetch returned nil CRL")
 		}
-		entry, ok := cache.entries[crlURL]
+		entry, ok := cache.entries[crlCacheKey(crlURL, caCert)]
 		if !ok || entry == nil || entry.crl == nil {
 			t.Fatalf("successful CRL fetch did not populate cache for %q", crlURL)
 		}
@@ -101,7 +101,7 @@ func FuzzGetOrFetchCRL(f *testing.F) {
 		if _, err := wrongIssuerCache.getOrFetchCRL(context.Background(), crlURL, wrongCACert); err == nil {
 			t.Fatal("accepted CRL for the wrong issuer")
 		}
-		if _, ok := wrongIssuerCache.entries[crlURL]; ok {
+		if len(wrongIssuerCache.entries) != 0 {
 			t.Fatalf("wrong issuer CRL was cached for %q", crlURL)
 		}
 	})

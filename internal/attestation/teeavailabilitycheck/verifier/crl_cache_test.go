@@ -220,9 +220,9 @@ func TestGetOrFetchCRL(t *testing.T) {
 			},
 		}
 
-		// Seed a stale entry
+		// Seed a stale entry under the caller's real (URL, issuer) key.
 		staleCRL := &x509.RevocationList{NextUpdate: time.Now().Add(-time.Hour)}
-		cache.entries["http://example.com/crl"] = &crlEntry{
+		cache.entries[crlCacheKey("http://example.com/crl", caCert)] = &crlEntry{
 			crl:       staleCRL,
 			fetchedAt: time.Now().Add(-2 * time.Hour),
 		}
@@ -235,6 +235,7 @@ func TestGetOrFetchCRL(t *testing.T) {
 	})
 
 	t.Run("fetch error", func(t *testing.T) {
+		caCert, _ := generateTestCert(t, true, nil, nil, nil)
 		cache := &CRLCache{
 			entries: make(map[string]*crlEntry),
 			fetchFn: func(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
@@ -242,12 +243,148 @@ func TestGetOrFetchCRL(t *testing.T) {
 			},
 		}
 
-		crl, err := cache.getOrFetchCRL(context.Background(), "http://example.com/crl", nil)
+		crl, err := cache.getOrFetchCRL(context.Background(), "http://example.com/crl", caCert)
 		require.ErrorContains(t, err, "fetching CRL")
 		require.Nil(t, crl)
 	})
 
+	t.Run("a nil issuer is refused before any fetch", func(t *testing.T) {
+		fetched := false
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
+				fetched = true
+				return nil, nil
+			},
+		}
+
+		crl, err := cache.getOrFetchCRL(context.Background(), "http://example.com/crl", nil)
+		require.ErrorContains(t, err, "issuer certificate is required")
+		require.Nil(t, crl)
+		require.False(t, fetched, "no network dereference without an issuer to verify against")
+	})
+
+	// The issuer-scoping regression (finding 3.15): two issuers sharing one
+	// distribution-point URL must not see each other's cache entries.
+	t.Run("two issuers sharing one URL are scoped separately", func(t *testing.T) {
+		issuerA, keyA := generateTestCert(t, true, nil, nil, nil)
+		issuerB, keyB := generateTestCert(t, true, nil, nil, nil)
+		crlA := createTestCRL(t, issuerA, keyA, time.Now().Add(time.Hour))
+		crlB := createTestCRL(t, issuerB, keyB, time.Now().Add(time.Hour))
+
+		const url = "http://shared.example.com/crl"
+		fetchCount := 0
+		serve := crlA
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(context.Context, string, time.Duration) ([]byte, error) {
+				fetchCount++
+				return serve, nil
+			},
+		}
+
+		// Issuer A fetches and caches under its own key.
+		gotA, err := cache.getOrFetchCRL(context.Background(), url, issuerA)
+		require.NoError(t, err)
+		require.Equal(t, 1, fetchCount)
+		require.NoError(t, gotA.CheckSignatureFrom(issuerA))
+
+		// Issuer B must MISS — never be answered from A's entry — and fetch its own.
+		serve = crlB
+		gotB, err := cache.getOrFetchCRL(context.Background(), url, issuerB)
+		require.NoError(t, err)
+		require.Equal(t, 2, fetchCount, "B must not be answered from A's entry")
+		require.NoError(t, gotB.CheckSignatureFrom(issuerB))
+
+		// Both now hit their own entries; neither evicted or shadowed the other.
+		_, err = cache.getOrFetchCRL(context.Background(), url, issuerA)
+		require.NoError(t, err)
+		_, err = cache.getOrFetchCRL(context.Background(), url, issuerB)
+		require.NoError(t, err)
+		require.Equal(t, 2, fetchCount)
+		require.Len(t, cache.entries, 2)
+	})
+
+	// Two DISTINCT issuer certificates sharing one key must not collapse into
+	// one entry, and a CRL issued under one NAME must not be accepted for the
+	// other: CheckSignatureFrom verifies only the key, so the issuer-name bind
+	// in verifyCRLIssuer is what separates them.
+	t.Run("issuers sharing a key are scoped and name-bound", func(t *testing.T) {
+		key, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		certFor := func(cn string) *x509.Certificate {
+			template := &x509.Certificate{
+				SerialNumber:          big.NewInt(time.Now().UnixNano()),
+				Subject:               pkix.Name{CommonName: cn},
+				NotBefore:             time.Now().Add(-time.Hour),
+				NotAfter:              time.Now().Add(time.Hour),
+				IsCA:                  true,
+				BasicConstraintsValid: true,
+				KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+			}
+			der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+			require.NoError(t, err)
+			cert, err := x509.ParseCertificate(der)
+			require.NoError(t, err)
+			return cert
+		}
+		issuerA, issuerB := certFor("issuer-a"), certFor("issuer-b")
+		crlBytes := createTestCRL(t, issuerA, key, time.Now().Add(time.Hour))
+
+		const url = "http://samekey.example.com/crl"
+		fetchCount := 0
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(context.Context, string, time.Duration) ([]byte, error) {
+				fetchCount++
+				return crlBytes, nil
+			},
+		}
+
+		_, err = cache.getOrFetchCRL(context.Background(), url, issuerA)
+		require.NoError(t, err)
+		require.Equal(t, 1, fetchCount)
+
+		// B misses A's entry (own key) and its fetch is then REFUSED: the CRL's
+		// issuer name is A's, and the shared key must not vouch for it.
+		_, err = cache.getOrFetchCRL(context.Background(), url, issuerB)
+		require.ErrorContains(t, err, "is not the certificate subject")
+		require.Equal(t, 2, fetchCount, "B must not be answered from A's entry")
+		require.Len(t, cache.entries, 1, "the refused CRL must not be cached")
+
+		// A is undisturbed: still a cache hit.
+		_, err = cache.getOrFetchCRL(context.Background(), url, issuerA)
+		require.NoError(t, err)
+		require.Equal(t, 2, fetchCount)
+	})
+
+	// Defense in depth: even a mis-keyed cache entry is never returned to an
+	// issuer it does not verify against — the hit is re-checked, not trusted.
+	t.Run("a cache hit is re-verified against the caller's issuer", func(t *testing.T) {
+		issuerA, keyA := generateTestCert(t, true, nil, nil, nil)
+		issuerB, _ := generateTestCert(t, true, nil, nil, nil)
+		parsedA, err := x509.ParseRevocationList(createTestCRL(t, issuerA, keyA, time.Now().Add(time.Hour)))
+		require.NoError(t, err)
+
+		const url = "http://poisoned.example.com/crl"
+		fetched := false
+		cache := &CRLCache{
+			entries: make(map[string]*crlEntry),
+			fetchFn: func(context.Context, string, time.Duration) ([]byte, error) {
+				fetched = true
+				return nil, errors.New("must not be reached")
+			},
+		}
+		// Poison B's slot with A's CRL, as a key-scheme bug would.
+		cache.entries[crlCacheKey(url, issuerB)] = &crlEntry{crl: parsedA, fetchedAt: time.Now()}
+
+		_, err = cache.getOrFetchCRL(context.Background(), url, issuerB)
+		require.ErrorContains(t, err, "does not verify against the supplied issuer")
+		require.False(t, fetched, "a poisoned hit must fail closed, not fall through to a fetch")
+	})
+
 	t.Run("parse error", func(t *testing.T) {
+		caCert, _ := generateTestCert(t, true, nil, nil, nil)
 		cache := &CRLCache{
 			entries: make(map[string]*crlEntry),
 			fetchFn: func(ctx context.Context, url string, timeout time.Duration) ([]byte, error) {
@@ -255,7 +392,7 @@ func TestGetOrFetchCRL(t *testing.T) {
 			},
 		}
 
-		crl, err := cache.getOrFetchCRL(context.Background(), "http://example.com/crl", nil)
+		crl, err := cache.getOrFetchCRL(context.Background(), "http://example.com/crl", caCert)
 		require.ErrorContains(t, err, "parsing CRL")
 		require.Nil(t, crl)
 	})
@@ -358,7 +495,7 @@ func TestGetOrFetchCRL(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, cache.entries, crlMaxEntries)
 		require.NotContains(t, cache.entries, oldestURL)
-		require.Contains(t, cache.entries, "http://example.com/new.crl")
+		require.Contains(t, cache.entries, crlCacheKey("http://example.com/new.crl", caCert))
 	})
 }
 
@@ -414,7 +551,7 @@ func TestGetOrFetchCRLContextCancellation(t *testing.T) {
 	require.Eventually(t, func() bool {
 		cache.mu.RLock()
 		defer cache.mu.RUnlock()
-		_, ok := cache.entries[url]
+		_, ok := cache.entries[crlCacheKey(url, caCert)]
 		return ok
 	}, 2*time.Second, 10*time.Millisecond, "shared fetch should still populate the cache after the caller cancelled")
 
@@ -822,8 +959,9 @@ func TestCRLCacheBlocksLocalhost(t *testing.T) {
 	}))
 	defer server.Close()
 
+	caCert, _ := generateTestCert(t, true, nil, nil, nil)
 	cache := NewCRLCache()
-	_, err := cache.getOrFetchCRL(context.Background(), server.URL+"/crl", nil)
+	_, err := cache.getOrFetchCRL(context.Background(), server.URL+"/crl", caCert)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrURLValidation)
 	require.Equal(t, int32(0), requests.Load())

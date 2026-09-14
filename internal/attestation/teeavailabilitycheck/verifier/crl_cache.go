@@ -1,7 +1,9 @@
 package verifier
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -29,13 +31,36 @@ type crlEntry struct {
 	fetchedAt time.Time
 }
 
-// CRLCache fetches, caches, and returns CRLs keyed by CRL Distribution Point URL.
-// Concurrent requests for the same URL are deduplicated via singleflight.
+// CRLCache fetches, caches, and returns CRLs keyed by CRL Distribution Point URL
+// AND issuer fingerprint (see crlCacheKey). Concurrent requests for the same key
+// are deduplicated via singleflight.
 type CRLCache struct {
 	mu      sync.RWMutex
 	entries map[string]*crlEntry
 	sfGroup singleflight.Group
 	fetchFn func(ctx context.Context, url string, timeout time.Duration) ([]byte, error)
+}
+
+// crlCacheKey scopes a cache/singleflight entry to the distribution-point URL
+// AND the exact issuer certificate the CRL must verify against — the URL alone
+// would hand a CRL cached under one issuer to a different chain sharing the
+// URL. The fingerprint hashes the whole certificate, not just its key:
+// CheckSignatureFrom verifies the KEY and never compares issuer names, so a
+// key-only fingerprint would collapse distinct issuers that share a key.
+func crlCacheKey(url string, issuer *x509.Certificate) string {
+	sum := sha256.Sum256(issuer.Raw)
+	return fmt.Sprintf("%s|%x", url, sum)
+}
+
+// verifyCRLIssuer binds a CRL to the exact issuer certificate: the CRL's
+// issuer NAME must be the certificate's subject — CheckSignatureFrom verifies
+// only the key, so two issuers sharing one would otherwise vouch for each
+// other's CRLs — and the signature must verify.
+func verifyCRLIssuer(crl *x509.RevocationList, issuer *x509.Certificate) error {
+	if !bytes.Equal(crl.RawIssuer, issuer.RawSubject) {
+		return fmt.Errorf("CRL issuer %q is not the certificate subject %q", crl.Issuer, issuer.Subject)
+	}
+	return crl.CheckSignatureFrom(issuer)
 }
 
 // NewCRLCache creates a CRLCache that fetches CRLs through SSRF-safe pinned URL resolution.
@@ -186,30 +211,52 @@ func isTransientFetchError(err error) bool {
 		errors.Is(err, context.Canceled)
 }
 
-// getOrFetchCRL returns a cached CRL if fresh, otherwise fetches it.
-// The issuer certificate is used to verify the CRL signature before caching.
-func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.Certificate) (*x509.RevocationList, error) {
-	// Fast path: read lock
+// cachedFresh returns a fresh cache hit for key, or nil on a miss. A hit is
+// re-verified against the caller's issuer before it is handed out (defense in
+// depth on top of the issuer-scoped key): a cached CRL that does not verify
+// against THIS issuer is an error, never an answer.
+func (c *CRLCache) cachedFresh(key string, issuer *x509.Certificate) (*x509.RevocationList, error) {
 	c.mu.RLock()
-	entry, ok := c.entries[url]
+	entry, ok := c.entries[key]
 	c.mu.RUnlock()
+	if !ok || isEntryStale(entry) {
+		return nil, nil
+	}
+	if err := verifyCRLIssuer(entry.crl, issuer); err != nil {
+		return nil, fmt.Errorf("cached CRL does not verify against the supplied issuer: %w", err)
+	}
+	return entry.crl, nil
+}
 
-	if ok && !isEntryStale(entry) {
-		return entry.crl, nil
+// getOrFetchCRL returns a cached CRL if fresh, otherwise fetches it. Entries are
+// scoped to (URL, issuer) — see crlCacheKey — and the issuer certificate is used
+// to verify the CRL signature before caching and on every hit.
+func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.Certificate) (*x509.RevocationList, error) {
+	// No issuer means nothing could ever verify the CRL — fail closed before
+	// keying the cache or dereferencing the network.
+	if issuer == nil {
+		return nil, errors.New("an issuer certificate is required to fetch a CRL")
+	}
+	key := crlCacheKey(url, issuer)
+
+	// Fast path: read lock
+	if crl, err := c.cachedFresh(key, issuer); err != nil {
+		return nil, err
+	} else if crl != nil {
+		return crl, nil
 	}
 
-	// Cache miss: deduplicate concurrent fetches for the same URL via singleflight.
+	// Cache miss: deduplicate concurrent fetches for the same key via singleflight.
 	// The shared fetch runs under a background context (bounded by crlFetchTimeout
 	// inside fetchFn), NOT the caller's context, so one caller's cancellation cannot
 	// abort the in-flight fetch for the others. Each caller instead waits on its own
 	// context via the DoChan result channel below.
-	ch := c.sfGroup.DoChan(url, func() (any, error) {
+	ch := c.sfGroup.DoChan(key, func() (any, error) {
 		// Re-check cache — another goroutine may have populated it before singleflight acquired the key.
-		c.mu.RLock()
-		cachedEntry, exists := c.entries[url]
-		c.mu.RUnlock()
-		if exists && !isEntryStale(cachedEntry) {
-			return cachedEntry.crl, nil
+		if crl, err := c.cachedFresh(key, issuer); err != nil {
+			return nil, err
+		} else if crl != nil {
+			return crl, nil
 		}
 
 		data, err := c.fetchFn(context.Background(), url, crlFetchTimeout)
@@ -237,7 +284,7 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 			return nil, fmt.Errorf("parsing CRL: %w", err)
 		}
 
-		if err := crl.CheckSignatureFrom(issuer); err != nil {
+		if err := verifyCRLIssuer(crl, issuer); err != nil {
 			return nil, fmt.Errorf("CRL issuer verification failed: %w", err)
 		}
 
@@ -250,13 +297,13 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 		}
 
 		c.mu.Lock()
-		if _, exists := c.entries[url]; !exists && len(c.entries) >= crlMaxEntries {
+		if _, exists := c.entries[key]; !exists && len(c.entries) >= crlMaxEntries {
 			c.evictStaleEntries()
 			if len(c.entries) >= crlMaxEntries {
 				c.evictOldestEntry()
 			}
 		}
-		c.entries[url] = &crlEntry{
+		c.entries[key] = &crlEntry{
 			crl:       crl,
 			fetchedAt: time.Now(),
 		}
@@ -279,6 +326,12 @@ func (c *CRLCache) getOrFetchCRL(ctx context.Context, url string, issuer *x509.C
 		if !ok {
 			return nil, fmt.Errorf("unexpected singleflight result type: %T", res.Val)
 		}
+		// Same defense in depth as a cache hit: the key ties every waiter to one
+		// issuer certificate, but a shared result is still never handed out
+		// unverified against THIS caller's issuer.
+		if err := verifyCRLIssuer(crl, issuer); err != nil {
+			return nil, fmt.Errorf("shared CRL result does not verify against the supplied issuer: %w", err)
+		}
 		return crl, nil
 	}
 }
@@ -297,9 +350,9 @@ func isEntryStale(entry *crlEntry) bool {
 
 // evictStaleEntries removes stale entries from the cache. Must be called with mu held.
 func (c *CRLCache) evictStaleEntries() {
-	for url, entry := range c.entries {
+	for key, entry := range c.entries {
 		if isEntryStale(entry) {
-			delete(c.entries, url)
+			delete(c.entries, key)
 		}
 	}
 }
@@ -307,19 +360,19 @@ func (c *CRLCache) evictStaleEntries() {
 // evictOldestEntry removes the oldest cached entry. Must be called with mu held.
 func (c *CRLCache) evictOldestEntry() {
 	var (
-		oldestURL  string
+		oldestKey  string
 		oldestTime time.Time
 		found      bool
 	)
-	for url, entry := range c.entries {
+	for key, entry := range c.entries {
 		if !found || entry.fetchedAt.Before(oldestTime) {
-			oldestURL = url
+			oldestKey = key
 			oldestTime = entry.fetchedAt
 			found = true
 		}
 	}
 	if found {
-		delete(c.entries, oldestURL)
+		delete(c.entries, oldestKey)
 	}
 }
 
