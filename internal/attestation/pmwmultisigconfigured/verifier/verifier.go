@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
@@ -17,7 +18,12 @@ type VerifierConstructor func(
 var xrpConstructor = func(cfg *config.PMWMultisigAccountConfig) (
 	attestation.Verifier[fdc2.IPMWMultisigAccountConfiguredRequestBody, fdc2.IPMWMultisigAccountConfiguredResponseBody], error,
 ) {
-	return xrpverifier.NewXRPVerifier(cfg), nil
+	v := xrpverifier.NewXRPVerifier(cfg)
+	// Pin the source network at startup: a definite wrong-chain node fails boot.
+	if err := v.VerifyNetwork(context.Background()); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 var registry = map[string]VerifierConstructor{

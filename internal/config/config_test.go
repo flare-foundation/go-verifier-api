@@ -36,7 +36,7 @@ func TestEncodeAttestationOrSourceName(t *testing.T) {
 }
 func TestCheckMissingFields(t *testing.T) {
 	fields := []string{
-		EnvRPCURL,
+		EnvFlareRPCURL,
 		EnvRelayContractAddress,
 		EnvFlareTeeManagerContractAddress,
 		EnvSourceDatabaseURL,
@@ -44,7 +44,7 @@ func TestCheckMissingFields(t *testing.T) {
 	}
 	t.Run("no missing fields", func(t *testing.T) {
 		cfg := EnvConfig{
-			RPCURL:                         "rpc",
+			FlareRPCURL:                    "rpc",
 			RelayContractAddress:           "relay",
 			FlareTeeManagerContractAddress: "tee",
 			CChainDatabaseURL:              "cchain",
@@ -55,7 +55,7 @@ func TestCheckMissingFields(t *testing.T) {
 	})
 	t.Run("some missing fields", func(t *testing.T) {
 		cfg := EnvConfig{
-			RPCURL:               "rpc",
+			FlareRPCURL:          "rpc",
 			RelayContractAddress: "",
 		}
 		err := CheckMissingFields(cfg, fields)

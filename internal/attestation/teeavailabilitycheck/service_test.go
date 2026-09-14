@@ -9,7 +9,7 @@ import (
 )
 
 var envConfig = config.EnvConfig{
-	RPCURL:                         "https://coston-api.flare.network/ext/C/rpc",
+	FlareRPCURL:                    "https://coston-api.flare.network/ext/C/rpc",
 	RelayContractAddress:           "0x0000000000000000000000000000000000000001",
 	FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
 	SourceID:                       config.SourceTEE,
@@ -32,21 +32,21 @@ func TestTeeAvailabilityService(t *testing.T) {
 	t.Run("missing fields in env config", func(t *testing.T) {
 		config.ClearTeeAvailabilityCheckConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			RPCURL:                         "",
+			FlareRPCURL:                    "",
 			RelayContractAddress:           envConfig.RelayContractAddress,
 			FlareTeeManagerContractAddress: envConfig.FlareTeeManagerContractAddress,
 			SourceID:                       envConfig.SourceID,
 			AttestationType:                envConfig.AttestationType,
 		}
 		service, err := NewTeeAvailabilityService(badEnvConfig)
-		require.ErrorContains(t, err, "cannot load TeeAvailabilityCheck config: missing environment variables: RPC_URL")
+		require.ErrorContains(t, err, "cannot load TeeAvailabilityCheck config: missing environment variables: FLARE_RPC_URL")
 		require.Nil(t, service)
 	})
 
 	t.Run("unknown attestation type", func(t *testing.T) {
 		config.ClearTeeAvailabilityCheckConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			RPCURL:                         envConfig.RPCURL,
+			FlareRPCURL:                    envConfig.FlareRPCURL,
 			RelayContractAddress:           envConfig.RelayContractAddress,
 			FlareTeeManagerContractAddress: envConfig.FlareTeeManagerContractAddress,
 			SourceID:                       envConfig.SourceID,

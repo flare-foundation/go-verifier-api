@@ -172,9 +172,8 @@ A small script (Go for parity, Python for portability — pick one) that loads t
 | 12 | URL validation | scheme, userinfo, private IPs (strict + permissive), DNS pinning |
 | 13 | `magic_pass` bypass | TEE returns `"magic_pass"` → OK with test values |
 | 14 | `DISABLE_ATTESTATION_CHECK_E2E` | bypass behavior |
-| 15 | Challenge freshness | block timestamp within threshold vs stale |
-| 16 | Signing policy | matches relay contract vs mismatch |
-| 17 | Error → HTTP code mapping | each error class maps to correct status |
+| 15 | Signing policy | matches relay contract vs mismatch |
+| 16 | Error → HTTP code mapping | each error class maps to correct status |
 
 ### PMWPaymentStatus
 | # | Category | Coverage |

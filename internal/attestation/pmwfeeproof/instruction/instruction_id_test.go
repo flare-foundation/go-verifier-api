@@ -37,8 +37,8 @@ func encodeInstructionIDLikeSolidity(opType, opCommand, sourceID [32]byte, accou
 		binary.BigEndian.PutUint64(w[24:], n)
 		return w
 	}
-	const headWords = 6 // six top-level args; the string is encoded as an offset into the tail
-	var buf []byte
+	const headWords = 6                              // six top-level args; the string is encoded as an offset into the tail
+	buf := make([]byte, 0, (headWords+1)*32)         // 6 head words + the tail string-length word
 	buf = append(buf, opType[:]...)                  // head[0]
 	buf = append(buf, opCommand[:]...)               // head[1]
 	buf = append(buf, sourceID[:]...)                // head[2]

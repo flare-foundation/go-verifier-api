@@ -462,12 +462,14 @@ func TestVerify(t *testing.T) {
 		f := setupVerifyFixture(t, "verify_badjson", "not-json")
 		_, err := f.verifier.Verify(context.Background(), f.req)
 		require.ErrorContains(t, err, "cannot unmarshal XRP transaction response")
+		require.ErrorIs(t, err, paymentdb.ErrDataSource)
 	})
 
 	t.Run("missing transaction result returns error", func(t *testing.T) {
 		f := setupVerifyFixture(t, "verify_noresult", `{"Account":"rSender","Fee":"12","metaData":{"AffectedNodes":[],"TransactionResult":""}}`)
 		_, err := f.verifier.Verify(context.Background(), f.req)
 		require.ErrorContains(t, err, "missing transaction result")
+		require.ErrorIs(t, err, paymentdb.ErrDataSource)
 	})
 
 	t.Run("JSON hash mismatch returns 503", func(t *testing.T) {

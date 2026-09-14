@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -68,8 +69,8 @@ func StartServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server,
 	}
 
 	go func() {
-		logger.Infof("Starting %s verifier server with type %s on: %s ...",
-			envConfig.SourceID, envConfig.AttestationType, envConfig.Port)
+		logger.Infof("Starting %s verifier server with types [%s] on: %s ...",
+			envConfig.SourceID, joinAttestationTypes(envConfig.ServedAttestationTypes()), envConfig.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatalf("Server error: %v", err)
 		}
@@ -94,26 +95,10 @@ func ShutdownServer(srv *http.Server, closers []io.Closer) {
 	}
 }
 
-var AttestationTypes = []fdc2.AttestationType{
-	fdc2.AvailabilityCheck,
-	fdc2.PMWPaymentStatus,
-	fdc2.PMWMultisigAccountConfigured,
-	fdc2.PMWFeeProof,
-}
-
 var SourceIDs = []config.SourceName{
 	config.SourceTEE,
 	config.SourceXRP,
 	config.SourceTestXRP,
-}
-
-func parseAttestationType(value string) (fdc2.AttestationType, error) {
-	for _, at := range AttestationTypes {
-		if string(at) == value {
-			return at, nil
-		}
-	}
-	return "", fmt.Errorf("invalid attestation type: %s", value)
 }
 
 func parseSourceID(value string) (config.SourceName, error) {
@@ -164,19 +149,15 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 	if err != nil {
 		return config.EnvConfig{}, err
 	}
-	verifierTypeStr, err := getEnvOrError(config.EnvAttestationType)
-	if err != nil {
-		return config.EnvConfig{}, err
-	}
 	sourceIDStr, err := getEnvOrError(config.EnvSourceID)
 	if err != nil {
 		return config.EnvConfig{}, err
 	}
-	attestationType, err := parseAttestationType(verifierTypeStr)
+	sourceID, err := parseSourceID(sourceIDStr)
 	if err != nil {
 		return config.EnvConfig{}, err
 	}
-	sourceID, err := parseSourceID(sourceIDStr)
+	attestationTypes, err := resolveAttestationTypes(sourceID)
 	if err != nil {
 		return config.EnvConfig{}, err
 	}
@@ -185,22 +166,45 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		return config.EnvConfig{}, err
 	}
 	return config.EnvConfig{
-		RPCURL:                         os.Getenv(config.EnvRPCURL),
-		RelayContractAddress:           os.Getenv(config.EnvRelayContractAddress),
-		FlareTeeManagerContractAddress: os.Getenv(config.EnvFlareTeeManagerContractAddress),
-		TeePaymentsContractAddress:     os.Getenv(config.EnvTeePaymentsContractAddress),
-		SourceDatabaseURL:              os.Getenv(config.EnvSourceDatabaseURL),
-		CChainDatabaseURL:              os.Getenv(config.EnvCChainDatabaseURL),
-		AllowTeeDebug:                  os.Getenv(config.EnvAllowTeeDebug),
-		DisableAttestationCheckE2E:     os.Getenv(config.EnvDisableAttestationCheckE2E),
-		AllowPrivateNetworks:           os.Getenv(config.EnvAllowPrivateNetworks),
-		TeeAudience:                    os.Getenv(config.EnvTeeAudience),
-		ChainID:                        os.Getenv(config.EnvChainID),
-		Port:                           port,
-		APIKeys:                        apiKeys,
-		AttestationType:                attestationType,
-		SourceID:                       sourceID,
+		SourceRPCURL:                    os.Getenv(config.EnvSourceRPCURL),
+		FlareRPCURL:                     os.Getenv(config.EnvFlareRPCURL),
+		RelayContractAddress:            os.Getenv(config.EnvRelayContractAddress),
+		RelayCutoverContractAddress:     os.Getenv(config.EnvRelayCutoverContractAddress),
+		RelayCutoverStartingRewardEpoch: os.Getenv(config.EnvRelayCutoverStartingRewardEpoch),
+		FlareTeeManagerContractAddress:  os.Getenv(config.EnvFlareTeeManagerContractAddress),
+		TeePaymentsContractAddress:      os.Getenv(config.EnvTeePaymentsContractAddress),
+		SourceDatabaseURL:               os.Getenv(config.EnvSourceDatabaseURL),
+		CChainDatabaseURL:               os.Getenv(config.EnvCChainDatabaseURL),
+		AllowTeeDebug:                   os.Getenv(config.EnvAllowTeeDebug),
+		DisableAttestationCheckE2E:      os.Getenv(config.EnvDisableAttestationCheckE2E),
+		AllowPrivateNetworks:            os.Getenv(config.EnvAllowPrivateNetworks),
+		TeeAudience:                     os.Getenv(config.EnvTeeAudience),
+		ChainID:                         os.Getenv(config.EnvChainID),
+		Port:                            port,
+		APIKeys:                         apiKeys,
+		AttestationTypes:                attestationTypes,
+		SourceID:                        sourceID,
 	}, nil
+}
+
+// resolveAttestationTypes returns every attestation type the deployment serves
+// for source: the full per-source set fixed in config.SourceAttestationTypes.
+// The source is the only selector — a process serves all of its source's types.
+func resolveAttestationTypes(source config.SourceName) ([]fdc2.AttestationType, error) {
+	allowed, ok := config.AttestationTypesForSource(source)
+	if !ok || len(allowed) == 0 {
+		return nil, fmt.Errorf("no attestation types defined for source %s", source)
+	}
+	return slices.Clone(allowed), nil
+}
+
+// joinAttestationTypes renders a type list for logs and API metadata.
+func joinAttestationTypes(types []fdc2.AttestationType) string {
+	parts := make([]string, len(types))
+	for i, t := range types {
+		parts[i] = string(t)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func getEnvOrError(key string) (string, error) {
@@ -234,7 +238,7 @@ func requestSizeLimiter(maxBytes int64) func(http.Handler) http.Handler {
 
 func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
 	cfg := huma.DefaultConfig("FDC2 Verifier API", "1.0")
-	cfg.Info.Description = fmt.Sprintf("The Flare Data Connector 2 Verifier API endpoints for %s attestation sourced from %s.", envConfig.AttestationType, envConfig.SourceID)
+	cfg.Info.Description = fmt.Sprintf("The Flare Data Connector 2 Verifier API endpoints for [%s] attestation(s) sourced from %s.", joinAttestationTypes(envConfig.ServedAttestationTypes()), envConfig.SourceID)
 	cfg.DocsPath = ""
 	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"ApiKeyAuth": {

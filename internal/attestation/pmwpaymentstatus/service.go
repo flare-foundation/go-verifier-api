@@ -34,6 +34,7 @@ func NewPaymentService(envConfig config.EnvConfig) (*PaymentService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unsupported SOURCE_ID %q for PMWPaymentStatus: %w", cfg.SourceIDPair.SourceID, err)
 	}
+	// The XRP path always needs its source DB.
 	dataBase, err := db.InitSourceDB(cfg.SourceDatabaseURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to Source DB: %w", err)

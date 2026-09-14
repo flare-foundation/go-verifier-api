@@ -96,6 +96,24 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		require.Equal(t, uint8(types.Reverted), val.TransactionStatus)
 		require.Equal(t, strings.ToLower(txFromDB.Hash), hex.EncodeToString(val.TransactionId[:]))
 	})
+	t.Run("corrupt metadata balance rejected", func(t *testing.T) {
+		// A malformed balance in the metadata makes the received-amount
+		// calculation fail; the builder must return a zero response.
+		badRaw := rawTransactionData
+		badRaw.MetaData = types.TransactionMetaData{
+			TransactionResult: "tesSUCCESS",
+			AffectedNodes: []types.AffectedNode{{
+				ModifiedNode: &types.ModifiedNode{
+					LedgerEntryType: "AccountRoot",
+					FinalFields:     map[string]any{"Account": "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK", "Balance": "not-a-number"},
+					PreviousFields:  map[string]any{"Balance": "5"},
+				},
+			}},
+		}
+		val, err := builder.BuildPaymentStatusResponse(badRaw, &paymentMessageInstruction, txFromDB)
+		require.Equal(t, fdc2.IPMWPaymentStatusResponseBody{}, val)
+		require.ErrorContains(t, err, "cannot calculate received amount for recipient")
+	})
 	t.Run("non-native payment rejected", func(t *testing.T) {
 		iouInstruction := payments.ITeePaymentsPaymentInstructionMessage{
 			RecipientAddress: "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",

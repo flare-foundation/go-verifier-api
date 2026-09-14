@@ -109,6 +109,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		log := &ethtypes.Log{Data: []byte("not-abi-encoded")}
 		_, err := instruction.DecodeTeeInstructionsSentEventData(log, teeABI, op.Pay, opType)
 		require.ErrorContains(t, err, "cannot decode event")
+		require.ErrorIs(t, err, db.ErrDataSource)
 	})
 
 	t.Run("truncated log data returns error", func(t *testing.T) {
@@ -147,6 +148,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		log := &ethtypes.Log{Data: data}
 		_, err = instruction.DecodeTeeInstructionsSentEventData(log, teeABI, op.Pay, opType)
 		require.ErrorContains(t, err, "cannot decode TeeInstructionsSent message arguments")
+		require.ErrorIs(t, err, db.ErrDataSource)
 	})
 
 	t.Run("OpType mismatch fails closed", func(t *testing.T) {
@@ -189,6 +191,7 @@ func TestDecodeTeeInstructionsSentEventData(t *testing.T) {
 		log := &ethtypes.Log{Data: make([]byte, 1<<20+1)}
 		_, err := instruction.DecodeTeeInstructionsSentEventData(log, teeABI, op.Pay, opType)
 		require.ErrorContains(t, err, "event data too large")
+		require.ErrorIs(t, err, db.ErrDataSource)
 	})
 
 	t.Run("wrong ABI returns error", func(t *testing.T) {

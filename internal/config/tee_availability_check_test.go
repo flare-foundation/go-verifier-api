@@ -15,7 +15,7 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 				SourceID:             src,
 				AttestationType:      fdc2.AvailabilityCheck,
 				RelayContractAddress: "0x0000000000000000000000000000000000000001",
-				RPCURL:               "https://rpc.example.com",
+				FlareRPCURL:          "https://rpc.example.com",
 				ChainID:              "16",
 			}
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -31,14 +31,14 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
-		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, RPC_URL")
+		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, FLARE_RPC_URL")
 	})
 	t.Run("invalid RELAY_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:             SourceTEE,
 			AttestationType:      "UnknownType",
 			RelayContractAddress: "not-hex",
-			RPCURL:               "URL",
+			FlareRPCURL:          "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -49,7 +49,7 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 			SourceID:             SourceTEE,
 			AttestationType:      "UnknownType",
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			RPCURL:               "URL",
+			FlareRPCURL:          "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -82,7 +82,80 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 				SourceID:             SourceTEE,
 				AttestationType:      fdc2.AvailabilityCheck,
 				RelayContractAddress: "0x0000000000000000000000000000000000000001",
-				RPCURL:               "https://rpc.example.com",
+				FlareRPCURL:          "https://rpc.example.com",
+			}
+			tc.mutate(&envConfig)
+			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+			require.Nil(t, cfg)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+	cutoverCases := []struct {
+		name    string
+		mutate  func(*EnvConfig)
+		wantErr string
+	}{
+		{
+			name:    "next address without first policy id fails the boot",
+			mutate:  func(c *EnvConfig) { c.RelayCutoverContractAddress = "0x0000000000000000000000000000000000000002" },
+			wantErr: "must be set together",
+		},
+		{
+			name:    "first policy id without next address fails the boot",
+			mutate:  func(c *EnvConfig) { c.RelayCutoverStartingRewardEpoch = "250" },
+			wantErr: "must be set together",
+		},
+		{
+			name: "invalid next address hex fails the boot",
+			mutate: func(c *EnvConfig) {
+				c.RelayCutoverContractAddress = "not-hex"
+				c.RelayCutoverStartingRewardEpoch = "250"
+			},
+			wantErr: "RELAY_CUTOVER_CONTRACT_ADDRESS is not a valid hex address",
+		},
+		{
+			name: "next address equal to the current one fails the boot",
+			mutate: func(c *EnvConfig) {
+				c.RelayCutoverContractAddress = "0x0000000000000000000000000000000000000001"
+				c.RelayCutoverStartingRewardEpoch = "250"
+			},
+			wantErr: "RELAY_CUTOVER_CONTRACT_ADDRESS must differ from RELAY_CONTRACT_ADDRESS",
+		},
+		{
+			name: "non-numeric first policy id fails the boot",
+			mutate: func(c *EnvConfig) {
+				c.RelayCutoverContractAddress = "0x0000000000000000000000000000000000000002"
+				c.RelayCutoverStartingRewardEpoch = "soon"
+			},
+			wantErr: "RELAY_CUTOVER_STARTING_REWARD_EPOCH must be a base-10 uint24",
+		},
+		{
+			// Reward-epoch ids are uint24 on chain; a wider cutoff would boot but
+			// could never be reached, so the switch would silently never happen.
+			name: "first policy id beyond uint24 fails the boot",
+			mutate: func(c *EnvConfig) {
+				c.RelayCutoverContractAddress = "0x0000000000000000000000000000000000000002"
+				c.RelayCutoverStartingRewardEpoch = "16777216" // 1<<24, first invalid value
+			},
+			wantErr: "RELAY_CUTOVER_STARTING_REWARD_EPOCH must be a base-10 uint24",
+		},
+		{
+			name: "zero first policy id fails the boot",
+			mutate: func(c *EnvConfig) {
+				c.RelayCutoverContractAddress = "0x0000000000000000000000000000000000000002"
+				c.RelayCutoverStartingRewardEpoch = "0"
+			},
+			wantErr: "RELAY_CUTOVER_STARTING_REWARD_EPOCH must be non-zero",
+		},
+	}
+	for _, tc := range cutoverCases {
+		t.Run(tc.name, func(t *testing.T) {
+			envConfig := EnvConfig{
+				SourceID:             SourceTEE,
+				AttestationType:      fdc2.AvailabilityCheck,
+				RelayContractAddress: "0x0000000000000000000000000000000000000001",
+				FlareRPCURL:          "https://rpc.example.com",
+				ChainID:              "16",
 			}
 			tc.mutate(&envConfig)
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -102,7 +175,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			SourceID:             SourceTEE,
 			AttestationType:      fdc2.AvailabilityCheck,
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			RPCURL:               "https://rpc.example.com",
+			FlareRPCURL:          "https://rpc.example.com",
 			TeeAudience:          validAudience,
 			ChainID:              validChainID,
 		}
@@ -113,17 +186,36 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 		require.False(t, cfg.DisableAttestationCheckE2E)
 		require.False(t, cfg.AllowPrivateNetworks)
 		require.NotEqual(t, cfg.RelayContractAddress, [20]byte{})
-		require.Equal(t, "https://rpc.example.com", cfg.RPCURL)
+		require.Equal(t, "https://rpc.example.com", cfg.FlareRPCURL)
 		require.NotNil(t, cfg.GoogleRootCertificate)
 		require.Equal(t, validAudience, cfg.TeeAudience)
 		require.Equal(t, uint64(16), cfg.ChainID)
+		// No cutover configured: zero address and id.
+		require.Equal(t, [20]byte{}, [20]byte(cfg.RelayCutoverContractAddress))
+		require.Zero(t, cfg.RelayCutoverStartingRewardEpoch)
+	})
+	t.Run("relay cutover configured", func(t *testing.T) {
+		envConfig := EnvConfig{
+			SourceID:                        SourceTEE,
+			AttestationType:                 fdc2.AvailabilityCheck,
+			RelayContractAddress:            "0x0000000000000000000000000000000000000001",
+			RelayCutoverContractAddress:     "0x0000000000000000000000000000000000000002",
+			RelayCutoverStartingRewardEpoch: "250",
+			FlareRPCURL:                     "https://rpc.example.com",
+			TeeAudience:                     validAudience,
+			ChainID:                         validChainID,
+		}
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.Equal(t, "0x0000000000000000000000000000000000000002", cfg.RelayCutoverContractAddress.Hex())
+		require.Equal(t, uint32(250), cfg.RelayCutoverStartingRewardEpoch)
 	})
 	t.Run("allow private networks enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
 			SourceID:             SourceTEE,
 			AttestationType:      fdc2.AvailabilityCheck,
 			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			RPCURL:               "https://rpc.example.com",
+			FlareRPCURL:          "https://rpc.example.com",
 			AllowPrivateNetworks: "true",
 			TeeAudience:          validAudience,
 			ChainID:              validChainID,
@@ -138,7 +230,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 			SourceID:                   SourceTEE,
 			AttestationType:            fdc2.AvailabilityCheck,
 			RelayContractAddress:       "0x0000000000000000000000000000000000000001",
-			RPCURL:                     "https://rpc.example.com",
+			FlareRPCURL:                "https://rpc.example.com",
 			AllowTeeDebug:              "true",
 			DisableAttestationCheckE2E: "true",
 			AllowPrivateNetworks:       "true",
@@ -159,7 +251,7 @@ func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 		SourceID:             SourceTEE,
 		AttestationType:      fdc2.AvailabilityCheck,
 		RelayContractAddress: "0x0000000000000000000000000000000000000001",
-		RPCURL:               "https://rpc.example.com",
+		FlareRPCURL:          "https://rpc.example.com",
 		ChainID:              "16",
 	}
 	t.Run("unset TEE_AUDIENCE defaults to DefaultTeeAudience", func(t *testing.T) {

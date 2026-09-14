@@ -58,7 +58,7 @@ type XRPVerifier struct {
 }
 
 func NewXRPVerifier(cfg *config.PMWFeeProofConfig, xrpDB, cChainDB *gorm.DB) (*XRPVerifier, error) {
-	binder, err := pmwnonce.NewOnChainBinder(cfg.RPCURL, cfg.TeePaymentsContractAddress)
+	binder, err := pmwnonce.NewOnChainBinder(cfg.FlareRPCURL, cfg.TeePaymentsContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create initial-nonce binder: %w", err)
 	}
@@ -78,22 +78,32 @@ func (x *XRPVerifier) Close() error {
 	return nil
 }
 
-func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBody) (fdc2.IPMWFeeProofResponseBody, error) {
-	var zero fdc2.IPMWFeeProofResponseBody
-
+// validateBatchRange enforces the request's batch bounds before any DB/RPC work:
+// a non-zero count, within the per-instance cap (default MaxBatchRange), and no
+// overflow of the inclusive upper bound FirstPaymentId+BatchCount-1. Every
+// violation maps to ErrBatchRangeTooLarge.
+func (x *XRPVerifier) validateBatchRange(req fdc2.IPMWFeeProofRequestBody) error {
 	if req.BatchCount == 0 {
-		return zero, fmt.Errorf("batchCount must be greater than 0: %w", ErrBatchRangeTooLarge)
+		return fmt.Errorf("batchCount must be greater than 0: %w", ErrBatchRangeTooLarge)
 	}
 	maxBatch := x.maxBatchRange
 	if maxBatch == 0 {
 		maxBatch = MaxBatchRange
 	}
 	if req.BatchCount > maxBatch {
-		return zero, fmt.Errorf("batchCount %d exceeds max size %d: %w", req.BatchCount, maxBatch, ErrBatchRangeTooLarge)
+		return fmt.Errorf("batchCount %d exceeds max size %d: %w", req.BatchCount, maxBatch, ErrBatchRangeTooLarge)
 	}
-	// Guard against overflow of the inclusive upper bound FirstPaymentId+BatchCount-1.
 	if req.FirstPaymentId > math.MaxUint64-(req.BatchCount-1) {
-		return zero, fmt.Errorf("paymentId range from %d count %d overflows uint64: %w", req.FirstPaymentId, req.BatchCount, ErrBatchRangeTooLarge)
+		return fmt.Errorf("paymentId range from %d count %d overflows uint64: %w", req.FirstPaymentId, req.BatchCount, ErrBatchRangeTooLarge)
+	}
+	return nil
+}
+
+func (x *XRPVerifier) Verify(ctx context.Context, req fdc2.IPMWFeeProofRequestBody) (fdc2.IPMWFeeProofResponseBody, error) {
+	var zero fdc2.IPMWFeeProofResponseBody
+
+	if err := x.validateBatchRange(req); err != nil {
+		return zero, err
 	}
 
 	eventHash, err := teeinstruction.TeeInstructionsSentEventSignature(x.Config.ParsedTeeInstructionsABI)
@@ -301,7 +311,7 @@ func checkTxRowConsistency(tx paymentdb.DBTransaction) error {
 		Hash     string `json:"hash"`
 	}
 	if err := json.Unmarshal([]byte(tx.Response), &id); err != nil {
-		return fmt.Errorf("cannot unmarshal transaction response: %w", err)
+		return fmt.Errorf("cannot unmarshal transaction response: %w (%w)", paymentdb.ErrDataSource, err)
 	}
 	return paymentdb.CheckRowConsistency(id.Hash, id.Account, id.Sequence, tx)
 }
@@ -315,14 +325,14 @@ func parseTxFee(response string) (*big.Int, error) {
 	}
 	if err := json.Unmarshal([]byte(response), &raw); err != nil {
 		logger.Errorf("Cannot unmarshal XRP transaction response for fee: %v", err)
-		return nil, fmt.Errorf("cannot unmarshal transaction response: %w", err)
+		return nil, fmt.Errorf("cannot unmarshal transaction response: %w (%w)", paymentdb.ErrDataSource, err)
 	}
 	if raw.Fee == "" {
-		return nil, errors.New("missing Fee in transaction response")
+		return nil, fmt.Errorf("missing Fee in transaction response: %w", paymentdb.ErrDataSource)
 	}
 	fee, err := helper.ParseNonNegativeBigInt(raw.Fee)
 	if err != nil {
-		return nil, fmt.Errorf("cannot parse Fee %q: %w", raw.Fee, err)
+		return nil, fmt.Errorf("cannot parse Fee %q: %w (%w)", raw.Fee, paymentdb.ErrDataSource, err)
 	}
 	// Fail closed on an impossible fee: a drops value above the total XRP supply
 	// cannot be real data (corrupt/tampered indexer row), and summing it would

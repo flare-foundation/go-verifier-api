@@ -18,9 +18,35 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
+// LoadModule registers every attestation type this deployment serves for its
+// source (config.EnvConfig.ServedAttestationTypes) on the shared API and returns
+// their closers. Each type is registered independently; if any fails, the
+// already-registered services are closed before returning so no connections leak.
 func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) ([]io.Closer, error) {
-	var closers []io.Closer
 	handler.RegisterHealthHandler(api)
+
+	var closers []io.Closer
+	for _, attestationType := range envConfig.ServedAttestationTypes() {
+		// Per-type view: the config loaders and service constructors read the
+		// single AttestationType, so set it while the shared source config
+		// (RPC, DBs, contracts) stays the same.
+		cfg := envConfig
+		cfg.AttestationType = attestationType
+
+		c, err := registerVerifier(api, cfg)
+		if err != nil {
+			closeAll(closers)
+			return nil, err
+		}
+		closers = append(closers, c...)
+	}
+	return closers, nil
+}
+
+// registerVerifier constructs and registers the single verifier named by
+// envConfig.AttestationType, returning any closers it owns.
+func registerVerifier(api huma.API, envConfig config.EnvConfig) ([]io.Closer, error) {
+	var closers []io.Closer
 	switch envConfig.AttestationType {
 	case fdc2.AvailabilityCheck:
 		service, err := teeavailabilityservice.NewTeeAvailabilityService(envConfig)
@@ -74,4 +100,14 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 		return nil, fmt.Errorf("unsupported attestation type: %s", string(envConfig.AttestationType))
 	}
 	return closers, nil
+}
+
+// closeAll closes every service, logging failures. Used to roll back
+// already-registered services when a later one fails to load.
+func closeAll(closers []io.Closer) {
+	for _, c := range closers {
+		if err := c.Close(); err != nil {
+			logger.Errorf("Error closing service during load rollback: %v", err)
+		}
+	}
 }

@@ -32,7 +32,7 @@ func TestPMWPaymentStatus(t *testing.T) {
 		CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 		FlareTeeManagerContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
 		TeePaymentsContractAddress:     "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
-		RPCURL:                         rpc.URL,
+		FlareRPCURL:                    rpc.URL,
 	})
 	defer setup.Stop()
 
@@ -128,8 +128,9 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: valid", func(t *testing.T) { // Using log (12) in c-chain idx db and transaction 7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA from xrp idx db.
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
+		response, err := helpers.Post[types.VerifierResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
+		require.Equal(t, types.StatusVerified, response.Status)
 
 		result := helpers.DecodeResponseBody[fdc2.IPMWPaymentStatusResponseBody](t, fdc2.PMWPaymentStatus, response.ResponseBody)
 		// https://testnet.xrpl.org/transactions/7AE054AE3A73748A4A28D31ADE4EB68E9D48DD9D22179432E7EA2E2895E459CA
@@ -162,80 +163,67 @@ func TestPMWPaymentStatus(t *testing.T) {
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: invalid attestationType", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: verification failed - not found in c-chain indexer", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.SenderAddress = modifiedReqBody.SenderAddress[4:] // Remove first 4 chars.
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: verification failed - not found in xrp indexer", func(t *testing.T) { // Using fake entry log (19) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 10
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: verification failed - cannot decode event data (ABI unpack)", func(t *testing.T) { // Using fake entry log (20) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 	t.Run("verify: verification failed - cannot unmarshal XRP transaction", func(t *testing.T) { // Using fake entry log (21) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c3.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 2
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 	t.Run("verify: verification failed - missing transaction result", func(t *testing.T) { // Using fake entry log (22) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c5.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 3
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 	t.Run("verify: indexer data rejected - malformed transaction result code", func(t *testing.T) { // Using fake entry log (23) in c-chain idx db and fake transaction entry 7ae054ae3a73748a4a28d31ade4eb68e9d48dd9d22179432e7ea2e2895e459c6, whose TransactionResult ("te") is too short to be a valid XRPL result code.
 		modifiedReqBody := baseReqBody
@@ -243,22 +231,18 @@ func TestPMWPaymentStatus(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
 		// A malformed result code from the semi-trusted indexer fails closed as a
-		// retryable database/indexer error (503), not a generic 500.
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		// retryable database/indexer error, surfaced as RETRY.
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusServiceUnavailable, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 	t.Run("verify: verification failed - cannot decode event data message", func(t *testing.T) { // Using fake entry log (24) in c-chain idx db.
 		modifiedReqBody := baseReqBody
 		modifiedReqBody.PaymentId = baseReqBody.PaymentId + 5
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWPaymentStatus, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		// The response body is closed inside AssertHumaError, so linter warning is suppressed.
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 }

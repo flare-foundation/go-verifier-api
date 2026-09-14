@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"net/http"
 	"testing"
 	"time"
@@ -243,6 +246,13 @@ func TestClassifyVerifyError(t *testing.T) {
 			expectedStatus: http.StatusUnprocessableEntity,
 		},
 		{
+			// A transient node status (tooBusy/noNetwork/...) is retryable, NOT a
+			// terminal 422 like a deterministic actNotFound.
+			name:           "ErrRPCTransient",
+			err:            fmt.Errorf("rpc transient: %w", client.ErrRPCTransient),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
 			name:           "ErrRecordNotFound",
 			err:            fmt.Errorf("record not found: %w", db.ErrRecordNotFound),
 			expectedStatus: http.StatusUnprocessableEntity,
@@ -272,6 +282,11 @@ func TestClassifyVerifyError(t *testing.T) {
 		{
 			name:           "ErrDatabase",
 			err:            fmt.Errorf("db failed: %w", db.ErrDatabase),
+			expectedStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:           "ErrDataSource",
+			err:            fmt.Errorf("cannot decode event: %w (boom)", db.ErrDataSource),
 			expectedStatus: http.StatusServiceUnavailable,
 		},
 		// 503 — request deadline / cancellation
@@ -337,6 +352,255 @@ func TestClassifyVerifyError(t *testing.T) {
 	}
 }
 
+func TestClassifyVerifyStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		err            error
+		expectedStatus string
+	}{
+		// REJECTED — deterministic (mirrors classifyVerifyError's 400/422 cases)
+		{"ErrBatchRangeTooLarge", fmt.Errorf("range exceeds max: %w", feeproofxrp.ErrBatchRangeTooLarge), types.StatusRejected},
+		{"ErrReissueLimitExceeded", fmt.Errorf("nonce 100: %w (cap 32)", feeproofxrp.ErrReissueLimitExceeded), types.StatusRejected},
+		{"ErrInvalidRequest (multisig)", fmt.Errorf("too many keys: %w", multisigxrp.ErrInvalidRequest), types.StatusRejected},
+		{"ErrMissingPayEvent", fmt.Errorf("no pay event: %w", feeproofxrp.ErrMissingPayEvent), types.StatusRejected},
+		{"ErrMissingTransaction", fmt.Errorf("no xrp tx: %w", feeproofxrp.ErrMissingTransaction), types.StatusRejected},
+		{"ErrRPCNonSuccess", fmt.Errorf("rpc non-success: %w", client.ErrRPCNonSuccess), types.StatusRejected},
+		{"ErrRecordNotFound", fmt.Errorf("record not found: %w", db.ErrRecordNotFound), types.StatusRejected},
+		{"ErrTEEDataValidation", fmt.Errorf("challenge mismatch: %w", verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEChallengeMismatch", fmt.Errorf("challenge does not match: %w: %w", verifier.ErrTEEChallengeMismatch, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEChainIDMismatch", fmt.Errorf("chainID does not match: %w: %w", verifier.ErrTEEChainIDMismatch, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEProxySignerMismatch", fmt.Errorf("proxy signer does not match: %w: %w", verifier.ErrTEEProxySignerMismatch, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEESigningPolicyHash", fmt.Errorf("failed to validate initial signing policy hash: %w: %w", verifier.ErrTEESigningPolicyHash, verifier.ErrTEEDataValidation), types.StatusRejected},
+		{"ErrTEEAttestationInvalid", fmt.Errorf("%w: cannot validate certificate signature", verifier.ErrTEEAttestationInvalid), types.StatusRejected},
+		{"ErrTEEResponseMalformed", fmt.Errorf("%w: TEE challenge result data is empty", verifier.ErrTEEResponseMalformed), types.StatusRejected},
+		{"ErrInvalidInput", fmt.Errorf("bad input: %w", verifiertypes.ErrInvalidInput), types.StatusRejected},
+		// RETRY — transient (mirrors classifyVerifyError's 503 cases)
+		{"context deadline exceeded", fmt.Errorf("verifier work timed out: %w", context.DeadlineExceeded), types.StatusRetry},
+		{"context canceled", fmt.Errorf("client disconnected: %w", context.Canceled), types.StatusRetry},
+		{"ErrFetchAccountInfo", fmt.Errorf("account info failed: %w", client.ErrFetchAccountInfo), types.StatusRetry},
+		{"ErrRPCTransient", fmt.Errorf("too busy: %w for account rX: tooBusy", client.ErrRPCTransient), types.StatusRetry},
+		{"ErrDatabase", fmt.Errorf("db failed: %w", db.ErrDatabase), types.StatusRetry},
+		{"ErrDataSource", fmt.Errorf("cannot decode event: %w (boom)", db.ErrDataSource), types.StatusRetry},
+		{"ErrNetwork", fmt.Errorf("rpc call failed: %w", verifiertypes.ErrNetwork), types.StatusRetry},
+		{"ErrRPC", fmt.Errorf("rpc call failed: %w", verifiertypes.ErrRPC), types.StatusRetry},
+		{"ErrContext", fmt.Errorf("context error: %w", verifiertypes.ErrContext), types.StatusRetry},
+		{"ErrUnknown", fmt.Errorf("unknown error: %w", verifiertypes.ErrUnknown), types.StatusRetry},
+		{"ErrHTTPFetch", fmt.Errorf("HTTP failed: %w", fetcher.ErrHTTPFetch), types.StatusRetry},
+		{"ErrActionResultNotFound", fmt.Errorf("action result not ready: %w", verifier.ErrActionResultNotFound), types.StatusRetry},
+		{"ErrTEERevocationUnavailable", fmt.Errorf("attestation revocation check failed: CRL fetch failed: %w", verifier.ErrTEERevocationUnavailable), types.StatusRetry},
+		// RETRY — default (mirrors classifyVerifyError's 500 case)
+		{"unknown error falls to RETRY", errors.New("something unexpected"), types.StatusRetry},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, message := classifyVerifyStatus(tt.err)
+			require.Equal(t, tt.expectedStatus, status)
+			require.NotEmpty(t, message, "a non-VERIFIED envelope must carry a reason")
+			// The safe message must not embed the internal error detail.
+			require.NotContains(t, message, tt.err.Error())
+		})
+	}
+}
+
+// TestClassifyVerifyStatusTEEGranularMessages: the specific TEE checks each carry
+// their own curated message (so the relay can tell which check failed), the
+// specific case wins over the generic one it is chained with, and the generic
+// sentinel still matches for any code that keys off ErrTEEDataValidation.
+func TestClassifyVerifyStatusTEEGranularMessages(t *testing.T) {
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{fmt.Errorf("challenge does not match: %w: %w", verifier.ErrTEEChallengeMismatch, verifier.ErrTEEDataValidation), "TEE challenge mismatch"},
+		{fmt.Errorf("chainID does not match: %w: %w", verifier.ErrTEEChainIDMismatch, verifier.ErrTEEDataValidation), "TEE chain id mismatch"},
+		{fmt.Errorf("proxy signer does not match: %w: %w", verifier.ErrTEEProxySignerMismatch, verifier.ErrTEEDataValidation), "TEE proxy signer mismatch"},
+		{fmt.Errorf("failed to validate initial signing policy hash: %w: %w", verifier.ErrTEESigningPolicyHash, verifier.ErrTEEDataValidation), "TEE signing policy hash mismatch"},
+		{fmt.Errorf("%w: cannot validate certificate signature", verifier.ErrTEEAttestationInvalid), "TEE attestation invalid"},
+		{fmt.Errorf("%w: unmarshal TEE result", verifier.ErrTEEResponseMalformed), "TEE response malformed"},
+		{fmt.Errorf("%w: action result instruction ID mismatch", verifier.ErrTEEActionResultMismatch), "TEE action result mismatch"},
+	}
+	for _, c := range cases {
+		status, message := classifyVerifyStatus(c.err)
+		require.Equal(t, types.StatusRejected, status)
+		require.Equal(t, c.want, message, "specific TEE reason must win over the generic category")
+		// Backward compatibility: the generic sentinel still matches.
+		require.ErrorIs(t, c.err, verifier.ErrTEEDataValidation)
+	}
+	// The generic (unspecific) TEE failure still falls back to the coarse message.
+	_, generic := classifyVerifyStatus(fmt.Errorf("some tee issue: %w", verifier.ErrTEEDataValidation))
+	require.Equal(t, "TEE data validation failed", generic)
+
+	// Correctness: a transient revocation-check (CRL) fetch failure must be RETRY,
+	// never a terminal REJECTED — and it must NOT chain the generic validation
+	// sentinel, or it would be swallowed as a terminal "TEE invalid".
+	crlErr := fmt.Errorf("attestation revocation check failed: CRL fetch failed: %w", verifier.ErrTEERevocationUnavailable)
+	status, message := classifyVerifyStatus(crlErr)
+	require.Equal(t, types.StatusRetry, status)
+	require.Equal(t, "TEE revocation check unavailable", message)
+	require.NotErrorIs(t, crlErr, verifier.ErrTEEDataValidation,
+		"a CRL fetch outage must not be classifiable as a terminal TEE validation failure")
+}
+
+// TestClassifyVerifyStatusVerdicts locks the terminal-vs-retryable verdict (and a
+// non-default message) for each known sentinel. It documents intent but does NOT
+// detect drift on its own (the list is manual) — TestClassifierNoDrift does that
+// structurally.
+func TestClassifyVerifyStatusVerdicts(t *testing.T) {
+	rejected := []error{
+		feeproofxrp.ErrBatchRangeTooLarge,
+		feeproofxrp.ErrReissueLimitExceeded,
+		feeproofxrp.ErrMissingPayEvent,
+		feeproofxrp.ErrMissingTransaction,
+		multisigxrp.ErrInvalidRequest,
+		client.ErrRPCNonSuccess,
+		db.ErrRecordNotFound,
+		verifier.ErrTEEDataValidation,
+		verifier.ErrTEEActionResultMismatch,
+		verifiertypes.ErrInvalidInput,
+	}
+	retry := []error{
+		context.DeadlineExceeded,
+		context.Canceled,
+		client.ErrFetchAccountInfo,
+		client.ErrFetchServerInfo,
+		client.ErrRPCTransient,
+		multisigxrp.ErrNetworkMismatch,
+		db.ErrDatabase,
+		db.ErrDataSource,
+		verifiertypes.ErrNetwork,
+		verifiertypes.ErrRPC,
+		verifiertypes.ErrContext,
+		verifiertypes.ErrUnknown,
+		fetcher.ErrHTTPFetch,
+		verifier.ErrActionResultNotFound,
+	}
+	check := func(t *testing.T, sentinel error, wantStatus string) {
+		t.Helper()
+		status, message := classifyVerifyStatus(fmt.Errorf("context: %w", sentinel))
+		require.Equal(t, wantStatus, status, "wrong verdict for %v", sentinel)
+		require.NotEqual(t, "unexpected error", message,
+			"%v falls to the default — classifyVerifyStatus is missing a case (drifted from classifyVerifyError)", sentinel)
+	}
+	for _, s := range rejected {
+		check(t, s, types.StatusRejected)
+	}
+	for _, s := range retry {
+		check(t, s, types.StatusRetry)
+	}
+}
+
+// TestClassifyVerifyStatusDistinctRejectReasons locks the per-cause reject messages
+// so distinct failures are not collapsed into one coarse string.
+func TestClassifyVerifyStatusDistinctRejectReasons(t *testing.T) {
+	cases := []struct {
+		err  error
+		want string
+	}{
+		{fmt.Errorf("range: %w", feeproofxrp.ErrBatchRangeTooLarge), "batch range too large"},
+		{fmt.Errorf("nonce: %w", feeproofxrp.ErrReissueLimitExceeded), "reissue limit exceeded"},
+		{fmt.Errorf("no pay event: %w", feeproofxrp.ErrMissingPayEvent), "missing pay event for the payment"},
+		{fmt.Errorf("no tx: %w", feeproofxrp.ErrMissingTransaction), "missing transaction for the payment"},
+	}
+	seen := map[string]bool{}
+	for _, c := range cases {
+		status, message := classifyVerifyStatus(c.err)
+		require.Equal(t, types.StatusRejected, status)
+		require.Equal(t, c.want, message)
+		require.False(t, seen[message], "reject reason %q is not distinct", message)
+		seen[message] = true
+	}
+}
+
+func TestClassifyVerifyStatusDistinguishesRetryReasons(t *testing.T) {
+	// An unreachable store and a reachable store that returns unusable data are
+	// both RETRY, but must carry distinct messages so operators can tell them apart.
+	_, unreachable := classifyVerifyStatus(fmt.Errorf("conn refused: %w", db.ErrDatabase))
+	_, unusable := classifyVerifyStatus(fmt.Errorf("bad bytes: %w (boom)", db.ErrDataSource))
+	require.NotEqual(t, unreachable, unusable)
+	require.Equal(t, "database unavailable", unreachable)
+	require.Equal(t, "data source returned unusable data", unusable)
+}
+
+// sentinelsInFunc statically extracts the set of "pkg.Sentinel" names referenced in
+// errors.Is(err, pkg.Sentinel) calls within the named function, by parsing the
+// source. Used to compare the two classifiers structurally.
+func sentinelsInFunc(t *testing.T, file *ast.File, fnName string) map[string]bool {
+	t.Helper()
+	set := map[string]bool{}
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != fnName || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			fun, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || fun.Sel.Name != "Is" {
+				return true
+			}
+			if pkg, ok := fun.X.(*ast.Ident); !ok || pkg.Name != "errors" || len(call.Args) != 2 {
+				return true
+			}
+			if sel, ok := call.Args[1].(*ast.SelectorExpr); ok {
+				if x, ok := sel.X.(*ast.Ident); ok {
+					set[x.Name+"."+sel.Sel.Name] = true
+				}
+			}
+			return true
+		})
+	}
+	return set
+}
+
+// TestClassifierNoDrift structurally guarantees the two classifiers cannot drift:
+// every error sentinel the HTTP classifier (classifyVerifyError) handles must also
+// be handled by the /verify envelope classifier (classifyVerifyStatus). The
+// envelope may add granular extras (e.g. per-check TEE messages), so the check is a
+// subset, not equality. Because it reads the actual source, wiring a sentinel into
+// one classifier but not the other fails this test with no manual list to update.
+func TestClassifierNoDrift(t *testing.T) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "handler.go", nil, 0)
+	require.NoError(t, err)
+
+	statusSet := sentinelsInFunc(t, f, "classifyVerifyStatus")
+	errorSet := sentinelsInFunc(t, f, "classifyVerifyError")
+	require.NotEmpty(t, statusSet)
+	require.NotEmpty(t, errorSet)
+
+	var missing []string
+	for s := range errorSet {
+		if !statusSet[s] {
+			missing = append(missing, s)
+		}
+	}
+	require.Empty(t, missing,
+		"classifyVerifyStatus is missing sentinels that classifyVerifyError handles (classifier drift): %v", missing)
+}
+
+func TestVerifyResponseHelpers(t *testing.T) {
+	err := errors.New("internal detail that must not leak")
+
+	t.Run("rejectedResponse", func(t *testing.T) {
+		resp := rejectedResponse("req1", "log message", "safe reason", err)
+		require.Equal(t, types.StatusRejected, resp.Body.Status)
+		require.Equal(t, "safe reason", resp.Body.Message)
+		require.Empty(t, resp.Body.ResponseBody)
+		require.NotContains(t, resp.Body.Message, err.Error())
+	})
+	t.Run("retryResponse", func(t *testing.T) {
+		resp := retryResponse("req2", "log message", "safe reason", err)
+		require.Equal(t, types.StatusRetry, resp.Body.Status)
+		require.Equal(t, "safe reason", resp.Body.Message)
+		require.Empty(t, resp.Body.ResponseBody)
+		require.NotContains(t, resp.Body.Message, err.Error())
+	})
+}
+
 // blockingVerifier blocks until its context is cancelled, modelling a hung
 // dependency (slow DB or RPC).
 type blockingVerifier struct{}
@@ -363,4 +627,23 @@ func TestVerifyWithDeadline(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 42, got)
 	})
+}
+
+func TestGetVerifierOperationIDUnique(t *testing.T) {
+	// A per-source deployment registers these endpoints once per attestation type
+	// it serves; the operation IDs must all be distinct or the OpenAPI document is
+	// invalid (duplicate operationIds break Swagger/client generation).
+	endpoints := []string{"prepareRequestBody", "prepareResponseBody", "verify"}
+	types := config.SourceAttestationTypes[config.SourceXRP]
+	require.NotEmpty(t, types)
+
+	seen := map[string]bool{}
+	for _, at := range types {
+		for _, ep := range endpoints {
+			id := getVerifierOperationID(config.SourceXRP, at, ep)
+			require.Falsef(t, seen[id], "duplicate operation ID: %s", id)
+			seen[id] = true
+		}
+	}
+	require.Len(t, seen, len(types)*len(endpoints))
 }

@@ -18,7 +18,7 @@ func LoadPMWMultisigAccountConfiguredConfig(envConfig EnvConfig) (*PMWMultisigAc
 }
 
 func BuildPMWMultisigAccountConfiguredConfig(envConfig EnvConfig) (*PMWMultisigAccountConfig, error) {
-	err := CheckMissingFields(envConfig, []string{EnvRPCURL})
+	err := CheckMissingFields(envConfig, []string{EnvSourceRPCURL})
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func BuildPMWMultisigAccountConfiguredConfig(envConfig EnvConfig) (*PMWMultisigA
 	}
 	return &PMWMultisigAccountConfig{
 		EncodedAndABI: commonConfig,
-		RPCURL:        envConfig.RPCURL,
+		SourceRPCURL:  envConfig.SourceRPCURL,
 	}, nil
 }
 

@@ -9,7 +9,7 @@ import (
 )
 
 var envConfig = config.EnvConfig{
-	RPCURL:          "https://s.altnet.rippletest.net:51234",
+	SourceRPCURL:    "https://s.altnet.rippletest.net:51234",
 	SourceID:        "testXRP",
 	AttestationType: fdc2.PMWMultisigAccountConfigured,
 }
@@ -26,19 +26,19 @@ func TestMultisigService(t *testing.T) {
 	t.Run("missing fields in env config", func(t *testing.T) {
 		config.ClearPMWMultisigAccountConfiguredConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			RPCURL:          "",
+			SourceRPCURL:    "",
 			SourceID:        "testXRP",
 			AttestationType: fdc2.PMWMultisigAccountConfigured,
 		}
 		service, err := NewMultisigService(badEnvConfig)
-		require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
+		require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: SOURCE_RPC_URL")
 		require.Nil(t, service)
 	})
 
 	t.Run("using unsupported source ID", func(t *testing.T) {
 		config.ClearPMWMultisigAccountConfiguredConfigForTest()
 		badEnvConfig := config.EnvConfig{
-			RPCURL:          "https://s.altnet.rippletest.net:51234",
+			SourceRPCURL:    "https://s.altnet.rippletest.net:51234",
 			SourceID:        "UNSUPPORTED_SOURCE",
 			AttestationType: fdc2.PMWMultisigAccountConfigured,
 		}

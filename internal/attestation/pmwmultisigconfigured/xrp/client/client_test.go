@@ -104,3 +104,79 @@ func TestFetchAccountInfo(t *testing.T) {
 		})
 	}
 }
+
+// TestFetchAccountInfoStatusClassification: XRPL returns status:"error" and the
+// actual code in result.error. A transient code (tooBusy) is retryable
+// (ErrRPCTransient) and must NOT be classifiable as terminal; a deterministic code
+// (actNotFound) stays terminal (ErrRPCNonSuccess).
+func TestFetchAccountInfoStatusClassification(t *testing.T) {
+	// errorServer mimics rippled's JSON-RPC error shape: status "error" + code in error.
+	errorServer := func(errorCode string) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(types.AccountInfoResponse{
+				Result: types.AccountInfoResult{Status: "error", Error: errorCode},
+			})
+		}))
+	}
+	t.Run("transient error code is retryable", func(t *testing.T) {
+		srv := errorServer("tooBusy")
+		defer srv.Close()
+		_, err := NewClient(srv.URL).FetchAccountInfo(context.Background(), "rEXAMPLE")
+		require.ErrorIs(t, err, ErrRPCTransient)
+		require.NotErrorIs(t, err, ErrRPCNonSuccess, "a transient node state must not be a terminal rejection")
+	})
+	t.Run("actNotFound is terminal", func(t *testing.T) {
+		srv := errorServer("actNotFound")
+		defer srv.Close()
+		_, err := NewClient(srv.URL).FetchAccountInfo(context.Background(), "rEXAMPLE")
+		require.ErrorIs(t, err, ErrRPCNonSuccess)
+		require.NotErrorIs(t, err, ErrRPCTransient)
+	})
+}
+
+func TestNetworkID(t *testing.T) {
+	t.Run("reports the network id", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"success","info":{"network_id":1}}}`))
+		}))
+		defer server.Close()
+
+		id, present, err := NewClient(server.URL).NetworkID(context.Background())
+		require.NoError(t, err)
+		require.True(t, present)
+		require.Equal(t, uint32(1), id)
+	})
+
+	t.Run("clio string network id is accepted", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"success","info":{"network_id":"1"}}}`)) // Clio reports it as a string
+		}))
+		defer server.Close()
+
+		id, present, err := NewClient(server.URL).NetworkID(context.Background())
+		require.NoError(t, err)
+		require.True(t, present)
+		require.Equal(t, uint32(1), id)
+	})
+
+	t.Run("absent network id is not present", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"success","info":{}}}`))
+		}))
+		defer server.Close()
+
+		_, present, err := NewClient(server.URL).NetworkID(context.Background())
+		require.NoError(t, err)
+		require.False(t, present)
+	})
+
+	t.Run("non-success status is an error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"result":{"status":"error"}}`))
+		}))
+		defer server.Close()
+
+		_, _, err := NewClient(server.URL).NetworkID(context.Background())
+		require.ErrorIs(t, err, ErrFetchServerInfo)
+	})
+}

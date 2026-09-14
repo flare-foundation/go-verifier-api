@@ -39,16 +39,17 @@ func encodeInstructionIDLikeSolidity(opType, opCommand, sourceID [32]byte, accou
 		binary.BigEndian.PutUint64(w[24:], n)
 		return w
 	}
-	const headWords = 6 // six top-level args; the string is encoded as an offset into the tail
-	var buf []byte
-	buf = append(buf, opType[:]...)                  // head[0]
-	buf = append(buf, opCommand[:]...)               // head[1]
-	buf = append(buf, sourceID[:]...)                // head[2]
-	buf = append(buf, word(headWords*32)...)         // head[3] = offset to string tail (192)
-	buf = append(buf, word(paymentID)...)            // head[4]
-	buf = append(buf, word(reissueNumber)...)        // head[5]
-	buf = append(buf, word(uint64(len(account)))...) // tail: string length
-	data := make([]byte, (len(account)+31)/32*32)    // tail: string bytes, right-padded to a word
+	const headWords = 6                               // six top-level args; the string is encoded as an offset into the tail
+	tailSize := (len(account) + 31) / 32 * 32         // string bytes, right-padded to a word
+	buf := make([]byte, 0, (headWords+1)*32+tailSize) // head + string-length word + string data
+	buf = append(buf, opType[:]...)                   // head[0]
+	buf = append(buf, opCommand[:]...)                // head[1]
+	buf = append(buf, sourceID[:]...)                 // head[2]
+	buf = append(buf, word(headWords*32)...)          // head[3] = offset to string tail (192)
+	buf = append(buf, word(paymentID)...)             // head[4]
+	buf = append(buf, word(reissueNumber)...)         // head[5]
+	buf = append(buf, word(uint64(len(account)))...)  // tail: string length
+	data := make([]byte, tailSize)
 	copy(data, account)
 	buf = append(buf, data...)
 	return crypto.Keccak256Hash(buf)

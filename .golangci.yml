@@ -33,12 +33,12 @@ linters:
       default-signifies-exhaustive: true
     nolintlint:
       require-specific: true
-exclusions:
-  generated: lax
-  paths:
-    - third_party$
-    - builtin$
-    - examples$
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 formatters:
   enable:
     - gofmt

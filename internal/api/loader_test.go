@@ -30,7 +30,7 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 	envConfig := config.EnvConfig{
 		AttestationType:                fdc2.AvailabilityCheck,
 		SourceID:                       config.SourceTEE,
-		RPCURL:                         "http",
+		FlareRPCURL:                    "http",
 		RelayContractAddress:           "0x5A0773Ff307Bf7C71a832dBB5312237fD3437f9F",
 		FlareTeeManagerContractAddress: "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
 		AllowTeeDebug:                  "false",
@@ -73,7 +73,23 @@ func TestPMWMultisigAccountConfiguredServiceError(t *testing.T) {
 		AttestationType: fdc2.PMWMultisigAccountConfigured,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
-	require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: RPC_URL")
+	require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: SOURCE_RPC_URL")
+	require.Nil(t, closers)
+}
+
+func TestLoadModuleIteratesServedTypes(t *testing.T) {
+	config.ClearPMWPaymentStatusConfigForTest()
+	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
+
+	// AttestationTypes (not the singular field) drives registration: the first
+	// listed type is attempted and its missing config surfaces, proving the loop
+	// iterates the list. Nothing is registered, so no closers leak.
+	envConfig := config.EnvConfig{
+		SourceID:         config.SourceTestXRP,
+		AttestationTypes: []fdc2.AttestationType{fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
+	}
+	closers, err := LoadModule(t.Context(), api, envConfig)
+	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config")
 	require.Nil(t, closers)
 }
 

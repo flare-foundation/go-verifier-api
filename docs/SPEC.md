@@ -1,7 +1,7 @@
 # Go Verifier API - Codebase Explanation and Technical Specification
 
 ## 1. Purpose
-Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded responses. Supports four attestation types: `TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. At runtime the process serves exactly one attestation type + source pair.
+Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded responses. Supports four attestation types: `TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. At runtime the process serves a single source (`SOURCE_ID`) and every attestation type that source offers.
 
 ## 2. System Context
 - Language: Go (`module github.com/flare-foundation/go-verifier-api`)
@@ -15,7 +15,7 @@ Verifies attestation requests for Flare FDC2 workflows; returns ABI-encoded resp
 `cmd/main.go` loads env config and calls `api.RunServer`. `internal/api/server.go` builds router + Huma API, registers health and attestation routes via `LoadModule`, starts HTTP server, waits for `SIGINT/SIGTERM`, gracefully shuts down server and `io.Closer` dependencies.
 
 ### Module loading
-`internal/api/loader.go` switches on `VERIFIER_TYPE`:
+`internal/api/loader.go` registers, for the deployment's `SOURCE_ID`, every attestation type that source serves (`config.SourceAttestationTypes`); each type below is constructed independently and any already-registered services are closed on a later failure:
 
 | Module | Constructs | Shutdown closers |
 |---|---|---|
@@ -53,17 +53,20 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 ## 6.1 Common required env vars
 - `PORT`
 - `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key; each key must be at least 16 characters or boot fails)
-- `VERIFIER_TYPE` (`TeeAvailabilityCheck`, `PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`)
-- `SOURCE_ID` (`TEE`, `XRP`, `testXRP`)
+- `SOURCE_ID` (`TEE`, `XRP`, `testXRP`) — the only selector; the process serves every attestation type the source offers.
 
-**`VERIFIER_TYPE` × `SOURCE_ID`:** `VERIFIER_TYPE` and `SOURCE_ID` are first validated independently against the allowlists above, then each module preflights its `SOURCE_ID` at config/service construction and fails the boot on an unsupported value: TeeAvailabilityCheck accepts only `TEE`; the PMW modules accept only `XRP`/`testXRP`. A mismatched pair therefore fails fast at startup with a clear error rather than booting clean and rejecting every request with a 400 source-id mismatch. (Valid pairings: `TeeAvailabilityCheck`↔`TEE`; `PMWPaymentStatus`/`PMWMultisigAccountConfigured`/`PMWFeeProof`↔`XRP`/`testXRP`.)
+**Source-driven registration:** `SOURCE_ID` is validated against the allowlist above and selects the served attestation types from `config.SourceAttestationTypes`: `TEE`→`TeeAvailabilityCheck`; `XRP`/`testXRP`→`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. Each module additionally preflights its `SOURCE_ID` at construction, so an unknown source fails the boot fast with a clear error rather than booting clean and rejecting every request.
 
 ## 6.2 Attestation-specific env vars
 ### TeeAvailabilityCheck
 Required:
-- `RPC_URL`
+- `FLARE_RPC_URL` (Flare C-chain EVM RPC; read-only `Relay.toSigningPolicyHash`)
 - `RELAY_CONTRACT_ADDRESS`
 - `CHAIN_ID` — EVM chain ID this verifier serves; the attested `TeeInfo.ChainID` must equal it. Required and must be non-zero (the chain pin is enforced unconditionally; see §7.1).
+
+Optional — **Relay cutover** (set both or neither; boot fails on half a pair, a zero/non-numeric/above-uint24 epoch, or a next address equal to the current one):
+- `RELAY_CUTOVER_CONTRACT_ADDRESS` — the redeployed Relay.
+- `RELAY_CUTOVER_STARTING_REWARD_EPOCH` — the first reward epoch the next Relay serves. A reward epoch and a signing-policy id are the **same identifier**, and this value must equal the `[relay_cutover] starting_reward_epoch` configured in the other Flare clients (tee-relay-client, FDC, FSP) — the epoch is only correct if it is the one the chain's contract switch actually lands in; a mismatch fails every proof on one side of the boundary. Every `toSigningPolicyHash` lookup routes by its **own id** (`cutoverRelay`): ids at or above this value go to the next Relay, lower ids stay on `RELAY_CONTRACT_ADDRESS` — one TEE response may span the boundary (initial policy on the old Relay, latest on the new). No wall-clock switching, no fallback between the contracts (a failed lookup fails closed on its own Relay), no restart at the boundary. An id that is nil, negative, or beyond uint24 (reward-epoch ids are 24-bit on chain) is refused, never default-routed. Both callers share the one `FLARE_RPC_URL` connection. The next Relay is **not probed at startup** — data providers deploy this configuration ahead of the switch — but it must be deployed and initialized before the starting epoch arrives. Keep the old Relay configured until no valid TEE references an initial signing policy stored only there (re-attestation refreshes `LastSigningPolicyID`, not necessarily `InitialSigningPolicyID`) or the next Relay carries the full historical mapping. (Unlike tee-relay-client's `[relay_cutover]`, where an absent block means the switch already happened, an absent pair here means no cutover.)
 
 Optional:
 - `TEE_AUDIENCE` — override for the expected `aud` claim on Confidential Space attestation tokens. Defaults to `config.DefaultTeeAudience` (`"https://sts.google.com"`, the audience tee-node requests) when unset; set it only if tee-node's requested audience diverges.
@@ -82,11 +85,11 @@ Required:
 - `CCHAIN_DATABASE_URL` (MySQL)
 - `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
 - `TEE_PAYMENTS_CONTRACT_ADDRESS` (the source's per-source `TeePayments` contract; `getInitialNonce` is called on it for the sequence binding — distinct from the FlareTeeManager diamond above)
-- `RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
+- `FLARE_RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
 
 ### PMWMultisigAccountConfigured
 Required:
-- `RPC_URL` (XRPL endpoint)
+- `SOURCE_RPC_URL` (XRPL endpoint)
 
 ### PMWFeeProof
 Required:
@@ -94,7 +97,7 @@ Required:
 - `CCHAIN_DATABASE_URL` (MySQL)
 - `FLARE_TEE_MANAGER_CONTRACT_ADDRESS` (canonical emitter of `TeeInstructionsSent`; instruction log queries include `AND address = ?`)
 - `TEE_PAYMENTS_CONTRACT_ADDRESS` (the source's per-source `TeePayments` contract; `getInitialNonce` is called on it for the sequence binding — distinct from the FlareTeeManager diamond above)
-- `RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
+- `FLARE_RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
 
 ## 7. Attestation Module Specs
 
@@ -220,8 +223,8 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
   - **Chain pre-validation** (`validateX5CChain`): intermediate signed by root, leaf signed by intermediate (signature-only — revocation deferred to downstream `ParseAndValidatePKIToken`), plus `NotBefore`/`NotAfter` currency for all three certs. Rejecting bad chains here prevents attacker-supplied certs (with arbitrary CRL distribution point URLs) from triggering any outbound request.
 - Reads `CRLDistributionPoints` from leaf + intermediate only after the chain is validated.
 - Leaf + intermediate fetches run **in parallel**. For each cert, distribution points tried in order; first successful fetch used. `CheckSignatureFrom(issuer)` is verified before caching — CRL signed by a different CA is rejected and the next DP is tried.
-- **Singleflight** (`singleflight.Group`, via `DoChan`) deduplicates concurrent fetches for the same URL. The shared fetch runs under a background context bounded by `crlFetchTimeout` (not any one caller's context), and each caller waits on its own context — so one caller's cancellation neither aborts the in-flight fetch nor poisons the other waiters.
-- **Cache** (`sync.RWMutex`, keyed by URL): an entry is fresh iff all of (a) age < `crlMaxCacheTTL` (4h), (b) `NextUpdate` non-zero, (c) `NextUpdate` not passed. Zero `NextUpdate` → always re-fetch. TTL cap guards against emergency revocation before the old `NextUpdate`.
+- **Singleflight** (`singleflight.Group`, via `DoChan`) deduplicates concurrent fetches for the same (URL, issuer) key. The shared fetch runs under a background context bounded by `crlFetchTimeout` (not any one caller's context), and each caller waits on its own context — so one caller's cancellation neither aborts the in-flight fetch nor poisons the other waiters.
+- **Cache** (`sync.RWMutex`, keyed by **URL + issuer-certificate SHA-256 fingerprint** — `crlCacheKey`; audit finding 3.15): two issuers sharing a distribution-point URL each get their own entry, so a CRL cached under one issuer can never answer (and fail) the other's chain, and the fingerprint covers the whole certificate (not just the key) because `CheckSignatureFrom` never compares issuer names. As defense in depth, every fetched CRL, cache **hit**, and shared singleflight result is verified with `verifyCRLIssuer` — the CRL's `RawIssuer` must equal the certificate's `RawSubject` (`CheckSignatureFrom` alone never compares names) plus the signature check — before it is returned, and a nil issuer is refused before any lookup or fetch. An entry is fresh iff all of (a) age < `crlMaxCacheTTL` (4h), (b) `NextUpdate` non-zero, (c) `NextUpdate` not passed. Zero `NextUpdate` → always re-fetch. TTL cap guards against emergency revocation before the old `NextUpdate`.
 - On miss/stale, fetched via `fetchCRLBytes`: `ResolveExternalURL(ctx, url, false)` first (always rejects private/local addresses regardless of `ALLOW_PRIVATE_NETWORKS`, which is scoped to the TEE proxy), then `fetcher.FetchBytesPinned` with the resolved IP pinned to prevent DNS rebinding (2s timeout, redirects rejected). PEM-decoded if PEM (Google Cloud CRL endpoints return PEM), else raw DER; parsed with `x509.ParseRevocationList`.
 - Eviction: at `crlMaxEntries` (100), stale entries purged; if still full, oldest evicted.
 - `CRLCache.Close()` added to shutdown closers.
@@ -302,7 +305,7 @@ Fee reconciliation attestation for PMW protocols. Compares estimated fees (from 
 - DB infrastructure failure, DB-row inconsistency (parsed JSON identity fields ≠ indexed columns), or oversize response row → 503 (via `ErrDatabase`).
 
 ### Data retention
-Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from indexer databases; the only chain/RPC dependency is the read-only `TeePayments.getInitialNonce` call used for the sequence binding (`RPC_URL` is a required config var for both, and `initialNonce` is cached per account in a bounded LRU since it is immutable post-registration). The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production); the C-chain indexer has its own retention policy. Requests outside retention → 422 for missing data. FDC2 attestation requests are tied to reward epochs with short deadlines, so out-of-retention requests indicate a protocol-level delay, not normal operation.
+Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from indexer databases; the only chain/RPC dependency is the read-only `TeePayments.getInitialNonce` call used for the sequence binding (`FLARE_RPC_URL` is a required config var for both, and `initialNonce` is cached per account in a bounded LRU since it is immutable post-registration). The XRP indexer retains transaction data for a configurable period (typically ~2 weeks in production); the C-chain indexer has its own retention policy. Requests outside retention → 422 for missing data. FDC2 attestation requests are tied to reward epochs with short deadlines, so out-of-retention requests indicate a protocol-level delay, not normal operation.
 
 ### Data stores
 - Source DB: transactions table (Postgres). C-chain DB: logs table (MySQL).
@@ -317,14 +320,14 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
 ## 9. Error Model (Implementation)
 - `400 Bad Request`:
   - attestation/source mismatch
-  - invalid request body
-  - decode/encode request conversion issues
+  - malformed request body (ABI decode/encode conversion failure). A missing or empty required field (e.g. an empty `requestBody`) is caught earlier by request-schema validation and returns `422` (below), not `400`.
   - batch range invalid (zero, too large, or overflow) — `ErrBatchRangeTooLarge` (PMWFeeProof)
   - reissue scan exceeded `MaxReissuesPerPayment` — `ErrReissueLimitExceeded` (PMWFeeProof)
   - malformed multisig request (empty/too-many/empty-entry `publicKeys`, or `threshold == 0`) — `ErrInvalidRequest` (PMWMultisig)
 - `401 Unauthorized`:
   - missing/invalid `X-API-KEY` (except `/api/health`)
 - `422 Unprocessable Entity`:
+  - request schema validation failed (missing/empty required field, e.g. an empty `requestBody`) — Huma request validation (resolver/`validate:"required"`)
   - XRP RPC returned non-success status (e.g., account not found) — `ErrRPCNonSuccess` (PMWMultisig)
   - requested record not found in database (instruction log or transaction) — `ErrRecordNotFound` (PMWPaymentStatus)
   - missing pay event for paymentId — `ErrMissingPayEvent` (PMWFeeProof)

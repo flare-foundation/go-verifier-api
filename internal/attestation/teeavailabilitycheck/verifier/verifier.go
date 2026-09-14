@@ -54,6 +54,32 @@ var (
 
 	ErrTEEDataValidation    = errors.New("TEE data validation failed")
 	ErrActionResultNotFound = errors.New("action result not found")
+
+	// ErrTEEChallengeMismatch and the sentinels below are the specific
+	// TEE-data-validation failures. Each is wrapped alongside ErrTEEDataValidation
+	// (so errors.Is(err, ErrTEEDataValidation) still holds), letting the /verify
+	// classifier report which check failed as a curated, non-sensitive category
+	// instead of the generic one.
+	ErrTEEChallengeMismatch   = errors.New("TEE challenge mismatch")
+	ErrTEEChainIDMismatch     = errors.New("TEE chain id mismatch")
+	ErrTEEProxySignerMismatch = errors.New("TEE proxy signer mismatch")
+	ErrTEESigningPolicyHash   = errors.New("TEE signing policy hash mismatch")
+
+	// ErrTEEAttestationInvalid is a terminal attestation failure (certificate,
+	// claims, or TEE-ID) surfaced by DataVerification; it chains ErrTEEDataValidation.
+	ErrTEEAttestationInvalid = fmt.Errorf("TEE attestation invalid: %w", ErrTEEDataValidation)
+	// ErrTEEActionResultMismatch is a terminal failure where the action result does
+	// not bind to the request (instruction id, op type/command, TEE signature); it
+	// chains ErrTEEDataValidation.
+	ErrTEEActionResultMismatch = fmt.Errorf("TEE action result mismatch: %w", ErrTEEDataValidation)
+	// ErrTEEResponseMalformed is a terminal failure where the proxy is reachable but
+	// returns unusable data (empty/oversized/invalid JSON/unrecoverable signature);
+	// it chains ErrTEEDataValidation.
+	ErrTEEResponseMalformed = fmt.Errorf("TEE response malformed: %w", ErrTEEDataValidation)
+	// ErrTEERevocationUnavailable is a TRANSIENT failure to fetch the attestation's
+	// CRL. It deliberately does NOT chain ErrTEEDataValidation: a revocation-check
+	// outage must retry (RETRY), never mint a terminal "TEE invalid" (REJECTED).
+	ErrTEERevocationUnavailable = errors.New("TEE revocation check unavailable")
 )
 
 type TeeVerifier struct {
@@ -67,20 +93,72 @@ type RelayCallerInterface interface {
 	ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error)
 }
 
+// cutoverRelay routes each signing-policy lookup to the Relay that owns the
+// id: ids at or above the cutover's starting reward epoch (a reward epoch and
+// a signing-policy id are the same identifier) go to the next Relay, lower ids
+// to the current one, which keeps serving history. Each id routes
+// independently — one TEE response may reference an initial policy on the old
+// Relay and a latest policy on the new — and there is no fallback between the
+// two: a failed lookup fails closed on its own Relay.
+// maxRewardEpochID is the largest reward-epoch (signing-policy) id the
+// protocol can produce: the Relay contract packs the id as uint24.
+const maxRewardEpochID = 1<<24 - 1
+
+type cutoverRelay struct {
+	current, next RelayCallerInterface
+	// startingRewardEpoch is the first signing-policy id the next Relay serves.
+	// uint32 is the Go carrier (TeeInfo's width); the protocol value is uint24.
+	startingRewardEpoch uint32
+}
+
+var _ RelayCallerInterface = cutoverRelay{}
+
+// NewCutoverRelay wraps two Relay callers into one that routes by
+// signing-policy id (see cutoverRelay).
+func NewCutoverRelay(current, next RelayCallerInterface, startingRewardEpoch uint32) RelayCallerInterface {
+	return cutoverRelay{current: current, next: next, startingRewardEpoch: startingRewardEpoch}
+}
+
+func (r cutoverRelay) ToSigningPolicyHash(opts *bind.CallOpts, id *big.Int) ([32]byte, error) {
+	// An id no Relay can own — signing-policy ids are uint24 — is refused,
+	// never default-routed: silently asking the current Relay about it would
+	// turn a caller bug into a wrong answer.
+	if id == nil || id.Sign() < 0 || !id.IsUint64() || id.Uint64() > maxRewardEpochID {
+		return [32]byte{}, fmt.Errorf("signing-policy id %v is outside the supported range", id)
+	}
+	if uint32(id.Uint64()) >= r.startingRewardEpoch {
+		return r.next.ToSigningPolicyHash(opts, id)
+	}
+	return r.current.ToSigningPolicyHash(opts, id)
+}
+
 func NewVerifier(cfg *config.TeeAvailabilityCheckConfig) (attestation.Verifier[fdc2.ITeeAvailabilityCheckRequestBody, fdc2.ITeeAvailabilityCheckResponseBody], error) {
-	client, err := ethclient.Dial(cfg.RPCURL)
+	client, err := ethclient.Dial(cfg.FlareRPCURL)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.RPCURL, err)
+		return nil, fmt.Errorf("cannot connect to Flare node at %s: %w", cfg.FlareRPCURL, err)
 	}
 	relayCaller, err := relay.NewRelayCaller(cfg.RelayContractAddress, client)
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("cannot create Relay caller at %s: %w", cfg.RelayContractAddress.Hex(), err)
 	}
+	caller := RelayCallerInterface(relayCaller)
+	// A configured cutover wraps both Relays behind the same interface, over
+	// the same connection — the cutover changes contract addresses, not the
+	// RPC endpoint. The next Relay is deliberately NOT probed here: verifiers
+	// deploy ahead of the switch, possibly before it can answer.
+	if cfg.RelayCutoverContractAddress != (common.Address{}) {
+		next, err := relay.NewRelayCaller(cfg.RelayCutoverContractAddress, client)
+		if err != nil {
+			client.Close()
+			return nil, fmt.Errorf("cannot create next Relay caller at %s: %w", cfg.RelayCutoverContractAddress.Hex(), err)
+		}
+		caller = NewCutoverRelay(relayCaller, next, cfg.RelayCutoverStartingRewardEpoch)
+	}
 	return &TeeVerifier{
 		Cfg:         cfg,
 		EthClient:   client,
-		RelayCaller: relayCaller,
+		RelayCaller: caller,
 		CRLCache:    NewCRLCache(),
 	}, nil
 }
@@ -95,21 +173,21 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	// Check corresponding challenge.
 	challengeHex := common.BytesToHash(req.Challenge[:])
 	if response.TeeInfo.Challenge != challengeHex {
-		return zero, fmt.Errorf("challenge does not match: expected %s, got %s: %w", challengeHex.Hex(), response.TeeInfo.Challenge.Hex(), ErrTEEDataValidation)
+		return zero, fmt.Errorf("challenge does not match: expected %s, got %s: %w: %w", challengeHex.Hex(), response.TeeInfo.Challenge.Hex(), ErrTEEChallengeMismatch, ErrTEEDataValidation)
 	}
 	// Pin the attestation to the chain this verifier serves (cross-chain replay
 	// defense). Enforced unconditionally: E2E/MagicPass bypass attestation
 	// validation, not chain identity.
 	if response.TeeInfo.ChainID != v.Cfg.ChainID {
-		return zero, fmt.Errorf("chainID does not match: attestation reports %d, verifier serves %d: %w", response.TeeInfo.ChainID, v.Cfg.ChainID, ErrTEEDataValidation)
+		return zero, fmt.Errorf("chainID does not match: attestation reports %d, verifier serves %d: %w: %w", response.TeeInfo.ChainID, v.Cfg.ChainID, ErrTEEChainIDMismatch, ErrTEEDataValidation)
 	}
 	// Check proxy signature.
 	if dataSigner != req.TeeProxyId {
-		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s: %w", req.TeeProxyId.Hex(), dataSigner.Hex(), ErrTEEDataValidation)
+		return zero, fmt.Errorf("proxy signer does not match: expected %s, got %s: %w: %w", req.TeeProxyId.Hex(), dataSigner.Hex(), ErrTEEProxySignerMismatch, ErrTEEDataValidation)
 	}
 	// Verify the action result is from the expected TEE and bound to this instruction.
 	if err := verifyActionResult(actionResp, req.InstructionId, req.TeeId, response.TeeInfo.ChainID); err != nil {
-		return zero, fmt.Errorf("%w: %w", ErrTEEDataValidation, err)
+		return zero, fmt.Errorf("%w: %w", ErrTEEActionResultMismatch, err)
 	}
 	// Run DataVerification and CheckSigningPolicies in parallel (independent after challenge fetch).
 	infoData := response.TeeInfo
@@ -137,7 +215,7 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 	spRes := <-spCh
 
 	if dvRes.err != nil {
-		return zero, fmt.Errorf("%w: %w", ErrTEEDataValidation, dvRes.err)
+		return zero, classifyDataVerificationError(dvRes.err)
 	}
 	if spRes.err != nil {
 		return zero, spRes.err
@@ -158,6 +236,21 @@ func (v *TeeVerifier) Verify(ctx context.Context, req fdc2.ITeeAvailabilityCheck
 			StateVersion:       infoData.State.StateVersion,
 		},
 	}, nil
+}
+
+// classifyDataVerificationError maps a DataVerification failure to the error Verify
+// returns. Transient failures — a CRL network-fetch outage, or a verifier
+// timeout/cancellation while waiting on CRL work — propagate untagged so they stay
+// retryable. Only a genuinely deterministic failure becomes a terminal invalid
+// attestation. Wrapping a cancellation as ErrTEEAttestationInvalid would make it
+// REJECTED (the classifier matches that sentinel before context), not RETRY.
+func classifyDataVerificationError(err error) error {
+	if errors.Is(err, ErrTEERevocationUnavailable) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("data verification could not complete: %w", err)
+	}
+	return fmt.Errorf("%w: %w", ErrTEEAttestationInvalid, err)
 }
 
 func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetypes.TeeInfoResponse, expectedTeeID common.Address) (StatusInfo, error) {
@@ -207,7 +300,12 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 		var crlErr error
 		leafCRL, intermediateCRL, crlErr = v.CRLCache.FetchCRLsForToken(ctx, attestationToken, v.Cfg.GoogleRootCertificate)
 		if crlErr != nil {
-			return StatusInfo{}, fmt.Errorf("CRL fetch failed: %w", crlErr)
+			// Propagate crlErr as-is: only a genuine CRL network fetch is tagged
+			// ErrTEERevocationUnavailable (retryable) at its source in the cache.
+			// Deterministic attestation failures (bad token, missing/invalid x5c,
+			// untrusted root, broken/expired chain) stay untagged and are rejected
+			// as invalid attestations by the caller, not retried.
+			return StatusInfo{}, fmt.Errorf("CRL preprocessing failed: %w", crlErr)
 		}
 	}
 
@@ -275,10 +373,10 @@ func (v *TeeVerifier) CheckSigningPolicies(ctx context.Context, teeInfoData teen
 		return lastSigningRes.state, fmt.Errorf("cannot retrieve last signing policy hash for ID %d: %w", teeInfoData.LastSigningPolicyID, lastSigningRes.err)
 	}
 	if initialSigningRes.hash != teeInfoData.InitialSigningPolicyHash {
-		return verifiertypes.TeeSampleInvalid, fmt.Errorf("failed to validate initial signing policy hash: %w", ErrTEEDataValidation)
+		return verifiertypes.TeeSampleInvalid, fmt.Errorf("failed to validate initial signing policy hash: %w: %w", ErrTEESigningPolicyHash, ErrTEEDataValidation)
 	}
 	if lastSigningRes.hash != teeInfoData.LastSigningPolicyHash {
-		return verifiertypes.TeeSampleInvalid, fmt.Errorf("failed to validate last signing policy hash: %w", ErrTEEDataValidation)
+		return verifiertypes.TeeSampleInvalid, fmt.Errorf("failed to validate last signing policy hash: %w: %w", ErrTEESigningPolicyHash, ErrTEEDataValidation)
 	}
 
 	return verifiertypes.TeeSampleValid, nil
@@ -380,23 +478,28 @@ func FetchTEEChallengeResult(
 		if errors.Is(err, fetcher.ErrNotFound) {
 			return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: %w", ErrActionResultNotFound, err)
 		}
+		// An over-cap proxy response is invalid TEE data (the proxy is reachable
+		// but returned an unusable body), not a transient fetch failure.
+		if errors.Is(err, fetcher.ErrResponseTooLarge) {
+			return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: %w", ErrTEEResponseMalformed, err)
+		}
 		return zeroAction, zeroInfo, zeroAdd, err
 	}
 	if len(actionResp.Result.Data) == 0 {
-		return zeroAction, zeroInfo, zeroAdd, errors.New("TEE challenge result data is empty")
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: TEE challenge result data is empty", ErrTEEResponseMalformed)
 	}
 	if !json.Valid(actionResp.Result.Data) {
 		preview := actionResp.Result.Data
 		if len(preview) > 128 {
 			preview = preview[:128]
 		}
-		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("TEE challenge result data is not valid JSON (len=%d, preview=%q)", len(actionResp.Result.Data), preview)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: TEE challenge result data is not valid JSON (len=%d, preview=%q)", ErrTEEResponseMalformed, len(actionResp.Result.Data), preview)
 	}
 	// teeInfo is marshaled inside actionResponse.Result.Data
 	var teeInfo teenodetypes.TeeInfoResponse
 	err = json.Unmarshal(actionResp.Result.Data, &teeInfo)
 	if err != nil {
-		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("unmarshal TEE result: %w", err)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: unmarshal TEE result: %w", ErrTEEResponseMalformed, err)
 	}
 	// recover signer over the domain-separated PROXY_ACTION_RESULT preimage,
 	// chain-bound with the chainID carried inside the attestation payload.
@@ -406,7 +509,7 @@ func FetchTEEChallengeResult(
 	}
 	signer, err := utils.SignatureToSignersAddress(proxySignHash[:], actionResp.ProxySignature)
 	if err != nil {
-		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("recover signer: %w", err)
+		return zeroAction, zeroInfo, zeroAdd, fmt.Errorf("%w: recover signer: %w", ErrTEEResponseMalformed, err)
 	}
 
 	return actionResp, teeInfo, signer, nil

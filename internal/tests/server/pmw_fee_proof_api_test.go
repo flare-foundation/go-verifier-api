@@ -33,7 +33,7 @@ func TestPMWFeeProof(t *testing.T) {
 		CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 		FlareTeeManagerContractAddress: "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
 		TeePaymentsContractAddress:     "0x93c1e99c8dd990d77232821f9476c308fbad47f5",
-		RPCURL:                         rpc.URL,
+		FlareRPCURL:                    rpc.URL,
 	})
 	defer setup.Stop()
 
@@ -118,8 +118,9 @@ func TestPMWFeeProof(t *testing.T) {
 	t.Run("verify: valid", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.Post[types.AttestationResponse](t, desiredURL, request, setup.APIKey)
+		response, err := helpers.Post[types.VerifierResponse](t, desiredURL, request, setup.APIKey)
 		require.NoError(t, err)
+		require.Equal(t, types.StatusVerified, response.Status)
 
 		result := helpers.DecodeResponseBody[fdc2.IPMWFeeProofResponseBody](t, fdc2.PMWFeeProof, response.ResponseBody)
 		require.Equal(t, expectedActualFee, result.ActualFee)
@@ -140,22 +141,22 @@ func TestPMWFeeProof(t *testing.T) {
 	t.Run("verify: invalid sourceID", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, common.HexToHash("0x123"), reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: invalid attestationType", func(t *testing.T) {
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, baseReqBody)
 		request := helpers.CreateAttestationRequest(t, common.HexToHash("0x123"), setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Request validation failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: invalid request body", func(t *testing.T) {
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, []byte("0x123"))
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Decoding request body to data failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: batch range too large", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -163,9 +164,9 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.BatchCount = xrpverifier.MaxBatchRange + 1 // exceeds MaxBatchRange
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		helpers.AssertHumaError(t, response, http.StatusBadRequest, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: missing pay event", func(t *testing.T) {
 		modifiedReqBody := baseReqBody
@@ -173,10 +174,9 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: missing XRP transaction", func(t *testing.T) { // Log 40: pay event exists but no XRP tx
 		modifiedReqBody := baseReqBody
@@ -184,10 +184,9 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusUnprocessableEntity, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRejected)
 	})
 	t.Run("verify: cannot decode event data (ABI unpack)", func(t *testing.T) { // Log 41: short data
 		modifiedReqBody := baseReqBody
@@ -195,10 +194,9 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 	t.Run("verify: cannot parse XRP transaction fee", func(t *testing.T) { // Log 42: valid event, bad Fee in XRP tx
 		modifiedReqBody := baseReqBody
@@ -206,10 +204,9 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 	t.Run("verify: cannot decode event data message", func(t *testing.T) { // Log 43: corrupt message encoding
 		modifiedReqBody := baseReqBody
@@ -217,10 +214,9 @@ func TestPMWFeeProof(t *testing.T) {
 		modifiedReqBody.BatchCount = 1
 		reqBody := helpers.EncodeRequestBody(t, fdc2.PMWFeeProof, modifiedReqBody)
 		request := helpers.CreateAttestationRequest(t, setup.AttestationTypeEncoded, setup.SourceIDEncoded, reqBody)
-		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // test only checks status code
+		response, err := helpers.PostWithoutMarshalling(t, desiredURL, request, setup.APIKey) //nolint:bodyclose // AssertVerifierStatus closes the body
 		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
-		helpers.AssertHumaError(t, response, http.StatusInternalServerError, "Verification failed")
+		helpers.AssertVerifierStatus(t, response, types.StatusRetry)
 	})
 	t.Run("prepareResponseBody: verification failed", func(t *testing.T) {
 		modifiedReqBody := baseReqBody

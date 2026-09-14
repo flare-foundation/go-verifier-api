@@ -18,7 +18,7 @@ func TestNewFeeProofService(t *testing.T) {
 	t.Run("should successfully create and close FeeProofService", func(t *testing.T) {
 		config.ClearPMWFeeProofConfigForTest()
 		envConfig := config.EnvConfig{
-			RPCURL:                         "http://127.0.0.1:8545",
+			FlareRPCURL:                    "http://127.0.0.1:8545",
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
@@ -41,7 +41,7 @@ func TestNewFeeProofService(t *testing.T) {
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
 			TeePaymentsContractAddress:     "0x00000000000000000000000000000000000000C2",
-			RPCURL:                         "http://127.0.0.1:8545",
+			FlareRPCURL:                    "http://127.0.0.1:8545",
 			SourceID:                       "testXRP",
 			AttestationType:                fdc2.PMWFeeProof,
 		}
@@ -56,7 +56,7 @@ func TestNewFeeProofService(t *testing.T) {
 			CChainDatabaseURL:              "root:root@tcp()",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
 			TeePaymentsContractAddress:     "0x00000000000000000000000000000000000000C2",
-			RPCURL:                         "http://127.0.0.1:8545",
+			FlareRPCURL:                    "http://127.0.0.1:8545",
 			SourceID:                       "testXRP",
 			AttestationType:                fdc2.PMWFeeProof,
 		}
@@ -73,7 +73,7 @@ func TestNewFeeProofService(t *testing.T) {
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
 			TeePaymentsContractAddress:     "0x00000000000000000000000000000000000000C2",
-			RPCURL:                         "ftp://bad-scheme",
+			FlareRPCURL:                    "ftp://bad-scheme",
 			SourceID:                       "testXRP",
 			AttestationType:                fdc2.PMWFeeProof,
 		}

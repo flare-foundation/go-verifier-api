@@ -56,12 +56,28 @@ func TestFetchBytesPinned(t *testing.T) {
 		data, err := FetchBytesPinned(ctx, server.URL, 5*time.Second, pinnedAddrFor(t, server), "", "")
 		require.ErrorContains(t, err, "unexpected status code: 500")
 		require.Nil(t, data)
+		// The typed error carries the code for callers that classify by status.
+		var statusErr *HTTPStatusError
+		require.ErrorAs(t, err, &statusErr)
+		require.Equal(t, http.StatusInternalServerError, statusErr.StatusCode())
 	})
-	t.Run("response truncated at maxResponseSize", func(t *testing.T) {
+	t.Run("oversized response is rejected, not truncated", func(t *testing.T) {
 		bigBody := strings.Repeat("x", maxResponseSize+100)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(bigBody))
+		}))
+		defer server.Close()
+
+		data, err := FetchBytesPinned(ctx, server.URL, 5*time.Second, pinnedAddrFor(t, server), "", "")
+		require.ErrorIs(t, err, ErrResponseTooLarge)
+		require.Nil(t, data)
+	})
+	t.Run("response exactly at maxResponseSize is accepted", func(t *testing.T) {
+		body := strings.Repeat("x", maxResponseSize)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
 		}))
 		defer server.Close()
 

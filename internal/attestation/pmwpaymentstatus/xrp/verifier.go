@@ -3,7 +3,6 @@ package xrpverifier
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 
@@ -28,7 +27,7 @@ type XRPVerifier struct {
 }
 
 func NewXRPVerifier(cfg *config.PMWPaymentStatusConfig, xrpDB, cChainDB *gorm.DB) (*XRPVerifier, error) {
-	binder, err := pmwnonce.NewOnChainBinder(cfg.RPCURL, cfg.TeePaymentsContractAddress)
+	binder, err := pmwnonce.NewOnChainBinder(cfg.FlareRPCURL, cfg.TeePaymentsContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create initial-nonce binder: %w", err)
 	}
@@ -113,10 +112,10 @@ func (x *XRPVerifier) parseRawTransactionData(sender string, nonce uint64, respo
 	err := json.Unmarshal([]byte(response), &rawTransactionData)
 	if err != nil {
 		logger.Errorf("Cannot unmarshal XRP transaction response for %s with nonce %d: %v", sender, nonce, err)
-		return rawTransactionData, fmt.Errorf("cannot unmarshal XRP transaction response: %w", err)
+		return rawTransactionData, fmt.Errorf("cannot unmarshal XRP transaction response: %w (%w)", db.ErrDataSource, err)
 	}
 	if rawTransactionData.MetaData.TransactionResult == "" {
-		return rawTransactionData, errors.New("missing transaction result in raw transaction data")
+		return rawTransactionData, fmt.Errorf("missing transaction result in raw transaction data: %w", db.ErrDataSource)
 	}
 	return rawTransactionData, nil
 }

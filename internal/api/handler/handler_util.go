@@ -34,6 +34,15 @@ func getVerifierAPIPath(sourceName config.SourceName, attestationType fdc2.Attes
 	return fmt.Sprintf("/verifier/%s/%s/%s", strings.ToLower(string(sourceName)), attestationType, endpoint)
 }
 
+// getVerifierOperationID builds a Huma operation ID unique per source, attestation
+// type, and endpoint. A per-source deployment registers these endpoints once for
+// every attestation type it serves, so a shared ID would produce duplicate
+// operationIds in the OpenAPI document — invalid, and it breaks Swagger/client
+// generation.
+func getVerifierOperationID(sourceName config.SourceName, attestationType fdc2.AttestationType, endpoint string) string {
+	return fmt.Sprintf("post-%s-%s-%s", strings.ToLower(string(sourceName)), attestationType, endpoint)
+}
+
 func getVerifierAPITag(attestationType fdc2.AttestationType) []string {
 	return []string{string(attestationType)}
 }
@@ -130,4 +139,18 @@ func warnHuma500(reqID, message string, err error) error {
 func warnHuma503(reqID, message string, err error) error {
 	logWarn(reqID, message, err)
 	return huma.Error503ServiceUnavailable(message)
+}
+
+// rejectedResponse logs the internal error and builds a REJECTED /verify envelope
+// carrying only the safe message. REJECTED is terminal: the relay must not retry.
+func rejectedResponse(reqID, logMessage, safeMessage string, err error) *types.Response[types.VerifierResponse] {
+	logWarn(reqID, logMessage, err)
+	return types.NewResponse(types.VerifierResponse{Status: types.StatusRejected, Message: safeMessage})
+}
+
+// retryResponse logs the internal error and builds a RETRY /verify envelope
+// carrying only the safe message. RETRY is transient: the relay may retry later.
+func retryResponse(reqID, logMessage, safeMessage string, err error) *types.Response[types.VerifierResponse] {
+	logWarn(reqID, logMessage, err)
+	return types.NewResponse(types.VerifierResponse{Status: types.StatusRetry, Message: safeMessage})
 }
