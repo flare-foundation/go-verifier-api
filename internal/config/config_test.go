@@ -2,6 +2,7 @@ package config
 
 import (
 	"maps"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -44,6 +45,7 @@ func TestCheckMissingFields(t *testing.T) {
 	}
 	t.Run("no missing fields", func(t *testing.T) {
 		cfg := EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			FlareRPCURL:                    "rpc",
 			RelayContractAddress:           "relay",
 			FlareTeeManagerContractAddress: "tee",
@@ -55,8 +57,9 @@ func TestCheckMissingFields(t *testing.T) {
 	})
 	t.Run("some missing fields", func(t *testing.T) {
 		cfg := EnvConfig{
-			FlareRPCURL:          "rpc",
-			RelayContractAddress: "",
+			DestinationChainURLSlug: "coston",
+			FlareRPCURL:             "rpc",
+			RelayContractAddress:    "",
 		}
 		err := CheckMissingFields(cfg, fields)
 		require.ErrorContains(t, err, "missing environment variables: RELAY_CONTRACT_ADDRESS, FLARE_TEE_MANAGER_CONTRACT_ADDRESS, SOURCE_DATABASE_URL, CCHAIN_DATABASE_URL")
@@ -112,8 +115,9 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			name: "valid availability check",
 			input: args{
 				envConfig: EnvConfig{
-					SourceID:        SourceTEE,
-					AttestationType: fdc2.AvailabilityCheck,
+					DestinationChainURLSlug: "coston",
+					SourceID:                SourceTEE,
+					AttestationType:         fdc2.AvailabilityCheck,
 				},
 			},
 			expectError: false,
@@ -122,8 +126,9 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			name: "invalid attestation type",
 			input: args{
 				envConfig: EnvConfig{
-					SourceID:        SourceTEE,
-					AttestationType: "UnknownType",
+					DestinationChainURLSlug: "coston",
+					SourceID:                SourceTEE,
+					AttestationType:         "UnknownType",
 				},
 			},
 			expectError:    true,
@@ -133,8 +138,9 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			name: "invalid attestation type 2",
 			input: args{
 				envConfig: EnvConfig{
-					SourceID:        SourceTEE,
-					AttestationType: "0xInvalidName",
+					DestinationChainURLSlug: "coston",
+					SourceID:                SourceTEE,
+					AttestationType:         "0xInvalidName",
 				},
 			},
 			expectError:    true,
@@ -144,8 +150,9 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			name: "invalid sourceID",
 			input: args{
 				envConfig: EnvConfig{
-					SourceID:        "0xInvalidName",
-					AttestationType: fdc2.PMWMultisigAccountConfigured,
+					DestinationChainURLSlug: "coston",
+					SourceID:                "0xInvalidName",
+					AttestationType:         fdc2.PMWMultisigAccountConfigured,
 				},
 			},
 			expectError:    true,
@@ -155,8 +162,9 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			name: "invalid request ABI",
 			input: args{
 				envConfig: EnvConfig{
-					SourceID:        SourceTEE,
-					AttestationType: "InvalidRequestABI",
+					DestinationChainURLSlug: "coston",
+					SourceID:                SourceTEE,
+					AttestationType:         "InvalidRequestABI",
 				},
 			},
 			expectError:    true,
@@ -166,8 +174,9 @@ func TestLoadEncodedAndABI(t *testing.T) {
 			name: "invalid response ABI",
 			input: args{
 				envConfig: EnvConfig{
-					SourceID:        SourceTEE,
-					AttestationType: "InvalidResponseABI",
+					DestinationChainURLSlug: "coston",
+					SourceID:                SourceTEE,
+					AttestationType:         "InvalidResponseABI",
 				},
 			},
 			expectError:    true,
@@ -223,5 +232,32 @@ func TestGetABIArguments(t *testing.T) {
 		val, err := getABIArguments("TestMethod")
 		require.ErrorContains(t, err, "failed to parse ABI: invalid character")
 		require.Equal(t, abi.Argument{}, val)
+	})
+}
+
+func TestValidateDestinationChainURLSlug(t *testing.T) {
+	t.Run("sensible slugs accepted", func(t *testing.T) {
+		for _, slug := range []string{"flare", "songbird", "coston", "coston2", "sgb", "my-custom-net", strings.Repeat("a", 32)} {
+			require.NoError(t, ValidateDestinationChainURLSlug(slug), slug)
+		}
+	})
+	t.Run("missing or link-unsafe rejected", func(t *testing.T) {
+		cases := map[string]string{
+			"missing":        "",
+			"uppercase":      "Flare",
+			"whitespace":     "song bird",
+			"slash":          "flare/x",
+			"dot":            "flare.",
+			"percent escape": "flare%2f",
+			"leading digit":  "9flare",
+			"leading dash":   "-flare",
+			"over 32 chars":  strings.Repeat("a", 33),
+			"newline":        "flare\n",
+		}
+		for name, slug := range cases {
+			t.Run(name, func(t *testing.T) {
+				require.Error(t, ValidateDestinationChainURLSlug(slug))
+			})
+		}
 	})
 }

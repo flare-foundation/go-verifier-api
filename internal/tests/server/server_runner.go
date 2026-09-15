@@ -24,6 +24,10 @@ const (
 	serverTickDelay = 10 * time.Millisecond
 )
 
+// TestDestinationSlug is the destination-chain URL slug test servers run under
+// when the test does not set one; it pairs with helpers.TestChainID (16).
+const TestDestinationSlug = "coston"
+
 type TestSetupServer struct {
 	URL                    string
 	AttestationTypeEncoded common.Hash
@@ -39,11 +43,14 @@ func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID co
 	config.SourceID = sourceID
 	config.Port = port
 	config.APIKeys = []string{apiKey}
+	if config.DestinationChainURLSlug == "" {
+		config.DestinationChainURLSlug = TestDestinationSlug
+	}
 
 	stop := RunServerForTest(t, config)
 	waitForServer(t, fmt.Sprintf("http://localhost:%s/api/health", config.Port))
 
-	url := fmt.Sprintf("http://localhost:%s/verifier/%s/%s", config.Port, strings.ToLower(string(sourceID)), attestationType)
+	url := fmt.Sprintf("http://localhost:%s/verifier/%s/%s/%s", config.Port, strings.ToLower(string(sourceID)), config.DestinationChainURLSlug, attestationType)
 	attTypeEncoded, sourceIDEncoded := prepareAttestationTypeAndSourceID(t, attestationType, sourceID)
 
 	return TestSetupServer{URL: url, AttestationTypeEncoded: attTypeEncoded, SourceIDEncoded: sourceIDEncoded, Stop: stop, Port: port, APIKey: apiKey}
@@ -52,11 +59,12 @@ func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID co
 // TestSetupMultiServer is a running server that serves several attestation types
 // for one source (the per-source deployment shape).
 type TestSetupMultiServer struct {
-	BaseURL  string
-	Stop     func()
-	Port     string
-	APIKey   string
-	sourceID config.SourceName
+	BaseURL         string
+	Stop            func()
+	Port            string
+	APIKey          string
+	sourceID        config.SourceName
+	destinationSlug string
 }
 
 // SetupMultiServer starts one server that serves attestationTypes for sourceID,
@@ -67,22 +75,26 @@ func SetupMultiServer(t *testing.T, sourceID config.SourceName, attestationTypes
 	cfg.SourceID = sourceID
 	cfg.Port = port
 	cfg.APIKeys = []string{apiKey}
+	if cfg.DestinationChainURLSlug == "" {
+		cfg.DestinationChainURLSlug = TestDestinationSlug
+	}
 
 	stop := RunServerForTest(t, cfg)
 	waitForServer(t, fmt.Sprintf("http://localhost:%s/api/health", cfg.Port))
 
 	return TestSetupMultiServer{
-		BaseURL:  "http://localhost:" + cfg.Port,
-		Stop:     stop,
-		Port:     port,
-		APIKey:   apiKey,
-		sourceID: sourceID,
+		BaseURL:         "http://localhost:" + cfg.Port,
+		Stop:            stop,
+		Port:            port,
+		APIKey:          apiKey,
+		sourceID:        sourceID,
+		destinationSlug: cfg.DestinationChainURLSlug,
 	}
 }
 
 // URL returns the endpoint base for one attestation type served by this server.
 func (s TestSetupMultiServer) URL(attestationType fdc2.AttestationType) string {
-	return fmt.Sprintf("%s/verifier/%s/%s", s.BaseURL, strings.ToLower(string(s.sourceID)), attestationType)
+	return fmt.Sprintf("%s/verifier/%s/%s/%s", s.BaseURL, strings.ToLower(string(s.sourceID)), s.destinationSlug, attestationType)
 }
 
 func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {

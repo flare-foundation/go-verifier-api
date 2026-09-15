@@ -32,7 +32,9 @@ All modules register `verify` / `prepareRequestBody` / `prepareResponseBody`.
 - `GET /api-doc` and static swagger assets
 
 ### Attestation routes
-Base: `/verifier/{sourceNameLower}/{attestationType}/`
+Base: `/verifier/{sourceNameLower}/{destinationChainSlug}/{attestationType}/`
+
+The destination segment is the deployment's validated `DESTINATION_CHAIN_URL_SLUG` (§6.1). It identifies the deployment in its URL space only — it selects no RPC, database, or contract configuration, and it is not a security check (chain identity stays enforced by `CHAIN_ID` and the contract configuration). Routes are registered statically for the configured pair; a request using any other destination, or the legacy path without the segment, receives `404`.
 - `POST .../prepareRequestBody`
 - `POST .../prepareResponseBody`
 - `POST .../verify`
@@ -55,6 +57,7 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 - `PORT`
 - `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key; each key must be at least 16 characters or boot fails)
 - `SOURCE_ID` (`TEE`, `XRP`, `testXRP`) — the only selector; the process serves every attestation type the source offers.
+- `DESTINATION_CHAIN_URL_SLUG` — the operator-chosen lowercase slug naming the destination chain, the third segment of every verifier route. Must be a sensible URL segment: `^[a-z][a-z0-9-]{0,31}$` (no whitespace, `/`, `.`, `%`, escapes, or uppercase). Missing or malformed values fail the boot. The conventional values are the network names (`flare`, `songbird`, `coston`, `coston2`) — clients construct URLs from this value, so it must match what they are configured with.
 
 **Source-driven registration:** `SOURCE_ID` is validated against the allowlist above and selects the served attestation types from `config.SourceAttestationTypes`: `TEE`→`TeeAvailabilityCheck`; `XRP`/`testXRP`→`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. Each module additionally preflights its `SOURCE_ID` at construction, so an unknown source fails the boot fast with a clear error rather than booting clean and rejecting every request.
 

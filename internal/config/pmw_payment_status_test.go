@@ -12,8 +12,9 @@ import (
 func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := config.EnvConfig{
-			SourceID:        config.SourceTEE,
-			AttestationType: "UnknownType",
+			DestinationChainURLSlug: "coston",
+			SourceID:                config.SourceTEE,
+			AttestationType:         "UnknownType",
 		}
 		cfg, err := config.BuildPMWPaymentStatusConfig(envConfig)
 		require.Nil(t, cfg)
@@ -21,6 +22,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	})
 	t.Run("missing TEE_PAYMENTS_CONTRACT_ADDRESS", func(t *testing.T) {
 		envConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceID:                       config.SourceTestXRP,
 			AttestationType:                fdc2.PMWPaymentStatus,
 			SourceDatabaseURL:              "URL",
@@ -34,6 +36,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	})
 	t.Run("missing FLARE_RPC_URL", func(t *testing.T) {
 		envConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceID:                       config.SourceTestXRP,
 			AttestationType:                fdc2.PMWPaymentStatus,
 			SourceDatabaseURL:              "URL",
@@ -47,6 +50,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	})
 	t.Run("invalid FLARE_TEE_MANAGER_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceID:                       config.SourceTEE,
 			AttestationType:                "UnknownType",
 			SourceDatabaseURL:              "URL",
@@ -61,6 +65,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	})
 	t.Run("invalid TEE_PAYMENTS_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceID:                       config.SourceTEE,
 			AttestationType:                "UnknownType",
 			SourceDatabaseURL:              "URL",
@@ -75,6 +80,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	})
 	t.Run("zero FLARE_TEE_MANAGER_CONTRACT_ADDRESS rejected", func(t *testing.T) {
 		envConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceID:                       config.SourceTEE,
 			AttestationType:                "UnknownType",
 			SourceDatabaseURL:              "URL",
@@ -89,6 +95,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 	})
 	t.Run("invalid attestation type", func(t *testing.T) {
 		envConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceID:                       config.SourceTEE,
 			AttestationType:                "UnknownType",
 			SourceDatabaseURL:              "URL",
@@ -106,6 +113,7 @@ func TestBuildPMWPaymentStatusConfigError(t *testing.T) {
 func TestBuildPMWPaymentStatusConfigSuccess(t *testing.T) {
 	config.ClearPMWPaymentStatusConfigForTest()
 	envConfig := config.EnvConfig{
+		DestinationChainURLSlug:        "coston",
 		SourceID:                       config.SourceTestXRP,
 		AttestationType:                fdc2.PMWPaymentStatus,
 		SourceDatabaseURL:              "postgres://localhost/test",

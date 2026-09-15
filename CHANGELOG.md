@@ -20,6 +20,13 @@ All notable changes to this project are documented in this file. Versions follow
 - Per-network templates (`.env.example`, `.env.coston`, `.env.coston2`, new
   `.env.songbird`) are rewritten as commented source profiles; exactly one profile
   is uncommented per deployment.
+- Every verifier route gains a destination-chain segment:
+  `/verifier/{source}/{destination}/{attestationType}/{endpoint}` (e.g.
+  `/verifier/xrp/songbird/PMWFeeProof/verify`), so deployments for the same
+  source but different destination chains have distinct URLs. The new required
+  `DESTINATION_CHAIN_URL_SLUG` supplies the segment (an operator-chosen lowercase
+  slug, conventionally `flare`, `songbird`, `coston`, or `coston2`). The legacy
+  three-part route is not served — clients must configure the new URLs.
 
 ### Added
 

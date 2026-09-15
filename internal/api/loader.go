@@ -38,6 +38,8 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 			closeAll(closers)
 			return nil, err
 		}
+		logger.Infof("Registered %s for source %s, destination %s",
+			attestationType, cfg.SourceID, cfg.DestinationChainURLSlug)
 		closers = append(closers, c...)
 	}
 	return closers, nil

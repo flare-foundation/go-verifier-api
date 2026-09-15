@@ -209,9 +209,10 @@ func loadTestEncodedAndABI(t *testing.T) *config.EncodedAndABI {
 	t.Helper()
 	attestationType := fdc2.PMWMultisigAccountConfigured
 	encodedAndABI, err := config.LoadEncodedAndABI(config.EnvConfig{
-		APIKeys:         nil,
-		AttestationType: attestationType,
-		SourceID:        config.SourceTestXRP,
+		DestinationChainURLSlug: "coston",
+		APIKeys:                 nil,
+		AttestationType:         attestationType,
+		SourceID:                config.SourceTestXRP,
 	})
 	require.NoError(t, err)
 	return &encodedAndABI
@@ -632,18 +633,32 @@ func TestVerifyWithDeadline(t *testing.T) {
 func TestGetVerifierOperationIDUnique(t *testing.T) {
 	// A per-source deployment registers these endpoints once per attestation type
 	// it serves; the operation IDs must all be distinct or the OpenAPI document is
-	// invalid (duplicate operationIds break Swagger/client generation).
+	// invalid (duplicate operationIds break Swagger/client generation). The
+	// destination slug also participates, so same-source deployments for different
+	// destination chains stay distinct.
 	endpoints := []string{"prepareRequestBody", "prepareResponseBody", "verify"}
 	types := config.SourceAttestationTypes[config.SourceXRP]
 	require.NotEmpty(t, types)
+	destinations := []string{"flare", "songbird"}
 
 	seen := map[string]bool{}
-	for _, at := range types {
-		for _, ep := range endpoints {
-			id := getVerifierOperationID(config.SourceXRP, at, ep)
-			require.Falsef(t, seen[id], "duplicate operation ID: %s", id)
-			seen[id] = true
+	for _, dest := range destinations {
+		for _, at := range types {
+			for _, ep := range endpoints {
+				id := getVerifierOperationID(config.SourceXRP, dest, at, ep)
+				require.Falsef(t, seen[id], "duplicate operation ID: %s", id)
+				seen[id] = true
+			}
 		}
 	}
-	require.Len(t, seen, len(types)*len(endpoints))
+	require.Len(t, seen, len(destinations)*len(types)*len(endpoints))
+}
+
+// TestGetVerifierAPIPath pins the four-part route namespace:
+// /verifier/{source}/{destination}/{attestationType}/{endpoint}.
+func TestGetVerifierAPIPath(t *testing.T) {
+	require.Equal(t, "/verifier/xrp/songbird/PMWFeeProof/verify",
+		getVerifierAPIPath(config.SourceXRP, "songbird", fdc2.PMWFeeProof, "verify"))
+	require.Equal(t, "/verifier/tee/flare/TeeAvailabilityCheck/verify",
+		getVerifierAPIPath(config.SourceTEE, "flare", fdc2.AvailabilityCheck, "verify"))
 }

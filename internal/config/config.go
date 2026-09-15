@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/x509"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -29,6 +30,7 @@ const (
 	EnvAllowPrivateNetworks            = "ALLOW_PRIVATE_NETWORKS"        // Test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs. Defaults to false.
 	EnvTeeAudience                     = "TEE_AUDIENCE"                  // Optional override for the expected aud claim on Confidential Space attestation tokens. Defaults to DefaultTeeAudience when unset.
 	EnvChainID                         = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
+	EnvDestinationChainURLSlug         = "DESTINATION_CHAIN_URL_SLUG"    // canonical lowercase slug of the destination chain, third URL segment of every verifier route. Required.
 )
 
 // DefaultTeeAudience is the aud claim the verifier expects on Confidential Space
@@ -37,6 +39,26 @@ const (
 // tee-node/internal/attestation/attestation_token.go). Override via TEE_AUDIENCE
 // only if that value diverges.
 const DefaultTeeAudience = "https://sts.google.com"
+
+// destinationSlugPattern constrains DESTINATION_CHAIN_URL_SLUG to one safe,
+// lowercase URL path segment: no whitespace, '/', '.', '%', escapes, or
+// uppercase, at most 32 characters, starting with a letter.
+var destinationSlugPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
+// ValidateDestinationChainURLSlug rejects a missing or malformed
+// DESTINATION_CHAIN_URL_SLUG at boot. The operator-chosen slug names the
+// deployment in its URL space only — it is not a security check and selects no
+// backend; chain identity stays enforced by CHAIN_ID and the contract
+// configuration.
+func ValidateDestinationChainURLSlug(slug string) error {
+	if slug == "" {
+		return fmt.Errorf("missing environment variables: %s", EnvDestinationChainURLSlug)
+	}
+	if !destinationSlugPattern.MatchString(slug) {
+		return fmt.Errorf("%s %q must be a lowercase URL slug matching %s", EnvDestinationChainURLSlug, slug, destinationSlugPattern)
+	}
+	return nil
+}
 
 type EnvConfig struct {
 	SourceRPCURL                    string
@@ -53,6 +75,7 @@ type EnvConfig struct {
 	AllowPrivateNetworks            string
 	TeeAudience                     string
 	ChainID                         string
+	DestinationChainURLSlug         string
 	Port                            string
 	APIKeys                         []string
 	// AttestationType is the single type view used by the per-type config loaders
@@ -165,6 +188,9 @@ type EncodedAndABI struct {
 	SourceIDPair        SourceIDEncodedPair
 	AttestationTypePair AttestationTypeEncodedPair
 	ABIPair             ABIArgPair
+	// DestinationChainSlug is the validated DESTINATION_CHAIN_URL_SLUG — the
+	// destination-chain segment of this deployment's verifier routes.
+	DestinationChainSlug string
 }
 
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.Hash, error) {
@@ -201,6 +227,9 @@ func LoadEncodedAndABI(envConfig EnvConfig) (EncodedAndABI, error) {
 	if !ok {
 		return EncodedAndABI{}, fmt.Errorf("no ABI struct names defined for attestation type %s", envConfig.AttestationType)
 	}
+	if err := ValidateDestinationChainURLSlug(envConfig.DestinationChainURLSlug); err != nil {
+		return EncodedAndABI{}, err
+	}
 	sourceIDEnc, err := EncodeAttestationOrSourceName(string(envConfig.SourceID))
 	if err != nil {
 		return EncodedAndABI{}, err
@@ -218,9 +247,10 @@ func LoadEncodedAndABI(envConfig EnvConfig) (EncodedAndABI, error) {
 		return EncodedAndABI{}, err
 	}
 	return EncodedAndABI{
-		SourceIDPair:        SourceIDEncodedPair{SourceID: envConfig.SourceID, SourceIDEncoded: sourceIDEnc},
-		AttestationTypePair: AttestationTypeEncodedPair{AttestationType: envConfig.AttestationType, AttestationTypeEncoded: attestationTypeEnc},
-		ABIPair:             ABIArgPair{Request: requestABI, Response: responseABI},
+		SourceIDPair:         SourceIDEncodedPair{SourceID: envConfig.SourceID, SourceIDEncoded: sourceIDEnc},
+		AttestationTypePair:  AttestationTypeEncodedPair{AttestationType: envConfig.AttestationType, AttestationTypeEncoded: attestationTypeEnc},
+		ABIPair:              ABIArgPair{Request: requestABI, Response: responseABI},
+		DestinationChainSlug: envConfig.DestinationChainURLSlug,
 	}, nil
 }
 

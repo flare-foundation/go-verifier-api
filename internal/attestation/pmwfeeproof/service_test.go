@@ -18,6 +18,7 @@ func TestNewFeeProofService(t *testing.T) {
 	t.Run("should successfully create and close FeeProofService", func(t *testing.T) {
 		config.ClearPMWFeeProofConfigForTest()
 		envConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			FlareRPCURL:                    "http://127.0.0.1:8545",
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
@@ -37,6 +38,7 @@ func TestNewFeeProofService(t *testing.T) {
 	t.Run("misconfigured Source DB", func(t *testing.T) {
 		config.ClearPMWFeeProofConfigForTest()
 		badEnvConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceDatabaseURL:              "postgres:",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
@@ -52,6 +54,7 @@ func TestNewFeeProofService(t *testing.T) {
 	t.Run("misconfigured CChain DB", func(t *testing.T) {
 		config.ClearPMWFeeProofConfigForTest()
 		badEnvConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp()",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",
@@ -69,6 +72,7 @@ func TestNewFeeProofService(t *testing.T) {
 		// DBs connect (Docker up), but an unsupported RPC scheme fails the on-chain
 		// initial-nonce binder at construction, so the service fails closed.
 		badEnvConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			SourceDatabaseURL:              "postgres://username:password@localhost:5432/flare_xrp_indexer?sslmode=disable",
 			CChainDatabaseURL:              "root:root@tcp(127.0.0.1:3306)/db?parseTime=true",
 			FlareTeeManagerContractAddress: "0x00000000000000000000000000000000000000C1",

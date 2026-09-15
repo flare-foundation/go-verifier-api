@@ -12,11 +12,12 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 	for _, src := range []SourceName{SourceXRP, SourceTestXRP, ""} {
 		t.Run("unsupported SOURCE_ID "+string(src)+" fails the boot", func(t *testing.T) {
 			envConfig := EnvConfig{
-				SourceID:             src,
-				AttestationType:      fdc2.AvailabilityCheck,
-				RelayContractAddress: "0x0000000000000000000000000000000000000001",
-				FlareRPCURL:          "https://rpc.example.com",
-				ChainID:              "16",
+				DestinationChainURLSlug: "coston",
+				SourceID:                src,
+				AttestationType:         fdc2.AvailabilityCheck,
+				RelayContractAddress:    "0x0000000000000000000000000000000000000001",
+				FlareRPCURL:             "https://rpc.example.com",
+				ChainID:                 "16",
 			}
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 			require.Nil(t, cfg)
@@ -26,8 +27,9 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 	}
 	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:        SourceTEE,
-			AttestationType: "UnknownType",
+			DestinationChainURLSlug: "coston",
+			SourceID:                SourceTEE,
+			AttestationType:         "UnknownType",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -35,10 +37,11 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 	})
 	t.Run("invalid RELAY_CONTRACT_ADDRESS hex", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:             SourceTEE,
-			AttestationType:      "UnknownType",
-			RelayContractAddress: "not-hex",
-			FlareRPCURL:          "URL",
+			DestinationChainURLSlug: "coston",
+			SourceID:                SourceTEE,
+			AttestationType:         "UnknownType",
+			RelayContractAddress:    "not-hex",
+			FlareRPCURL:             "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -46,10 +49,11 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 	})
 	t.Run("invalid attestation type", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:             SourceTEE,
-			AttestationType:      "UnknownType",
-			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			FlareRPCURL:          "URL",
+			DestinationChainURLSlug: "coston",
+			SourceID:                SourceTEE,
+			AttestationType:         "UnknownType",
+			RelayContractAddress:    "0x0000000000000000000000000000000000000001",
+			FlareRPCURL:             "URL",
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.Nil(t, cfg)
@@ -79,10 +83,11 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 	for _, tc := range boolFlagCases {
 		t.Run(tc.name, func(t *testing.T) {
 			envConfig := EnvConfig{
-				SourceID:             SourceTEE,
-				AttestationType:      fdc2.AvailabilityCheck,
-				RelayContractAddress: "0x0000000000000000000000000000000000000001",
-				FlareRPCURL:          "https://rpc.example.com",
+				DestinationChainURLSlug: "coston",
+				SourceID:                SourceTEE,
+				AttestationType:         fdc2.AvailabilityCheck,
+				RelayContractAddress:    "0x0000000000000000000000000000000000000001",
+				FlareRPCURL:             "https://rpc.example.com",
 			}
 			tc.mutate(&envConfig)
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -151,11 +156,12 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 	for _, tc := range cutoverCases {
 		t.Run(tc.name, func(t *testing.T) {
 			envConfig := EnvConfig{
-				SourceID:             SourceTEE,
-				AttestationType:      fdc2.AvailabilityCheck,
-				RelayContractAddress: "0x0000000000000000000000000000000000000001",
-				FlareRPCURL:          "https://rpc.example.com",
-				ChainID:              "16",
+				DestinationChainURLSlug: "coston",
+				SourceID:                SourceTEE,
+				AttestationType:         fdc2.AvailabilityCheck,
+				RelayContractAddress:    "0x0000000000000000000000000000000000000001",
+				FlareRPCURL:             "https://rpc.example.com",
+				ChainID:                 "16",
 			}
 			tc.mutate(&envConfig)
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
@@ -172,12 +178,13 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	)
 	t.Run("defaults", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:             SourceTEE,
-			AttestationType:      fdc2.AvailabilityCheck,
-			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			FlareRPCURL:          "https://rpc.example.com",
-			TeeAudience:          validAudience,
-			ChainID:              validChainID,
+			DestinationChainURLSlug: "coston",
+			SourceID:                SourceTEE,
+			AttestationType:         fdc2.AvailabilityCheck,
+			RelayContractAddress:    "0x0000000000000000000000000000000000000001",
+			FlareRPCURL:             "https://rpc.example.com",
+			TeeAudience:             validAudience,
+			ChainID:                 validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -196,6 +203,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	})
 	t.Run("relay cutover configured", func(t *testing.T) {
 		envConfig := EnvConfig{
+			DestinationChainURLSlug:         "coston",
 			SourceID:                        SourceTEE,
 			AttestationType:                 fdc2.AvailabilityCheck,
 			RelayContractAddress:            "0x0000000000000000000000000000000000000001",
@@ -212,13 +220,14 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	})
 	t.Run("allow private networks enabled", func(t *testing.T) {
 		envConfig := EnvConfig{
-			SourceID:             SourceTEE,
-			AttestationType:      fdc2.AvailabilityCheck,
-			RelayContractAddress: "0x0000000000000000000000000000000000000001",
-			FlareRPCURL:          "https://rpc.example.com",
-			AllowPrivateNetworks: "true",
-			TeeAudience:          validAudience,
-			ChainID:              validChainID,
+			DestinationChainURLSlug: "coston",
+			SourceID:                SourceTEE,
+			AttestationType:         fdc2.AvailabilityCheck,
+			RelayContractAddress:    "0x0000000000000000000000000000000000000001",
+			FlareRPCURL:             "https://rpc.example.com",
+			AllowPrivateNetworks:    "true",
+			TeeAudience:             validAudience,
+			ChainID:                 validChainID,
 		}
 		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
 		require.NoError(t, err)
@@ -227,6 +236,7 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 	})
 	t.Run("all flags enabled skips audience requirement but still requires CHAIN_ID", func(t *testing.T) {
 		envConfig := EnvConfig{
+			DestinationChainURLSlug:    "coston",
 			SourceID:                   SourceTEE,
 			AttestationType:            fdc2.AvailabilityCheck,
 			RelayContractAddress:       "0x0000000000000000000000000000000000000001",
@@ -248,11 +258,12 @@ func TestBuildTeeAvailabilityCheckConfigSuccess(t *testing.T) {
 
 func TestBuildTeeAvailabilityCheckConfigPolicyFields(t *testing.T) {
 	base := EnvConfig{
-		SourceID:             SourceTEE,
-		AttestationType:      fdc2.AvailabilityCheck,
-		RelayContractAddress: "0x0000000000000000000000000000000000000001",
-		FlareRPCURL:          "https://rpc.example.com",
-		ChainID:              "16",
+		DestinationChainURLSlug: "coston",
+		SourceID:                SourceTEE,
+		AttestationType:         fdc2.AvailabilityCheck,
+		RelayContractAddress:    "0x0000000000000000000000000000000000000001",
+		FlareRPCURL:             "https://rpc.example.com",
+		ChainID:                 "16",
 	}
 	t.Run("unset TEE_AUDIENCE defaults to DefaultTeeAudience", func(t *testing.T) {
 		envConfig := base
@@ -319,5 +330,38 @@ func TestLoadGoogleRootCert(t *testing.T) {
 	t.Run("invalid PEM", func(t *testing.T) {
 		_, err := loadGoogleRootCertFromBytes([]byte("not-a-pem"))
 		require.ErrorContains(t, err, "invalid PEM format")
+	})
+}
+
+// TestBuildTeeAvailabilityCheckConfigDestinationSlug pins the slug validation on
+// the TEE profile: a link-safe operator-chosen slug boots, a malformed or
+// missing one fails.
+func TestBuildTeeAvailabilityCheckConfigDestinationSlug(t *testing.T) {
+	base := EnvConfig{
+		SourceID:             SourceTEE,
+		AttestationType:      fdc2.AvailabilityCheck,
+		RelayContractAddress: "0x0000000000000000000000000000000000000001",
+		FlareRPCURL:          "https://rpc.example.com",
+		TeeAudience:          "aud",
+		ChainID:              "16",
+	}
+	t.Run("operator-chosen slug boots", func(t *testing.T) {
+		envConfig := base
+		envConfig.DestinationChainURLSlug = "my-coston-deployment"
+		cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+	})
+	t.Run("malformed slug fails the boot", func(t *testing.T) {
+		envConfig := base
+		envConfig.DestinationChainURLSlug = "Coston/16"
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "must be a lowercase URL slug")
+	})
+	t.Run("missing slug fails the boot", func(t *testing.T) {
+		envConfig := base
+		envConfig.DestinationChainURLSlug = ""
+		_, err := BuildTeeAvailabilityCheckConfig(envConfig)
+		require.ErrorContains(t, err, "missing environment variables: DESTINATION_CHAIN_URL_SLUG")
 	})
 }

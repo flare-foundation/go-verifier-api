@@ -180,6 +180,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		AllowPrivateNetworks:            os.Getenv(config.EnvAllowPrivateNetworks),
 		TeeAudience:                     os.Getenv(config.EnvTeeAudience),
 		ChainID:                         os.Getenv(config.EnvChainID),
+		DestinationChainURLSlug:         os.Getenv(config.EnvDestinationChainURLSlug),
 		Port:                            port,
 		APIKeys:                         apiKeys,
 		AttestationTypes:                attestationTypes,
@@ -238,7 +239,8 @@ func requestSizeLimiter(maxBytes int64) func(http.Handler) http.Handler {
 
 func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
 	cfg := huma.DefaultConfig("FDC2 Verifier API", "1.0")
-	cfg.Info.Description = fmt.Sprintf("The Flare Data Connector 2 Verifier API endpoints for [%s] attestation(s) sourced from %s.", joinAttestationTypes(envConfig.ServedAttestationTypes()), envConfig.SourceID)
+	cfg.Info.Description = fmt.Sprintf("The Flare Data Connector 2 Verifier API endpoints for [%s] attestation(s) sourced from %s, destination chain %s.",
+		joinAttestationTypes(envConfig.ServedAttestationTypes()), envConfig.SourceID, envConfig.DestinationChainURLSlug)
 	cfg.DocsPath = ""
 	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"ApiKeyAuth": {

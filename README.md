@@ -110,9 +110,10 @@ TEE_PAYMENTS_CONTRACT_ADDRESS=0x...
 ## API Reference
 <b>Base path for all verifier endpoints</b>:
 ```
-/verifier/<sourceName>/<attestationType>/
+/verifier/<sourceName>/<destinationChain>/<attestationType>/
 ```
 - `<sourceName>` must be lowercase.
+- `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` (conventionally `flare`, `songbird`, `coston`, or `coston2`).
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 See [API reference](docs/api.md) for endpoint definitions and examples.

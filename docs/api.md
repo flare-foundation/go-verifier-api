@@ -4,12 +4,13 @@ This API exposes a **POST endpoints** to verify different attestation types.
 
 <b>Base path for all verifier endpoints</b>:
 ```
-/verifier/<sourceName>/<attestationType>/
+/verifier/<sourceName>/<destinationChain>/<attestationType>/
 ```
 - `<sourceName>` must be lowercase.
+- `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` — an operator-chosen lowercase slug naming the destination chain (conventionally `flare`, `songbird`, `coston`, `coston2`). It names the deployment in its URL space; it does not select a backend, and requests using any other destination (or the legacy path without the segment) receive `404`.
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
-## 1. Main endpoint `POST /verifier/<sourceName>/<attestationType>/verify`
+## 1. Main endpoint `POST /verifier/<sourceName>/<destinationChain>/<attestationType>/verify`
 Verifies the encoded request body and returns the verification outcome in a **status envelope**. Every verification outcome — success, terminal rejection, or transient failure — is returned as **HTTP 200**; the outcome is carried in-band by `status`. This is the contract tee-relay-client consumes: it decodes the body only on 2xx and switches on `status`, treating any non-2xx as a transport failure to retry.
 
 ### Request:
@@ -52,7 +53,7 @@ HTTP errors on this endpoint are limited to the transport/API layer: `401` (miss
 
 
 
-## 2. Helper endpoint `POST /verifier/<sourceName>/<attestationType>/prepareRequestBody`
+## 2. Helper endpoint `POST /verifier/<sourceName>/<destinationChain>/<attestationType>/prepareRequestBody`
 Generates ABI-encoded `requestBody`. This endpoint only performs encoding.
 
 ### Example for `PMWMultisigAccountConfigured`:
@@ -79,7 +80,7 @@ Response:
 }
 ```
 
-## 3. Helper endpoint `POST /verifier/<sourceName>/<attestationType>/prepareResponseBody`
+## 3. Helper endpoint `POST /verifier/<sourceName>/<destinationChain>/<attestationType>/prepareResponseBody`
 Verifies the encoded request body and returns both the decoded response data and its ABI-encoded form.
 ### Example for `PMWMultisigAccountConfigured`:
 Request:
