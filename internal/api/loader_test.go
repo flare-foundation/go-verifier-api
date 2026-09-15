@@ -16,7 +16,8 @@ func TestUnsupportedAttestationType(t *testing.T) {
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
-		AttestationType: "UnknownType",
+		DestinationChainURLSlug: "coston",
+		AttestationType:         "UnknownType",
 	}
 	closers, err := LoadModule(ctx, api, envConfig)
 	require.ErrorContains(t, err, "unsupported attestation type")
@@ -28,6 +29,7 @@ func TestTEEAvailabilityCheckRPCDialError(t *testing.T) {
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
+		DestinationChainURLSlug:        "coston",
 		AttestationType:                fdc2.AvailabilityCheck,
 		SourceID:                       config.SourceTEE,
 		FlareRPCURL:                    "http",
@@ -48,7 +50,8 @@ func TestTEEAvailabilityCheckConfigError(t *testing.T) {
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
-		AttestationType: fdc2.AvailabilityCheck,
+		DestinationChainURLSlug: "coston",
+		AttestationType:         fdc2.AvailabilityCheck,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
 	require.ErrorContains(t, err, "cannot load TeeAvailabilityCheck config")
@@ -59,7 +62,8 @@ func TestPMWPaymentStatusServiceError(t *testing.T) {
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
-		AttestationType: fdc2.PMWPaymentStatus,
+		DestinationChainURLSlug: "coston",
+		AttestationType:         fdc2.PMWPaymentStatus,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
 	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config: missing environment variables: CCHAIN_DATABASE_URL, SOURCE_DATABASE_URL, FLARE_TEE_MANAGER_CONTRACT_ADDRESS")
@@ -70,7 +74,8 @@ func TestPMWMultisigAccountConfiguredServiceError(t *testing.T) {
 	api := huma.NewAPI(huma.DefaultConfig("test", "0.0.0"), mockAdapter{})
 
 	envConfig := config.EnvConfig{
-		AttestationType: fdc2.PMWMultisigAccountConfigured,
+		DestinationChainURLSlug: "coston",
+		AttestationType:         fdc2.PMWMultisigAccountConfigured,
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
 	require.ErrorContains(t, err, "cannot load PMWMultisigAccountConfigured config: missing environment variables: SOURCE_RPC_URL")
@@ -85,8 +90,9 @@ func TestLoadModuleIteratesServedTypes(t *testing.T) {
 	// listed type is attempted and its missing config surfaces, proving the loop
 	// iterates the list. Nothing is registered, so no closers leak.
 	envConfig := config.EnvConfig{
-		SourceID:         config.SourceTestXRP,
-		AttestationTypes: []fdc2.AttestationType{fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
+		DestinationChainURLSlug: "coston",
+		SourceID:                config.SourceTestXRP,
+		AttestationTypes:        []fdc2.AttestationType{fdc2.PMWPaymentStatus, fdc2.PMWFeeProof},
 	}
 	closers, err := LoadModule(t.Context(), api, envConfig)
 	require.ErrorContains(t, err, "cannot load PMWPaymentStatus config")

@@ -32,14 +32,17 @@ All modules register `verify` / `prepareRequestBody` / `prepareResponseBody`.
 - `GET /api-doc` and static swagger assets
 
 ### Attestation routes
-Base: `/verifier/{sourceNameLower}/{attestationType}/`
+Base: `/verifier/{sourceNameLower}/{destinationChainSlug}/{attestationType}/`
+
+The destination segment is the deployment's validated `DESTINATION_CHAIN_URL_SLUG` (§6.1). It identifies the deployment in its URL space only — it selects no RPC, database, or contract configuration, and it is not a security check (chain identity stays enforced by `CHAIN_ID` and the contract configuration). Routes are registered statically for the configured pair; a request using any other destination, or the legacy path without the segment, receives `404`.
 - `POST .../prepareRequestBody`
 - `POST .../prepareResponseBody`
 - `POST .../verify`
 
 ### Request/response model
 - Requests include encoded attestation/source IDs (`common.Hash`) and either `requestData` (for prepare request) or `requestBody` ABI bytes (for verify / prepare response).
-- Responses return encoded `responseBody`; `prepareResponseBody` also returns decoded `responseData`.
+- The helper endpoints return encoded `responseBody`; `prepareResponseBody` also returns decoded `responseData`. Their failures surface as HTTP statuses (§9).
+- `verify` returns the **status envelope** (`types.VerifierResponse`) consumed by tee-relay-client: every verification outcome is HTTP 200 with `{status, responseBody, message}` — `VERIFIED` (with `responseBody`), `REJECTED` (terminal), or `RETRY` (transient). The relay decodes the body only on 2xx and switches on `status`; a non-2xx is treated as a transport failure and retried, so transient infrastructure faults are reported in-band as `RETRY`, not as an HTTP error. HTTP errors on `verify` are limited to the transport/API layer (401 auth, 422 schema validation, 500 unexpected).
 
 ## 5. Auth and Security Behavior
 - **API key auth**: middleware checks `X-API-KEY` against `API_KEYS` env list; `/api/health` exempt; unauthorized → `401`. Each configured key must be at least 16 characters — shorter keys are rejected at boot (`minAPIKeyLength`).
@@ -47,13 +50,14 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 - **Request body size limit**: 1 MB (`maxRequestBodySize`); oversize rejected before processing.
 - **Error sanitization**: `400`, `422`, `500`, `503` return only a generic message; full details logged server-side with a request ID for correlation.
 - **Request ID correlation**: each handler request (prepareRequestBody, prepareResponseBody, verify) is assigned a unique ID, included in WARN/DEBUG server logs but never in HTTP response bodies. Unauthorized rejections log path + remote address.
-- **Verify error classification** (`classifyVerifyError`): maps sentinel errors to status — `400` for malformed requests (batch range, reissue cap, invalid multisig request), `422` for data/validation faults (missing event/transaction, record not found, XRP RPC non-success, TEE data validation, invalid input), `503` for infrastructure/transient faults (DB errors, request deadline/cancellation, XRP/EVM RPC network/transport, TEE proxy fetch, action result not yet available), and `500` as the default for unexpected errors. Full per-sentinel mapping in §9.
+- **Verify error classification**: two classifiers over the same sentinel-error sets, kept in parity by a structural drift-guard test (`TestClassifierNoDrift`). `classifyVerifyError` maps errors to HTTP statuses on the **helper endpoints** — `400` for malformed requests (batch range, reissue cap, invalid multisig request), `422` for data/validation faults (missing event/transaction, record not found, XRP RPC non-success, TEE data validation, invalid input), `503` for infrastructure/transient faults (DB errors, request deadline/cancellation, XRP/EVM RPC network/transport, TEE proxy fetch, action result not yet available), and `500` as the default for unexpected errors. `classifyVerifyStatus` maps the same classes to the `/verify` envelope: the deterministic classes (400/422 there) → `REJECTED`, the infrastructure class (503 there) and unexpected errors → `RETRY`, each with a coarse non-sensitive `message`. Full per-sentinel mapping in §9.
 
 ## 6. Configuration Specification
 ## 6.1 Common required env vars
 - `PORT`
 - `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key; each key must be at least 16 characters or boot fails)
 - `SOURCE_ID` (`TEE`, `XRP`, `testXRP`) — the only selector; the process serves every attestation type the source offers.
+- `DESTINATION_CHAIN_URL_SLUG` — the operator-chosen lowercase slug naming the destination chain, the third segment of every verifier route. Must be a sensible URL segment: `^[a-z][a-z0-9-]{0,31}$` (no whitespace, `/`, `.`, `%`, escapes, or uppercase). Missing or malformed values fail the boot. The conventional values are the network names (`flare`, `songbird`, `coston`, `coston2`) — clients construct URLs from this value, so it must match what they are configured with.
 
 **Source-driven registration:** `SOURCE_ID` is validated against the allowlist above and selects the served attestation types from `config.SourceAttestationTypes`: `TEE`→`TeeAvailabilityCheck`; `XRP`/`testXRP`→`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. Each module additionally preflights its `SOURCE_ID` at construction, so an unknown source fails the boot fast with a clear error rather than booting clean and rejecting every request.
 
@@ -101,10 +105,12 @@ Required:
 
 ## 7. Attestation Module Specs
 
+Status codes like `→ 503` in the flow descriptions below are the helper-endpoint HTTP classifications (§9); on `verify` the same sentinels surface in the status envelope — 400/422 classes as `REJECTED`, 503 and the 500 default as `RETRY`.
+
 ## 7.1 TeeAvailabilityCheck
 
 ### Primary flow (`Verify`)
-1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
+1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, site-local, metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
 2. Validate challenge equals request challenge.
    - **Chain pin**: require `response.TeeInfo.ChainID == CHAIN_ID`. The signatures are reconstructed using the attested `ChainID`, so this is the explicit check that it is the chain we serve (not merely internally consistent), closing cross-chain replay beyond the per-request challenge binding. Enforced **unconditionally** — the `DISABLE_ATTESTATION_CHECK_E2E` and `magic_pass` bypasses disable Google attestation validation, not chain identity. `CHAIN_ID` is required and non-zero for every deployment (0 is not a valid EVM chain ID, so there is no default).
 3. Verify action-result integrity:
@@ -148,6 +154,8 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 | `Audience` | `v.Cfg.TeeAudience` | `TEE_AUDIENCE` env var, or `config.DefaultTeeAudience` when unset |
 | `EATNonce` | `hex.EncodeToString(teeInfoData.Hash())` | computed per request |
 | `AllowedDebugStatuses` | `["disabled-since-boot"]` when `!AllowTeeDebug`, else empty (skips dbgstat check) | derived from `ALLOW_TEE_DEBUG` |
+| `AllowedHWModels` | `{GCP_AMD_SEV, GCP_AMD_SEV_ES, GCP_INTEL_TDX}` | package constant `confidentialHWModels` — every confidential-memory technology Google Confidential Space attests; deliberately not configurable |
+| `RequireSecBoot` | `true` | constant — Google documents `secboot` as always true |
 
 **What `ParseAndValidatePKIToken` enforces under this Policy** (in order):
 
@@ -162,13 +170,15 @@ The attestation token is a JWT signed by Google for Confidential Space TEEs.
 | `aud` claim | `Policy.Audience` (= `TEE_AUDIENCE`, or `DefaultTeeAudience`) | the audience the TEE requested its token for; rejects tokens issued for a different consumer. Always populated (config defaults it), so the empty-skip path is not reachable in normal operation. |
 | Clock skew | `Policy.Leeway` (defaults to 30s) | applied to `exp`/`iat`/`nbf`. |
 | `dbgstat` | `Policy.AllowedDebugStatuses` | `["disabled-since-boot"]` in production; empty when `ALLOW_TEE_DEBUG=true` (skipped). |
+| `hwmodel` | `Policy.AllowedHWModels` (= `confidentialHWModels`) | only confidential-memory hardware (SEV, SEV-ES, TDX); `GCP_SHIELDED_VM` has measured boot but no memory encryption and is rejected regardless of on-chain platform allowlists. Not an authorization list — that stays on-chain; membership is a hardware property, so the two lists never need syncing. |
+| `secboot` | `Policy.RequireSecBoot` (= `true`) | `secboot=false` rejected; Google documents the claim as always true, so this is defense in depth. |
 | `eat_nonce` | `Policy.EATNonce` (= `hex.EncodeToString(teeInfoData.Hash())`) | the token's `eat_nonce` must be **exactly one** entry equal to this value (see below). |
 
 `image_id` is **not** enforced at the JWT layer: the verifier leaves `Policy.AllowedImageIDs` unset, so `ValidateClaims` skips the image_id check. The accepted workload code hash is enforced on-chain by the `ExtensionManager` (`isCodeHashPlatformSupported`).
 
 EAT-nonce binding requires the token's `eat_nonce` to be **exactly one** entry equal to `Policy.EATNonce` (`hex.EncodeToString(teeInfoData.Hash())`) — a different count or value is rejected. tee-node requests its attestation token with a single nonce (the same teeInfo hash), so the token carries exactly one `eat_nonce`. Binding is enforced **by default (fail closed)**: it is only skipped when `Policy.SkipNonceCheck` is set, which the verifier never does — so an empty/missing nonce now fails verification rather than silently skipping (the pre-`ae050b4` go-flare-common did containment and skipped on an empty `EATNonce`).
 
-**Policy fields the verifier currently does not set**: `RequireSecBoot` (could reject `secboot=false` Confidential Space VMs), `AllowedHWModels` (could restrict to e.g. `GCP_INTEL_TDX`), `AllowedLeafEKUs` (could pin to a specific EKU set), `RequireCRL` (would fail closed when a cert declares DPs but no CRL is supplied). Each defaults to "skip"; enabling them would tighten the surface further.
+**Policy fields the verifier currently does not set**: `AllowedLeafEKUs` (could pin to a specific EKU set), `RequireCRL` (would fail closed when a cert declares DPs but no CRL is supplied). Each defaults to "skip"; enabling them would tighten the surface further.
 
 **Claims validation (`ValidateClaims`):** Runs only after the Policy has accepted the token. Covers what the Policy does not:
 1. **Software name** — Must equal `"CONFIDENTIAL_SPACE"`.
@@ -206,9 +216,9 @@ The [client](https://github.com/flare-foundation/tee-relay-client/blob/main/inte
 Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handles retries.
 
 ### Request deadline & dependency timeouts
-Verifier work runs under an authoritative per-request deadline (`verifierWorkTimeout`, 25s), applied in the handler around `Verify` and kept below the server `writeTimeout` (30s) so the verifier abandons a hung dependency before the HTTP write deadline. Because downstream calls run under that context — the DB repos use `WithContext` and the nonce binder uses the request ctx — the deadline actually cancels in-flight DB queries and RPC calls rather than leaking goroutines. A timed-out or cancelled verification surfaces `context.DeadlineExceeded`/`Canceled`, classified as **503**.
+Verifier work runs under an authoritative per-request deadline (`verifierWorkTimeout`, 25s), applied in the handler around `Verify` and kept below the server `writeTimeout` (30s) so the verifier abandons a hung dependency before the HTTP write deadline. Because downstream calls run under that context — the DB repos use `WithContext` and the nonce binder uses the request ctx — the deadline actually cancels in-flight DB queries and RPC calls rather than leaking goroutines. A timed-out or cancelled verification surfaces `context.DeadlineExceeded`/`Canceled`, classified as **503** (helper endpoints) / **`RETRY`** (`verify` envelope).
 
-Defense-in-depth at the driver level bounds individual statements even if context cancellation does not promptly abort one: the Postgres source DB sets a true server-side per-session `statement_timeout` (via the pgx DSN, both URL and keyword forms) and the MySQL C-chain DB sets read/write I/O timeouts (`readTimeout`/`writeTimeout`; go-sql-driver has no portable server-side statement cap), both at `dbStatementTimeout` (28s — above the 25s request deadline so they never pre-empt a legitimately in-progress query, and below the 30s `writeTimeout` so a backstop abort still leaves margin to write a 503). The on-chain `getInitialNonce` call additionally has its own short `rpcTimeout` (5s).
+Defense-in-depth at the driver level bounds individual statements even if context cancellation does not promptly abort one: the Postgres source DB sets a true server-side per-session `statement_timeout` (via the pgx DSN, both URL and keyword forms) and the MySQL C-chain DB sets read/write I/O timeouts (`readTimeout`/`writeTimeout`; go-sql-driver has no portable server-side statement cap), both at `dbStatementTimeout` (28s — above the 25s request deadline so they never pre-empt a legitimately in-progress query, and below the 30s `writeTimeout` so a backstop abort still leaves margin to write the error response). The on-chain `getInitialNonce` call additionally has its own short `rpcTimeout` (5s).
 
 ### CRL revocation checking
 Intermediate + leaf certs from the x5c chain are checked for revocation.
@@ -224,14 +234,14 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - Reads `CRLDistributionPoints` from leaf + intermediate only after the chain is validated.
 - Leaf + intermediate fetches run **in parallel**. For each cert, distribution points tried in order; first successful fetch used. `CheckSignatureFrom(issuer)` is verified before caching — CRL signed by a different CA is rejected and the next DP is tried.
 - **Singleflight** (`singleflight.Group`, via `DoChan`) deduplicates concurrent fetches for the same (URL, issuer) key. The shared fetch runs under a background context bounded by `crlFetchTimeout` (not any one caller's context), and each caller waits on its own context — so one caller's cancellation neither aborts the in-flight fetch nor poisons the other waiters.
-- **Cache** (`sync.RWMutex`, keyed by **URL + issuer-certificate SHA-256 fingerprint** — `crlCacheKey`; audit finding 3.15): two issuers sharing a distribution-point URL each get their own entry, so a CRL cached under one issuer can never answer (and fail) the other's chain, and the fingerprint covers the whole certificate (not just the key) because `CheckSignatureFrom` never compares issuer names. As defense in depth, every fetched CRL, cache **hit**, and shared singleflight result is verified with `verifyCRLIssuer` — the CRL's `RawIssuer` must equal the certificate's `RawSubject` (`CheckSignatureFrom` alone never compares names) plus the signature check — before it is returned, and a nil issuer is refused before any lookup or fetch. An entry is fresh iff all of (a) age < `crlMaxCacheTTL` (4h), (b) `NextUpdate` non-zero, (c) `NextUpdate` not passed. Zero `NextUpdate` → always re-fetch. TTL cap guards against emergency revocation before the old `NextUpdate`.
+- **Cache** (`sync.RWMutex`, keyed by **URL + issuer-certificate SHA-256 fingerprint** — `crlCacheKey`): two issuers sharing a distribution-point URL each get their own entry, so a CRL cached under one issuer can never answer (and fail) the other's chain, and the fingerprint covers the whole certificate (not just the key) because `CheckSignatureFrom` never compares issuer names. As defense in depth, every fetched CRL, cache **hit**, and shared singleflight result is verified with `verifyCRLIssuer` — the CRL's `RawIssuer` must equal the certificate's `RawSubject` (`CheckSignatureFrom` alone never compares names) plus the signature check — before it is returned, and a nil issuer is refused before any lookup or fetch. An entry is fresh iff all of (a) age < `crlMaxCacheTTL` (4h), (b) `NextUpdate` non-zero, (c) `NextUpdate` not passed. Zero `NextUpdate` → always re-fetch. TTL cap guards against emergency revocation before the old `NextUpdate`.
 - On miss/stale, fetched via `fetchCRLBytes`: `ResolveExternalURL(ctx, url, false)` first (always rejects private/local addresses regardless of `ALLOW_PRIVATE_NETWORKS`, which is scoped to the TEE proxy), then `fetcher.FetchBytesPinned` with the resolved IP pinned to prevent DNS rebinding (2s timeout, redirects rejected). PEM-decoded if PEM (Google Cloud CRL endpoints return PEM), else raw DER; parsed with `x509.ParseRevocationList`.
 - Eviction: at `crlMaxEntries` (100), stale entries purged; if still full, oldest evicted.
 - `CRLCache.Close()` added to shutdown closers.
 - Google CA Service only inserts the CDP extension when `publish_crl` is enabled (per-CA-pool setting). Currently the intermediate cert has a CDP but the leaf does not (no OCSP either). Google does not document CRL/OCSP checking for Confidential Space — the sample PKI token validation code only covers chain verification, root pinning, and signature checks; revocation checking must tolerate missing CDPs. See Google CA Service and Confidential Space PKI documentation for details.
 
 ### TEE status semantics
-- Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface per the error model (§9): TEE-proxy HTTP/non-OK (`ErrHTTPFetch`) and not-yet-available action results (`ErrActionResultNotFound`, 404) map to **503**; only ambiguous URL-validation / JSON-decode errors fall through to 500.
+- Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface per the error model (§9): TEE-proxy HTTP/non-OK (`ErrHTTPFetch`) and not-yet-available action results (`ErrActionResultNotFound`, 404) are the 503/`RETRY` class; only ambiguous URL-validation / JSON-decode errors fall through to the 500/`RETRY` default.
 - Internal classification (used by `CheckSigningPolicies`): `TeeSampleValid`, `TeeSampleInvalid`, `TeeSampleIndeterminate`.
 
 ## 7.2 PMWPaymentStatus
@@ -318,6 +328,9 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
 - Handlers enforce request attestation/source IDs equal server-configured encoded IDs.
 
 ## 9. Error Model (Implementation)
+
+The HTTP statuses below are returned by the **helper endpoints** (`prepareRequestBody`/`prepareResponseBody`). On `verify` the same error classes surface in-band in the status envelope, all as HTTP 200: the 400/422 classes map to `REJECTED`, the 503 class and the 500 default map to `RETRY`. Only 401 (auth), 422 (schema validation), and 500 (unexpected) occur as HTTP statuses on `verify`.
+
 - `400 Bad Request`:
   - attestation/source mismatch
   - malformed request body (ABI decode/encode conversion failure). A missing or empty required field (e.g. an empty `requestBody`) is caught earlier by request-schema validation and returns `422` (below), not `400`.
@@ -348,6 +361,7 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
   - context deadline/canceled — `ErrContext` (TEE)
   - unclassified RPC errors (indeterminate → retry) — `ErrUnknown` (TEE)
   - HTTP request or non-OK status from TEE proxy — `ErrHTTPFetch` (TEE)
+  - transient CRL revocation-fetch failure (timeout, 5xx, 408/429, temporary DNS, body-read drop) — `ErrTEERevocationUnavailable` (TEE); deterministic attestation failures stay terminal (`ErrTEEAttestationInvalid`, 422)
   - TEE action/result returned 404 (result not yet available in Redis) — `ErrActionResultNotFound` (TEE)
   - verifier work exceeded the per-request deadline, or the request was cancelled — `context.DeadlineExceeded`/`context.Canceled` (all attestation types)
 

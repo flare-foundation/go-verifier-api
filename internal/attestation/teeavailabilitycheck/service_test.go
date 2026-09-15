@@ -9,6 +9,7 @@ import (
 )
 
 var envConfig = config.EnvConfig{
+	DestinationChainURLSlug:        "coston",
 	FlareRPCURL:                    "https://coston-api.flare.network/ext/C/rpc",
 	RelayContractAddress:           "0x0000000000000000000000000000000000000001",
 	FlareTeeManagerContractAddress: "0x0000000000000000000000000000000000000002",
@@ -32,6 +33,7 @@ func TestTeeAvailabilityService(t *testing.T) {
 	t.Run("missing fields in env config", func(t *testing.T) {
 		config.ClearTeeAvailabilityCheckConfigForTest()
 		badEnvConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			FlareRPCURL:                    "",
 			RelayContractAddress:           envConfig.RelayContractAddress,
 			FlareTeeManagerContractAddress: envConfig.FlareTeeManagerContractAddress,
@@ -46,6 +48,7 @@ func TestTeeAvailabilityService(t *testing.T) {
 	t.Run("unknown attestation type", func(t *testing.T) {
 		config.ClearTeeAvailabilityCheckConfigForTest()
 		badEnvConfig := config.EnvConfig{
+			DestinationChainURLSlug:        "coston",
 			FlareRPCURL:                    envConfig.FlareRPCURL,
 			RelayContractAddress:           envConfig.RelayContractAddress,
 			FlareTeeManagerContractAddress: envConfig.FlareTeeManagerContractAddress,

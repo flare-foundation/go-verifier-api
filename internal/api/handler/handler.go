@@ -45,13 +45,14 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 	verifier attestation.Verifier[S, T],
 ) {
 	srcID := config.SourceIDPair.SourceID
+	destSlug := config.DestinationChainSlug
 	attType := config.AttestationTypePair.AttestationType
 	tags := getVerifierAPITag(attType)
 
 	registerOp(api,
-		getVerifierOperationID(srcID, attType, "prepareRequestBody"),
+		getVerifierOperationID(srcID, destSlug, attType, "prepareRequestBody"),
 		http.MethodPost,
-		getVerifierAPIPath(srcID, attType, "prepareRequestBody"),
+		getVerifierAPIPath(srcID, destSlug, attType, "prepareRequestBody"),
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequestData[U]
@@ -71,9 +72,9 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 		})
 
 	registerOp(api,
-		getVerifierOperationID(srcID, attType, "prepareResponseBody"),
+		getVerifierOperationID(srcID, destSlug, attType, "prepareResponseBody"),
 		http.MethodPost,
-		getVerifierAPIPath(srcID, attType, "prepareResponseBody"),
+		getVerifierAPIPath(srcID, destSlug, attType, "prepareResponseBody"),
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
@@ -113,9 +114,9 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 	// is treated as a transport failure and retried, so genuinely transient
 	// infrastructure errors are reported in-band as RETRY, not as an HTTP error.
 	registerOp(api,
-		getVerifierOperationID(srcID, attType, "verify"),
+		getVerifierOperationID(srcID, destSlug, attType, "verify"),
 		http.MethodPost,
-		getVerifierAPIPath(srcID, attType, "verify"),
+		getVerifierAPIPath(srcID, destSlug, attType, "verify"),
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest

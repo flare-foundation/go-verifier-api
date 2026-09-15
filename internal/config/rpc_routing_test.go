@@ -18,6 +18,7 @@ func TestRPCURLRouting(t *testing.T) {
 		flareRPC  = "http://flare-node:8545"
 	)
 	base := config.EnvConfig{
+		DestinationChainURLSlug:        "coston",
 		SourceRPCURL:                   sourceRPC,
 		FlareRPCURL:                    flareRPC,
 		SourceDatabaseURL:              "postgres://localhost/test",

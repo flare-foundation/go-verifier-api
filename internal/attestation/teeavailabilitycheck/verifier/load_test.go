@@ -181,11 +181,13 @@ func TestLoadCRLCacheFailedFetchNeverCached(t *testing.T) {
 		}
 	}
 
-	// Cache must be empty after failure.
+	// Cache must be empty after failure. Entries are keyed by the composite
+	// (URL, issuer) cache key; an empty map also rules out stray keys.
 	cache.mu.RLock()
-	_, cached := cache.entries[url]
+	_, cached := cache.entries[crlCacheKey(url, caCert)]
+	total := len(cache.entries)
 	cache.mu.RUnlock()
-	if cached {
+	if cached || total != 0 {
 		t.Fatal("failed CRL fetch was cached")
 	}
 
@@ -211,9 +213,9 @@ func TestLoadCRLCacheFailedFetchNeverCached(t *testing.T) {
 		}
 	}
 
-	// Cache must now contain the CRL.
+	// Cache must now contain the CRL under the composite (URL, issuer) key.
 	cache.mu.RLock()
-	entry, ok := cache.entries[url]
+	entry, ok := cache.entries[crlCacheKey(url, caCert)]
 	cache.mu.RUnlock()
 	if !ok || entry == nil || entry.crl == nil {
 		t.Fatal("successful CRL fetch did not populate cache")

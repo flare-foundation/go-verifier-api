@@ -35,6 +35,12 @@ var blockedIPPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("2001::/32"),         // Teredo (RFC 4380)
 	netip.MustParsePrefix("64:ff9b::/96"),      // NAT64 well-known prefix (RFC 6052) — maps to IPv4
 	netip.MustParsePrefix("fd00:ec2::254/128"), // AWS EC2 IPv6 metadata
+	// Deprecated site-local unicast (RFC 3879), still routed internally in some
+	// networks. Not covered by IsPrivate (fc00::/7) or IsLinkLocalUnicast
+	// (fe80::/10), so without this entry it counts as public. Deprecation means no
+	// legitimate deployment uses it, so it is always-blocked rather than gated on
+	// ALLOW_PRIVATE_NETWORKS.
+	netip.MustParsePrefix("fec0::/10"),
 }
 
 // ipv4CompatPrefix is the deprecated IPv4-compatible IPv6 range (RFC 4291). Such

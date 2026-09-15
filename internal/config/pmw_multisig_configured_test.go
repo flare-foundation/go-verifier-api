@@ -10,8 +10,9 @@ import (
 func TestBuildPMWMultisigAccountConfiguredConfigError(t *testing.T) {
 	t.Run("missing required fields", func(t *testing.T) {
 		envConfig := config.EnvConfig{
-			SourceID:        config.SourceTEE,
-			AttestationType: "UnknownType",
+			DestinationChainURLSlug: "coston",
+			SourceID:                config.SourceTEE,
+			AttestationType:         "UnknownType",
 		}
 		cfg, err := config.BuildPMWMultisigAccountConfiguredConfig(envConfig)
 		require.Nil(t, cfg)
@@ -19,9 +20,10 @@ func TestBuildPMWMultisigAccountConfiguredConfigError(t *testing.T) {
 	})
 	t.Run("invalid attestation type", func(t *testing.T) {
 		envConfig := config.EnvConfig{
-			SourceID:        config.SourceTEE,
-			AttestationType: "UnknownType",
-			SourceRPCURL:    "URL",
+			DestinationChainURLSlug: "coston",
+			SourceID:                config.SourceTEE,
+			AttestationType:         "UnknownType",
+			SourceRPCURL:            "URL",
 		}
 		cfg, err := config.BuildPMWMultisigAccountConfiguredConfig(envConfig)
 		require.Nil(t, cfg)
