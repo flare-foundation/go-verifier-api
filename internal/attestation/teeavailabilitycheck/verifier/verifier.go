@@ -52,6 +52,19 @@ var (
 	expectedAvailabilityOPType    = op.Reg.Hash()
 	expectedAvailabilityOPCommand = op.TEEAttestation.Hash()
 
+	// confidentialHWModels are the hwmodel claim values with hardware memory
+	// encryption against the host — every Confidential VM technology Google
+	// Confidential Space attests. NOT an authorization list (that is the on-chain
+	// platform allowlist): membership is a property of the hardware, so the two
+	// never need syncing. GCP_SHIELDED_VM has measured boot but no confidential
+	// memory and must never be added; a new Google CVM technology is added here
+	// deliberately, with review.
+	confidentialHWModels = map[string]struct{}{
+		"GCP_AMD_SEV":    {},
+		"GCP_AMD_SEV_ES": {},
+		"GCP_INTEL_TDX":  {},
+	}
+
 	ErrTEEDataValidation    = errors.New("TEE data validation failed")
 	ErrActionResultNotFound = errors.New("action result not found")
 
@@ -326,6 +339,13 @@ func (v *TeeVerifier) DataVerification(ctx context.Context, response teenodetype
 		EATNonce:             hex.EncodeToString(teeInfoHash),
 		AllowedDebugStatuses: allowedDebugStatuses,
 		Issuer:               googlecloud.ConfidentialSpaceIssuer,
+		// Restrict hwmodel to confidential-memory hardware. Without this any
+		// Google-attested model (e.g. GCP_SHIELDED_VM) becomes the response
+		// platform, leaving authorization solely to the on-chain allowlist.
+		AllowedHWModels: confidentialHWModels,
+		// Google documents secboot as always true; requiring it is free
+		// defense in depth.
+		RequireSecBoot: true,
 	}
 	// Certificate checks - check if we can trust the data in token
 	_, claims, err := googlecloud.ParseAndValidatePKIToken(attestationToken, v.Cfg.GoogleRootCertificate, leafCRL, intermediateCRL, policy)

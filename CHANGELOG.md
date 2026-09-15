@@ -48,11 +48,15 @@ All notable changes to this project are documented in this file. Versions follow
 - CRL cache entries are scoped to `(URL, issuer certificate)` and every cached or
   fetched CRL is verified against its issuer (issuer-name binding plus signature),
   closing a cache-poisoning avenue between issuers sharing a distribution URL
-  (audit finding 3.15).
+ .
 - CRLs without a `NextUpdate` are rejected outright and never cached.
 - Deprecated site-local IPv6 (`fec0::/10`) is blocked in TEE-proxy URL validation —
-  it counted as public, allowing SSRF into networks that still route it (audit
-  finding 3.29).
+  it counted as public, allowing SSRF into networks that still route it.
+- TEE attestation policy restricts `hwmodel` to confidential-memory hardware
+  (`GCP_AMD_SEV`, `GCP_AMD_SEV_ES`, `GCP_INTEL_TDX`) and requires `secboot` —
+  previously any Google-attested model (including `GCP_SHIELDED_VM`, which has no
+  memory encryption) became the response platform, leaving authorization solely to
+  the on-chain platform allowlist.
 - Oversized TEE-proxy responses are rejected rather than truncated, and
   proxy-response validation failures are classified as 422.
 - Env templates ship every source profile commented out and warn that exactly one

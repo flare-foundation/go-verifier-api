@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	csigning "github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
@@ -499,12 +500,17 @@ const testAudience = "test-audience"
 // testImageHash matches the sha256 image_id used in the test claims below.
 var testImageHash = common.HexToHash("0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2")
 
+// testHWModel is a confidential-memory hardware model accepted by the policy's
+// hwmodel allowlist; its hash is the expected response platform.
+const testHWModel = "GCP_AMD_SEV"
+
 // validTestClaims builds GoogleTeeClaims that pass the Policy enforced by
-// ParseAndValidatePKIToken: matching audience and issuer, secboot enabled,
-// production dbgstat, and an eat_nonce containing the supplied value.
+// ParseAndValidatePKIToken: matching audience and issuer, an allowlisted
+// hwmodel, secboot enabled, production dbgstat, and an eat_nonce containing the
+// supplied value.
 func validTestClaims(eatNonce string) *googlecloud.GoogleTeeClaims {
 	return &googlecloud.GoogleTeeClaims{
-		HWModel:     "TEST_PLATFORM",
+		HWModel:     testHWModel,
 		SWName:      "CONFIDENTIAL_SPACE",
 		SecBoot:     true,
 		EATNonce:    []string{eatNonce},
@@ -568,7 +574,9 @@ func TestDataVerification(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, verifier.OK, resp.Status)
 		require.Equal(t, verifier.E2ETestCodeHash, resp.CodeHash)
-		require.Equal(t, verifier.E2ETestPlatform, resp.Platform)
+		wantPlatform, err := convert.StringToCommonHash(testHWModel)
+		require.NoError(t, err)
+		require.Equal(t, wantPlatform, resp.Platform)
 	})
 	t.Run("empty TeeAudience fails closed (no fail-open skip)", func(t *testing.T) {
 		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
@@ -651,6 +659,78 @@ func TestDataVerification(t *testing.T) {
 		resp, err := v.DataVerification(context.Background(), teeInfoResponse, common.HexToAddress("0x123"))
 		require.Empty(t, resp)
 		require.ErrorContains(t, err, "cannot retrieve TEE ID from: invalid public key bytes")
+	})
+
+	// signedAttestation signs claims into a PKI token bound to teeInfoResponse.
+	signedAttestation := func(t *testing.T, claims *googlecloud.GoogleTeeClaims) string {
+		t.Helper()
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+		token.Header["x5c"] = x5c
+		signedToken, err := token.SignedString(leafKey)
+		require.NoError(t, err)
+		return signedToken
+	}
+	cfg := &config.TeeAvailabilityCheckConfig{
+		GoogleRootCertificate: rootCert,
+		TeeAudience:           testAudience,
+	}
+
+	// Non-confidential or unknown hardware models are rejected by the policy even
+	// with an otherwise fully valid Google attestation : a Shielded VM
+	// has measured boot but no memory encryption against the host, so accepting it
+	// would leave authorization solely to the on-chain platform allowlist.
+	t.Run("non-confidential hwmodel rejected", func(t *testing.T) {
+		for _, hwmodel := range []string{"GCP_SHIELDED_VM", "TEST_PLATFORM", ""} {
+			t.Run("hwmodel "+hwmodel, func(t *testing.T) {
+				teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
+				teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
+				require.NoError(t, err)
+				claims := validTestClaims(hex.EncodeToString(teeInfoHash))
+				claims.HWModel = hwmodel
+				teeInfoResponse.Attestation = signedAttestation(t, claims)
+
+				v := &verifier.TeeVerifier{Cfg: cfg}
+				_, err = v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
+				require.ErrorContains(t, err, "not in allowlist")
+			})
+		}
+	})
+
+	// Every confidential-memory model Google Confidential Space attests passes the
+	// hwmodel gate and becomes the response platform.
+	t.Run("confidential hwmodels accepted", func(t *testing.T) {
+		for _, hwmodel := range []string{"GCP_AMD_SEV", "GCP_AMD_SEV_ES", "GCP_INTEL_TDX"} {
+			t.Run("hwmodel "+hwmodel, func(t *testing.T) {
+				teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
+				teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
+				require.NoError(t, err)
+				claims := validTestClaims(hex.EncodeToString(teeInfoHash))
+				claims.HWModel = hwmodel
+				teeInfoResponse.Attestation = signedAttestation(t, claims)
+
+				v := &verifier.TeeVerifier{Cfg: cfg}
+				resp, err := v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
+				require.NoError(t, err)
+				wantPlatform, err := convert.StringToCommonHash(hwmodel)
+				require.NoError(t, err)
+				require.Equal(t, wantPlatform, resp.Platform)
+			})
+		}
+	})
+
+	// Google documents secboot as always true for Confidential Space tokens;
+	// RequireSecBoot locks that in so a false value is rejected.
+	t.Run("secboot disabled rejected", func(t *testing.T) {
+		teeInfoResponse, privTEEKey := helpers.TeeInfoResponse(t, challengeHash)
+		teeInfoHash, err := teeInfoResponse.TeeInfo.Hash()
+		require.NoError(t, err)
+		claims := validTestClaims(hex.EncodeToString(teeInfoHash))
+		claims.SecBoot = false
+		teeInfoResponse.Attestation = signedAttestation(t, claims)
+
+		v := &verifier.TeeVerifier{Cfg: cfg}
+		_, err = v.DataVerification(context.Background(), teeInfoResponse, crypto.PubkeyToAddress(privTEEKey.PublicKey))
+		require.ErrorContains(t, err, "secboot not enabled")
 	})
 }
 
