@@ -50,6 +50,9 @@ All notable changes to this project are documented in this file. Versions follow
   closing a cache-poisoning avenue between issuers sharing a distribution URL
   (audit finding 3.15).
 - CRLs without a `NextUpdate` are rejected outright and never cached.
+- Deprecated site-local IPv6 (`fec0::/10`) is blocked in TEE-proxy URL validation —
+  it counted as public, allowing SSRF into networks that still route it (audit
+  finding 3.29).
 - Oversized TEE-proxy responses are rejected rather than truncated, and
   proxy-response validation failures are classified as 422.
 - Env templates ship every source profile commented out and warn that exactly one

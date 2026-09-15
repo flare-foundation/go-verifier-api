@@ -105,6 +105,18 @@ func TestResolveExternalURLValidation(t *testing.T) {
 		require.ErrorContains(t, err, "private/local IPs are not allowed")
 	})
 
+	t.Run("rejects IPv6 site-local prefix", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "http://[fec0::1]", resolverMock{}, false)
+		require.ErrorContains(t, err, "private/local IPs are not allowed")
+	})
+
+	t.Run("rejects hostname resolving to IPv6 site-local", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "https://proxy.example", resolverMock{
+			ips: []net.IPAddr{{IP: net.ParseIP("fec0::1")}},
+		}, false)
+		require.ErrorContains(t, err, "resolves to private/local IP")
+	})
+
 	t.Run("rejects IPv4-compatible IPv6 embedding metadata IP", func(t *testing.T) {
 		// ::169.254.169.254 embeds the link-local/metadata IPv4 but is not normalised
 		// by Unmap, so it would bypass the IPv4 prefix checks without the ::/96 block.
@@ -298,6 +310,11 @@ func TestResolveExternalURLAllowPrivateNetworks(t *testing.T) {
 
 	t.Run("still blocks fe80:: link-local", func(t *testing.T) {
 		_, err := resolveExternalURL(context.Background(), "http://[fe80::1]", resolverMock{}, true)
+		require.ErrorContains(t, err, "dangerous IPs are not allowed")
+	})
+
+	t.Run("still blocks fec0:: site-local", func(t *testing.T) {
+		_, err := resolveExternalURL(context.Background(), "http://[fec0::1]", resolverMock{}, true)
 		require.ErrorContains(t, err, "dangerous IPs are not allowed")
 	})
 

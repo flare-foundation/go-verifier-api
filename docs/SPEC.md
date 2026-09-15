@@ -104,7 +104,7 @@ Required:
 ## 7.1 TeeAvailabilityCheck
 
 ### Primary flow (`Verify`)
-1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
+1. Validate + resolve proxy URL (SSRF + DNS-rebinding prevention). With `ALLOW_PRIVATE_NETWORKS`, private/loopback IPs allowed but dangerous IPs (link-local, site-local, metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) still blocked; DNS pinning always active. Pin resolved IP, fetch `{proxyURL}/action/result/{instructionID}` via pinned connection.
 2. Validate challenge equals request challenge.
    - **Chain pin**: require `response.TeeInfo.ChainID == CHAIN_ID`. The signatures are reconstructed using the attested `ChainID`, so this is the explicit check that it is the chain we serve (not merely internally consistent), closing cross-chain replay beyond the per-request challenge binding. Enforced **unconditionally** — the `DISABLE_ATTESTATION_CHECK_E2E` and `magic_pass` bypasses disable Google attestation validation, not chain identity. `CHAIN_ID` is required and non-zero for every deployment (0 is not a valid EVM chain ID, so there is no default).
 3. Verify action-result integrity:
