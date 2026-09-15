@@ -10,7 +10,8 @@ This API exposes a **POST endpoints** to verify different attestation types.
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 ## 1. Main endpoint `POST /verifier/<sourceName>/<attestationType>/verify`
-Verifies the encoded request body and returns ABI-encoded response.
+Verifies the encoded request body and returns the verification outcome in a **status envelope**. Every verification outcome — success, terminal rejection, or transient failure — is returned as **HTTP 200**; the outcome is carried in-band by `status`. This is the contract tee-relay-client consumes: it decodes the body only on 2xx and switches on `status`, treating any non-2xx as a transport failure to retry.
+
 ### Request:
 ```json
 {
@@ -19,14 +20,28 @@ Verifies the encoded request body and returns ABI-encoded response.
   "requestBody": "0x0ab..."
 }
 ```
-### Response:
+### Response (always HTTP 200 once past auth and schema validation):
 ```json
-{
-  "responseBody": "0x2de..."
-}
+{ "status": "VERIFIED", "responseBody": "0x2de..." }
+```
+```json
+{ "status": "REJECTED", "message": "record not found" }
+```
+```json
+{ "status": "RETRY", "message": "database unavailable" }
 ```
 
-# Response statuses:
+| `status`   | Meaning |
+|------------|---------|
+| `VERIFIED` | Verification succeeded; `responseBody` carries the ABI-encoded response. |
+| `REJECTED` | Terminal: the request can never verify (unsupported attestation/source, malformed request body, referenced data missing or invalid, TEE data validation failed). Do not retry. |
+| `RETRY`    | Transient: an infrastructure fault (database/RPC unreachable, timeout, revocation check unavailable). Retry later. |
+
+`responseBody` is present iff `status` is `VERIFIED`. `message` is present only when `status` is not `VERIFIED` and is a coarse, non-sensitive category — internal error detail stays in server logs, correlated by request ID.
+
+HTTP errors on this endpoint are limited to the transport/API layer: `401` (missing/invalid API key), `422` (request schema validation, e.g. an empty `requestBody`), `500` (unexpected server error). The HTTP-status classification table below applies to the **helper endpoints**, not to `/verify` outcomes.
+
+# Response statuses (helper endpoints `prepareRequestBody` / `prepareResponseBody`):
 | HTTP Status Code           | Description          |
 |----------------------------|----------------------|
 | 200 OK                     | The request succeeded.

@@ -39,7 +39,8 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 
 ### Request/response model
 - Requests include encoded attestation/source IDs (`common.Hash`) and either `requestData` (for prepare request) or `requestBody` ABI bytes (for verify / prepare response).
-- Responses return encoded `responseBody`; `prepareResponseBody` also returns decoded `responseData`.
+- The helper endpoints return encoded `responseBody`; `prepareResponseBody` also returns decoded `responseData`. Their failures surface as HTTP statuses (§9).
+- `verify` returns the **status envelope** (`types.VerifierResponse`) consumed by tee-relay-client: every verification outcome is HTTP 200 with `{status, responseBody, message}` — `VERIFIED` (with `responseBody`), `REJECTED` (terminal), or `RETRY` (transient). The relay decodes the body only on 2xx and switches on `status`; a non-2xx is treated as a transport failure and retried, so transient infrastructure faults are reported in-band as `RETRY`, not as an HTTP error. HTTP errors on `verify` are limited to the transport/API layer (401 auth, 422 schema validation, 500 unexpected).
 
 ## 5. Auth and Security Behavior
 - **API key auth**: middleware checks `X-API-KEY` against `API_KEYS` env list; `/api/health` exempt; unauthorized → `401`. Each configured key must be at least 16 characters — shorter keys are rejected at boot (`minAPIKeyLength`).
@@ -47,7 +48,7 @@ Base: `/verifier/{sourceNameLower}/{attestationType}/`
 - **Request body size limit**: 1 MB (`maxRequestBodySize`); oversize rejected before processing.
 - **Error sanitization**: `400`, `422`, `500`, `503` return only a generic message; full details logged server-side with a request ID for correlation.
 - **Request ID correlation**: each handler request (prepareRequestBody, prepareResponseBody, verify) is assigned a unique ID, included in WARN/DEBUG server logs but never in HTTP response bodies. Unauthorized rejections log path + remote address.
-- **Verify error classification** (`classifyVerifyError`): maps sentinel errors to status — `400` for malformed requests (batch range, reissue cap, invalid multisig request), `422` for data/validation faults (missing event/transaction, record not found, XRP RPC non-success, TEE data validation, invalid input), `503` for infrastructure/transient faults (DB errors, request deadline/cancellation, XRP/EVM RPC network/transport, TEE proxy fetch, action result not yet available), and `500` as the default for unexpected errors. Full per-sentinel mapping in §9.
+- **Verify error classification**: two classifiers over the same sentinel-error sets, kept in parity by a structural drift-guard test (`TestClassifierNoDrift`). `classifyVerifyError` maps errors to HTTP statuses on the **helper endpoints** — `400` for malformed requests (batch range, reissue cap, invalid multisig request), `422` for data/validation faults (missing event/transaction, record not found, XRP RPC non-success, TEE data validation, invalid input), `503` for infrastructure/transient faults (DB errors, request deadline/cancellation, XRP/EVM RPC network/transport, TEE proxy fetch, action result not yet available), and `500` as the default for unexpected errors. `classifyVerifyStatus` maps the same classes to the `/verify` envelope: the deterministic classes (400/422 there) → `REJECTED`, the infrastructure class (503 there) and unexpected errors → `RETRY`, each with a coarse non-sensitive `message`. Full per-sentinel mapping in §9.
 
 ## 6. Configuration Specification
 ## 6.1 Common required env vars
@@ -100,6 +101,8 @@ Required:
 - `FLARE_RPC_URL` (Flare C-chain EVM RPC; read-only `TeePayments.getInitialNonce` for the deterministic paymentId→sequence binding)
 
 ## 7. Attestation Module Specs
+
+Status codes like `→ 503` in the flow descriptions below are the helper-endpoint HTTP classifications (§9); on `verify` the same sentinels surface in the status envelope — 400/422 classes as `REJECTED`, 503 and the 500 default as `RETRY`.
 
 ## 7.1 TeeAvailabilityCheck
 
@@ -210,9 +213,9 @@ The [client](https://github.com/flare-foundation/tee-relay-client/blob/main/inte
 Internal retry is set to 1 attempt (`chainMaxAttempts = 1`) — the client handles retries.
 
 ### Request deadline & dependency timeouts
-Verifier work runs under an authoritative per-request deadline (`verifierWorkTimeout`, 25s), applied in the handler around `Verify` and kept below the server `writeTimeout` (30s) so the verifier abandons a hung dependency before the HTTP write deadline. Because downstream calls run under that context — the DB repos use `WithContext` and the nonce binder uses the request ctx — the deadline actually cancels in-flight DB queries and RPC calls rather than leaking goroutines. A timed-out or cancelled verification surfaces `context.DeadlineExceeded`/`Canceled`, classified as **503**.
+Verifier work runs under an authoritative per-request deadline (`verifierWorkTimeout`, 25s), applied in the handler around `Verify` and kept below the server `writeTimeout` (30s) so the verifier abandons a hung dependency before the HTTP write deadline. Because downstream calls run under that context — the DB repos use `WithContext` and the nonce binder uses the request ctx — the deadline actually cancels in-flight DB queries and RPC calls rather than leaking goroutines. A timed-out or cancelled verification surfaces `context.DeadlineExceeded`/`Canceled`, classified as **503** (helper endpoints) / **`RETRY`** (`verify` envelope).
 
-Defense-in-depth at the driver level bounds individual statements even if context cancellation does not promptly abort one: the Postgres source DB sets a true server-side per-session `statement_timeout` (via the pgx DSN, both URL and keyword forms) and the MySQL C-chain DB sets read/write I/O timeouts (`readTimeout`/`writeTimeout`; go-sql-driver has no portable server-side statement cap), both at `dbStatementTimeout` (28s — above the 25s request deadline so they never pre-empt a legitimately in-progress query, and below the 30s `writeTimeout` so a backstop abort still leaves margin to write a 503). The on-chain `getInitialNonce` call additionally has its own short `rpcTimeout` (5s).
+Defense-in-depth at the driver level bounds individual statements even if context cancellation does not promptly abort one: the Postgres source DB sets a true server-side per-session `statement_timeout` (via the pgx DSN, both URL and keyword forms) and the MySQL C-chain DB sets read/write I/O timeouts (`readTimeout`/`writeTimeout`; go-sql-driver has no portable server-side statement cap), both at `dbStatementTimeout` (28s — above the 25s request deadline so they never pre-empt a legitimately in-progress query, and below the 30s `writeTimeout` so a backstop abort still leaves margin to write the error response). The on-chain `getInitialNonce` call additionally has its own short `rpcTimeout` (5s).
 
 ### CRL revocation checking
 Intermediate + leaf certs from the x5c chain are checked for revocation.
@@ -235,7 +238,7 @@ Intermediate + leaf certs from the x5c chain are checked for revocation.
 - Google CA Service only inserts the CDP extension when `publish_crl` is enabled (per-CA-pool setting). Currently the intermediate cert has a CDP but the leaf does not (no OCSP either). Google does not document CRL/OCSP checking for Confidential Space — the sample PKI token validation code only covers chain verification, root pinning, and signature checks; revocation checking must tolerate missing CDPs. See Google CA Service and Confidential Space PKI documentation for details.
 
 ### TEE status semantics
-- Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface per the error model (§9): TEE-proxy HTTP/non-OK (`ErrHTTPFetch`) and not-yet-available action results (`ErrActionResultNotFound`, 404) map to **503**; only ambiguous URL-validation / JSON-decode errors fall through to 500.
+- Verification response status values: `0 = OK`, `1 = OBSOLETE`. Live-fetch failures surface per the error model (§9): TEE-proxy HTTP/non-OK (`ErrHTTPFetch`) and not-yet-available action results (`ErrActionResultNotFound`, 404) are the 503/`RETRY` class; only ambiguous URL-validation / JSON-decode errors fall through to the 500/`RETRY` default.
 - Internal classification (used by `CheckSigningPolicies`): `TeeSampleValid`, `TeeSampleInvalid`, `TeeSampleIndeterminate`.
 
 ## 7.2 PMWPaymentStatus
@@ -322,6 +325,9 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
 - Handlers enforce request attestation/source IDs equal server-configured encoded IDs.
 
 ## 9. Error Model (Implementation)
+
+The HTTP statuses below are returned by the **helper endpoints** (`prepareRequestBody`/`prepareResponseBody`). On `verify` the same error classes surface in-band in the status envelope, all as HTTP 200: the 400/422 classes map to `REJECTED`, the 503 class and the 500 default map to `RETRY`. Only 401 (auth), 422 (schema validation), and 500 (unexpected) occur as HTTP statuses on `verify`.
+
 - `400 Bad Request`:
   - attestation/source mismatch
   - malformed request body (ABI decode/encode conversion failure). A missing or empty required field (e.g. an empty `requestBody`) is caught earlier by request-schema validation and returns `422` (below), not `400`.
@@ -352,6 +358,7 @@ Both PMWPaymentStatus and PMWFeeProof read transaction/event data entirely from 
   - context deadline/canceled — `ErrContext` (TEE)
   - unclassified RPC errors (indeterminate → retry) — `ErrUnknown` (TEE)
   - HTTP request or non-OK status from TEE proxy — `ErrHTTPFetch` (TEE)
+  - transient CRL revocation-fetch failure (timeout, 5xx, 408/429, temporary DNS, body-read drop) — `ErrTEERevocationUnavailable` (TEE); deterministic attestation failures stay terminal (`ErrTEEAttestationInvalid`, 422)
   - TEE action/result returned 404 (result not yet available in Redis) — `ErrActionResultNotFound` (TEE)
   - verifier work exceeded the per-request deadline, or the request was cancelled — `context.DeadlineExceeded`/`context.Canceled` (all attestation types)
 
