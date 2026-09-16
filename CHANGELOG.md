@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
-## [Unreleased] — v0.1.0
+## [v0.1.0] — 2026-09-15
 
 ### Breaking: one deployment per source
 
@@ -54,8 +54,7 @@ All notable changes to this project are documented in this file. Versions follow
 
 - CRL cache entries are scoped to `(URL, issuer certificate)` and every cached or
   fetched CRL is verified against its issuer (issuer-name binding plus signature),
-  closing a cache-poisoning avenue between issuers sharing a distribution URL
- .
+  closing a cache-poisoning avenue between issuers sharing a distribution URL.
 - CRLs without a `NextUpdate` are rejected outright and never cached.
 - Deprecated site-local IPv6 (`fec0::/10`) is blocked in TEE-proxy URL validation —
   it counted as public, allowing SSRF into networks that still route it.
@@ -78,7 +77,8 @@ All notable changes to this project are documented in this file. Versions follow
 
 - BTC attestation support (PMWMultisigUtxoConfigured, BTC PMWPaymentStatus) was
   developed in this range and then moved off the release line: this release serves
-  XRP and TEE sources only. The BTC line continues on `develop-btc`.
+  XRP and TEE sources only, and DB repo methods left dead by the removal were
+  dropped. The BTC line continues on `develop-btc`.
 
 ## [v0.0.2] — 2026-08-04
 
