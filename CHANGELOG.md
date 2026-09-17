@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
-## [Unreleased]
+## [v0.2.0] — 2026-09-17
 
 ### Breaking
 
