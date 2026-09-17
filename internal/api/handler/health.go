@@ -8,11 +8,13 @@ import (
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 )
 
-func RegisterHealthHandler(api huma.API) {
+// RegisterHealthHandler registers the unauthenticated health endpoint at
+// deploymentPrefix + "/api/health".
+func RegisterHealthHandler(api huma.API, deploymentPrefix string) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-health",
 		Method:      http.MethodGet,
-		Path:        "/api/health",
+		Path:        deploymentPrefix + "/api/health",
 		Tags:        []string{"Health"},
 		Security:    []map[string][]string{},
 	},

@@ -28,8 +28,8 @@ All modules register `verify` / `prepareRequestBody` / `prepareResponseBody`.
 
 ## 4. Routing and API Surface
 ### Global routes
-- `GET /api/health` (no API key required)
-- `GET /api-doc` and static swagger assets
+- `GET {prefix}/api/health` (no API key required; `{prefix}` = `/verifier/<source>/<destination>`)
+- `GET {prefix}/api-doc/` (Swagger UI + static assets; the bare `{prefix}/api-doc` redirects to it) and `GET {prefix}/openapi.json`
 
 ### Attestation routes
 Base: `/verifier/{sourceNameLower}/{destinationChainSlug}/{attestationType}/`
@@ -45,7 +45,7 @@ The destination segment is the deployment's validated `DESTINATION_CHAIN_URL_SLU
 - `verify` returns the **status envelope** (`types.VerifierResponse`) consumed by tee-relay-client: every verification outcome is HTTP 200 with `{status, responseBody, message}` — `VERIFIED` (with `responseBody`), `REJECTED` (terminal), or `RETRY` (transient). The relay decodes the body only on 2xx and switches on `status`; a non-2xx is treated as a transport failure and retried, so transient infrastructure faults are reported in-band as `RETRY`, not as an HTTP error. HTTP errors on `verify` are limited to the transport/API layer (401 auth, 422 schema validation, 500 unexpected).
 
 ## 5. Auth and Security Behavior
-- **API key auth**: middleware checks `X-API-KEY` against `API_KEYS` env list; `/api/health` exempt; unauthorized → `401`. Each configured key must be at least 16 characters — shorter keys are rejected at boot (`minAPIKeyLength`).
+- **API key auth**: middleware checks `X-API-KEY` against `API_KEYS` env list; only the deployment-prefixed `{prefix}/api/health` is exempt (exact full-path match); unauthorized → `401`. Each configured key must be at least 16 characters — shorter keys are rejected at boot (`minAPIKeyLength`).
 - **Response security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` on all responses.
 - **Request body size limit**: 1 MB (`maxRequestBodySize`); oversize rejected before processing.
 - **Error sanitization**: `400`, `422`, `500`, `503` return only a generic message; full details logged server-side with a request ID for correlation.
@@ -57,7 +57,7 @@ The destination segment is the deployment's validated `DESTINATION_CHAIN_URL_SLU
 - `PORT`
 - `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key; each key must be at least 16 characters or boot fails)
 - `SOURCE_ID` (`TEE`, `XRP`, `testXRP`) — the only selector; the process serves every attestation type the source offers.
-- `DESTINATION_CHAIN_URL_SLUG` — the operator-chosen lowercase slug naming the destination chain, the third segment of every verifier route. Must be a sensible URL segment: `^[a-z][a-z0-9-]{0,31}$` (no whitespace, `/`, `.`, `%`, escapes, or uppercase). Missing or malformed values fail the boot. The conventional values are the network names (`flare`, `songbird`, `coston`, `coston2`) — clients construct URLs from this value, so it must match what they are configured with.
+- `DESTINATION_CHAIN_URL_SLUG` — the operator-chosen lowercase slug naming the destination chain, the third segment of every verifier route. Must be a sensible URL segment: `^[a-z][a-z0-9-]{0,31}$` (no whitespace, `/`, `.`, `%`, escapes, or uppercase). Missing or malformed values fail the boot. The conventional values are `flare`, `sgb`, `coston`, and `coston2` (the values the tracked env profiles ship) — clients construct URLs from this value, so it must match what they are configured with.
 
 **Source-driven registration:** `SOURCE_ID` is validated against the allowlist above and selects the served attestation types from `config.SourceAttestationTypes`: `TEE`→`TeeAvailabilityCheck`; `XRP`/`testXRP`→`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. Each module additionally preflights its `SOURCE_ID` at construction, so an unknown source fails the boot fast with a clear error rather than booting clean and rejecting every request.
 
@@ -338,7 +338,7 @@ The HTTP statuses below are returned by the **helper endpoints** (`prepareReques
   - reissue scan exceeded `MaxReissuesPerPayment` — `ErrReissueLimitExceeded` (PMWFeeProof)
   - malformed multisig request (empty/too-many/empty-entry `publicKeys`, or `threshold == 0`) — `ErrInvalidRequest` (PMWMultisig)
 - `401 Unauthorized`:
-  - missing/invalid `X-API-KEY` (except `/api/health`)
+  - missing/invalid `X-API-KEY` (except the deployment-prefixed `/api/health`)
 - `422 Unprocessable Entity`:
   - request schema validation failed (missing/empty required field, e.g. an empty `requestBody`) — Huma request validation (resolver/`validate:"required"`)
   - XRP RPC returned non-success status (e.g., account not found) — `ErrRPCNonSuccess` (PMWMultisig)
@@ -392,7 +392,7 @@ Notes: PMWMultisig's `500` default branch is defensive and not reachable under n
     1. Production TEE nodes never set `Mode != 0`.
     2. On-chain confirmation rejects the proof unless the registered TEE's `codeHash`/`platform` match the response — see the chain documented in §7.1 (`VerificationFacet.confirmAvailability` → `Verification.verifyAvailabilityCheckProof` → `_validateResponseBody` + `MachineManager.checkCodeHashPlatformSupported`).
   - *Residual risk*: a misconfigured magic_pass response on mainnet wastes DP/relay work and surfaces as a failed on-chain confirmation; it does not produce a valid admission. Operators must not register the test code hash or whitelist `TEST_PLATFORM` on production networks.
-- **Unauthenticated Swagger UI** (`/api-doc`): The OpenAPI documentation endpoint is intentionally exempt from API key auth to allow internal developers and auditors to browse the API. Compensating control: service is deployed behind internal infrastructure, not exposed to the public internet. No sensitive data is served on this endpoint.
+- **Unauthenticated Swagger UI** (`{prefix}/api-doc/`, with `{prefix}/openapi.json`): The OpenAPI documentation endpoint is intentionally exempt from API key auth to allow internal developers and auditors to browse the API. Compensating control: service is deployed behind internal infrastructure, not exposed to the public internet. No sensitive data is served on this endpoint.
 - **HTTP redirects disabled** (`fetcher.go`): HTTP clients reject all redirects (`CheckRedirect` returns `ErrRedirect`). TEE proxy URLs are expected to resolve directly — TEE nodes cannot follow redirects on their POST-based proxy communication, so operators already configure non-redirecting URLs. Eliminates the SSRF bypass vector where a redirect target could point to a private/metadata IP.
 - **CRL fetch SSRF defenses** (`crl_cache.go`): CRL distribution points come from x5c certs inside an unverified JWT, so two layers gate the fetch: (1) x5c chain pre-validation (intermediate signed by root, leaf signed by intermediate, validity windows current) before any URL is dereferenced — attacker-supplied cert chains never trigger outbound requests; (2) `ResolveExternalURL(ctx, url, false)` with `allowPrivateNetworks=false` hardcoded (CRLs must never resolve to private/local addresses; `ALLOW_PRIVATE_NETWORKS` is scoped to the TEE proxy and is not honored here), followed by `fetcher.FetchBytesPinned` so the connection is pinned to the resolved IP.
 - **ABI event data decoding** (`instruction_event.go`): `DecodeTeeInstructionsSentEventData` rejects `log.Data` larger than 1 MB (`maxEventDataSize`) before ABI decoding. Legitimate events are ~1–2 KB; the cap prevents OOM from corrupted indexer data.

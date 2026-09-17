@@ -7,14 +7,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api"
-	"github.com/flare-foundation/go-verifier-api/internal/config"
+	cfgpkg "github.com/flare-foundation/go-verifier-api/internal/config"
 )
 
 const (
@@ -37,7 +36,7 @@ type TestSetupServer struct {
 	APIKey                 string
 }
 
-func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID config.SourceName, config config.EnvConfig) TestSetupServer {
+func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID cfgpkg.SourceName, config cfgpkg.EnvConfig) TestSetupServer {
 	t.Helper()
 	config.AttestationType = attestationType
 	config.SourceID = sourceID
@@ -48,9 +47,9 @@ func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID co
 	}
 
 	stop := RunServerForTest(t, config)
-	waitForServer(t, fmt.Sprintf("http://localhost:%s/api/health", config.Port))
+	waitForServer(t, fmt.Sprintf("http://localhost:%s%s/api/health", config.Port, cfgpkg.DeploymentPrefix(sourceID, config.DestinationChainURLSlug)))
 
-	url := fmt.Sprintf("http://localhost:%s/verifier/%s/%s/%s", config.Port, strings.ToLower(string(sourceID)), config.DestinationChainURLSlug, attestationType)
+	url := fmt.Sprintf("http://localhost:%s%s/%s", config.Port, cfgpkg.DeploymentPrefix(sourceID, config.DestinationChainURLSlug), attestationType)
 	attTypeEncoded, sourceIDEncoded := prepareAttestationTypeAndSourceID(t, attestationType, sourceID)
 
 	return TestSetupServer{URL: url, AttestationTypeEncoded: attTypeEncoded, SourceIDEncoded: sourceIDEncoded, Stop: stop, Port: port, APIKey: apiKey}
@@ -63,13 +62,13 @@ type TestSetupMultiServer struct {
 	Stop            func()
 	Port            string
 	APIKey          string
-	sourceID        config.SourceName
+	sourceID        cfgpkg.SourceName
 	destinationSlug string
 }
 
 // SetupMultiServer starts one server that serves attestationTypes for sourceID,
 // mirroring a per-source deployment. Per-type endpoint bases come from URL.
-func SetupMultiServer(t *testing.T, sourceID config.SourceName, attestationTypes []fdc2.AttestationType, cfg config.EnvConfig) TestSetupMultiServer {
+func SetupMultiServer(t *testing.T, sourceID cfgpkg.SourceName, attestationTypes []fdc2.AttestationType, cfg cfgpkg.EnvConfig) TestSetupMultiServer {
 	t.Helper()
 	cfg.AttestationTypes = attestationTypes
 	cfg.SourceID = sourceID
@@ -80,7 +79,7 @@ func SetupMultiServer(t *testing.T, sourceID config.SourceName, attestationTypes
 	}
 
 	stop := RunServerForTest(t, cfg)
-	waitForServer(t, fmt.Sprintf("http://localhost:%s/api/health", cfg.Port))
+	waitForServer(t, fmt.Sprintf("http://localhost:%s%s/api/health", cfg.Port, cfgpkg.DeploymentPrefix(sourceID, cfg.DestinationChainURLSlug)))
 
 	return TestSetupMultiServer{
 		BaseURL:         "http://localhost:" + cfg.Port,
@@ -94,10 +93,10 @@ func SetupMultiServer(t *testing.T, sourceID config.SourceName, attestationTypes
 
 // URL returns the endpoint base for one attestation type served by this server.
 func (s TestSetupMultiServer) URL(attestationType fdc2.AttestationType) string {
-	return fmt.Sprintf("%s/verifier/%s/%s/%s", s.BaseURL, strings.ToLower(string(s.sourceID)), s.destinationSlug, attestationType)
+	return fmt.Sprintf("%s%s/%s", s.BaseURL, cfgpkg.DeploymentPrefix(s.sourceID, s.destinationSlug), attestationType)
 }
 
-func RunServerForTest(t *testing.T, envConfig config.EnvConfig) (stop func()) {
+func RunServerForTest(t *testing.T, envConfig cfgpkg.EnvConfig) (stop func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	srv, closers := api.StartServer(ctx, envConfig)
@@ -145,7 +144,7 @@ func MockEthRPC(t *testing.T, initialNonce uint64) *httptest.Server {
 	return srv
 }
 
-func prepareAttestationTypeAndSourceID(t *testing.T, attestationType fdc2.AttestationType, sourceID config.SourceName) (common.Hash, common.Hash) {
+func prepareAttestationTypeAndSourceID(t *testing.T, attestationType fdc2.AttestationType, sourceID cfgpkg.SourceName) (common.Hash, common.Hash) {
 	t.Helper()
 	var attestationTypeBytes, sourceIDBytes [32]byte
 	copy(attestationTypeBytes[:], attestationType)

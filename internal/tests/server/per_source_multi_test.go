@@ -3,7 +3,6 @@
 package server_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -53,7 +52,7 @@ func TestPerSourceMultiType(t *testing.T) {
 	// A type this source does not serve is not registered at all (404), proving
 	// the deployment registers only its source's types.
 	t.Run("unserved type is not registered", func(t *testing.T) {
-		url := fmt.Sprintf("%s/verifier/%s/%s/verify", setup.BaseURL, "testxrp", fdc2.AvailabilityCheck)
+		url := setup.URL(fdc2.AvailabilityCheck) + "/verify"
 		resp, err := helpers.PostWithoutMarshalling(t, url, struct{}{}, setup.APIKey) //nolint:bodyclose // closed below
 		require.NoError(t, err)
 		require.Equal(t, http.StatusNotFound, resp.StatusCode, "unserved type must not be registered")

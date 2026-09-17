@@ -51,8 +51,9 @@ func RunServer(envConfig config.EnvConfig) {
 }
 
 func StartServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server, []io.Closer) {
-	router := newRouter()
-	api := newAPI(router, envConfig)
+	prefix := config.DeploymentPrefix(envConfig.SourceID, envConfig.DestinationChainURLSlug)
+	router := newRouter(prefix)
+	api := newAPI(router, envConfig, prefix)
 
 	closers, err := LoadModule(ctx, api, envConfig)
 	if err != nil {
@@ -217,14 +218,19 @@ func getEnvOrError(key string) (string, error) {
 	return val, nil
 }
 
-func newRouter() chi.Router {
+func newRouter(deploymentPrefix string) chi.Router {
 	router := chi.NewRouter()
 	router.Use(middleware.Recoverer)
 	router.Use(requestSizeLimiter(maxRequestBodySize))
 	// Swagger UI is intentionally unauthenticated for internal use.
 	// If the service is exposed beyond the intended network, consider gating behind auth.
-	router.Get("/api-doc", apidocs.SwaggerIndexHandler)
-	router.Get("/api-doc/*", apidocs.SwaggerFileHandler)
+	// The bare path redirects to the trailing-slash form so the UI's relative
+	// asset URLs resolve.
+	docsPath := deploymentPrefix + "/api-doc"
+	router.Get(docsPath, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, docsPath+"/", http.StatusMovedPermanently)
+	})
+	router.Get(docsPath+"/*", apidocs.SwaggerHandler(docsPath+"/"))
 	return router
 }
 
@@ -237,11 +243,15 @@ func requestSizeLimiter(maxBytes int64) func(http.Handler) http.Handler {
 	}
 }
 
-func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
+func newAPI(router chi.Router, envConfig config.EnvConfig, deploymentPrefix string) huma.API {
 	cfg := huma.DefaultConfig("FDC2 Verifier API", "1.0")
 	cfg.Info.Description = fmt.Sprintf("The Flare Data Connector 2 Verifier API endpoints for [%s] attestation(s) sourced from %s, destination chain %s.",
 		joinAttestationTypes(envConfig.ServedAttestationTypes()), envConfig.SourceID, envConfig.DestinationChainURLSlug)
 	cfg.DocsPath = ""
+	// The OpenAPI document and schema documents live under the deployment
+	// prefix, like every other route.
+	cfg.OpenAPIPath = deploymentPrefix + "/openapi"
+	cfg.SchemasPath = deploymentPrefix + "/schemas"
 	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
 		"ApiKeyAuth": {
 			Type: "apiKey",
@@ -254,7 +264,7 @@ func newAPI(router chi.Router, envConfig config.EnvConfig) huma.API {
 	}
 
 	api := humachi.New(router, cfg)
-	api.UseMiddleware(APIKeyAuthMiddleware(api, envConfig.APIKeys))
+	api.UseMiddleware(APIKeyAuthMiddleware(api, envConfig.APIKeys, deploymentPrefix+"/api/health"))
 
 	return api
 }
@@ -267,10 +277,13 @@ func newSecurityHandler(handler http.Handler) http.Handler {
 	})
 }
 
-func APIKeyAuthMiddleware(api huma.API, apiKeys []string) func(ctx huma.Context, next func(huma.Context)) {
+// APIKeyAuthMiddleware enforces X-API-KEY on every huma operation except the
+// health endpoint at exactly healthPath (full-path match, so look-alike paths
+// are not exempt).
+func APIKeyAuthMiddleware(api huma.API, apiKeys []string, healthPath string) func(ctx huma.Context, next func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		// Health endpoint is intentionally unauthenticated.
-		if ctx.URL().Path == "/api/health" {
+		if ctx.URL().Path == healthPath {
 			next(ctx)
 			return
 		}

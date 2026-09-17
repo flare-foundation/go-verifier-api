@@ -3,6 +3,23 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [v0.2.0] — 2026-09-17
+
+### Breaking
+
+- The Swagger UI, the OpenAPI document, and the health endpoint move under the
+  deployment prefix so they are reachable through the same ingress routing as
+  the verifier endpoints: `{prefix}/api-doc/` (the bare `{prefix}/api-doc`
+  redirects), `{prefix}/openapi.json`, and `{prefix}/api/health`, where
+  `{prefix}` is `/verifier/<source>/<destination>`. The old root paths
+  (`/api-doc`, `/openapi.json`, `/api/health`) return `404` — liveness/readiness
+  probes and ingress/proxy rules must switch to the prefixed health URL in the
+  same rollout.
+- The Songbird profile's destination slug changes from `songbird` to `sgb`
+  (`.env.songbird`), so Songbird URLs are `/verifier/<source>/sgb/...` instead of
+  the `/verifier/<source>/songbird/...` documented for v0.1.0. Clients configured
+  against a v0.1.0 Songbird deployment must update their URLs.
+
 ## [v0.1.0] — 2026-09-15
 
 ### Breaking: one deployment per source

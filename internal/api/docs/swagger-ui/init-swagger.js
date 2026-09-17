@@ -1,6 +1,6 @@
 window.onload = () => {
   window.ui = SwaggerUIBundle({
-    url: '/openapi.json',
+    url: '../openapi.json',
     dom_id: '#swagger-ui',
   });
 };
