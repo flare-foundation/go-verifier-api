@@ -22,6 +22,7 @@ needed for all sources:
  ```env
 PORT=<port_number>
 API_KEYS=<comma_separated_strings>
+DESTINATION_CHAIN_URL_SLUG=<lowercase_slug> # e.g. flare, sgb, coston, coston2 — third URL segment of every route
 ```
 
 > **NOTE**: The `<port_number>` value must be consistent with the `PORT` environment variable throughout the configuration.
@@ -103,7 +104,7 @@ TEE_PAYMENTS_CONTRACT_ADDRESS=0x...
 
 4. Access Swagger UI:
     ```
-    http://localhost:<port_number>/api-doc
+    http://localhost:<port_number>/verifier/<source>/<destinationChain>/api-doc/
     ```
     Replace `<port_number>` with the value set in your `PORT` environment variable.
 
@@ -113,7 +114,7 @@ TEE_PAYMENTS_CONTRACT_ADDRESS=0x...
 /verifier/<sourceName>/<destinationChain>/<attestationType>/
 ```
 - `<sourceName>` must be lowercase.
-- `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` (conventionally `flare`, `songbird`, `coston`, or `coston2`).
+- `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` (conventionally `flare`, `sgb`, `coston`, or `coston2`).
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 See [API reference](docs/api.md) for endpoint definitions and examples.

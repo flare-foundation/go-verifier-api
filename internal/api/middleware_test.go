@@ -12,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testDeploymentPrefix stands in for a real deployment prefix.
+const testDeploymentPrefix = "/verifier/tee/sgb"
+
 type emptyInput struct{}
 type emptyOutput struct {
 	Body string `json:"body"`
@@ -21,8 +24,8 @@ func setupTestAPI(t *testing.T, apiKeys []string) (huma.API, *chi.Mux) {
 	t.Helper()
 	router := chi.NewMux()
 	api := humachi.New(router, huma.DefaultConfig("test", "1.0"))
-	api.UseMiddleware(APIKeyAuthMiddleware(api, apiKeys))
-	huma.Get(api, "/api/health", func(ctx context.Context, input *emptyInput) (*emptyOutput, error) {
+	api.UseMiddleware(APIKeyAuthMiddleware(api, apiKeys, testDeploymentPrefix+"/api/health"))
+	huma.Get(api, testDeploymentPrefix+"/api/health", func(ctx context.Context, input *emptyInput) (*emptyOutput, error) {
 		return &emptyOutput{Body: "ok"}, nil
 	})
 	huma.Get(api, "/api/protected", func(ctx context.Context, input *emptyInput) (*emptyOutput, error) {
@@ -74,7 +77,7 @@ func TestAPIKeyAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("health endpoint bypasses auth", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+		req := httptest.NewRequest(http.MethodGet, testDeploymentPrefix+"/api/health", nil)
 		// No X-API-KEY header.
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -82,7 +85,7 @@ func TestAPIKeyAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("health endpoint with wrong key still works", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+		req := httptest.NewRequest(http.MethodGet, testDeploymentPrefix+"/api/health", nil)
 		req.Header.Set("X-API-KEY", "wrong-key")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -90,7 +93,12 @@ func TestAPIKeyAuthMiddleware(t *testing.T) {
 	})
 
 	t.Run("health-like paths still require auth", func(t *testing.T) {
-		for _, path := range []string{"/api/healthz", "/api/health/extra", "/api/health/"} {
+		for _, path := range []string{
+			testDeploymentPrefix + "/api/healthz",
+			testDeploymentPrefix + "/api/health/extra",
+			testDeploymentPrefix + "/api/health/",
+			"/api/health", // retired root path, not exempt
+		} {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)

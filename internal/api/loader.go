@@ -23,7 +23,7 @@ import (
 // their closers. Each type is registered independently; if any fails, the
 // already-registered services are closed before returning so no connections leak.
 func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) ([]io.Closer, error) {
-	handler.RegisterHealthHandler(api)
+	handler.RegisterHealthHandler(api, config.DeploymentPrefix(envConfig.SourceID, envConfig.DestinationChainURLSlug))
 
 	var closers []io.Closer
 	for _, attestationType := range envConfig.ServedAttestationTypes() {

@@ -7,7 +7,7 @@ This API exposes a **POST endpoints** to verify different attestation types.
 /verifier/<sourceName>/<destinationChain>/<attestationType>/
 ```
 - `<sourceName>` must be lowercase.
-- `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` — an operator-chosen lowercase slug naming the destination chain (conventionally `flare`, `songbird`, `coston`, `coston2`). It names the deployment in its URL space; it does not select a backend, and requests using any other destination (or the legacy path without the segment) receive `404`.
+- `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` — an operator-chosen lowercase slug naming the destination chain (conventionally `flare`, `sgb`, `coston`, `coston2`). It names the deployment in its URL space; it does not select a backend, and requests using any other destination (or the legacy path without the segment) receive `404`.
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
 ## 1. Main endpoint `POST /verifier/<sourceName>/<destinationChain>/<attestationType>/verify`
@@ -270,8 +270,8 @@ type PMWFeeProofResponseBody struct {
 | EstimatedFee  | Total estimated (max) fee from the pay/reissue instructions
 
 
-## 4. Health endpoint `GET /api/health`
-Returns the current health status of the service. This endpoint and the Swagger UI (`/api-doc`, plus its static assets) are the only endpoints served without an API key.
+## 4. Health endpoint `GET /verifier/<sourceName>/<destinationChain>/api/health`
+Returns the current health status of the service. This endpoint, the Swagger UI (`.../api-doc/`, plus its static assets), and the OpenAPI document (`.../openapi.json`) — all under the same deployment prefix — are the only endpoints served without an API key. Nothing is served from the root path space: the pre-v0.2 root paths (`/api/health`, `/api-doc`, `/openapi.json`) return `404`.
 
 Example response:
 ```json

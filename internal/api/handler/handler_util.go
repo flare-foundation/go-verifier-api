@@ -31,7 +31,7 @@ func registerOp[T any, R any](
 }
 
 func getVerifierAPIPath(sourceName config.SourceName, destinationSlug string, attestationType fdc2.AttestationType, endpoint string) string {
-	return fmt.Sprintf("/verifier/%s/%s/%s/%s", strings.ToLower(string(sourceName)), destinationSlug, attestationType, endpoint)
+	return fmt.Sprintf("%s/%s/%s", config.DeploymentPrefix(sourceName, destinationSlug), attestationType, endpoint)
 }
 
 // getVerifierOperationID builds a Huma operation ID unique per source,

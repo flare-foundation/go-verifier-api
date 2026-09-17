@@ -45,6 +45,13 @@ const DefaultTeeAudience = "https://sts.google.com"
 // uppercase, at most 32 characters, starting with a letter.
 var destinationSlugPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 
+// DeploymentPrefix is the URL prefix every route of a deployment lives under:
+// /verifier/<lowercase source>/<destination slug>. All paths are built through
+// it, so the deployment's URL space has a single definition.
+func DeploymentPrefix(sourceName SourceName, destinationSlug string) string {
+	return fmt.Sprintf("/verifier/%s/%s", strings.ToLower(string(sourceName)), destinationSlug)
+}
+
 // ValidateDestinationChainURLSlug rejects a missing or malformed
 // DESTINATION_CHAIN_URL_SLUG at boot. The operator-chosen slug names the
 // deployment in its URL space only — it is not a security check and selects no

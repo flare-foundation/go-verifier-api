@@ -28,7 +28,7 @@ A prose document describing what each verifier does, with no Go-specific referen
 - **A — HTTP API surface**: request/response shapes, status codes, headers, auth model, request-size limit
 - **B — ABI/encoding contract**: how requests/responses are encoded, ID-equality enforcement
 - **C — Error taxonomy**: error categories + HTTP status mapping, no language-specific error wrapping
-- **D — Auth model**: API key header, exempt routes (`/api/health`, `/api-doc`)
+- **D — Auth model**: API key header, exempt routes (the deployment-prefixed `{prefix}/api/health`, `{prefix}/api-doc/`, `{prefix}/openapi.json`)
 - **E — Security headers**: `X-Frame-Options`, `X-Content-Type-Options`
 - **F — Error sanitization rules**: generic message in response, full detail in server log, request ID correlation
 
