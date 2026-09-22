@@ -235,6 +235,42 @@ func TestGetABIArguments(t *testing.T) {
 	})
 }
 
+func TestSourceURLSlug(t *testing.T) {
+	t.Run("defaults to the lowercased source id", func(t *testing.T) {
+		for source, want := range map[SourceName]string{
+			SourceXRP:     "xrp",
+			SourceTestXRP: "testxrp",
+			SourceTEE:     "tee",
+		} {
+			slug, err := SourceURLSlug(source, "")
+			require.NoError(t, err)
+			require.Equal(t, want, slug)
+		}
+	})
+	t.Run("an override replaces the segment", func(t *testing.T) {
+		// The reason the override exists: a testnet deployment serving under the
+		// same segment as every other verifier.
+		slug, err := SourceURLSlug(SourceTestXRP, "xrp")
+		require.NoError(t, err)
+		require.Equal(t, "xrp", slug)
+	})
+	t.Run("a link-unsafe override is rejected", func(t *testing.T) {
+		for name, override := range map[string]string{
+			"uppercase":     "XRP",
+			"slash":         "xrp/x",
+			"whitespace":    "x rp",
+			"leading digit": "9xrp",
+			"over 32 chars": strings.Repeat("a", 33),
+		} {
+			t.Run(name, func(t *testing.T) {
+				_, err := SourceURLSlug(SourceTestXRP, override)
+				require.Error(t, err)
+				require.ErrorContains(t, err, EnvSourceURLSlug)
+			})
+		}
+	})
+}
+
 func TestValidateDestinationChainURLSlug(t *testing.T) {
 	t.Run("sensible slugs accepted", func(t *testing.T) {
 		for _, slug := range []string{"flare", "songbird", "coston", "coston2", "sgb", "my-custom-net", strings.Repeat("a", 32)} {

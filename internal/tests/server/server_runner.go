@@ -14,6 +14,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api"
 	cfgpkg "github.com/flare-foundation/go-verifier-api/internal/config"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -47,9 +48,10 @@ func SetupServer(t *testing.T, attestationType fdc2.AttestationType, sourceID cf
 	}
 
 	stop := RunServerForTest(t, config)
-	waitForServer(t, fmt.Sprintf("http://localhost:%s%s/api/health", config.Port, cfgpkg.DeploymentPrefix(sourceID, config.DestinationChainURLSlug)))
+	sourceSlug := slugOf(t, sourceID, config.SourceURLSlug)
+	waitForServer(t, fmt.Sprintf("http://localhost:%s%s/api/health", config.Port, cfgpkg.DeploymentPrefix(sourceSlug, config.DestinationChainURLSlug)))
 
-	url := fmt.Sprintf("http://localhost:%s%s/%s", config.Port, cfgpkg.DeploymentPrefix(sourceID, config.DestinationChainURLSlug), attestationType)
+	url := fmt.Sprintf("http://localhost:%s%s/%s", config.Port, cfgpkg.DeploymentPrefix(sourceSlug, config.DestinationChainURLSlug), attestationType)
 	attTypeEncoded, sourceIDEncoded := prepareAttestationTypeAndSourceID(t, attestationType, sourceID)
 
 	return TestSetupServer{URL: url, AttestationTypeEncoded: attTypeEncoded, SourceIDEncoded: sourceIDEncoded, Stop: stop, Port: port, APIKey: apiKey}
@@ -62,7 +64,7 @@ type TestSetupMultiServer struct {
 	Stop            func()
 	Port            string
 	APIKey          string
-	sourceID        cfgpkg.SourceName
+	sourceSlug      string
 	destinationSlug string
 }
 
@@ -79,21 +81,22 @@ func SetupMultiServer(t *testing.T, sourceID cfgpkg.SourceName, attestationTypes
 	}
 
 	stop := RunServerForTest(t, cfg)
-	waitForServer(t, fmt.Sprintf("http://localhost:%s%s/api/health", cfg.Port, cfgpkg.DeploymentPrefix(sourceID, cfg.DestinationChainURLSlug)))
+	sourceSlug := slugOf(t, sourceID, cfg.SourceURLSlug)
+	waitForServer(t, fmt.Sprintf("http://localhost:%s%s/api/health", cfg.Port, cfgpkg.DeploymentPrefix(sourceSlug, cfg.DestinationChainURLSlug)))
 
 	return TestSetupMultiServer{
 		BaseURL:         "http://localhost:" + cfg.Port,
 		Stop:            stop,
 		Port:            port,
 		APIKey:          apiKey,
-		sourceID:        sourceID,
+		sourceSlug:      sourceSlug,
 		destinationSlug: cfg.DestinationChainURLSlug,
 	}
 }
 
 // URL returns the endpoint base for one attestation type served by this server.
 func (s TestSetupMultiServer) URL(attestationType fdc2.AttestationType) string {
-	return fmt.Sprintf("%s%s/%s", s.BaseURL, cfgpkg.DeploymentPrefix(s.sourceID, s.destinationSlug), attestationType)
+	return fmt.Sprintf("%s%s/%s", s.BaseURL, cfgpkg.DeploymentPrefix(s.sourceSlug, s.destinationSlug), attestationType)
 }
 
 func RunServerForTest(t *testing.T, envConfig cfgpkg.EnvConfig) (stop func()) {
@@ -174,4 +177,14 @@ func waitForServer(t *testing.T, url string) {
 			}
 		}
 	}
+}
+
+// slugOf resolves the source URL segment the server under test serves on —
+// the SOURCE_URL_SLUG override when the fixture sets one, else the lowercased
+// source id, exactly as the server resolves it.
+func slugOf(t *testing.T, sourceID cfgpkg.SourceName, override string) string {
+	t.Helper()
+	slug, err := cfgpkg.SourceURLSlug(sourceID, override)
+	require.NoError(t, err)
+	return slug
 }

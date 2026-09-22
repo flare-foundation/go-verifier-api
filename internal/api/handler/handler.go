@@ -45,6 +45,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 	verifier attestation.Verifier[S, T],
 ) {
 	srcID := config.SourceIDPair.SourceID
+	srcSlug := config.SourceURLSlug
 	destSlug := config.DestinationChainSlug
 	attType := config.AttestationTypePair.AttestationType
 	tags := getVerifierAPITag(attType)
@@ -52,7 +53,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 	registerOp(api,
 		getVerifierOperationID(srcID, destSlug, attType, "prepareRequestBody"),
 		http.MethodPost,
-		getVerifierAPIPath(srcID, destSlug, attType, "prepareRequestBody"),
+		getVerifierAPIPath(srcSlug, destSlug, attType, "prepareRequestBody"),
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequestData[U]
@@ -74,7 +75,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 	registerOp(api,
 		getVerifierOperationID(srcID, destSlug, attType, "prepareResponseBody"),
 		http.MethodPost,
-		getVerifierAPIPath(srcID, destSlug, attType, "prepareResponseBody"),
+		getVerifierAPIPath(srcSlug, destSlug, attType, "prepareResponseBody"),
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest
@@ -116,7 +117,7 @@ func RegisterVerificationHandler[S, T any, U types.RequestConvertible[S], V type
 	registerOp(api,
 		getVerifierOperationID(srcID, destSlug, attType, "verify"),
 		http.MethodPost,
-		getVerifierAPIPath(srcID, destSlug, attType, "verify"),
+		getVerifierAPIPath(srcSlug, destSlug, attType, "verify"),
 		tags,
 		func(ctx context.Context, request *struct {
 			Body types.AttestationRequest

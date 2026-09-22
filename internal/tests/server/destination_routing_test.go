@@ -147,3 +147,32 @@ func TestDeploymentPrefixedDocsAndHealth(t *testing.T) {
 		require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 }
+
+// TestSourceURLSlugOverride: a testnet deployment can serve under the same
+// source segment as every other verifier (SOURCE_URL_SLUG=xrp for testXRP);
+// the default lowercased-source segment is then not registered, and health
+// answers under the override too.
+func TestSourceURLSlugOverride(t *testing.T) {
+	config.ClearPMWMultisigAccountConfiguredConfigForTest()
+	t.Cleanup(config.ClearPMWMultisigAccountConfiguredConfigForTest)
+	setup := server.SetupServer(t, fdc2.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
+		SourceRPCURL:            "https://s.altnet.rippletest.net:51234",
+		DestinationChainURLSlug: "coston",
+		SourceURLSlug:           "xrp",
+	})
+	defer setup.Stop()
+
+	base := "http://localhost:" + setup.Port
+	overridden := base + "/verifier/xrp/coston/PMWMultisigAccountConfigured/verify"
+	defaulted := base + "/verifier/testxrp/coston/PMWMultisigAccountConfigured/verify"
+
+	require.NotEqual(t, http.StatusNotFound, postStatus(t, overridden, setup.APIKey),
+		"the overridden source segment's route must exist")
+	require.Equal(t, http.StatusNotFound, postStatus(t, defaulted, setup.APIKey),
+		"the default source segment must not be registered when overridden")
+
+	resp, err := http.Get(base + "/verifier/xrp/coston/api/health")
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusOK, resp.StatusCode, "health must ride the override")
+}
