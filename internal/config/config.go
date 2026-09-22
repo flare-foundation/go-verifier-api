@@ -56,11 +56,10 @@ func DeploymentPrefix(sourceSlug, destinationSlug string) string {
 }
 
 // SourceURLSlug resolves the source segment of the deployment's routes: the
-// optional SOURCE_URL_SLUG override when set (so a testnet deployment can
-// serve under the same segment as every other verifier, e.g. /xrp/ for
-// testXRP), otherwise the lowercased SOURCE_ID. The slug names the deployment
-// in its URL space only — it is not a security check and selects no backend;
-// the source identity stays SOURCE_ID everywhere else.
+// optional SOURCE_URL_SLUG override when set, otherwise the lowercased
+// SOURCE_ID. The slug names the deployment in its URL space only — it is not a
+// security check and selects no backend; the source identity stays SOURCE_ID
+// everywhere else.
 func SourceURLSlug(source SourceName, override string) (string, error) {
 	if override == "" {
 		return strings.ToLower(string(source)), nil

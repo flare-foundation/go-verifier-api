@@ -248,8 +248,6 @@ func TestSourceURLSlug(t *testing.T) {
 		}
 	})
 	t.Run("an override replaces the segment", func(t *testing.T) {
-		// The reason the override exists: a testnet deployment serving under the
-		// same segment as every other verifier.
 		slug, err := SourceURLSlug(SourceTestXRP, "xrp")
 		require.NoError(t, err)
 		require.Equal(t, "xrp", slug)

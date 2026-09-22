@@ -148,10 +148,9 @@ func TestDeploymentPrefixedDocsAndHealth(t *testing.T) {
 	})
 }
 
-// TestSourceURLSlugOverride: a testnet deployment can serve under the same
-// source segment as every other verifier (SOURCE_URL_SLUG=xrp for testXRP);
-// the default lowercased-source segment is then not registered, and health
-// answers under the override too.
+// TestSourceURLSlugOverride: SOURCE_URL_SLUG replaces the source segment of
+// every route; the default lowercased-source segment is then not registered,
+// and health answers under the override too.
 func TestSourceURLSlugOverride(t *testing.T) {
 	config.ClearPMWMultisigAccountConfiguredConfigForTest()
 	t.Cleanup(config.ClearPMWMultisigAccountConfiguredConfigForTest)

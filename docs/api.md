@@ -4,13 +4,13 @@ This API exposes a **POST endpoints** to verify different attestation types.
 
 <b>Base path for all verifier endpoints</b>:
 ```
-/verifier/<sourceName>/<destinationChain>/<attestationType>/
+/verifier/<sourceSlug>/<destinationChain>/<attestationType>/
 ```
-- `<sourceName>` must be lowercase.
+- `<sourceSlug>` is the lowercased `SOURCE_ID` by default; the optional `SOURCE_URL_SLUG` overrides it (e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives `/verifier/xrp/...`); clients must use the deployment's configured slug, not derive it from the source id.
 - `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` — an operator-chosen lowercase slug naming the destination chain (conventionally `flare`, `sgb`, `coston`, `coston2`). It names the deployment in its URL space; it does not select a backend, and requests using any other destination (or the legacy path without the segment) receive `404`.
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 
-## 1. Main endpoint `POST /verifier/<sourceName>/<destinationChain>/<attestationType>/verify`
+## 1. Main endpoint `POST /verifier/<sourceSlug>/<destinationChain>/<attestationType>/verify`
 Verifies the encoded request body and returns the verification outcome in a **status envelope**. Every verification outcome — success, terminal rejection, or transient failure — is returned as **HTTP 200**; the outcome is carried in-band by `status`. This is the contract tee-relay-client consumes: it decodes the body only on 2xx and switches on `status`, treating any non-2xx as a transport failure to retry.
 
 ### Request:
@@ -53,7 +53,7 @@ HTTP errors on this endpoint are limited to the transport/API layer: `401` (miss
 
 
 
-## 2. Helper endpoint `POST /verifier/<sourceName>/<destinationChain>/<attestationType>/prepareRequestBody`
+## 2. Helper endpoint `POST /verifier/<sourceSlug>/<destinationChain>/<attestationType>/prepareRequestBody`
 Generates ABI-encoded `requestBody`. This endpoint only performs encoding.
 
 ### Example for `PMWMultisigAccountConfigured`:
@@ -80,7 +80,7 @@ Response:
 }
 ```
 
-## 3. Helper endpoint `POST /verifier/<sourceName>/<destinationChain>/<attestationType>/prepareResponseBody`
+## 3. Helper endpoint `POST /verifier/<sourceSlug>/<destinationChain>/<attestationType>/prepareResponseBody`
 Verifies the encoded request body and returns both the decoded response data and its ABI-encoded form.
 ### Example for `PMWMultisigAccountConfigured`:
 Request:
@@ -270,7 +270,7 @@ type PMWFeeProofResponseBody struct {
 | EstimatedFee  | Total estimated (max) fee from the pay/reissue instructions
 
 
-## 4. Health endpoint `GET /verifier/<sourceName>/<destinationChain>/api/health`
+## 4. Health endpoint `GET /verifier/<sourceSlug>/<destinationChain>/api/health`
 Returns the current health status of the service. This endpoint, the Swagger UI (`.../api-doc/`, plus its static assets), and the OpenAPI document (`.../openapi.json`) — all under the same deployment prefix — are the only endpoints served without an API key. Nothing is served from the root path space: the pre-v0.2 root paths (`/api/health`, `/api-doc`, `/openapi.json`) return `404`.
 
 Example response:

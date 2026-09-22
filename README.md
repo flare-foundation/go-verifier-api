@@ -113,7 +113,7 @@ TEE_PAYMENTS_CONTRACT_ADDRESS=0x...
 ```
 /verifier/<sourceSlug>/<destinationChain>/<attestationType>/
 ```
-- `<sourceSlug>` is the lowercased `SOURCE_ID` by default; `SOURCE_URL_SLUG` overrides it, so a testnet deployment can serve under the same segment as every other verifier (e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives `/verifier/xrp/...` instead of `/verifier/testxrp/...`).
+- `<sourceSlug>` is the lowercased `SOURCE_ID` by default; `SOURCE_URL_SLUG` overrides it (e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives `/verifier/xrp/...`).
 - `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` (conventionally `flare`, `sgb`, `coston`, or `coston2`).
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 

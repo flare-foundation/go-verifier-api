@@ -8,8 +8,7 @@ All notable changes to this project are documented in this file. Versions follow
 ### Added
 
 - `SOURCE_URL_SLUG` (optional) overrides the source segment of every verifier
-  route, so a testnet deployment can serve under the same segment as every
-  other verifier (e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives
+  route (e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives
   `/verifier/xrp/coston/...`). Unset keeps the previous behaviour, the
   lowercased `SOURCE_ID`.
 
