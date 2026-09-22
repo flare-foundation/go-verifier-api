@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [v0.2.1] — 2026-09-22
+
+### Added
+
+- `SOURCE_URL_SLUG` (optional) overrides the source segment of every verifier
+  route (e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives
+  `/verifier/xrp/coston/...`). Unset keeps the previous behaviour, the
+  lowercased `SOURCE_ID`.
+
 ## [v0.2.0] — 2026-09-17
 
 ### Breaking

@@ -51,7 +51,11 @@ func RunServer(envConfig config.EnvConfig) {
 }
 
 func StartServer(ctx context.Context, envConfig config.EnvConfig) (*http.Server, []io.Closer) {
-	prefix := config.DeploymentPrefix(envConfig.SourceID, envConfig.DestinationChainURLSlug)
+	sourceSlug, err := config.SourceURLSlug(envConfig.SourceID, envConfig.SourceURLSlug)
+	if err != nil {
+		logger.Fatalf("%v", err)
+	}
+	prefix := config.DeploymentPrefix(sourceSlug, envConfig.DestinationChainURLSlug)
 	router := newRouter(prefix)
 	api := newAPI(router, envConfig, prefix)
 
@@ -182,6 +186,7 @@ func LoadEnvConfig() (config.EnvConfig, error) {
 		TeeAudience:                     os.Getenv(config.EnvTeeAudience),
 		ChainID:                         os.Getenv(config.EnvChainID),
 		DestinationChainURLSlug:         os.Getenv(config.EnvDestinationChainURLSlug),
+		SourceURLSlug:                   os.Getenv(config.EnvSourceURLSlug),
 		Port:                            port,
 		APIKeys:                         apiKeys,
 		AttestationTypes:                attestationTypes,

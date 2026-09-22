@@ -31,6 +31,7 @@ const (
 	EnvTeeAudience                     = "TEE_AUDIENCE"                  // Optional override for the expected aud claim on Confidential Space attestation tokens. Defaults to DefaultTeeAudience when unset.
 	EnvChainID                         = "CHAIN_ID"                      // EVM chain ID this verifier serves; attested TeeInfo.ChainID must match. Required and non-zero.
 	EnvDestinationChainURLSlug         = "DESTINATION_CHAIN_URL_SLUG"    // canonical lowercase slug of the destination chain, third URL segment of every verifier route. Required.
+	EnvSourceURLSlug                   = "SOURCE_URL_SLUG"               // optional override for the source segment (second) of every verifier route; defaults to the lowercased SOURCE_ID.
 )
 
 // DefaultTeeAudience is the aud claim the verifier expects on Confidential Space
@@ -40,16 +41,33 @@ const (
 // only if that value diverges.
 const DefaultTeeAudience = "https://sts.google.com"
 
-// destinationSlugPattern constrains DESTINATION_CHAIN_URL_SLUG to one safe,
-// lowercase URL path segment: no whitespace, '/', '.', '%', escapes, or
-// uppercase, at most 32 characters, starting with a letter.
-var destinationSlugPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+// urlSlugPattern constrains a route segment (SOURCE_URL_SLUG,
+// DESTINATION_CHAIN_URL_SLUG) to one safe, lowercase URL path segment: no
+// whitespace, '/', '.', '%', escapes, or uppercase, at most 32 characters,
+// starting with a letter.
+var urlSlugPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 
 // DeploymentPrefix is the URL prefix every route of a deployment lives under:
-// /verifier/<lowercase source>/<destination slug>. All paths are built through
-// it, so the deployment's URL space has a single definition.
-func DeploymentPrefix(sourceName SourceName, destinationSlug string) string {
-	return fmt.Sprintf("/verifier/%s/%s", strings.ToLower(string(sourceName)), destinationSlug)
+// /verifier/<source slug>/<destination slug>. All paths are built through it,
+// so the deployment's URL space has a single definition; both slugs arrive
+// already resolved (SourceURLSlug, ValidateDestinationChainURLSlug).
+func DeploymentPrefix(sourceSlug, destinationSlug string) string {
+	return fmt.Sprintf("/verifier/%s/%s", sourceSlug, destinationSlug)
+}
+
+// SourceURLSlug resolves the source segment of the deployment's routes: the
+// optional SOURCE_URL_SLUG override when set, otherwise the lowercased
+// SOURCE_ID. The slug names the deployment in its URL space only — it is not a
+// security check and selects no backend; the source identity stays SOURCE_ID
+// everywhere else.
+func SourceURLSlug(source SourceName, override string) (string, error) {
+	if override == "" {
+		return strings.ToLower(string(source)), nil
+	}
+	if !urlSlugPattern.MatchString(override) {
+		return "", fmt.Errorf("%s %q must be a lowercase URL slug matching %s", EnvSourceURLSlug, override, urlSlugPattern)
+	}
+	return override, nil
 }
 
 // ValidateDestinationChainURLSlug rejects a missing or malformed
@@ -61,8 +79,8 @@ func ValidateDestinationChainURLSlug(slug string) error {
 	if slug == "" {
 		return fmt.Errorf("missing environment variables: %s", EnvDestinationChainURLSlug)
 	}
-	if !destinationSlugPattern.MatchString(slug) {
-		return fmt.Errorf("%s %q must be a lowercase URL slug matching %s", EnvDestinationChainURLSlug, slug, destinationSlugPattern)
+	if !urlSlugPattern.MatchString(slug) {
+		return fmt.Errorf("%s %q must be a lowercase URL slug matching %s", EnvDestinationChainURLSlug, slug, urlSlugPattern)
 	}
 	return nil
 }
@@ -83,6 +101,7 @@ type EnvConfig struct {
 	TeeAudience                     string
 	ChainID                         string
 	DestinationChainURLSlug         string
+	SourceURLSlug                   string
 	Port                            string
 	APIKeys                         []string
 	// AttestationType is the single type view used by the per-type config loaders
@@ -198,6 +217,9 @@ type EncodedAndABI struct {
 	// DestinationChainSlug is the validated DESTINATION_CHAIN_URL_SLUG — the
 	// destination-chain segment of this deployment's verifier routes.
 	DestinationChainSlug string
+	// SourceURLSlug is the resolved source segment of the routes: the
+	// SOURCE_URL_SLUG override, or the lowercased SOURCE_ID.
+	SourceURLSlug string
 }
 
 func EncodeAttestationOrSourceName(attestationTypeOrSourceName string) (common.Hash, error) {
@@ -237,6 +259,10 @@ func LoadEncodedAndABI(envConfig EnvConfig) (EncodedAndABI, error) {
 	if err := ValidateDestinationChainURLSlug(envConfig.DestinationChainURLSlug); err != nil {
 		return EncodedAndABI{}, err
 	}
+	sourceSlug, err := SourceURLSlug(envConfig.SourceID, envConfig.SourceURLSlug)
+	if err != nil {
+		return EncodedAndABI{}, err
+	}
 	sourceIDEnc, err := EncodeAttestationOrSourceName(string(envConfig.SourceID))
 	if err != nil {
 		return EncodedAndABI{}, err
@@ -258,6 +284,7 @@ func LoadEncodedAndABI(envConfig EnvConfig) (EncodedAndABI, error) {
 		AttestationTypePair:  AttestationTypeEncodedPair{AttestationType: envConfig.AttestationType, AttestationTypeEncoded: attestationTypeEnc},
 		ABIPair:              ABIArgPair{Request: requestABI, Response: responseABI},
 		DestinationChainSlug: envConfig.DestinationChainURLSlug,
+		SourceURLSlug:        sourceSlug,
 	}, nil
 }
 

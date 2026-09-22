@@ -111,9 +111,9 @@ TEE_PAYMENTS_CONTRACT_ADDRESS=0x...
 ## API Reference
 <b>Base path for all verifier endpoints</b>:
 ```
-/verifier/<sourceName>/<destinationChain>/<attestationType>/
+/verifier/<sourceSlug>/<destinationChain>/<attestationType>/
 ```
-- `<sourceName>` must be lowercase.
+- `<sourceSlug>` is the lowercased `SOURCE_ID` by default; `SOURCE_URL_SLUG` overrides it (e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives `/verifier/xrp/...`).
 - `<destinationChain>` is the deployment's `DESTINATION_CHAIN_URL_SLUG` (conventionally `flare`, `sgb`, `coston`, or `coston2`).
 - `<attestationType>` is the type of attestation (e.g., TeeAvailabilityCheck, PMWPaymentStatus, PMWMultisigAccountConfigured).
 

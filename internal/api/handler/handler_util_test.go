@@ -658,7 +658,7 @@ func TestGetVerifierOperationIDUnique(t *testing.T) {
 // /verifier/{source}/{destination}/{attestationType}/{endpoint}.
 func TestGetVerifierAPIPath(t *testing.T) {
 	require.Equal(t, "/verifier/xrp/songbird/PMWFeeProof/verify",
-		getVerifierAPIPath(config.SourceXRP, "songbird", fdc2.PMWFeeProof, "verify"))
+		getVerifierAPIPath("xrp", "songbird", fdc2.PMWFeeProof, "verify"))
 	require.Equal(t, "/verifier/tee/flare/TeeAvailabilityCheck/verify",
-		getVerifierAPIPath(config.SourceTEE, "flare", fdc2.AvailabilityCheck, "verify"))
+		getVerifierAPIPath("tee", "flare", fdc2.AvailabilityCheck, "verify"))
 }

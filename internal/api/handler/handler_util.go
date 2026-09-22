@@ -30,8 +30,11 @@ func registerOp[T any, R any](
 	}, handler)
 }
 
-func getVerifierAPIPath(sourceName config.SourceName, destinationSlug string, attestationType fdc2.AttestationType, endpoint string) string {
-	return fmt.Sprintf("%s/%s/%s", config.DeploymentPrefix(sourceName, destinationSlug), attestationType, endpoint)
+// getVerifierAPIPath builds one operation's route from the RESOLVED slugs —
+// the source segment may be a SOURCE_URL_SLUG override, so the path never
+// derives it from the source id itself.
+func getVerifierAPIPath(sourceSlug, destinationSlug string, attestationType fdc2.AttestationType, endpoint string) string {
+	return fmt.Sprintf("%s/%s/%s", config.DeploymentPrefix(sourceSlug, destinationSlug), attestationType, endpoint)
 }
 
 // getVerifierOperationID builds a Huma operation ID unique per source,

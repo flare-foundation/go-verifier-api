@@ -32,9 +32,9 @@ All modules register `verify` / `prepareRequestBody` / `prepareResponseBody`.
 - `GET {prefix}/api-doc/` (Swagger UI + static assets; the bare `{prefix}/api-doc` redirects to it) and `GET {prefix}/openapi.json`
 
 ### Attestation routes
-Base: `/verifier/{sourceNameLower}/{destinationChainSlug}/{attestationType}/`
+Base: `/verifier/{sourceSlug}/{destinationChainSlug}/{attestationType}/`
 
-The destination segment is the deployment's validated `DESTINATION_CHAIN_URL_SLUG` (§6.1). It identifies the deployment in its URL space only — it selects no RPC, database, or contract configuration, and it is not a security check (chain identity stays enforced by `CHAIN_ID` and the contract configuration). Routes are registered statically for the configured pair; a request using any other destination, or the legacy path without the segment, receives `404`.
+The source segment defaults to the lowercased `SOURCE_ID` and may be overridden by `SOURCE_URL_SLUG` (validated against the same slug pattern) — e.g. `SOURCE_URL_SLUG=xrp` on `testXRP` gives `/verifier/xrp/...`. The destination segment is the deployment's validated `DESTINATION_CHAIN_URL_SLUG` (§6.1). Both slugs identify the deployment in its URL space only — they select no RPC, database, or contract configuration, and they are not security checks (chain identity stays enforced by `CHAIN_ID` and the contract configuration; the served source stays `SOURCE_ID`). Routes are registered statically for the configured pair; a request using any other segment, or the legacy path shapes, receives `404`.
 - `POST .../prepareRequestBody`
 - `POST .../prepareResponseBody`
 - `POST .../verify`
@@ -58,6 +58,7 @@ The destination segment is the deployment's validated `DESTINATION_CHAIN_URL_SLU
 - `API_KEYS` (comma-separated; trimmed; must contain at least one non-empty key; each key must be at least 16 characters or boot fails)
 - `SOURCE_ID` (`TEE`, `XRP`, `testXRP`) — the only selector; the process serves every attestation type the source offers.
 - `DESTINATION_CHAIN_URL_SLUG` — the operator-chosen lowercase slug naming the destination chain, the third segment of every verifier route. Must be a sensible URL segment: `^[a-z][a-z0-9-]{0,31}$` (no whitespace, `/`, `.`, `%`, escapes, or uppercase). Missing or malformed values fail the boot. The conventional values are `flare`, `sgb`, `coston`, and `coston2` (the values the tracked env profiles ship) — clients construct URLs from this value, so it must match what they are configured with.
+- `SOURCE_URL_SLUG` (optional) — overrides the source segment (second) of every verifier route; unset defaults to the lowercased `SOURCE_ID`. Same slug pattern as above; a malformed value fails the boot.
 
 **Source-driven registration:** `SOURCE_ID` is validated against the allowlist above and selects the served attestation types from `config.SourceAttestationTypes`: `TEE`→`TeeAvailabilityCheck`; `XRP`/`testXRP`→`PMWPaymentStatus`, `PMWMultisigAccountConfigured`, `PMWFeeProof`. Each module additionally preflights its `SOURCE_ID` at construction, so an unknown source fails the boot fast with a clear error rather than booting clean and rejecting every request.
 
