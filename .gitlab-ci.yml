@@ -3,9 +3,11 @@ stages:
   - report
   - sbom
 
+.rules_condition_with_develop: &rules_condition_with_develop '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "develop" || $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_TAG'
+
 workflow:
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_BRANCH == "develop" || $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_TAG
+    - if: *rules_condition_with_develop
 
 default:
   tags:
@@ -25,14 +27,22 @@ variables:
 
 include:
   - component: gitlab.com/flarenetwork/ci-components-private/lgtm@2
+    inputs:
+      rules_condition: *rules_condition_with_develop
   - component: gitlab.com/flarenetwork/ci-components-private/dependency-track@2
   - component: gitlab.com/flarenetwork/ci-components-private/lint-dockerfile@2
+    inputs:
+      lint_rules_condition: *rules_condition_with_develop
+      sast_rules_condition: *rules_condition_with_develop
   - component: gitlab.com/flarenetwork/ci-components-private/lint-shell@2
+    inputs:
+      rules_condition: *rules_condition_with_develop
   - component: gitlab.com/flarenetwork/ci-components-private/lint-go@2
     inputs:
       go_version: "${GOLANG_VERSION}"
       golangci_version: "v2.11.3"
       golangci_config_file: ".golangci.yml"
+      rules_condition: *rules_condition_with_develop
   - template: Jobs/Secret-Detection.latest.gitlab-ci.yml
 
 test:
