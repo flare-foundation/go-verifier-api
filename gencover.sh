@@ -19,8 +19,8 @@ wait_for_health() {
   local service=$1
   local retries=30
   echo "Waiting for $service to be healthy..."
-  for i in $(seq 1 $retries); do
-    status=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose -f "$DOCKER_COMPOSE_FILE" ps -q $service) 2>/dev/null || echo "unknown")
+  for _ in $(seq 1 "$retries"); do
+    status=$(docker inspect --format='{{.State.Health.Status}}' "$(docker compose -f "$DOCKER_COMPOSE_FILE" ps -q "$service")" 2>/dev/null || echo "unknown")
     if [ "$status" == "healthy" ]; then
       echo "$service is healthy"
       return 0
