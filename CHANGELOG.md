@@ -3,6 +3,18 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [v0.2.2] — 2026-10-01
+
+### Added
+
+- GitLab CI/CD: tests, lint, secret detection, SBOM, and compliance checks on
+  every merge request, push to `develop`/`main`, and tag.
+
+### Changed
+
+- The container image runs as a non-root user (UID 10001).
+- Building requires Go 1.26.6 or newer.
+
 ## [v0.2.1] — 2026-09-22
 
 ### Added
