@@ -3,6 +3,15 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [Unreleased]
+
+### Security
+
+- TLS connections reject certificates issued under the eight compromised eMudhra
+  (emSign) intermediate CA keys, whichever root they chain to. The CA bundle in
+  the image no longer contains the emSign ECC Root CA - G3 and Comodo AAA
+  Services roots.
+
 ## [v0.2.2] — 2026-10-01
 
 ### Added

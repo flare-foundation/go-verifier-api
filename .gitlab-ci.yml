@@ -16,7 +16,7 @@ default:
     expire_in: 3 days
 
 variables:
-  GOLANG_VERSION: "1.26.6"
+  GOLANG_VERSION: "1.26.10"
   GOPATH: $CI_PROJECT_DIR/.go
   GOCACHE: $CI_PROJECT_DIR/.cache/go-cache
   COVERAGE_FILE: "coverage.out"

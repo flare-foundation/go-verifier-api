@@ -1,5 +1,5 @@
 # checkov:skip=CKV_DOCKER_2: Healthcheck is handled by the container orchestrator
-FROM golang:1.26.6 AS builder
+FROM golang:1.26.10 AS builder
 
 WORKDIR /app
 
