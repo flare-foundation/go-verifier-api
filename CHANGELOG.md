@@ -3,7 +3,7 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
-## [Unreleased]
+## [v0.2.3] — 2026-10-21
 
 ### Security
 
