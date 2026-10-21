@@ -3,6 +3,18 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [v0.2.3] — 2026-10-21
+
+### Security
+
+- TLS connections reject certificates issued under the eight compromised eMudhra
+  (emSign) intermediate CA keys, whichever root they chain to. The CA bundle in
+  the image no longer contains the emSign ECC Root CA - G3 and Comodo AAA
+  Services roots.
+- `golang.org/x/text` moves to v0.41.0: the `precis` profile reachable through
+  the database DSN parser could panic on crafted input (GO-2026-6629).
+  `govulncheck` reports no reachable vulnerabilities.
+
 ## [v0.2.2] — 2026-10-01
 
 ### Added
