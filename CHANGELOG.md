@@ -3,6 +3,17 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [Unreleased]
+
+### Added
+
+- A production-chain deployment refuses the test-only settings
+  `ALLOW_TEE_DEBUG`, `DISABLE_ATTESTATION_CHECK_E2E` and
+  `ALLOW_PRIVATE_NETWORKS` at boot: any assignment (true, false or empty)
+  fails with one error naming every offending variable. Test networks
+  (Coston 16, Coston2 114) and the named local chains accept them; an
+  unknown chain id counts as production.
+
 ## [v0.2.3] — 2026-10-21
 
 ### Security

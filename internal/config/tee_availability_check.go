@@ -56,6 +56,28 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	if err != nil {
 		return nil, err
 	}
+	// CHAIN_ID is required unconditionally: the chain pin in Verify runs even under
+	// the E2E/MagicPass bypasses (those disable Google attestation, not chain
+	// identity), and 0 is not a valid EVM chain ID, so there is no usable default.
+	if envConfig.ChainID == "" {
+		return nil, fmt.Errorf("missing environment variables: %s", EnvChainID)
+	}
+	chainID, err := strconv.ParseUint(envConfig.ChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be a base-10 uint64: %q: %w", EnvChainID, envConfig.ChainID, err)
+	}
+	if chainID == 0 {
+		return nil, fmt.Errorf("%s must be non-zero", EnvChainID)
+	}
+	// Before the flags are even parsed or logged: on a production chain one
+	// aggregate error names every test-only setting, whatever its value.
+	if err := validateNonProductionSettings(chainID, map[string]string{
+		EnvAllowTeeDebug:              envConfig.AllowTeeDebug,
+		EnvDisableAttestationCheckE2E: envConfig.DisableAttestationCheckE2E,
+		EnvAllowPrivateNetworks:       envConfig.AllowPrivateNetworks,
+	}); err != nil {
+		return nil, err
+	}
 	allowTeeDebug, err := parseOptionalBool(EnvAllowTeeDebug, envConfig.AllowTeeDebug)
 	if err != nil {
 		return nil, err
@@ -76,20 +98,6 @@ func BuildTeeAvailabilityCheckConfig(envConfig EnvConfig) (*TeeAvailabilityCheck
 	}
 	if allowPrivateNetworks {
 		logger.Warnf("%s is enabled. This flag is meant for test/E2E environments only and should NOT be used in production. Private/loopback IPs will be allowed but dangerous IPs (link-local, metadata, multicast) are still blocked.", EnvAllowPrivateNetworks)
-	}
-
-	// CHAIN_ID is required unconditionally: the chain pin in Verify runs even under
-	// the E2E/MagicPass bypasses (those disable Google attestation, not chain
-	// identity), and 0 is not a valid EVM chain ID, so there is no usable default.
-	if envConfig.ChainID == "" {
-		return nil, fmt.Errorf("missing environment variables: %s", EnvChainID)
-	}
-	chainID, err := strconv.ParseUint(envConfig.ChainID, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("%s must be a base-10 uint64: %q: %w", EnvChainID, envConfig.ChainID, err)
-	}
-	if chainID == 0 {
-		return nil, fmt.Errorf("%s must be non-zero", EnvChainID)
 	}
 
 	// TEE_AUDIENCE is an optional override, not a required per-deployment var: the
