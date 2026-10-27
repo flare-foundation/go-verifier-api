@@ -34,6 +34,7 @@ include:
     inputs:
       lint_rules_condition: *rules_condition_with_develop
       sast_rules_condition: *rules_condition_with_develop
+  - component: gitlab.com/flarenetwork/ci-components-private/lint-github-actions@2
   - component: gitlab.com/flarenetwork/ci-components-private/lint-shell@2
     inputs:
       rules_condition: *rules_condition_with_develop
