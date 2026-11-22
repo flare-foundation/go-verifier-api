@@ -151,7 +151,7 @@ func TestDecodeRequest(t *testing.T) {
 		invalidBody := append([]byte(nil), encoded...)
 		invalidBody = append(invalidBody, 'a', 'a')
 		val, err := decodeRequest[types.PMWMultisigAccountConfiguredRequestBody](invalidBody, encodedAndABI)
-		require.ErrorContains(t, err, "initial data not equal to decoded and encoded data")
+		require.ErrorContains(t, err, "non-canonical ABI encoding")
 		require.Equal(t, types.PMWMultisigAccountConfiguredRequestBody{}, val)
 	})
 }
