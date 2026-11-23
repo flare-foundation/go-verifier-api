@@ -41,7 +41,7 @@ include:
   - component: gitlab.com/flarenetwork/ci-components-private/lint-go@2
     inputs:
       go_version: "${GOLANG_VERSION}"
-      golangci_version: "v2.11.3"
+      golangci_version: "v2.15.0"
       golangci_config_file: ".golangci.yml"
       rules_condition: *rules_condition_with_develop
   - template: Jobs/Secret-Detection.latest.gitlab-ci.yml
