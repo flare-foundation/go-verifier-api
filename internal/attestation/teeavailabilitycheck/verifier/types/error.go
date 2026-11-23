@@ -42,8 +42,7 @@ func MapTransportError(err error) (state TeeSampleState, classified error, ok bo
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return TeeSampleIndeterminate, ErrContext, true
 	}
-	var netErr net.Error
-	if errors.As(err, &netErr) {
+	if _, ok := errors.AsType[net.Error](err); ok {
 		return TeeSampleIndeterminate, ErrNetwork, true
 	}
 	return TeeSampleValid, nil, false
@@ -63,14 +62,12 @@ func MapFetchErrorToState(op string, err error) (TeeSampleState, error) {
 		return TeeSampleInvalid, wrapErr(ErrInvalidInput)
 	}
 	// HTTP layer (non-200 responses from RPC)
-	var httpErr rpc.HTTPError
-	if errors.As(err, &httpErr) {
+	if httpErr, ok := errors.AsType[rpc.HTTPError](err); ok {
 		state, classified := ClassifyHTTPStatus(httpErr.StatusCode)
 		return state, wrapErr(classified)
 	}
 	// JSON-RPC structured errors
-	var rpcErr rpc.Error
-	if errors.As(err, &rpcErr) {
+	if rpcErr, ok := errors.AsType[rpc.Error](err); ok {
 		switch rpcErr.ErrorCode() {
 		// Deterministic client-side issues → invalid
 		case -32600, // invalid request

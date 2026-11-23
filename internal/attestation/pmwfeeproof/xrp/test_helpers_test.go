@@ -9,11 +9,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	feeproofdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwfeeproof/instruction"
@@ -57,7 +57,7 @@ func testTeeABI(tb testing.TB) abi.ABI {
 func testEncodeEvent(tb testing.TB, teeABI abi.ABI, command op.Command, opType common.Hash, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	tb.Helper()
 	msgArg := payments.MessageArguments[command]
-	msgBytes, err := structs.Encode(msgArg, msg)
+	msgBytes, err := abicoder.Encode(msgArg, msg)
 	if err != nil {
 		tb.Fatalf("cannot encode message: %v", err)
 	}
@@ -166,7 +166,7 @@ func setupFeeProofFixture(tb testing.TB, dbName string, paymentIds []uint64, max
 
 	cfg := &config.PMWFeeProofConfig{
 		ParsedTeeInstructionsABI: teeABI,
-		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+		SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: sourceID},
 	}
 
 	return feeProofFixture{

@@ -175,7 +175,7 @@ func TestVerifyFeeProof(t *testing.T) {
 		}).Error)
 		v := &XRPVerifier{
 			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),
-			Config: &config.PMWFeeProofConfig{ParsedTeeInstructionsABI: teeABI, EncodedAndABI: config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}}},
+			Config: &config.PMWFeeProofConfig{ParsedTeeInstructionsABI: teeABI, SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
 			Binder: stubBinder{},
 		}
 		_, err = v.Verify(context.Background(), fdc2.IPMWFeeProofRequestBody{
@@ -269,7 +269,7 @@ func TestVerifyFeeProof(t *testing.T) {
 
 		cfg := &config.PMWFeeProofConfig{
 			ParsedTeeInstructionsABI: teeABI,
-			EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+			SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: sourceID},
 		}
 		v := &XRPVerifier{
 			Repo:   feeproofdb.NewDBRepo(xrpDB, cChainDB, testContractAddress),

@@ -3,9 +3,9 @@ package instruction
 import (
 	"fmt"
 
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -45,7 +45,7 @@ func DecodeTeeInstructionsSentEventData(log *types.Log, teeABI abi.ABI, command 
 		return nil, err
 	}
 	var message payments.ITeePaymentsPaymentInstructionMessage
-	if err := structs.DecodeTo(payments.MessageArguments[command], messageData, &message); err != nil {
+	if err := abicoder.DecodeTo(payments.MessageArguments[command], messageData, &message); err != nil {
 		return nil, fmt.Errorf("cannot decode %s message arguments: %w (%w)", EventNameTeeInstructionsSent, db.ErrDataSource, err)
 	}
 	return &message, nil
