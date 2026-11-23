@@ -191,8 +191,7 @@ func isTransientFetchError(err error) bool {
 	// retryable 4xx (408 Request Timeout, 429 Too Many Requests) likewise; other
 	// 4xx are deterministic. HTTPStatusError.Unwrap is ErrHTTPFetch, so this must be
 	// checked before the transport case below.
-	var httpErr *fetcher.HTTPStatusError
-	if errors.As(err, &httpErr) {
+	if httpErr, ok := errors.AsType[*fetcher.HTTPStatusError](err); ok {
 		return (httpErr.Code >= 500 && httpErr.Code < 600) ||
 			httpErr.Code == http.StatusRequestTimeout ||
 			httpErr.Code == http.StatusTooManyRequests
@@ -200,8 +199,7 @@ func isTransientFetchError(err error) bool {
 	// A temporary or timed-out DNS resolution (surfaced wrapped in ErrURLValidation)
 	// is transient; a deterministic resolution failure (NXDOMAIN, SSRF-blocked,
 	// invalid URL) is not.
-	var dnsErr *net.DNSError
-	if errors.As(err, &dnsErr) {
+	if dnsErr, ok := errors.AsType[*net.DNSError](err); ok {
 		return dnsErr.IsTemporary || dnsErr.IsTimeout
 	}
 	// Genuine transport failure (connection/TLS/read, incl. a dropped body read now

@@ -15,11 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
@@ -57,7 +57,7 @@ func encodePaymentEventData(t *testing.T, teeABI abi.ABI, opType common.Hash, ms
 	t.Helper()
 
 	msgArg := payments.MessageArguments[op.Pay]
-	msgBytes, err := structs.Encode(msgArg, msg)
+	msgBytes, err := abicoder.Encode(msgArg, msg)
 	if err != nil {
 		t.Fatalf("cannot encode payment message: %v", err)
 	}

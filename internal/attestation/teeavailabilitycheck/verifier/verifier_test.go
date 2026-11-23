@@ -523,11 +523,9 @@ func validTestClaims(eatNonce string) *googlecloud.GoogleTeeClaims {
 				ImageID: "sha256:" + testImageHash.Hex()[2:],
 			},
 		},
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    googlecloud.ConfidentialSpaceIssuer,
-			Audience:  jwt.ClaimStrings{testAudience},
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
+		Issuer:    googlecloud.ConfidentialSpaceIssuer,
+		Audience:  jwt.ClaimStrings{testAudience},
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}
 }
 

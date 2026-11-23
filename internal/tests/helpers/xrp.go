@@ -1,19 +1,16 @@
 package helpers
 
 import (
-	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/types"
 )
 
 const sequenceTx0 = 10110067
 
 var PaymentTransaction0 = types.RawTransactionData{
-	CommonFields: transactions.CommonFields{
-		Account:         "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
-		Fee:             "100",
-		TransactionType: "Payment",
-		Sequence:        sequenceTx0,
-	},
+	Account:         "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
+	Fee:             "100",
+	TransactionType: "Payment",
+	Sequence:        sequenceTx0,
 	MetaData: types.TransactionMetaData{
 		TransactionResult: "tesSUCCESS",
 		AffectedNodes: []types.AffectedNode{
@@ -70,12 +67,10 @@ var TransactionMeta0_error0 = types.TransactionMetaData{
 	},
 }
 var PaymentTransaction0_error0 = types.RawTransactionData{
-	CommonFields: transactions.CommonFields{
-		Account:         "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
-		Fee:             "100",
-		TransactionType: "Payment",
-		Sequence:        sequenceTx0,
-	},
+	Account:         "rp2X3jj55rZySZFgJz1q4xuFjAb2JZXyWK",
+	Fee:             "100",
+	TransactionType: "Payment",
+	Sequence:        sequenceTx0,
 	MetaData: types.TransactionMetaData{
 		TransactionResult: "tesSUCCESS",
 		AffectedNodes: []types.AffectedNode{
@@ -140,12 +135,10 @@ var TransactionMeta1 = types.TransactionMetaData{
 const sequenceAccountRootTx = 11834748
 
 var AccountRootTx = types.RawTransactionData{
-	CommonFields: transactions.CommonFields{
-		Account:         "rw93HsrEYDtcMxEu4RQhFvH9pXH1TnCZu4",
-		Fee:             "12",
-		TransactionType: "AccountSet",
-		Sequence:        sequenceAccountRootTx,
-	},
+	Account:         "rw93HsrEYDtcMxEu4RQhFvH9pXH1TnCZu4",
+	Fee:             "12",
+	TransactionType: "AccountSet",
+	Sequence:        sequenceAccountRootTx,
 	MetaData: types.TransactionMetaData{
 		TransactionResult: "tesSUCCESS",
 		AffectedNodes: []types.AffectedNode{

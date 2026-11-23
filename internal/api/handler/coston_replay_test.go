@@ -3,7 +3,7 @@ package handler
 import (
 	"testing"
 
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/stretchr/testify/require"
 )
@@ -41,12 +41,12 @@ func TestCostonPaymentStatusRoundTrips(t *testing.T) {
 	arg := fdc2.AttestationTypeArguments[fdc2.PMWPaymentStatus].Request
 	body := costonPaymentStatusBody()
 
-	got, err := structs.Decode[fdc2.IPMWPaymentStatusRequestBody](arg, body)
+	got, err := abicoder.Decode[fdc2.IPMWPaymentStatusRequestBody](arg, body)
 	require.NoError(t, err, "the 3-field Coston request must round-trip (this was the production bug)")
 	require.Equal(t, "r9nHrtRgBFvCjvvbRtmqM7C2ER4JgrYhf8", got.SenderAddress)
 	require.Equal(t, uint64(1), got.PaymentId)
 
-	encoded, err := structs.Encode(arg, got)
+	encoded, err := abicoder.Encode(arg, got)
 	require.NoError(t, err)
 	require.Equal(t, body, encoded, "verifier now re-encodes exactly the 3-field layout the contract expects")
 }

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -165,7 +165,7 @@ func TestEncodeResponse(t *testing.T) {
 		}
 		encoded, err := encodeResponse(resp, encodedAndABI)
 		require.NoError(t, err)
-		decoded, err := structs.Decode[fdc2.IPMWMultisigAccountConfiguredResponseBody](encodedAndABI.ABIPair.Response, encoded)
+		decoded, err := abicoder.Decode[fdc2.IPMWMultisigAccountConfiguredResponseBody](encodedAndABI.ABIPair.Response, encoded)
 		require.NoError(t, err)
 		require.Equal(t, resp, decoded)
 	})
@@ -190,7 +190,7 @@ func TestEncodeRequest(t *testing.T) {
 		}
 		encoded, err := encodeRequest(req, encodedAndABI)
 		require.NoError(t, err)
-		decoded, err := structs.Decode[fdc2.IPMWMultisigAccountConfiguredRequestBody](encodedAndABI.ABIPair.Request, encoded)
+		decoded, err := abicoder.Decode[fdc2.IPMWMultisigAccountConfiguredRequestBody](encodedAndABI.ABIPair.Request, encoded)
 		require.NoError(t, err)
 		require.Equal(t, req, decoded)
 	})

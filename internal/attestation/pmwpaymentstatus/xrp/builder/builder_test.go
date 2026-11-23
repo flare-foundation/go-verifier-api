@@ -28,14 +28,12 @@ func TestBuildPaymentStatusResponse(t *testing.T) {
 		PaymentReference: [32]byte{0},
 	}
 	rawTransactionData := types.RawTransactionData{
-		CommonFields: transactions.CommonFields{
-			Account:         "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
-			TransactionType: "Payment",
-			Fee:             "12",
-			Sequence:        uint(0),
-			Memos: []transactions.Memo{
-				{},
-			},
+		Account:         "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
+		TransactionType: "Payment",
+		Fee:             "12",
+		Sequence:        uint(0),
+		Memos: []transactions.Memo{
+			{},
 		},
 		MetaData: helpers.PaymentTransaction0.MetaData,
 	}
