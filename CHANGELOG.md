@@ -14,6 +14,11 @@ All notable changes to this project are documented in this file. Versions follow
   (Coston 16, Coston2 114) and the named local chains accept them; an
   unknown chain id counts as production.
 
+### Changed
+
+- Building requires Go 1.27.4 or newer. The pinned go-flare-common (v1.6.1,
+  the final deployment contracts) and tee-node move with it.
+
 ## [v0.2.3] — 2026-10-21
 
 ### Security
