@@ -10,7 +10,7 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
@@ -104,7 +104,7 @@ func prepareRequestBody[T types.RequestConvertible[I], I any](
 }
 
 func abiEncodeData[T any](data T, arg abi.Argument) (hexutil.Bytes, error) {
-	encoded, err := structs.Encode(arg, data)
+	encoded, err := abicoder.Encode(arg, data)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func abiEncodeData[T any](data T, arg abi.Argument) (hexutil.Bytes, error) {
 }
 
 func abiDecodeRequestData[T any](data hexutil.Bytes, arg abi.Argument) (T, error) {
-	decode, err := structs.Decode[T](arg, data)
+	decode, err := abicoder.Decode[T](arg, data)
 	if err != nil {
 		var zero T
 		return zero, err

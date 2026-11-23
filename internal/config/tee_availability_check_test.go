@@ -88,6 +88,7 @@ func TestBuildTeeAvailabilityCheckConfigError(t *testing.T) {
 				AttestationType:         fdc2.AvailabilityCheck,
 				RelayContractAddress:    "0x0000000000000000000000000000000000000001",
 				FlareRPCURL:             "https://rpc.example.com",
+				ChainID:                 "16", // a test chain: boolean parsing is what these cases reach
 			}
 			tc.mutate(&envConfig)
 			cfg, err := BuildTeeAvailabilityCheckConfig(envConfig)

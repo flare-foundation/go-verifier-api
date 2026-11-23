@@ -76,7 +76,7 @@ Optional — **Relay cutover** (set both or neither; boot fails on half a pair, 
 Optional:
 - `TEE_AUDIENCE` — override for the expected `aud` claim on Confidential Space attestation tokens. Defaults to `config.DefaultTeeAudience` (`"https://sts.google.com"`, the audience tee-node requests) when unset; set it only if tee-node's requested audience diverges.
 
-Optional test/E2E flags:
+Optional test/E2E flags — accepted only on test networks: on a production chain (any `CHAIN_ID` but Coston 16, Coston2 114 and the named local chains; Flare 14 and Songbird 19 are production, and an unknown id counts as production) the deployment refuses to boot when any of the three is assigned at all, whatever the value, with one error naming every offender and no values. On test networks:
 - `ALLOW_TEE_DEBUG` (default false) — permissive flag. `false`: only production Confidential Space TEEs (`dbgstat == "disabled-since-boot"`) are accepted. `true`: production AND debug TEEs (`dbgstat != "disabled-since-boot"`) are both accepted; every debug admission emits a WARN log. Debug TEEs have the debugger attached and secrets can be extracted — never enable on production deployments. Intended for staging/E2E only.
 - `DISABLE_ATTESTATION_CHECK_E2E` (default false) — when enabled, skips all JWT attestation validation (PKI, claims, CRL) in the verify flow, returning hardcoded OK with test values. Intended for E2E tests without real Google attestation.
 - `ALLOW_PRIVATE_NETWORKS` (default false) — test/E2E only. Allows private/loopback IPs while still blocking dangerous IPs and preserving DNS pinning. Useful for Docker bridge networking.

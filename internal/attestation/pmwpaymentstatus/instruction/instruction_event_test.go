@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
@@ -28,7 +28,7 @@ func loadTestABI(t *testing.T) abi.ABI {
 func encodeTestEvent(t *testing.T, teeABI abi.ABI, opType common.Hash, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
 	msgArg := payments.MessageArguments[op.Pay]
-	msgBytes, err := structs.Encode(msgArg, msg)
+	msgBytes, err := abicoder.Encode(msgArg, msg)
 	require.NoError(t, err)
 	opCommand, err := convert.StringToCommonHash(string(op.Pay))
 	require.NoError(t, err)

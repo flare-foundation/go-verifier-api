@@ -47,13 +47,14 @@ CHAIN_ID=<evm_chain_id>
 RELAY_CUTOVER_CONTRACT_ADDRESS=0x...
 RELAY_CUTOVER_STARTING_REWARD_EPOCH=<first reward epoch the next Relay serves>
 
-# Test/E2E-only flags (optional, default to false):
-ALLOW_TEE_DEBUG=false
-DISABLE_ATTESTATION_CHECK_E2E=false
-ALLOW_PRIVATE_NETWORKS=false
+# Test/E2E-only flags — test networks only; a production chain refuses to
+# boot when any of them is assigned at all (even =false or empty):
+# ALLOW_TEE_DEBUG=false
+# DISABLE_ATTESTATION_CHECK_E2E=false
+# ALLOW_PRIVATE_NETWORKS=false
 ```
 
-> **NOTE**: `ALLOW_TEE_DEBUG`, `DISABLE_ATTESTATION_CHECK_E2E`, and `ALLOW_PRIVATE_NETWORKS` are test/E2E-only flags. In production, you should leave them unset (they default to false). `ALLOW_TEE_DEBUG=true` *additionally* accepts debug-mode TEEs alongside production TEEs (every debug admission logs a WARN); debug TEEs have the debugger attached and secrets are extractable, so this must never be set on production deployments. `ALLOW_PRIVATE_NETWORKS` permits private/loopback IPs (e.g. Docker bridge `172.17.0.1`) while still blocking dangerous IPs (link-local/metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) and preserving DNS pinning.
+> **NOTE**: `ALLOW_TEE_DEBUG`, `DISABLE_ATTESTATION_CHECK_E2E`, and `ALLOW_PRIVATE_NETWORKS` are test/E2E-only flags. In production they must be unset: a deployment on a production chain (any chain id but Coston 16, Coston2 114 and the named local chains) refuses to boot when any of them is set at all. `ALLOW_TEE_DEBUG=true` *additionally* accepts debug-mode TEEs alongside production TEEs (every debug admission logs a WARN); debug TEEs have the debugger attached and secrets are extractable, so this must never be set on production deployments. `ALLOW_PRIVATE_NETWORKS` permits private/loopback IPs (e.g. Docker bridge `172.17.0.1`) while still blocking dangerous IPs (link-local/metadata, multicast, Teredo, 6to4, IPv4-compatible IPv6) and preserving DNS pinning.
 
 > **WARNING: MagicPass bypass** — TEE nodes running in non-production mode (`settings.Mode != 0`) return `"magic_pass"` instead of a real attestation token. The verifier unconditionally accepts this token and skips ALL attestation validation (PKI, claims, CRL). This exists to support hackathon and development environments where real Google Confidential Space attestation is unavailable. **Do NOT rely on this in production** — any TEE returning this string will be trusted without verification.
 

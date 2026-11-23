@@ -11,14 +11,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/payments"
-	"github.com/flare-foundation/go-flare-common/pkg/xrpl/transactions"
 	paymentdb "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/db"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/instruction"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/pmwpaymentstatus/xrp/types"
@@ -86,7 +85,7 @@ func testABI(t *testing.T) abi.ABI {
 func encodeEventData(t *testing.T, teeABI abi.ABI, opType common.Hash, msg payments.ITeePaymentsPaymentInstructionMessage) []byte {
 	t.Helper()
 	msgArg := payments.MessageArguments[op.Pay]
-	msgBytes, err := structs.Encode(msgArg, msg)
+	msgBytes, err := abicoder.Encode(msgArg, msg)
 	require.NoError(t, err)
 	opCommand, err := convert.StringToCommonHash(string(op.Pay))
 	require.NoError(t, err)
@@ -119,7 +118,7 @@ func setupVerifyFixture(t *testing.T, dbName string, txResponse string) testFixt
 	sourceID := common.HexToHash("0x1")
 	cfg := &config.PMWPaymentStatusConfig{
 		ParsedTeeInstructionsABI: teeABI,
-		EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+		SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: sourceID},
 	}
 
 	opType := common.HexToHash("0xAA")
@@ -232,7 +231,7 @@ func TestVerifyEventInconsistency(t *testing.T) {
 		Binder: stubBinder{},
 		Config: &config.PMWPaymentStatusConfig{
 			ParsedTeeInstructionsABI: teeABI,
-			EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+			SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: sourceID},
 		},
 	}
 	_, err = v.Verify(context.Background(), fdc2.IPMWPaymentStatusRequestBody{
@@ -253,7 +252,7 @@ func TestVerifyConcurrentErrors(t *testing.T) {
 			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
+				SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")},
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
@@ -350,7 +349,7 @@ func TestVerify(t *testing.T) {
 			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")}},
+				SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: common.HexToHash("0x1")},
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
@@ -406,7 +405,7 @@ func TestVerify(t *testing.T) {
 			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+				SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: sourceID},
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
@@ -448,7 +447,7 @@ func TestVerify(t *testing.T) {
 			Binder: stubBinder{},
 			Config: &config.PMWPaymentStatusConfig{
 				ParsedTeeInstructionsABI: teeABI,
-				EncodedAndABI:            config.EncodedAndABI{SourceIDPair: config.SourceIDEncodedPair{SourceIDEncoded: sourceID}},
+				SourceIDPair:             config.SourceIDEncodedPair{SourceIDEncoded: sourceID},
 			},
 		}
 		req := fdc2.IPMWPaymentStatusRequestBody{
@@ -509,11 +508,9 @@ func TestVerify(t *testing.T) {
 
 func TestCheckRowConsistency(t *testing.T) {
 	raw := types.RawTransactionData{
-		CommonFields: transactions.CommonFields{
-			Account:  "rSender",
-			Sequence: 42,
-		},
-		Hash: "abc123",
+		Account:  "rSender",
+		Sequence: 42,
+		Hash:     "abc123",
 	}
 	dbTx := paymentdb.DBTransaction{
 		Hash:          "abc123",
