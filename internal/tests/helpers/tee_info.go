@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
-	teenodeutils "github.com/flare-foundation/tee-node/pkg/utils"
+	teenodetypes "github.com/flare-foundation/fcc-node/pkg/types"
+	teenodeutils "github.com/flare-foundation/fcc-node/pkg/utils"
 	"github.com/stretchr/testify/require"
 )
 

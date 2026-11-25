@@ -11,9 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	nodetypes "github.com/flare-foundation/fcc-node/pkg/types"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
-	nodetypes "github.com/flare-foundation/tee-node/pkg/types"
 
 	"github.com/flare-foundation/go-flare-common/pkg/xrpl/address"
 

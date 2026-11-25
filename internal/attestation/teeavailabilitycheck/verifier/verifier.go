@@ -23,13 +23,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	teeattestation "github.com/flare-foundation/fcc-node/pkg/attestation"
+	teenodetypes "github.com/flare-foundation/fcc-node/pkg/types"
+	"github.com/flare-foundation/fcc-node/pkg/utils"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	verifiertypes "github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/verifier/types"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	teeattestation "github.com/flare-foundation/tee-node/pkg/attestation"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/flare-foundation/tee-node/pkg/utils"
 )
 
 const (

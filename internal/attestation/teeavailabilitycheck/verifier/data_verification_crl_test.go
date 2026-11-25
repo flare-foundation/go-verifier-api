@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	teenodetypes "github.com/flare-foundation/fcc-node/pkg/types"
 	"github.com/flare-foundation/go-verifier-api/internal/attestation/teeavailabilitycheck/fetcher"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 

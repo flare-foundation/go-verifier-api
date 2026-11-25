@@ -7,9 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	teenodetypes "github.com/flare-foundation/fcc-node/pkg/types"
 	csigning "github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
