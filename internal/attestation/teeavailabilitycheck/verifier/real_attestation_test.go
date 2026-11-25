@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
+	teenodetypes "github.com/flare-foundation/fcc-node/pkg/types"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/attestation/googlecloud"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 )

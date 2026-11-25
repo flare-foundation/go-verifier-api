@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	teenodetypes "github.com/flare-foundation/tee-node/pkg/types"
+	teenodetypes "github.com/flare-foundation/fcc-node/pkg/types"
 )
 
 func FuzzFetchTEEChallengeResult(f *testing.F) {
