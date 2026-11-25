@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [v0.2.5] — 2026-11-25
+
+### Changed
+
+- The tee-node dependency moved to `github.com/flare-foundation/fcc-node`
+  (v0.1.0); import paths updated, no behaviour change.
+
 ## [v0.2.4] — 2026-11-23
 
 ### Added
