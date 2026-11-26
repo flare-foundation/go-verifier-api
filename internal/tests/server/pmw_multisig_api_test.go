@@ -1,13 +1,18 @@
 package server_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
 	"github.com/flare-foundation/go-verifier-api/internal/api/types"
+	xrp "github.com/flare-foundation/go-verifier-api/internal/attestation/pmwmultisigconfigured/xrp"
 	"github.com/flare-foundation/go-verifier-api/internal/config"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/helpers"
 	"github.com/flare-foundation/go-verifier-api/internal/tests/server"
@@ -16,13 +21,16 @@ import (
 
 func TestPMWMultisigAccountConfigured(t *testing.T) {
 	config.ClearPMWMultisigAccountConfiguredConfigForTest()
+	pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
+	testAddress := "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL"
+	// Stand in for the live XRPL testnet: its account state resets periodically,
+	// wiping the fixture account, so the test must not depend on it.
+	mockRPC := multisigMockXRPL(t, testAddress, pubkey1, pubkey2, pubkey3)
 	setup := server.SetupServer(t, fdc2.PMWMultisigAccountConfigured, config.SourceTestXRP, config.EnvConfig{
-		SourceRPCURL: "https://s.altnet.rippletest.net:51234",
+		SourceRPCURL: mockRPC.URL,
 	})
 	defer setup.Stop()
 
-	pubkey1, pubkey2, pubkey3 := pubKeysForMultisig(t)
-	testAddress := "rMDCrSYbeGm77aYjnvuHVnBwZ1TkLnu1UL"
 	pubKeys := [][]byte{pubkey1, pubkey2, pubkey3}
 	mSigThr := uint64(1)
 	baseReqBody := fdc2.IPMWMultisigAccountConfiguredRequestBody{
@@ -188,6 +196,45 @@ func TestPMWMultisigAccountConfigured_ServiceUnavailable(t *testing.T) {
 		require.NoError(t, err)
 		helpers.AssertHumaError(t, response, http.StatusServiceUnavailable, "Verification failed")
 	})
+}
+
+// multisigMockXRPL stands in for the XRPL RPC the verifier reads. It serves
+// server_info (network_id 1 = testnet) for the startup network pin, and
+// account_info for the one configured account — a validated ledger, master key
+// disabled, a 1-of-N signer list over the request's public keys, sequence
+// 10136106 — returning actNotFound for any other account, as a node would.
+func multisigMockXRPL(t *testing.T, account string, pubkeys ...[]byte) *httptest.Server {
+	t.Helper()
+	entries := make([]string, len(pubkeys))
+	for i, pk := range pubkeys {
+		addr, err := xrp.XRPAddressFromPubKey(pk)
+		require.NoError(t, err)
+		entries[i] = fmt.Sprintf(`{"SignerEntry":{"Account":%q,"SignerWeight":1}}`, addr)
+	}
+	accountInfo := fmt.Sprintf(`{"result":{"status":"success","validated":true,`+
+		`"account_data":{"Account":%q,"Sequence":10136106,`+
+		`"signer_lists":[{"SignerQuorum":1,"SignerEntries":[%s]}]},`+
+		`"account_flags":{"disableMasterKey":true}}}`, account, strings.Join(entries, ","))
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string `json:"method"`
+			Params []struct {
+				Account string `json:"account"`
+			} `json:"params"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch {
+		case req.Method == "server_info":
+			_, _ = w.Write([]byte(`{"result":{"status":"success","info":{"network_id":1}}}`))
+		case req.Method == "account_info" && len(req.Params) == 1 && req.Params[0].Account == account:
+			_, _ = w.Write([]byte(accountInfo))
+		default:
+			_, _ = w.Write([]byte(`{"result":{"status":"error","error":"actNotFound"}}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func pubKeysForMultisig(t *testing.T) ([]byte, []byte, []byte) {
