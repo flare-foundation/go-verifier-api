@@ -69,7 +69,7 @@ func TestNetworkIDUnmarshalJSON(t *testing.T) {
 		} {
 			t.Run(name, func(t *testing.T) {
 				var n NetworkID
-				require.ErrorContains(t, json.Unmarshal([]byte(raw), &n), "invalid network_id")
+				require.ErrorContains(t, json.Unmarshal([]byte(raw), &n), "cannot parse network_id")
 				require.False(t, n.Present)
 			})
 		}

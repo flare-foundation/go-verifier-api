@@ -145,8 +145,11 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		requireMultisigConfigFailed(t, seq, err, "o signer list for account")
 	})
 	t.Run("duplicate pubkeys hide extra signer", func(t *testing.T) {
-		// Request has [A, B, A] (duplicate), on-chain has [A, B, C].
-		// Before fix, len check passed (3==3) and duplicate A was checked twice.
+		// Request [A, B, A] (duplicate) against on-chain [A, B, C]. The map
+		// collapses the request to {A, B}, so it is rejected either way: the
+		// distinct-count guard fires (2 distinct keys != 3 requested), and even
+		// without it the expected-vs-on-chain length check would (2 != 3). A
+		// duplicate cannot pad the request to match a larger on-chain list.
 		req := makeIPMWMultisigAccountConfiguredRequestBody(
 			t,
 			[][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey, testAccounts[0].PubKey},
@@ -155,6 +158,26 @@ func TestVerifyMultisigConfiguration(t *testing.T) {
 		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address, testAccounts[2].Address}, []uint16{1, 1, 1}, 2)
 		flags := accountFlags(t, true, false, false, false)
 		accountInfo := makeAccountInfo(t, signerList, flags, "")
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
+	})
+	// XRPAddressFromPubKey rejecting malformed keys is proven directly in
+	// TestXRPAddressFromPubKeyRejectsMalformedKeys; this confirms that rejection
+	// propagates to an invalid configuration — never a false OK.
+	t.Run("a request key the parser rejects makes the configuration invalid", func(t *testing.T) {
+		offCurve := make([]byte, 64) // correct length, but (0,0) is not on secp256k1
+		req := makeIPMWMultisigAccountConfiguredRequestBody(t, [][]byte{offCurve, testAccounts[1].PubKey}, 2)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 2)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
+		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
+		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
+	})
+	t.Run("a duplicate request key is rejected on its own, not via the on-chain length", func(t *testing.T) {
+		// Request [A, B, A] against an on-chain list of exactly [A, B]: the
+		// distinct-count guard rejects it without relying on the on-chain length.
+		req := makeIPMWMultisigAccountConfiguredRequestBody(t, [][]byte{testAccounts[0].PubKey, testAccounts[1].PubKey, testAccounts[0].PubKey}, 2)
+		signerList := makeSignerList(t, []string{testAccounts[0].Address, testAccounts[1].Address}, []uint16{1, 1}, 2)
+		accountInfo := makeAccountInfo(t, signerList, accountFlags(t, true, false, false, false), "")
 		seq, err := verifier.validateMultisigConfiguration(accountInfo, req)
 		requireMultisigConfigFailed(t, seq, err, "signer list invalid for account")
 	})
@@ -284,6 +307,19 @@ func TestConvertPubkeyToAddress(t *testing.T) {
 		require.ErrorContains(t, err, "invalid public key should be 64 bytes long")
 		require.Empty(t, addr)
 	})
+}
+
+// XRPAddressFromPubKey is the authoritative parser for a signer public key: PMW
+// keys are 64-byte secp256k1 points. This pins that it rejects a point not on
+// the curve and a wrong-length key (the 33-byte Ed25519 form) rather than
+// deriving a bogus address — the guarantee the configuration check rests on.
+func TestXRPAddressFromPubKeyRejectsMalformedKeys(t *testing.T) {
+	_, err := XRPAddressFromPubKey(make([]byte, 64)) // (0,0): correct length, off the curve
+	require.Error(t, err)
+
+	ed25519Form := append([]byte{0xED}, make([]byte, 32)...) // valid XRPL Ed25519 form, unsupported here
+	_, err = XRPAddressFromPubKey(ed25519Form)
+	require.Error(t, err)
 }
 
 func requireMultisigConfigFailed(t *testing.T, seq uint64, err error, errorMessage string) {

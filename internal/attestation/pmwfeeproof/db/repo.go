@@ -102,7 +102,7 @@ func (r *DBRepo) FetchInstructionLog(ctx context.Context, eventHash string, inst
 	}
 	chainLog, err := events.ConvertDatabaseLogToChainLog(dbLogs[0])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot convert log: %w", err)
 	}
 	return &InstructionLogResult{Log: chainLog, BlockTimestamp: dbLogs[0].Timestamp}, nil
 }

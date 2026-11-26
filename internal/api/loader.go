@@ -30,7 +30,8 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 	handler.RegisterHealthHandler(api, config.DeploymentPrefix(sourceSlug, envConfig.DestinationChainURLSlug))
 
 	var closers []io.Closer
-	for _, attestationType := range envConfig.ServedAttestationTypes() {
+	served := envConfig.ServedAttestationTypes()
+	for _, attestationType := range served {
 		// Per-type view: the config loaders and service constructors read the
 		// single AttestationType, so set it while the shared source config
 		// (RPC, DBs, contracts) stays the same.
@@ -42,9 +43,13 @@ func LoadModule(ctx context.Context, api huma.API, envConfig config.EnvConfig) (
 			closeAll(closers)
 			return nil, err
 		}
-		logger.Infof("Registered %s for source %s, destination %s",
-			attestationType, cfg.SourceID, cfg.DestinationChainURLSlug)
 		closers = append(closers, c...)
+	}
+	// Report registration only after every type registered: a type that
+	// closeAll rolls back on a later failure must never be logged as registered.
+	for _, attestationType := range served {
+		logger.Infof("Registered %s for source %s, destination %s",
+			attestationType, envConfig.SourceID, envConfig.DestinationChainURLSlug)
 	}
 	return closers, nil
 }
