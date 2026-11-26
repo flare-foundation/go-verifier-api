@@ -11,6 +11,7 @@ import (
 	"gorm.io/driver/postgres"
 
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 const (
@@ -44,7 +45,7 @@ type DBOptions struct {
 	MaxDelay    time.Duration
 }
 
-func initDBWithRetries(dialector gorm.Dialector, dsn, dbName string, opts *DBOptions) (*gorm.DB, error) {
+func initDBWithRetries(dialector gorm.Dialector, dbName string, opts *DBOptions) (*gorm.DB, error) {
 	maxAttempts := opts.MaxAttempts
 	delay := opts.RetryDelay
 	maxDelay := opts.MaxDelay
@@ -55,15 +56,24 @@ func initDBWithRetries(dialector gorm.Dialector, dsn, dbName string, opts *DBOpt
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		logger.Infof("Attempt %d: connecting to %s (%s)", attempt, dbName, dialector.Name())
-		db, err = gorm.Open(dialector, &gorm.Config{})
+		// Connect with gorm's own logger silenced: a failed Initialize logs its
+		// error — which can echo the DSN — through gorm's logger, bypassing this
+		// package. On success the default logger is restored for query logging.
+		db, err = gorm.Open(dialector, &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
 		if err == nil {
+			db.Logger = gormlogger.Default
 			if poolErr := configurePool(db); poolErr != nil {
 				return nil, fmt.Errorf("cannot configure connection pool for %s: %w", dbName, poolErr)
 			}
 			logger.Infof("Successfully connected to %s (%s) on attempt %d", dbName, dialector.Name(), attempt)
 			return db, nil
 		}
-		logger.Warnf("Attempt %d: failed to connect to %s (%s): %s", attempt, dbName, dialector.Name(), redactDSN(err, dsn))
+		// This package does not log the driver error: it can echo the DSN (pgx
+		// reports the failing connection-string token), which carries
+		// credentials. The log names only the database and driver. Library
+		// internals are not under this package's control, so gorm's logger is
+		// silenced above rather than relying on it not to print.
+		logger.Warnf("Attempt %d: failed to connect to %s (%s)", attempt, dbName, dialector.Name())
 
 		if attempt < maxAttempts {
 			logger.Infof("Retrying in %v...", currentDelay)
@@ -74,14 +84,7 @@ func initDBWithRetries(dialector gorm.Dialector, dsn, dbName string, opts *DBOpt
 			}
 		}
 	}
-	return nil, fmt.Errorf("failed to open %s after %d attempts: %s", dbName, maxAttempts, redactDSN(err, dsn))
-}
-
-// redactDSN replaces any occurrence of the raw DSN in an error message with
-// [redacted] so that credentials embedded in connection strings are not written
-// to logs.
-func redactDSN(err error, dsn string) string {
-	return strings.ReplaceAll(err.Error(), dsn, "[redacted]")
+	return nil, fmt.Errorf("failed to open %s after %d attempts", dbName, maxAttempts)
 }
 
 func configurePool(db *gorm.DB) error {
@@ -164,7 +167,7 @@ func InitSourceDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 		opts = overrideOpts
 	}
 	dsn = withPostgresStatementTimeout(dsn)
-	return initDBWithRetries(postgres.Open(dsn), dsn, "Source DB", opts)
+	return initDBWithRetries(postgres.Open(dsn), "Source DB", opts)
 }
 
 func InitCChainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
@@ -177,7 +180,7 @@ func InitCChainDB(dsn string, overrideOpts *DBOptions) (*gorm.DB, error) {
 		opts = overrideOpts
 	}
 	dsn = withMySQLIOTimeouts(dsn)
-	return initDBWithRetries(mysql.Open(dsn), dsn, "CChain DB", opts)
+	return initDBWithRetries(mysql.Open(dsn), "CChain DB", opts)
 }
 
 func CloseDB(db *gorm.DB) error {
