@@ -159,8 +159,11 @@ func parseRelayCutover(envConfig EnvConfig, relayAddr common.Address) (common.Ad
 		return common.Address{}, 0, fmt.Errorf("%s must be a base-10 uint24 (reward-epoch ids are 24-bit on chain): %q: %w",
 			EnvRelayCutoverStartingRewardEpoch, envConfig.RelayCutoverStartingRewardEpoch, err)
 	}
-	// 0 would route every id to the next Relay — a single-relay setup
-	// mis-expressed as a cutover.
+	// Only 0 is rejected, not an epoch already in the past: a cutover whose epoch
+	// has been reached is still valid — it is in effect for every current and
+	// future id, which is exactly what a restart after the switch, or a historical
+	// read at an epoch past it, needs. 0 is a degenerate boundary — it would route
+	// every id to the next Relay, a single-relay setup mis-expressed as a cutover.
 	if startingRewardEpoch == 0 {
 		return common.Address{}, 0, fmt.Errorf("%s must be non-zero", EnvRelayCutoverStartingRewardEpoch)
 	}
