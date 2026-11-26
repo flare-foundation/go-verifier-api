@@ -75,7 +75,9 @@ func (n *NetworkID) UnmarshalJSON(b []byte) error {
 	}
 	v, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
-		return fmt.Errorf("invalid network_id %q: %w", s, err)
+		// A parse/format failure, not a semantically invalid network: the value
+		// is neither a base-10 uint32 (rippled) nor its quoted form (Clio).
+		return fmt.Errorf("cannot parse network_id %q: %w", s, err)
 	}
 	n.Value = uint32(v)
 	n.Present = true

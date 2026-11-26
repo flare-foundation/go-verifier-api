@@ -221,6 +221,13 @@ func (x *XRPVerifier) validateMultisigConfiguration(accountInfo *types.AccountIn
 	return accountInfo.Result.AccountData.Sequence, nil
 }
 
+// validateSignerList holds the on-chain signer list to the configuration PMW
+// requires: exactly the request's public keys as signers, each with weight 1,
+// and a quorum equal to the requested threshold. The protocol supports only
+// UNWEIGHTED k-of-n multisigs — every signer weight must be 1 — so the threshold
+// alone determines how many signatures a transaction needs; a weighted signer
+// list (a weight other than 1) is rejected. Changing to weighted multisigs would
+// mean relaxing the weight check here and reworking the threshold semantics.
 func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req fdc2.IPMWMultisigAccountConfiguredRequestBody) bool {
 	expectedAccounts := make(map[string]struct{}, len(req.PublicKeys))
 	for _, pk := range req.PublicKeys {
@@ -231,19 +238,30 @@ func (x *XRPVerifier) validateSignerList(signerList types.SignerList, req fdc2.I
 		}
 		expectedAccounts[addrStr] = struct{}{}
 	}
+	// A duplicate request key collapses expectedAccounts below the request count:
+	// reject it here so this authoritative check does not depend on the API gate
+	// alone (XRPL also forbids duplicate SignerList entries).
+	if len(expectedAccounts) != len(req.PublicKeys) {
+		return false
+	}
 	actualAccounts := signerList.AccountsMap()
 	if len(actualAccounts) != len(expectedAccounts) {
 		return false
 	}
 	for acc := range expectedAccounts {
 		weight, found := actualAccounts[acc]
-		if !found || weight != 1 {
+		if !found || weight != 1 { // unweighted only: see the doc comment above
 			return false
 		}
 	}
 	return signerList.SignerQuorum == req.Threshold
 }
 
+// XRPAddressFromPubKey derives the XRPL classic address of a signer public key.
+// PMW signer keys are 64-byte secp256k1 points (X||Y), as the spec fixes: the
+// key is validated (correct length and on the curve) and compressed before the
+// address is derived. Other XRPL key encodings — notably the 33-byte Ed25519
+// form (0xED prefix) — are intentionally unsupported and return an error.
 func XRPAddressFromPubKey(pubkey []byte) (string, error) {
 	pk, err := nodetypes.ParsePubKeyBytes(pubkey)
 	if err != nil {
