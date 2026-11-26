@@ -71,6 +71,23 @@ func TestConnectErrorDoesNotLeakTheDSN(t *testing.T) {
 	}
 }
 
+// noPoolDialector connects "successfully" but leaves no usable connection pool,
+// so db.DB() fails — exercising the pool-configuration and CloseDB error paths.
+type noPoolDialector struct{ dsnEchoDialector }
+
+func (noPoolDialector) Initialize(*gorm.DB) error { return nil }
+
+func TestPoolConfigAndCloseErrorsSurface(t *testing.T) {
+	opts := &DBOptions{MaxAttempts: 1, RetryDelay: time.Millisecond, MaxDelay: time.Millisecond}
+
+	_, err := initDBWithRetries(noPoolDialector{}, "Source DB", opts)
+	require.ErrorContains(t, err, "cannot configure connection pool for Source DB")
+
+	db, err := gorm.Open(noPoolDialector{}, &gorm.Config{})
+	require.NoError(t, err)
+	require.ErrorContains(t, CloseDB(db), "failed to obtain underlying sql.DB")
+}
+
 func TestCloseDB(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
