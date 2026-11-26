@@ -3,6 +3,19 @@
 All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org); dates are tag dates.
 
+## [v0.2.6] — 2026-11-26
+
+### Security
+
+- Database connection failures no longer expose the DSN. Logs identify only the
+  attempt, database and driver; the driver error is neither logged nor returned,
+  and GORM's logger is silenced during connection initialization.
+- Updated `github.com/jackc/pgx/v5` to v5.13.0, incorporating security fixes
+  released in v5.12.0 for simple-protocol batch SQL injection and enforcement of
+  `require_auth` and `channel_binding`. The previous v5.9.2 was not affected by
+  CVE-2026-33815, which was fixed in v5.9.0; that scanner finding was a false
+  positive.
+
 ## [v0.2.5] — 2026-11-25
 
 ### Changed
